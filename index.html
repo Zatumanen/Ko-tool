@@ -91,6 +91,10 @@
       position: relative;
       overflow: hidden;
     }
+    .drop-zone.dragover {
+      background: rgba(255, 255, 255, 0.5);
+      border-color: #ffd700;
+    }
     .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
@@ -146,7 +150,7 @@
       </div>
       <div class="drop-zone">
         <input type="file" accept=".mp3,audio/*" id="audio-upload">
-        <span>CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</span>
+        <span>DRAG AND DROP OR CLICK TO UPLOAD AN AUDIO FILE</span>
       </div>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
       <button id="play-button" style="width:100%;margin-top:10px;display:none;">Play</button>
@@ -159,23 +163,45 @@
     const player = document.getElementById('player');
     const playButton = document.getElementById('play-button');
 
-    // Обработка клика и touch для мобильных устройств
+    // Обработка drag-and-drop
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        fileInput.files = files; // Присваиваем файлы к input
+        handleFileSelect({ target: fileInput }); // Вызываем обработчик
+      }
+    });
+
+    // Обработка клика и touch
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('touchstart', (e) => {
       e.preventDefault();
       fileInput.click();
     }, { passive: false });
 
-    fileInput.addEventListener('change', (e) => {
+    // Обработка выбора файла
+    function handleFileSelect(e) {
       const file = e.target.files[0];
       if (file) {
         try {
           const url = URL.createObjectURL(file);
           if (file.type.startsWith('audio/')) {
             player.src = url;
-            player.load(); // Загружаем файл
+            player.load();
             player.style.display = 'block';
-            playButton.style.display = 'block'; // Показываем кнопку Play
+            playButton.style.display = 'block';
             dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
           } else {
             alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
@@ -187,14 +213,16 @@
           fileInput.value = '';
         }
       }
-    });
+    }
+
+    fileInput.addEventListener('change', handleFileSelect);
 
     // Обработка кнопки Play
     playButton.addEventListener('click', () => {
-      player.playbackRate = 2.0; // Устанавливаем скорость
+      player.playbackRate = 2.0;
       player.play().then(() => {
         console.log('Воспроизведение начато');
-        playButton.style.display = 'none'; // Скрываем кнопку после старта
+        playButton.style.display = 'none';
       }).catch(error => {
         console.error('Ошибка воспроизведения:', error);
         alert('Ошибка воспроизведения: ' + error.message);
