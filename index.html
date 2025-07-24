@@ -5,17 +5,16 @@
   <title>KO II Audio Tool</title>
   <style>
     body {
-      background: #1a1a1a;
+      background: #fff;
       font-family: 'Courier New', monospace;
-      color: #fff;
+      color: #000;
       margin: 0;
-      padding: 0;
+      padding: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
     }
-
     .window {
       width: 400px;
       background: #c0c0c0;
@@ -23,67 +22,172 @@
       box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
       padding: 10px;
     }
-
-    .drop-zone {
-      border: 2px dashed #000;
-      padding: 30px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.2);
-      color: #000;
-      margin-top: 10px;
-      position: relative;
+    .title-bar {
+      background: #000080;
+      color: #fff;
+      padding: 2px 5px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title-bar button {
+      width: 15px;
+      height: 15px;
+      border: none;
+      background: #c0c0c0;
       cursor: pointer;
     }
-
+    .title-bar .minimize { background: #fff; }
+    .title-bar .close { background: #ff0000; }
+    .content {
+      padding: 10px;
+      color: #000;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .options label {
+      font-size: 14px;
+      margin: 0;
+    }
+    .options input[type="radio"] {
+      margin-right: 5px;
+      transform: scale(1.2);
+    }
+    .settings {
+      margin-top: 10px;
+      padding: 5px;
+      background: #2d7038;
+      color: #000;
+    }
+    .settings label {
+      display: block;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+    .slider {
+      width: 100%;
+      appearance: none;
+      height: 10px;
+      background: #000;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      background: #ffd700;
+      cursor: pointer;
+    }
+    .drop-zone {
+      border: 2px dashed #000;
+      padding: 10px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.3);
+      margin-top: 10px;
+      position: relative;
+      overflow: hidden;
+    }
     .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
       height: 100%;
       opacity: 0;
       cursor: pointer;
-      top: 0;
-      left: 0;
     }
-
-    audio {
-      margin-top: 15px;
-      width: 100%;
+    .drop-zone span {
+      pointer-events: none;
     }
-
+    @media (max-width: 480px) {
+      .window {
+        width: 90%;
+      }
+      .options {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="window">
-    <h3>KO II Audio Tool</h3>
-    <div class="drop-zone" id="drop-zone">
-      <input type="file" accept="audio/*" id="audio-upload" />
-      <span>Нажмите или перетащите аудиофайл сюда</span>
+    <div class="title-bar">
+      <span>KO II Audio Tool</span>
+      <div>
+        <button class="minimize">-</button>
+        <button class="close">X</button>
+      </div>
     </div>
-    <audio id="audio-player" controls></audio>
+    <div class="content">
+      <div class="options">
+        <div>
+          <label>FIDELITY</label><br>
+          <input type="radio" name="fidelity" value="cd"> CD (16/46)<br>
+          <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
+          <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
+          <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
+        </div>
+        <div>
+          <label>CHANNELS</label><br>
+          <input type="radio" name="channels" value="stereo"> Stereo<br>
+          <input type="radio" name="channels" value="mono"> Mono<br>
+          <label>PLAYMODE</label><br>
+          <input type="radio" name="playmode" value="oneshot"> Oneshot<br>
+          <input type="radio" name="playmode" value="key"> Key<br>
+          <input type="radio" name="playmode" value="legato"> Legato
+        </div>
+      </div>
+      <div class="settings">
+        <label>EP-133 KO II SETTINGS</label>
+        <label>Pitch <input type="range" class="slider" min="0" max="127" value="64"></label>
+        <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
+      </div>
+      <div class="drop-zone">
+        <input type="file" accept=".mp3,audio/*" id="audio-upload">
+        <span>CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</span>
+      </div>
+      <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
+    </div>
   </div>
 
   <script>
+    const dropZone = document.querySelector('.drop-zone');
     const fileInput = document.getElementById('audio-upload');
-    const audioPlayer = document.getElementById('audio-player');
-    const dropZone = document.getElementById('drop-zone');
+    const player = document.getElementById('player');
 
-    fileInput.addEventListener('change', handleFile);
+    dropZone.addEventListener('click', () => fileInput.click());
 
-    function handleFile(event) {
-      const file = event.target.files[0];
-      if (file && file.type.startsWith('audio/')) {
-        const url = URL.createObjectURL(file);
-        audioPlayer.src = url;
-        audioPlayer.playbackRate = 2.0;
-        audioPlayer.load();
-        audioPlayer.play().catch(err => {
-          console.log("Автовоспроизведение отклонено:", err);
-        });
-        dropZone.querySelector('span').textContent = `Файл: ${file.name}`;
-      } else {
-        alert('Выберите корректный аудиофайл.');
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        try {
+          const url = URL.createObjectURL(file);
+          if (file.type.startsWith('audio/')) {
+            player.src = url;
+            player.playbackRate = 2.0; // Фиксированная скорость, можно синхронизировать с интерфейсом
+            player.style.display = 'block';
+            player.play().catch(error => {
+              alert('Ошибка воспроизведения: ' + error.message);
+            });
+            dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
+          } else {
+            alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
+            fileInput.value = '';
+          }
+        } catch (error) {
+          alert('Ошибка загрузки файла: ' + error.message);
+          fileInput.value = '';
+        }
       }
-    }
+    });
+
+    // Остановка проигрывания при закрытии окна (опционально)
+    window.addEventListener('unload', () => {
+      player.pause();
+      URL.revokeObjectURL(player.src);
+    });
   </script>
 </body>
 </html>
