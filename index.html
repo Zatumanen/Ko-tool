@@ -138,7 +138,7 @@
         <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
       </div>
       <div class="drop-zone">
-        <input type="file" accept=".mp3,audio/*" id="audio-upload">
+        <input type="file" accept="audio/*" id="audio-upload">
         <span>CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</span>
       </div>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
@@ -146,26 +146,34 @@
   </div>
 
   <script>
-    const dropZone = document.querySelector('.drop-zone');
-    const fileInput = document.getElementById('audio-upload');
-    const player = document.getElementById('player');
+  const dropZone = document.querySelector('.drop-zone');
+  const fileInput = document.getElementById('audio-upload');
 
-    dropZone.addEventListener('click', () => fileInput.click());
+  // Создаём элемент для воспроизведения
+  const audioPlayer = new Audio();
+  audioPlayer.controls = true;
+  audioPlayer.style.marginTop = '10px';
+  dropZone.parentElement.appendChild(audioPlayer);
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file && file.type.startsWith('audio/')) {
-        const url = URL.createObjectURL(file);
-        player.src = url;
-        player.playbackRate = 2.0;
-        player.style.display = 'block';
-        player.play();
-        dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
-      } else {
-        alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
-        fileInput.value = '';
-      }
-    });
-  </script>
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('audio/')) {
+      const fileURL = URL.createObjectURL(file);
+      audioPlayer.src = fileURL;
+      audioPlayer.playbackRate = 2.0; // Воспроизведение на скорости x2
+      audioPlayer.play().catch(() => {
+        dropZone.querySelector('span').textContent = 'Нажми Play вручную ⏯';
+      });
+      dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
+    } else {
+      alert('Пожалуйста, выбери .mp3 или другой аудиофайл.');
+      fileInput.value = '';
+    }
+  });
+</script>
 </body>
 </html>
