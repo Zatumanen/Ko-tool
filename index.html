@@ -166,27 +166,32 @@
           const url = URL.createObjectURL(file);
           if (file.type.startsWith('audio/')) {
             player.src = url;
-            player.playbackRate = 2.0; // Фиксированная скорость, можно синхронизировать с интерфейсом
+            player.playbackRate = 2.0; // Фиксированная скорость
             player.style.display = 'block';
-            player.play().catch(error => {
+            player.load(); // Убедимся, что плеер загрузит файл
+            player.play().then(() => {
+              console.log('Воспроизведение начато');
+              dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
+            }).catch(error => {
+              console.error('Ошибка воспроизведения:', error);
               alert('Ошибка воспроизведения: ' + error.message);
             });
-            dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
           } else {
             alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
             fileInput.value = '';
           }
         } catch (error) {
+          console.error('Ошибка загрузки:', error);
           alert('Ошибка загрузки файла: ' + error.message);
           fileInput.value = '';
         }
       }
     });
 
-    // Остановка проигрывания при закрытии окна (опционально)
+    // Остановка и очистка при закрытии
     window.addEventListener('unload', () => {
       player.pause();
-      URL.revokeObjectURL(player.src);
+      if (player.src) URL.revokeObjectURL(player.src);
     });
   </script>
 </body>
