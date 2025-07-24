@@ -149,6 +149,7 @@
         <span>CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</span>
       </div>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
+      <button id="play-button" style="width:100%;margin-top:10px;display:none;">Play</button>
     </div>
   </div>
 
@@ -156,8 +157,14 @@
     const dropZone = document.querySelector('.drop-zone');
     const fileInput = document.getElementById('audio-upload');
     const player = document.getElementById('player');
+    const playButton = document.getElementById('play-button');
 
+    // Обработка клика и touch для мобильных устройств
     dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      fileInput.click();
+    }, { passive: false });
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -166,16 +173,10 @@
           const url = URL.createObjectURL(file);
           if (file.type.startsWith('audio/')) {
             player.src = url;
-            player.playbackRate = 2.0; // Фиксированная скорость
+            player.load(); // Загружаем файл
             player.style.display = 'block';
-            player.load(); // Убедимся, что плеер загрузит файл
-            player.play().then(() => {
-              console.log('Воспроизведение начато');
-              dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
-            }).catch(error => {
-              console.error('Ошибка воспроизведения:', error);
-              alert('Ошибка воспроизведения: ' + error.message);
-            });
+            playButton.style.display = 'block'; // Показываем кнопку Play
+            dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
           } else {
             alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
             fileInput.value = '';
@@ -186,6 +187,18 @@
           fileInput.value = '';
         }
       }
+    });
+
+    // Обработка кнопки Play
+    playButton.addEventListener('click', () => {
+      player.playbackRate = 2.0; // Устанавливаем скорость
+      player.play().then(() => {
+        console.log('Воспроизведение начато');
+        playButton.style.display = 'none'; // Скрываем кнопку после старта
+      }).catch(error => {
+        console.error('Ошибка воспроизведения:', error);
+        alert('Ошибка воспроизведения: ' + error.message);
+      });
     });
 
     // Остановка и очистка при закрытии
