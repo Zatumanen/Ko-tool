@@ -6,10 +6,9 @@
   <title>KO II Audio Tool</title>
   <style>
     body {
-      background: url('https://wallpapercave.com/wp/1VYJq7E.jpg') no-repeat center center fixed;
-      background-size: cover;
+      background: #fff;
       font-family: 'Courier New', monospace;
-      color: #fff;
+      color: #000;
       margin: 0;
       padding: 20px;
       display: flex;
@@ -18,28 +17,21 @@
       height: 100vh;
     }
     .window {
-  width: 500px;
-  background: #d4d0c8;
-  border: 3px solid #000;
-  box-shadow:
-    inset -1px -1px 0 #fff,
-    inset 1px 1px 0 #404040,
-    4px 4px 0 #000;
-  padding: 0;
-  font-size: 14px;
-  position: relative;
-}
+      width: 400px;
+      background: #c0c0c0;
+      border: 2px solid #000;
+      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
+      padding: 10px;
+    }
     .title-bar {
-  background: linear-gradient(to right, #000080, #0000a0);
-  color: #fff;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: bold;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 2px solid #000;
-}
+      background: #000080;
+      color: #fff;
+      padding: 2px 5px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .title-bar button {
       width: 15px;
       height: 15px;
@@ -50,20 +42,14 @@
     .title-bar .minimize { background: #fff; }
     .title-bar .close { background: #ff0000; }
     .content {
-  background: #dcdcdc;
-  border: 2px inset #a0a0a0;
-  padding: 10px;
-  color: #000;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080;
-}
+      padding: 10px;
+      color: #000;
+    }
     .options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  background: #dcdcdc;
-  border: 2px inset #fff;
-  padding: 8px;
-}
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
     .options label {
       font-size: 14px;
       margin: 0;
@@ -73,11 +59,11 @@
       transform: scale(1.2);
     }
     .settings {
-  margin-top: 10px;
-  padding: 8px;
-  background: #e0e0e0;
-  border: 2px inset #fff;
-}
+      margin-top: 10px;
+      padding: 5px;
+      background: #2d7038;
+      color: #000;
+    }
     .settings label {
       display: block;
       font-size: 14px;
@@ -89,8 +75,6 @@
       height: 10px;
       background: #000;
       outline: none;
-      opacity: 0.7;
-      transition: opacity .2s;
     }
     .slider::-webkit-slider-thumb {
       appearance: none;
@@ -99,17 +83,11 @@
       background: #ffd700;
       cursor: pointer;
     }
-    .slider::-moz-range-thumb {
-      width: 15px;
-      height: 15px;
-      background: #ffd700;
-      cursor: pointer;
-    }
     .drop-zone {
-      border: 2px dashed #fff;
+      border: 2px dashed #000;
       padding: 10px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.3);
       margin-top: 10px;
       position: relative;
       overflow: hidden;
@@ -153,36 +131,38 @@
           <input type="radio" name="playmode" value="key"> Key<br>
           <input type="radio" name="playmode" value="legato"> Legato
         </div>
-        <div class="settings">
-          <label>EP-133 KO II SETTINGS</label><br>
-          <label>Pitch <input type="range" class="slider" min="0" max="127" value="64"></label><br>
-          <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
-        </div>
+      </div>
+      <div class="settings">
+        <label>EP-133 KO II SETTINGS</label>
+        <label>Pitch <input type="range" class="slider" min="0" max="127" value="64"></label>
+        <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
       </div>
       <div class="drop-zone">
         <input type="file" accept=".mp3,audio/*" id="audio-upload">
         <span>CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</span>
       </div>
-      <audio id="audio" controls style="margin-top: 10px; width: 100%; display: none;"></audio>
+      <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
 
   <script>
     const dropZone = document.querySelector('.drop-zone');
     const fileInput = document.getElementById('audio-upload');
-    const audioPlayer = document.getElementById('audio');
+    const player = document.getElementById('player');
+
+    dropZone.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file && file.type.startsWith('audio/')) {
         const url = URL.createObjectURL(file);
-        audioPlayer.src = url;
-        audioPlayer.playbackRate = 2.0;
-        audioPlayer.style.display = 'block';
-        audioPlayer.play();
+        player.src = url;
+        player.playbackRate = 2.0;
+        player.style.display = 'block';
+        player.play();
         dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
       } else {
-        alert('Пожалуйста, выберите аудиофайл.');
+        alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
         fileInput.value = '';
       }
     });
