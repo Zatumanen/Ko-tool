@@ -21,6 +21,8 @@
       border: 2px solid #000;
       box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
       padding: 10px;
+      position: relative;
+      z-index: 1;
     }
     .title-bar {
       background: #000080;
@@ -40,17 +42,13 @@
     }
     .title-bar .minimize { background: #fff; }
     .title-bar .close { background: #ff0000; }
-    .content {
-      padding: 10px;
-    }
+    .content { padding: 10px; color: #000; }
     .options {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-    .options label {
-      font-size: 14px;
-    }
+    .options label { font-size: 14px; margin: 0; }
     .options input[type="radio"] {
       margin-right: 5px;
       transform: scale(1.2);
@@ -59,6 +57,7 @@
       margin-top: 10px;
       padding: 5px;
       background: #2d7038;
+      color: #000;
     }
     .settings label {
       display: block;
@@ -86,47 +85,40 @@
       background: rgba(255, 255, 255, 0.3);
       margin-top: 10px;
       position: relative;
-      overflow: hidden;
-    }
-    .drop-zone.dragover {
-      background: rgba(255, 255, 255, 0.5);
-      border-color: #ffd700;
     }
     .drop-zone input[type="file"] {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-    .drop-zone span {
-      pointer-events: none;
-    }
-    @media (max-width: 480px) {
-      .window {
-        width: 90%;
-      }
-      .options {
-        grid-template-columns: 1fr;
-      }
-    }
-    /* Прогресс-бар */
-    #progress-window {
       display: none;
+    }
+
+    /* Полоса загрузки поверх окна */
+    .progress-overlay {
       position: fixed;
-      top: 20%;
+      top: 40%;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translate(-50%, -50%);
+      width: 300px;
       background: #c0c0c0;
       border: 2px solid #000;
-      padding: 10px;
+      box-shadow: 4px 4px 0px #808080;
       z-index: 9999;
-      width: 300px;
+      padding: 10px;
+      display: none;
+      font-family: 'Courier New', monospace;
     }
-    #progress-bar {
+
+    .progress-bar {
+      height: 16px;
+      background: #fff;
+      border: 1px solid #000;
+      margin-top: 10px;
+      position: relative;
+    }
+
+    .progress-fill {
+      background: #000080;
       height: 100%;
       width: 0%;
-      background: #0000ff;
+      transition: width 0.2s;
     }
   </style>
 </head>
@@ -159,97 +151,151 @@
         <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
-      <div class="drop-zone">
-        <input type="file" id="audio-upload" accept="audio/*" webkitdirectory directory multiple>
-        <span>DRAG AND DROP TO UPLOAD AUDIO FOLDER</span>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="audio-upload" multiple webkitdirectory directory />
+        <span>DRAG AND DROP FOLDER OR FILES</span>
       </div>
-      <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Folder</button>
+      <button id="select-file-button">Select Audio Files</button>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
 
-  <!-- Прогресс-бар в стиле Windows 95 -->
-  <div id="progress-window">
-    <div style="font-family:'Courier New', monospace;background:#000080;color:#fff;padding:2px 5px;">Copying...</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-      <img src="BD39ED93-5EAA-49C3-8B15-EE2C04366585.gif" width="50" height="50" />
-      <div style="font-size:12px;font-family:'Courier New', monospace;color:#000;">Обработка файлов...</div>
-    </div>
-    <div style="background:#fff;border:1px solid #000;height:20px;margin-top:10px;">
-      <div id="progress-bar"></div>
+  <!-- ОКНО ЗАГРУЗКИ -->
+  <div class="progress-overlay" id="progress-overlay">
+    <div>Processing files...</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
     </div>
   </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const dropZone = document.querySelector('.drop-zone');
-      const fileInput = document.getElementById('audio-upload');
-      const player = document.getElementById('player');
-      const selectButton = document.getElementById('select-file-button');
-      const pitchSlider = document.getElementById('pitch-slider');
-      const releaseSlider = document.getElementById('release-slider');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('audio-upload');
+  const player = document.getElementById('player');
+  const selectButton = document.getElementById('select-file-button');
+  const progressOverlay = document.getElementById('progress-overlay');
+  const progressFill = document.getElementById('progress-fill');
 
-      const progressWindow = document.getElementById('progress-window');
-      const progressBar = document.getElementById('progress-bar');
+  let audioContext;
 
-      selectButton.addEventListener('click', () => {
-        fileInput.click();
-      });
+  function initAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+  }
 
-      function handleDropFiles(files) {
-        const audioFiles = [...files].filter(file => file.type.startsWith('audio/'));
-        if (audioFiles.length === 0) return;
+  async function processFile(file, index, total) {
+    const arrayBuffer = await file.arrayBuffer();
+    const context = initAudioContext();
+    const audioBuffer = await context.decodeAudioData(arrayBuffer);
 
-        progressWindow.style.display = 'block';
-        progressBar.style.width = '0%';
+    const fidelity = document.querySelector('input[name="fidelity"]:checked').value;
+    const channels = document.querySelector('input[name="channels"]:checked').value;
 
-        let index = 0;
+    const offlineCtx = new OfflineAudioContext(
+      channels === 'mono' ? 1 : 2,
+      audioBuffer.length,
+      audioBuffer.sampleRate
+    );
 
-        function processNext() {
-          if (index >= audioFiles.length) {
-            progressWindow.style.display = 'none';
-            return;
-          }
+    const src = offlineCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.playbackRate.value = 2.0; // ускорение
 
-          const file = audioFiles[index];
-          const url = URL.createObjectURL(file);
+    src.connect(offlineCtx.destination);
+    src.start();
 
-          player.src = url;
-          player.style.display = 'block';
+    const renderedBuffer = await offlineCtx.startRendering();
 
-          const effects = `Pitch: ${pitchSlider.value}, Release: ${releaseSlider.value}, ${document.querySelector('input[name="channels"]:checked').value}, ${document.querySelector('input[name="fidelity"]:checked').value}, 2x`;
+    const wavBlob = bufferToWavBlob(renderedBuffer);
+    const url = URL.createObjectURL(wavBlob);
 
-          dropZone.querySelector('span').textContent = `Файл: ${file.name} (${effects})`;
+    // Воспроизведение только первого файла
+    if (index === 0) {
+      player.src = url;
+      player.style.display = 'block';
+      player.load();
+    }
 
-          index++;
-          const percent = Math.round((index / audioFiles.length) * 100);
-          progressBar.style.width = percent + '%';
+    // Обновляем полоску загрузки
+    const percent = Math.round(((index + 1) / total) * 100);
+    progressFill.style.width = percent + "%";
+  }
 
-          setTimeout(processNext, 800); // псевдообработка
-        }
+  function bufferToWavBlob(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length;
 
-        processNext();
+    const wav = new ArrayBuffer(44 + length * 2 * numChannels);
+    const view = new DataView(wav);
+
+    function writeStr(view, offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeStr(view, 0, 'RIFF');
+    view.setUint32(4, 36 + length * 2 * numChannels, true);
+    writeStr(view, 8, 'WAVE');
+    writeStr(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(view, 36, 'data');
+    view.setUint32(40, length * 2 * numChannels, true);
+
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
+        view.setInt16(offset, sample, true);
+        offset += 2;
       }
+    }
 
-      dropZone.addEventListener('dragover', e => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-      });
+    return new Blob([view], { type: 'audio/wav' });
+  }
 
-      dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('dragover');
-      });
+  async function handleFiles(files) {
+    progressOverlay.style.display = 'block';
+    progressFill.style.width = '0%';
 
-      dropZone.addEventListener('drop', e => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        handleDropFiles(e.dataTransfer.files);
-      });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      await processFile(file, i, files.length);
+    }
 
-      fileInput.addEventListener('change', e => {
-        handleDropFiles(e.target.files);
-      });
-    });
-  </script>
+    setTimeout(() => {
+      progressOverlay.style.display = 'none';
+    }, 500);
+  }
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const files = [...e.dataTransfer.items]
+      .filter(item => item.kind === 'file')
+      .map(item => item.getAsFile());
+    handleFiles(files);
+  });
+
+  selectButton.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    handleFiles([...e.target.files]);
+  });
+});
+</script>
 </body>
 </html>
