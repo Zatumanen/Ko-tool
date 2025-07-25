@@ -149,7 +149,7 @@
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
       <div class="drop-zone">
-        <input type="file" id="fileInput" accept="audio/*, .mp3, .wav, .ogg">id="audio-upload">
+        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg">
         <span>DRAG AND DROP OR CLICK TO UPLOAD AN AUDIO FILE</span>
       </div>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
@@ -157,90 +157,72 @@
   </div>
 
   <script>
-    // Ждем, пока вся страница загрузится, чтобы безопасно работать с элементами
+    // Ждем загрузки DOM
     document.addEventListener('DOMContentLoaded', () => {
-      // --- 1. Получаем все необходимые элементы со страницы ---
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const player = document.getElementById('player');
       const pitchSlider = document.getElementById('pitch-slider');
-      // Добавим и остальные контролы, если они понадобятся в будущем
       const releaseSlider = document.getElementById('release-slider');
-      const fidelityOptions = document.querySelectorAll('input[name="fidelity"]');
 
-      // --- 2. Функция для обновления настроек аудио ---
-      // Эта функция будет вызываться при изменении любого элемента управления
-      function updateAudioSettings() {
-        if (!player.src) return; // Ничего не делаем, если аудиофайл не загружен
-
-        // Получаем значение слайдера высоты тона (pitch)
-        const pitchValue = parseInt(pitchSlider.value, 10);
-        
-        // Преобразуем значение слайдера (0-127) в скорость воспроизведения (playbackRate)
-        // 64 = нормальная скорость (1.0)
-        // 0 = в два раза медленнее (0.5)
-        // 127 = в два раза быстрее (~2.0)
-        player.playbackRate = (pitchValue / 64);
-        
-        // В будущем здесь можно добавить логику для других настроек,
-        // например, для эмуляции "Release" или "Fidelity" с помощью Web Audio API.
-      }
-
-      // --- 3. Обработка загрузки файла ---
+      // Функция обработки файла
       function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file && file.type.startsWith('audio/')) {
-          // Создаем временный URL для загруженного файла
-          const fileURL = URL.createObjectURL(file);
-          player.src = fileURL;
-          
-          // Показываем плеер и обновляем текст в зоне загрузки
-          player.style.display = 'block';
-          dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
-          
-          // Применяем текущие настройки к новому файлу
-          updateAudioSettings();
-        } else {
-          alert('Пожалуйста, выберите аудиофайл.');
-          // Сбрасываем значение input, чтобы можно было выбрать тот же файл снова
-          fileInput.value = ''; 
+        const file = event.target.files ? event.target.files[0] : event.dataTransfer.files[0];
+        if (file) {
+          try {
+            const url = URL.createObjectURL(file);
+            player.src = url;
+            player.load(); // Загружаем файл
+            player.playbackRate = 2.0; // Устанавливаем ускорение в 2 раза
+            player.style.display = 'block';
+            player.play().then(() => {
+              console.log('Воспроизведение начато');
+              dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x скорость)`;
+            }).catch(error => {
+              console.error('Ошибка воспроизведения:', error);
+              alert('Ошибка воспроизведения: ' + error.message);
+              player.style.display = 'none';
+            });
+          } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            alert('Ошибка загрузки файла: ' + error.message);
+            fileInput.value = '';
+          }
         }
       }
 
-      // --- 4. Назначаем обработчики событий ---
-
-      // Drag-and-drop
+      // Drag-and-drop события
       dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('dragover');
       });
+
       dropZone.addEventListener('dragleave', () => {
         dropZone.classList.remove('dragover');
       });
+
       dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        // Помещаем перетащенные файлы в input и вызываем обработчик
         if (e.dataTransfer.files.length > 0) {
-          fileInput.files = e.dataTransfer.files;
-          handleFileSelect({ target: fileInput });
+          handleFileSelect(e);
         }
       });
-      // Клик по зоне загрузки
-      dropZone.addEventListener('click', () => fileInput.click());
 
-      // Выбор файла через диалоговое окно
+      // Клик и touch события
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        fileInput.click();
+      }, { passive: false });
+
+      // Обработка выбора файла через input
       fileInput.addEventListener('change', handleFileSelect);
-      
-      // Изменение слайдеров и переключателей
-      pitchSlider.addEventListener('input', updateAudioSettings);
-      releaseSlider.addEventListener('input', updateAudioSettings);
-      fidelityOptions.forEach(radio => radio.addEventListener('change', updateAudioSettings));
-      
-      // --- 5. Очистка при закрытии страницы ---
-      // Это важный шаг для освобождения памяти
+
+      // Очистка ресурсов
       window.addEventListener('beforeunload', () => {
         if (player.src) {
+          player.pause();
           URL.revokeObjectURL(player.src);
         }
       });
