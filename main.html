@@ -4,145 +4,136 @@
   <meta charset="UTF-8" />
   <title>KO II Audio Tool</title>
   <style>
-    body {
-      background: #fff;
-      font-family: 'Courier New', monospace;
-      color: #000;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .window {
-      width: 400px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      position: relative;
-      z-index: 1;
-    }
-    .title-bar {
-      background: #000080;
-      color: #fff;
-      padding: 2px 5px;
-      font-size: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .title-bar button {
-      width: 15px;
-      height: 15px;
-      border: none;
-      background: #c0c0c0;
-      cursor: pointer;
-    }
-    .title-bar .minimize { background: #fff; }
-    .title-bar .close { background: #ff0000; }
-    .content {
-      padding: 10px;
-      color: #000;
-    }
-    .options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .options label {
-      font-size: 14px;
-      margin: 0;
-    }
-    .options input[type="radio"] {
-      margin-right: 5px;
-      transform: scale(1.2);
-    }
-    .settings {
-      margin-top: 10px;
-      padding: 5px;
-      background: #2d7038;
-      color: #000;
-    }
-    .settings label {
-      display: block;
-      font-size: 14px;
-      margin: 5px 0;
-    }
-    .slider {
-      width: 100%;
-      appearance: none;
-      height: 10px;
-      background: #000;
-      outline: none;
-    }
-    .slider::-webkit-slider-thumb {
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      background: #ffd700;
-      cursor: pointer;
-    }
-    .drop-zone {
-      border: 2px dashed #000;
-      padding: 10px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.3);
-      margin-top: 10px;
-      position: relative;
-      overflow: hidden;
-    }
-    .drop-zone.dragover {
-      background: rgba(255, 255, 255, 0.5);
-      border-color: #ffd700;
-    }
-    .drop-zone input[type="file"] {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-    .drop-zone span {
-      pointer-events: none;
-    }
-    .progress-bar {
-      position: fixed;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 300px;
-      height: 30px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      display: none;
-      align-items: center;
-      justify-content: flex-start;
-      overflow: hidden;
-      z-index: 999;
-    }
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: repeating-linear-gradient(
-        -45deg,
-        #000080,
-        #000080 10px,
-        #fff 10px,
-        #fff 20px
-      );
-      transition: width 0.2s ease;
-    }
-    @media (max-width: 480px) {
-      .window {
-        width: 90%;
-      }
-      .options {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+  body {
+    background: #fff;
+    font-family: 'Courier New', monospace;
+    color: #000;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    position: relative;
+  }
+  .window {
+    width: 400px;
+    background: #c0c0c0;
+    border: 2px solid #000;
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    position: relative;
+    z-index: 1;
+  }
+  .title-bar {
+    background: #000080;
+    color: #fff;
+    padding: 2px 5px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .title-bar button {
+    width: 15px;
+    height: 15px;
+    border: none;
+    background: #c0c0c0;
+    cursor: pointer;
+  }
+  .title-bar .minimize { background: #fff; }
+  .title-bar .close { background: #ff0000; }
+  .content { padding: 10px; color: #000; }
+  .options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .options label { font-size: 14px; margin: 0; }
+  .options input[type="radio"] {
+    margin-right: 5px;
+    transform: scale(1.2);
+  }
+  .settings {
+    margin-top: 10px;
+    padding: 5px;
+    background: #2d7038;
+    color: #000;
+  }
+  .settings label {
+    display: block;
+    font-size: 14px;
+    margin: 5px 0;
+  }
+  .slider {
+    width: 100%;
+    appearance: none;
+    height: 10px;
+    background: #000;
+    outline: none;
+  }
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    background: #ffd700;
+    cursor: pointer;
+  }
+  .drop-zone {
+    border: 2px dashed #000;
+    padding: 10px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.3);
+    margin-top: 10px;
+    position: relative;
+  }
+  .drop-zone input[type="file"] {
+    display: none;
+  }
+
+  /* Полоса загрузки поверх окна с затемнением */
+  .progress-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5); /* Затемнение фона */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s;
+  }
+  .progress-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  .progress-content {
+    width: 300px;
+    background: #c0c0c0;
+    border: 2px solid #000;
+    box-shadow: 4px 4px 0px #808080;
+    padding: 10px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+  }
+  .progress-bar {
+    height: 16px;
+    background: #fff;
+    border: 1px solid #000;
+    margin-top: 10px;
+    position: relative;
+  }
+  .progress-fill {
+    background: #000080;
+    height: 100%;
+    width: 0%;
+    transition: width 0.2s;
+  }
+</style>
 </head>
 <body>
   <div class="window">
@@ -188,14 +179,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const dropZone = document.querySelector('.drop-zone');
+  const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('audio-upload');
   const player = document.getElementById('player');
   const selectButton = document.getElementById('select-file-button');
-  const progressBar = document.getElementById('progressBar');
-  const progressFill = document.getElementById('progressFill');
+  const progressOverlay = document.getElementById('progress-overlay');
+  const progressFill = document.getElementById('progress-fill');
 
   let audioContext;
+
   function initAudioContext() {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -203,147 +195,143 @@ document.addEventListener('DOMContentLoaded', () => {
     return audioContext;
   }
 
-  function getDownsampleRate(fidelity, originalRate) {
-    switch (fidelity) {
-      case 'sp8': return 10000;
-      case 'sp16': return 16000;
-      case 'sk': return 9000;
-      default: return originalRate;
-    }
-  }
-
-  async function convertAudioChannels(buffer, mode) {
+  async function processFile(file, index, total) {
+    const arrayBuffer = await file.arrayBuffer();
     const context = initAudioContext();
-    const offlineCtx = new OfflineAudioContext(
-      mode === 'mono' ? 1 : 2,
-      buffer.length,
-      buffer.sampleRate
-    );
-    const src = offlineCtx.createBufferSource();
-    src.buffer = buffer;
+    const audioBuffer = await context.decodeAudioData(arrayBuffer);
 
-    if (mode === 'mono' && buffer.numberOfChannels > 1) {
-      const splitter = offlineCtx.createChannelSplitter(buffer.numberOfChannels);
-      const merger = offlineCtx.createChannelMerger(1);
-      src.connect(splitter);
-      for (let i = 0; i < buffer.numberOfChannels; i++) {
-        splitter.connect(merger, i, 0);
-      }
-      merger.connect(offlineCtx.destination);
-    } else {
-      src.connect(offlineCtx.destination);
+    const fidelity = document.querySelector('input[name="fidelity"]:checked').value;
+    const channels = document.querySelector('input[name="channels"]:checked').value;
+
+    // Установка параметров в зависимости от FIDELITY
+    let sampleRate = audioBuffer.sampleRate;
+    let bitDepth = 16;
+    if (fidelity === 'sp8') {
+      bitDepth = 8;
+      sampleRate = 12000; // Пример для SP-1200 8-bit
+    } else if (fidelity === 'sp16') {
+      bitDepth = 16;
+      sampleRate = 12000; // Пример для SP-1200 16-bit
+    } else if (fidelity === 'sk') {
+      bitDepth = 8;
+      sampleRate = 9000; // Пример для SK-1
+    } else { // CD (16/46)
+      bitDepth = 16;
+      sampleRate = 44100;
     }
 
-    src.start();
-    return await offlineCtx.startRendering();
-  }
+    const offlineCtx = new OfflineAudioContext(
+      channels === 'mono' ? 1 : 2,
+      Math.round(audioBuffer.length * (sampleRate / audioBuffer.sampleRate)),
+      sampleRate
+    );
 
-  async function applySpeedAndFidelity(buffer, speed, sampleRate) {
-    const length = Math.floor(buffer.length / speed);
-    const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
     const src = offlineCtx.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = speed;
+    src.buffer = audioBuffer;
+    src.playbackRate.value = 2.0; // Ускорение
+
+    // Ресемплинг и изменение битности
     src.connect(offlineCtx.destination);
     src.start();
-    return await offlineCtx.startRendering();
+
+    const renderedBuffer = await offlineCtx.startRendering();
+
+    const wavBlob = bufferToWavBlob(renderedBuffer, bitDepth);
+    const url = URL.createObjectURL(wavBlob);
+
+    // Воспроизведение только первого файла
+    if (index === 0) {
+      player.src = url;
+      player.style.display = 'block';
+      player.load();
+    }
+
+    // Обновляем полоску загрузки
+    const percent = Math.round(((index + 1) / total) * 100);
+    progressFill.style.width = percent + "%";
   }
 
-  function audioBufferToWav(buffer) {
+  function bufferToWavBlob(buffer, bitDepth) {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
-    const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
-    const view = new DataView(bufferArray);
 
-    function writeString(view, offset, string) {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
+    const bytesPerSample = bitDepth / 8;
+    const wav = new ArrayBuffer(44 + length * bytesPerSample * numChannels);
+    const view = new DataView(wav);
+
+    function writeStr(view, offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
     }
 
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + length * 2 * numChannels, true);
-    writeString(view, 8, 'WAVE');
-    writeString(view, 12, 'fmt ');
+    writeStr(view, 0, 'RIFF');
+    view.setUint32(4, 36 + length * bytesPerSample * numChannels, true);
+    writeStr(view, 8, 'WAVE');
+    writeStr(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * 2, true);
-    view.setUint16(32, numChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(view, 36, 'data');
-    view.setUint32(40, length * 2 * numChannels, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bitDepth, true);
+    writeStr(view, 36, 'data');
+    view.setUint32(40, length * bytesPerSample * numChannels, true);
 
     let offset = 44;
+    const maxValue = bitDepth === 8 ? 0x7F : 0x7FFF; // Максимальное значение для 8 или 16 бит
     for (let i = 0; i < length; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
-        view.setInt16(offset, sample, true);
-        offset += 2;
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * maxValue;
+        if (bitDepth === 8) {
+          view.setInt8(offset, sample, true);
+          offset += 1;
+        } else {
+          view.setInt16(offset, sample, true);
+          offset += 2;
+        }
       }
     }
 
     return new Blob([view], { type: 'audio/wav' });
   }
 
-  async function processFiles(files) {
-    progressBar.style.display = 'flex';
+  async function handleFiles(files) {
+    progressOverlay.classList.add('active');
+    progressFill.style.width = '0%';
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const arrayBuffer = await file.arrayBuffer();
-      const context = initAudioContext();
-      const audioBuffer = await context.decodeAudioData(arrayBuffer);
-
-      const channel = document.querySelector('input[name="channels"]:checked')?.value || 'stereo';
-      const fidelity = document.querySelector('input[name="fidelity"]:checked')?.value || 'cd';
-      const converted = await convertAudioChannels(audioBuffer, channel);
-      const sampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-      const processed = await applySpeedAndFidelity(converted, 2.0, sampleRate);
-      const wavBlob = audioBufferToWav(processed);
-
-      if (i === 0) {
-        player.src = URL.createObjectURL(wavBlob);
-        player.load();
-        player.style.display = 'block';
-        dropZone.querySelector('span').textContent = `Файл: ${file.name} | ${channel}, ${fidelity}, 2x`;
-      }
-
-      progressFill.style.width = `${((i + 1) / files.length) * 100}%`;
+      await processFile(file, i, files.length);
     }
+
     setTimeout(() => {
-      progressBar.style.display = 'none';
-      progressFill.style.width = '0%';
+      progressOverlay.classList.remove('active');
     }, 500);
   }
 
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
-
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
   });
 
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropZone.classList.remove('dragover');
-    const files = Array.from(e.dataTransfer.items)
+    const files = [...e.dataTransfer.items]
       .filter(item => item.kind === 'file')
-      .map(item => item.getAsFile())
-      .filter(f => f && f.name.match(/\.(mp3|wav|ogg)$/i));
-
-    processFiles(files);
+      .map(item => item.getAsFile());
+    handleFiles(files);
   });
 
   selectButton.addEventListener('click', () => {
-    fileInput.click();
+    if (fileInput) {
+      fileInput.click();
+    } else {
+      console.error('fileInput не найден');
+    }
   });
 
   fileInput.addEventListener('change', (e) => {
-    processFiles([...e.target.files]);
+    handleFiles([...e.target.files]);
   });
 });
 </script>
