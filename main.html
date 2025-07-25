@@ -197,7 +197,9 @@
         audioPlayer.play();
         await new Promise(res => setTimeout(res, 1000));
       }
-
+// Мгновенно заполняем оставшиеся сегменты, если есть незаполненные
+const segments = document.querySelectorAll('.progress-segment');
+segments.forEach(seg => seg.classList.add('active'));
       // Мгновенное завершение прогресса
       document.querySelectorAll(".progress-segment").forEach(seg => seg.classList.add("active"));
       setTimeout(() => {
