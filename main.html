@@ -92,7 +92,8 @@
       background: rgba(255, 255, 255, 0.3);
       margin-top: 12px;
       position: relative;
-      min-height: 100px;
+      min-height: 120px;
+      cursor: pointer;
     }
 
     .drop-zone input[type="file"] {
@@ -114,6 +115,7 @@
     .drop-zone .file-info {
       margin-top: 10px;
       font-size: 14px;
+      white-space: pre-wrap;
     }
 
     audio#player {
@@ -198,8 +200,8 @@
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
       <div class="drop-zone" id="drop-zone">
-        <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
-        <span id="drop-text">DRAG AND DROP OR CLICK TO SELECT AUDIO FILES</span>
+        <input type="file" id="audio-upload" accept="audio/*" multiple />
+        <span id="drop-text">DRAG & DROP or TAP TO SELECT</span>
         <div class="file-info" id="file-info"></div>
       </div>
       <audio id="player" controls></audio>
@@ -228,11 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
 
-  const initAudioContext = () => {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    console.log('AudioContext initialized:', ctx);
-    return ctx;
-  };
+  const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
 
   const getDownsampleRate = (fidelity, originalRate) => {
     switch (fidelity) {
@@ -259,9 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     source.start();
-    const rendered = await ctx.startRendering();
-    console.log('Channels converted:', rendered.numberOfChannels, rendered.sampleRate);
-    return rendered;
+    return await ctx.startRendering();
   };
 
   const applySpeedAndFidelity = async (buffer, speed, sampleRate) => {
@@ -272,9 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     source.playbackRate.value = speed;
     source.connect(ctx.destination);
     source.start();
-    const rendered = await ctx.startRendering();
-    console.log('Speed and fidelity applied:', rendered.sampleRate, rendered.length);
-    return rendered;
+    return await ctx.startRendering();
   };
 
   const audioBufferToWav = (buffer) => {
@@ -290,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
     writeString(8, 'WAVE');
     writeString(12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(20, 1, true); // PCM
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * numChannels * 2, true);
@@ -308,28 +302,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const blob = new Blob([view], { type: 'audio/wav' });
-    console.log('WAV Blob created:', blob.size, blob.type);
-    return blob;
+    return new Blob([view], { type: 'audio/wav' });
   };
 
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
+  const formatFileSize = (bytes) =>
+    bytes < 1024 ? bytes + ' B' : bytes < 1024 * 1024 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1024 / 1024).toFixed(1) + ' MB';
 
   async function processFiles(files) {
-    console.log('Processing files:', files.length, files);
-    if (!files || files.length === 0) {
-      console.error('No files selected');
-      return;
-    }
-
     overlay.style.display = 'block';
     loader.style.display = 'block';
     segmentContainer.innerHTML = '';
-
     const segments = 20;
     for (let i = 0; i < segments; i++) {
       const seg = document.createElement('div');
@@ -343,55 +325,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      console.log('Processing file:', file.name);
       totalSizeBefore += file.size;
       loaderFile.textContent = `Processing: ${file.name}`;
-      dropText.textContent = `Processing: ${file.name}`;
-      const settingsText = `Fidelity: ${getSelectedValue('fidelity')}, Channels: ${getSelectedValue('channels')}, Pitch: ${document.getElementById('pitch-slider').value}, Release: ${document.getElementById('release-slider').value}`;
-      fileInfo.textContent = settingsText;
+      const fidelity = getSelectedValue('fidelity');
+      const channels = getSelectedValue('channels');
+      const pitch = document.getElementById('pitch-slider').value;
+      const release = document.getElementById('release-slider').value;
 
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const decoded = await context.decodeAudioData(arrayBuffer);
-        console.log('Audio decoded:', decoded.sampleRate, decoded.numberOfChannels);
+      fileInfo.textContent = `File: ${file.name}\nFidelity: ${fidelity}, Channels: ${channels}\nPitch: ${pitch}, Release: ${release}`;
 
-        const fidelity = getSelectedValue('fidelity');
-        const channels = getSelectedValue('channels');
-        const converted = await convertChannels(decoded, channels);
-        const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-        const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-        const wavBlob = audioBufferToWav(processed);
-        totalSizeAfter += wavBlob.size;
+      const arrayBuffer = await file.arrayBuffer();
+      const decoded = await context.decodeAudioData(arrayBuffer);
+      const converted = await convertChannels(decoded, channels);
+      const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
+      const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+      const wavBlob = audioBufferToWav(processed);
+      totalSizeAfter += wavBlob.size;
 
-        if (i === 0) {
-          const url = URL.createObjectURL(wavBlob);
-          console.log('Setting player source:', url);
-          player.src = url;
-          player.style.display = 'block';
-          player.load();
-          player.oncanplay = () => {
-            console.log('Player can play:', url);
-            // player.play().catch(e => console.error('Playback failed:', e));
-          };
-          player.onerror = () => {
-            console.error('Audio player error:', player.error);
-          };
-        }
-
-        const progress = ((i + 1) / files.length) * 100;
-        const activeSegments = Math.round((progress / 100) * segments);
-        document.querySelectorAll('.progress-segment').forEach((seg, index) => {
-          seg.classList.toggle('active', index < activeSegments);
-        });
-
-        await new Promise(resolve => setTimeout(resolve, 100)); // Smooth progress
-      } catch (error) {
-        console.error('Error processing file:', file.name, error);
+      if (i === 0) {
+        const url = URL.createObjectURL(wavBlob);
+        player.src = url;
+        player.style.display = 'block';
+        player.load();
+        player.oncanplaythrough = () => {
+          player.play().catch(err => console.warn('Playback error:', err));
+        };
       }
+
+      const activeSegments = Math.round(((i + 1) / files.length) * segments);
+      document.querySelectorAll('.progress-segment').forEach((seg, index) => {
+        seg.classList.toggle('active', index < activeSegments);
+      });
     }
 
-    fileInfo.textContent += `\nSize Before: ${formatFileSize(totalSizeBefore)}\nSize After: ${formatFileSize(totalSizeAfter)}`;
-    dropText.textContent = 'DRAG AND DROP OR CLICK TO SELECT AUDIO FILES';
+    fileInfo.textContent += `\nOriginal: ${formatFileSize(totalSizeBefore)} → Processed: ${formatFileSize(totalSizeAfter)}\n(WAV may be larger — uncompressed)`;
     overlay.style.display = 'none';
     loader.style.display = 'none';
   }
@@ -400,31 +367,20 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     dropZone.classList.add('dragover');
   });
-
   dropZone.addEventListener('dragleave', () => {
     dropZone.classList.remove('dragover');
   });
-
   dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
     const files = e.dataTransfer.files;
-    console.log('Files dropped:', files.length, files);
     if (files.length > 0) processFiles(files);
   });
-
   dropZone.addEventListener('click', () => {
-    console.log('Drop zone clicked, triggering file input');
     fileInput.click();
   });
-
   fileInput.addEventListener('change', () => {
-    const files = fileInput.files;
-    console.log('Files selected via input:', files.length, files);
-    if (files.length > 0) {
-      processFiles(files);
-      fileInput.value = ''; // Reset input to allow re-selecting the same file
-    }
+    if (fileInput.files.length > 0) processFiles(fileInput.files);
   });
 });
 </script>
