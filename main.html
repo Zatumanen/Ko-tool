@@ -310,6 +310,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   async function processFiles(files) {
+    console.log('Processing files:', files.length, files);
+    if (!files || files.length === 0) {
+      console.error('No files selected');
+      return;
+    }
+
     overlay.style.display = 'block';
     loader.style.display = 'block';
     segmentContainer.innerHTML = '';
@@ -327,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      console.log('Processing file:', file.name);
       totalSizeBefore += file.size;
       loaderFile.textContent = `Processing: ${file.name}`;
       dropText.textContent = `Processing: ${file.name}`;
@@ -377,11 +384,24 @@ document.addEventListener('DOMContentLoaded', () => {
   dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
+    const files = e.dataTransfer.files;
+    console.log('Files dropped:', files.length, files);
+    if (files.length > 0) processFiles(files);
   });
 
-  dropZone.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
+  dropZone.addEventListener('click', () => {
+    console.log('Drop zone clicked, triggering file input');
+    fileInput.click();
+  });
+
+  fileInput.addEventListener('change', () => {
+    const files = fileInput.files;
+    console.log('Files selected via input:', files.length, files);
+    if (files.length > 0) {
+      processFiles(files);
+      fileInput.value = ''; // Reset input to allow re-selecting the same file
+    }
+  });
 });
 </script>
 </body>
