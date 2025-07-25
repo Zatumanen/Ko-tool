@@ -14,121 +14,83 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
+      position: relative;
     }
+
     .window {
       width: 400px;
       background: #c0c0c0;
       border: 2px solid #000;
       box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
       padding: 10px;
-      position: relative;
       z-index: 1;
     }
-    .title-bar {
-      background: #000080;
-      color: #fff;
-      padding: 2px 5px;
-      font-size: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .title-bar button {
-      width: 15px;
-      height: 15px;
-      border: none;
+
+    /* Прогресс-бар в стиле Windows 95 */
+    .progress-overlay {
+      position: absolute;
+      width: 380px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       background: #c0c0c0;
-      cursor: pointer;
-    }
-    .title-bar .minimize { background: #fff; }
-    .title-bar .close { background: #ff0000; }
-    .content {
+      border: 2px solid #000;
+      z-index: 10;
+      display: none; /* Скрыт по умолчанию */
       padding: 10px;
-      color: #000;
+      box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.5);
     }
-    .options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .options label {
-      font-size: 14px;
-      margin: 0;
-    }
-    .options input[type="radio"] {
-      margin-right: 5px;
-      transform: scale(1.2);
-    }
-    .settings {
-      margin-top: 10px;
-      padding: 5px;
-      background: #2d7038;
-      color: #000;
-    }
-    .settings label {
+
+    .progress-overlay img {
       display: block;
-      font-size: 14px;
+      margin: 0 auto 5px;
+    }
+
+    .progress-text {
+      font-size: 12px;
       margin: 5px 0;
     }
-    .slider {
+
+    .progress-bar-container {
       width: 100%;
-      appearance: none;
-      height: 10px;
-      background: #000;
-      outline: none;
+      height: 20px;
+      background: #fff;
+      border: 2px inset #888;
+      box-sizing: border-box;
     }
-    .slider::-webkit-slider-thumb {
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      background: #ffd700;
-      cursor: pointer;
-    }
-    .drop-zone {
-      border: 2px dashed #000;
-      padding: 10px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.3);
-      margin-top: 10px;
-      position: relative;
-      overflow: hidden;
-    }
-    .drop-zone.dragover {
-      background: rgba(255, 255, 255, 0.5);
-      border-color: #ffd700;
-    }
-    .drop-zone input[type="file"] {
-      position: absolute;
-      width: 100%;
+
+    .progress-bar {
       height: 100%;
-      opacity: 0;
-      cursor: pointer;
+      background: #000080;
+      width: 0%;
+      transition: width 0.2s;
     }
-    .drop-zone span {
-      pointer-events: none;
-    }
-    #progress-overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(200, 200, 200, 0.8);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
+
+    /* Остальной UI (не меняем) */
+    .title-bar { background: #000080; color: #fff; padding: 2px 5px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .title-bar button { width: 15px; height: 15px; border: none; background: #c0c0c0; cursor: pointer; }
+    .title-bar .minimize { background: #fff; }
+    .title-bar .close { background: #ff0000; }
+    .content { padding: 10px; color: #000; }
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .options label { font-size: 14px; margin: 0; }
+    .options input[type="radio"] { margin-right: 5px; transform: scale(1.2); }
+    .settings { margin-top: 10px; padding: 5px; background: #2d7038; color: #000; }
+    .settings label { display: block; font-size: 14px; margin: 5px 0; }
+    .slider { width: 100%; appearance: none; height: 10px; background: #000; outline: none; }
+    .slider::-webkit-slider-thumb { appearance: none; width: 15px; height: 15px; background: #ffd700; cursor: pointer; }
+    .drop-zone { border: 2px dashed #000; padding: 10px; text-align: center; background: rgba(255, 255, 255, 0.3); margin-top: 10px; position: relative; overflow: hidden; }
+    .drop-zone.dragover { background: rgba(255, 255, 255, 0.5); border-color: #ffd700; }
+    .drop-zone input[type="file"] { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .drop-zone span { pointer-events: none; }
     @media (max-width: 480px) {
-      .window {
-        width: 90%;
-      }
-      .options {
-        grid-template-columns: 1fr;
-      }
+      .window { width: 90%; }
+      .options { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
+  <!-- Основное окно -->
   <div class="window">
     <div class="title-bar">
       <span>KO II Audio Tool</span>
@@ -158,167 +120,155 @@
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
       <div class="drop-zone">
-        <input type="file" id="audio-upload" webkitdirectory multiple accept="audio/*,.mp3,.wav,.ogg" />
-        <span>DRAG & DROP FILES OR FOLDER</span>
+        <input type="file" id="audio-upload" accept="audio/*" style="display:none;" multiple webkitdirectory directory>
+        <span>DRAG AND DROP A FOLDER WITH AUDIO FILES</span>
       </div>
-      <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Files</button>
+      <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Folder</button>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
 
-  <!-- Полупрозрачный overlay поверх окна (как в Windows) -->
-  <div id="progress-overlay">
-    <div style="background:#fff; padding:20px; border:2px solid #000; font-family:'Courier New'; text-align:center;">
-      <p>Обработка файлов...</p>
-      <progress id="progress-bar" value="0" max="100" style="width:300px;"></progress>
+  <!-- Прогресс-бар поверх интерфейса -->
+  <div class="progress-overlay" id="progressOverlay">
+    <img src="BD39ED93-5EAA-49C3-8B15-EE2C04366585.gif" width="64" height="64" />
+    <div class="progress-text" id="progressText">Обработка файлов...</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
     </div>
   </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const dropZone = document.querySelector('.drop-zone');
-  const fileInput = document.getElementById('audio-upload');
-  const player = document.getElementById('player');
-  const selectButton = document.getElementById('select-file-button');
-  const overlay = document.getElementById('progress-overlay');
-  const progressBar = document.getElementById('progress-bar');
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const dropZone = document.querySelector('.drop-zone');
+      const fileInput = document.getElementById('audio-upload');
+      const player = document.getElementById('player');
+      const selectButton = document.getElementById('select-file-button');
+      const overlay = document.getElementById('progressOverlay');
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
 
-  const getFidelityRate = (val, original) => {
-    switch (val) {
-      case 'sp8': return 10000;
-      case 'sp16': return 16000;
-      case 'sk': return 9000;
-      default: return original;
-    }
-  };
+      const getDownsampleRate = (fidelity, originalRate) => {
+        switch (fidelity) {
+          case 'sp8': return 10000;
+          case 'sp16': return 16000;
+          case 'sk': return 9000;
+          default: return originalRate;
+        }
+      };
 
-  const initContext = () => new (window.AudioContext || window.webkitAudioContext)();
+      const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
 
-  const convertChannels = async (buffer, mode) => {
-    const ctx = new OfflineAudioContext(mode === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    if (mode === 'mono' && buffer.numberOfChannels > 1) {
-      const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-      const merger = ctx.createChannelMerger(1);
-      src.connect(splitter);
-      for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(merger, i, 0);
-      merger.connect(ctx.destination);
-    } else {
-      src.connect(ctx.destination);
-    }
-    src.start();
-    return await ctx.startRendering();
-  };
+      async function processFile(file, index, total) {
+        const context = initAudioContext();
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await context.decodeAudioData(arrayBuffer);
 
-  const resampleAndSpeed = async (buffer, speed, newRate) => {
-    const newLength = Math.floor(buffer.length / speed);
-    const ctx = new OfflineAudioContext(buffer.numberOfChannels, newLength, newRate);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = speed;
-    src.connect(ctx.destination);
-    src.start();
-    return await ctx.startRendering();
-  };
+        const channel = document.querySelector('input[name="channels"]:checked')?.value || 'stereo';
+        const fidelity = document.querySelector('input[name="fidelity"]:checked')?.value || 'cd';
 
-  const bufferToWav = (buffer) => {
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const length = buffer.length;
-    const arrayBuffer = new ArrayBuffer(44 + length * 2 * numChannels);
-    const view = new DataView(arrayBuffer);
+        const offlineCtx = new OfflineAudioContext(channel === 'mono' ? 1 : 2, audioBuffer.length, audioBuffer.sampleRate);
+        const src = offlineCtx.createBufferSource();
+        src.buffer = audioBuffer;
+        src.connect(offlineCtx.destination);
+        src.start();
 
-    const writeString = (offset, string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
+        const converted = await offlineCtx.startRendering();
+        const rate = getDownsampleRate(fidelity, converted.sampleRate);
+        const speed = 2.0;
+
+        const speedCtx = new OfflineAudioContext(converted.numberOfChannels, Math.floor(converted.length / speed), rate);
+        const speedSrc = speedCtx.createBufferSource();
+        speedSrc.buffer = converted;
+        speedSrc.playbackRate.value = speed;
+        speedSrc.connect(speedCtx.destination);
+        speedSrc.start();
+
+        const processed = await speedCtx.startRendering();
+        const wavBlob = audioBufferToWav(processed);
+        if (index === 0) {
+          player.src = URL.createObjectURL(wavBlob);
+          player.load();
+          player.playbackRate = 1.0;
+          player.style.display = 'block';
+        }
+
+        progressBar.style.width = `${((index + 1) / total) * 100}%`;
+        progressText.textContent = `Обработка: ${file.name}`;
       }
-    };
 
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + length * 2 * numChannels, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * 2, true);
-    view.setUint16(32, numChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length * 2 * numChannels, true);
+      function audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const length = buffer.length;
+        const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
+        const view = new DataView(bufferArray);
 
-    let offset = 44;
-    for (let i = 0; i < length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
-        view.setInt16(offset, sample, true);
-        offset += 2;
+        function writeString(view, offset, string) {
+          for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+        }
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + length * 2 * numChannels, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * 2, true);
+        view.setUint16(32, numChannels * 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, length * 2 * numChannels, true);
+
+        let offset = 44;
+        for (let i = 0; i < length; i++) {
+          for (let ch = 0; ch < numChannels; ch++) {
+            const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
+            view.setInt16(offset, sample, true);
+            offset += 2;
+          }
+        }
+
+        return new Blob([view], { type: 'audio/wav' });
       }
-    }
-    return new Blob([view], { type: 'audio/wav' });
-  };
 
-  async function handleFile(file, index, total) {
-    const ctx = initContext();
-    const arrBuf = await file.arrayBuffer();
-    const audioBuf = await ctx.decodeAudioData(arrBuf);
-    const fidelity = document.querySelector('input[name="fidelity"]:checked')?.value || 'cd';
-    const channels = document.querySelector('input[name="channels"]:checked')?.value || 'stereo';
-    const speed = 2.0;
-    const converted = await convertChannels(audioBuf, channels);
-    const newRate = getFidelityRate(fidelity, converted.sampleRate);
-    const processed = await resampleAndSpeed(converted, speed, newRate);
-    const wavBlob = bufferToWav(processed);
+      async function handleFiles(files) {
+        overlay.style.display = 'block';
+        progressBar.style.width = '0%';
 
-    if (index === 0) {
-      player.src = URL.createObjectURL(wavBlob);
-      player.style.display = 'block';
-      player.load();
-    }
+        for (let i = 0; i < files.length; i++) {
+          await processFile(files[i], i, files.length);
+        }
 
-    dropZone.querySelector('span').textContent = `✅ ${file.name} | ${channels}, ${fidelity}, x2`;
+        overlay.style.display = 'none';
+      }
 
-    progressBar.value = ((index + 1) / total) * 100;
-  }
+      dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
 
-  async function processFiles(fileList) {
-    overlay.style.display = 'flex';
-    const files = Array.from(fileList).filter(f => f.type.startsWith('audio/'));
-    for (let i = 0; i < files.length; i++) {
-      await handleFile(files[i], i, files.length);
-    }
-    overlay.style.display = 'none';
-  }
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
 
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('audio/'));
+        handleFiles(files);
+      });
 
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-  });
+      selectButton.addEventListener('click', () => {
+        fileInput.click();
+      });
 
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
-    }
-  });
-
-  selectButton.addEventListener('click', () => {
-    fileInput.click();
-  });
-
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files.length > 0) {
-      processFiles(fileInput.files);
-    }
-  });
-});
-</script>
+      fileInput.addEventListener('change', () => {
+        const files = [...fileInput.files].filter(f => f.type.startsWith('audio/'));
+        handleFiles(files);
+      });
+    });
+  </script>
 </body>
 </html>
