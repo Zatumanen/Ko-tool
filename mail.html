@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KO II Audio Tool</title>
+  <style>
+    /* Общие стили */
+    body {
+      background: #E0E0E0 url('https://i.imgur.com/V7u7T5b.png') repeat; /* Фоновый рисунок, похожий на XP */
+      font-family: 'Tahoma', sans-serif;
+      color: #000;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Стиль окна в духе Windows XP */
+    .window {
+      width: 480px;
+      max-width: 95%;
+      background: #ECE9D8;
+      border: 1px solid #00309C;
+      border-radius: 5px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+      padding: 3px;
+    }
+
+    /* Заголовок окна */
+    .title-bar {
+      background: linear-gradient(to right, #0055E3, #3B89EE); /* Градиент XP */
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 14px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 3px 3px 0 0;
+    }
+    .title-bar span {
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+    .title-bar-buttons button {
+      width: 22px;
+      height: 22px;
+      border: 1px solid #A6C4E2;
+      border-radius: 3px;
+      background: #3B89EE;
+      color: white;
+      font-family: 'Webdings', 'Wingdings', 'Zapf Dingbats'; /* Шрифты с иконками */
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 2px;
+    }
+    .title-bar-buttons .close {
+      background: #E81123;
+      border-color: #F3A0A8;
+    }
+
+    /* Основной контент */
+    .content {
+      padding: 15px;
+      color: #000;
+      background: #2D7038; /* Зеленый фон, как на картинке */
+      color: white;
+      border: 2px solid #333;
+      margin-top: 2px;
+    }
+    .main-instruction {
+        text-align: center;
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+    
+    /* Сетка для опций */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .options-grid div {
+        display: flex;
+        flex-direction: column;
+    }
+    .options-grid label {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .options-grid input[type="radio"] {
+      margin-right: 8px;
+    }
+    .options-grid span {
+        margin-bottom: 5px;
+    }
+
+    /* Настройки с ползунками */
+    .settings {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px 25px;
+      margin-top: 10px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 255, 255, 0.4);
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+    }
+    .setting-item label {
+      width: 80px;
+    }
+    
+    /* Стилизация ползунков */
+    .slider {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      background: #000;
+      outline: none;
+      border: 1px solid #555;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 25px;
+      background: #FFD700;
+      cursor: pointer;
+      border: 1px solid #000;
+    }
+    .slider::-moz-range-thumb {
+      width: 15px;
+      height: 25px;
+      background: #FFD700;
+      cursor: pointer;
+      border: 1px solid #000;
+    }
+    .value-display {
+      margin-left: 10px;
+      font-weight: bold;
+      min-width: 30px;
+    }
+    
+    /* Зона для загрузки файла */
+    .drop-zone {
+      border: 2px dashed #FFF;
+      padding: 20px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.2);
+      margin-top: 20px;
+      position: relative;
+      cursor: pointer;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .drop-zone.dragover {
+      background: rgba(255, 255, 210, 0.3);
+      border-color: #FFD700;
+    }
+    .drop-zone input[type="file"] {
+      display: none; /* Скрываем стандартный инпут */
+    }
+
+    /* Медиа-запрос для мобильных устройств */
+    @media (max-width: 520px) {
+      .options-grid, .settings {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <div class="title-bar">
+      <span><img src="https://i.imgur.com/qL3ETi4.png" alt="icon" style="height:16px; vertical-align:middle; margin-right: 5px;">KO II Audio Tool</span>
+      <div class="title-bar-buttons">
+          <button class="minimize">_</button>
+          <button class="maximize">□</button>
+          <button class="close">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="main-instruction">CHOOSE OPTIONS THEN DROP AN AUDIO FILE HERE</div>
+      
+      <div class="options-grid">
+        <div>
+          <label>FIDELITY</label>
+          <span><input type="radio" name="fidelity" value="cd" checked> CD (16/46)</span>
+          <span><input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit</span>
+          <span><input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit</span>
+          <span><input type="radio" name="fidelity" value="sk"> SK-1 (8/9)</span>
+        </div>
+        <div>
+          <label>SPEED</label>
+          <span><input type="radio" name="speed" value="1" checked> 1x</span>
+          <span><input type="radio" name="speed" value="2"> 2x</span>
+          <label style="margin-top: 10px;">PLAYMODE</label>
+          <span><input type="radio" name="playmode" value="oneshot" checked> Oneshot</span>
+          <span><input type="radio" name="playmode" value="key"> Key</span>
+          <span><input type="radio" name="playmode" value="legato"> Legato</span>
+        </div>
+        <div>
+          <label>CHANNELS</label>
+          <span><input type="radio" name="channels" value="stereo" checked> Stereo</span>
+          <span><input type="radio" name="channels" value="mono"> Mono</span>
+          <label style="margin-top: 10px;">TIME STRETCH</label>
+          <span><input type="radio" name="timestretch" value="off" checked> Off</span>
+        </div>
+      </div>
+      
+      <div class="settings-title" style="font-weight: bold; margin-top: 20px;">EP-133 KO II SETTINGS</div>
+      <div class="settings">
+        <div class="setting-item">
+          <label for="volume">Volume</label>
+          <input type="range" class="slider" id="volume" min="0" max="1" value="1" step="0.01">
+        </div>
+        <div class="setting-item">
+          <label for="pan">Pan</label>
+          <input type="range" class="slider" id="pan" min="-1" max="1" value="0" step="0.01">
+        </div>
+        <div class="setting-item">
+          <label for="pitch">Pitch</label>
+          <input type="range" class="slider" id="pitch" min="-12" max="12" value="0" step="1">
+          <span class="value-display" id="pitch-value">0</span>
+        </div>
+        <div class="setting-item">
+          <label for="release">Release</label>
+          <input type="range" class="slider" id="release" min="0" max="2" value="0.1" step="0.01">
+          <span class="value-display" id="release-value">0.1</span>
+        </div>
+      </div>
+
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="audio-upload" accept="audio/*">
+        <span id="drop-zone-text">DRAG & DROP OR CLICK TO UPLOAD</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Инициализация Web Audio API ---
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioBuffer = null;
+    let sourceNode = null;
+
+    // --- Создание узлов для эффектов ---
+    // Узел Gain для контроля громкости
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 1;
+
+    // Узел Panner для контроля панорамы (стерео)
+    const pannerNode = audioContext.createStereoPanner();
+    pannerNode.pan.value = 0;
+
+    // --- Соединение узлов в цепь ---
+    // Источник -> Панорама -> Громкость -> Выход (динамики)
+    pannerNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+
+    // --- Получение элементов интерфейса ---
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('audio-upload');
+    const dropZoneText = document.getElementById('drop-zone-text');
+    
+    const volumeSlider = document.getElementById('volume');
+    const panSlider = document.getElementById('pan');
+    const pitchSlider = document.getElementById('pitch');
+    const releaseSlider = document.getElementById('release');
+    const pitchValue = document.getElementById('pitch-value');
+    const releaseValue = document.getElementById('release-value');
+
+    // --- Обработчики событий для загрузки файла ---
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    // --- Функция обработки и декодирования файла ---
+    function handleFile(file) {
+      if (!file.type.startsWith('audio/')) {
+        dropZoneText.textContent = 'Please upload an audio file!';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        dropZoneText.textContent = `Decoding: ${file.name}...`;
+        // Декодируем аудиоданные для использования в Web Audio API
+        audioContext.decodeAudioData(e.target.result, (buffer) => {
+          audioBuffer = buffer;
+          dropZoneText.textContent = `READY: ${file.name}. Click to play!`;
+          // После загрузки, клик по зоне будет проигрывать звук
+          dropZone.onclick = playSound;
+        }, (error) => {
+          console.error('Error decoding audio data:', error);
+          dropZoneText.textContent = 'Could not decode audio file.';
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    
+    // --- Функция проигрывания звука ---
+    function playSound() {
+        if (!audioBuffer) return;
+
+        // Если уже играет, останавливаем, чтобы можно было запустить заново
+        if (sourceNode) {
+            sourceNode.stop();
+        }
+
+        // Создаем новый источник звука для каждого проигрывания
+        sourceNode = audioContext.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        
+        // Применяем настройки
+        applySettings();
+        
+        // Подключаем источник к нашей цепи эффектов
+        sourceNode.connect(pannerNode);
+        
+        sourceNode.start(0);
+    }
+
+    // --- Функция применения настроек к звуку ---
+    function applySettings() {
+        if (!sourceNode) return;
+
+        // SPEED (влияет и на скорость, и на тон)
+        const speed = document.querySelector('input[name="speed"]:checked').value;
+        sourceNode.playbackRate.value = parseFloat(speed);
+        
+        // PITCH (также через playbackRate, для истинного питч-шифтинга нужны сложные алгоритмы)
+        // Полутон = 2^(1/12). Меняем playbackRate для симуляции питча.
+        const pitchShift = Math.pow(2, pitchSlider.value / 12);
+        sourceNode.playbackRate.value *= pitchShift;
+
+        // VOLUME
+        gainNode.gain.value = volumeSlider.value;
+        
+        // PAN
+        pannerNode.pan.value = panSlider.value;
+        
+        // CHANNELS (Моно/Стерео) - для этого потребуется более сложная маршрутизация
+        // FIDELITY (Бит-крашинг) - требует кастомного AudioWorkletProcessor.
+    }
+
+    // --- Обновление интерфейса при изменении ползунков ---
+    volumeSlider.addEventListener('input', () => {
+      gainNode.gain.value = volumeSlider.value;
+    });
+    panSlider.addEventListener('input', () => {
+      pannerNode.pan.value = panSlider.value;
+    });
+    pitchSlider.addEventListener('input', () => {
+      pitchValue.textContent = pitchSlider.value;
+      // Примечание: изменение питча "вживую" требует перезапуска звука
+    });
+     releaseSlider.addEventListener('input', () => {
+      releaseValue.textContent = releaseSlider.value;
+      // Логика для release (затухания) сложнее, обычно реализуется через gain.linearRampToValueAtTime
+    });
+
+  </script>
+</body>
+</html>
