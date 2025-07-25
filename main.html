@@ -92,6 +92,7 @@
       background: rgba(255, 255, 255, 0.3);
       margin-top: 12px;
       position: relative;
+      min-height: 100px;
     }
 
     .drop-zone input[type="file"] {
@@ -100,23 +101,21 @@
       height: 100%;
       opacity: 0;
       cursor: pointer;
+      top: 0;
+      left: 0;
     }
 
     .drop-zone span {
       pointer-events: none;
       font-size: 16px;
+      display: block;
     }
 
-    button#select-file-button {
-      width: 100%;
+    .file-info {
       margin-top: 10px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      color: #000;
-      font-family: 'Courier New', monospace;
-      padding: 10px;
-      font-size: 16px;
-      cursor: pointer;
+      font-size: 14px;
+      text-align: left;
+      white-space: pre-line;
     }
 
     audio#player {
@@ -125,7 +124,6 @@
       display: none;
     }
 
-    /* Для сегментированной полосы загрузки */
     #overlay {
       display: none;
       position: fixed;
@@ -203,14 +201,13 @@
       </div>
       <div class="drop-zone" id="drop-zone">
         <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
-        <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
+        <span>DRAG AND DROP OR CLICK TO SELECT AUDIO FILES</span>
+        <div class="file-info" id="file-info"></div>
       </div>
-      <button id="select-file-button">Select Audio Files</button>
       <audio id="player" controls></audio>
     </div>
   </div>
 
-  <!-- Перекрывающая тень и панель загрузки -->
   <div id="overlay">
     <div id="win95-loader">
       <div>Copying...</div>
@@ -224,15 +221,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('audio-upload');
   const player = document.getElementById('player');
-  const selectButton = document.getElementById('select-file-button');
   const overlay = document.getElementById('overlay');
   const loader = document.getElementById('win95-loader');
   const segmentContainer = document.getElementById('segment-container');
+  const fileInfo = document.getElementById('file-info');
 
   const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
-
   const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
-
   const getDownsampleRate = (fidelity, originalRate) => {
     switch (fidelity) {
       case 'sp8': return 10000;
@@ -246,7 +241,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = new OfflineAudioContext(channels === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-
     if (channels === 'mono') {
       const merger = ctx.createChannelMerger(1);
       const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
@@ -256,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       source.connect(ctx.destination);
     }
-
     source.start();
     return await ctx.startRendering();
   };
@@ -278,8 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const length = buffer.length;
     const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
     const view = new DataView(bufferArray);
-
     const writeString = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+
     writeString(0, 'RIFF');
     view.setUint32(4, 36 + length * 2 * numChannels, true);
     writeString(8, 'WAVE');
@@ -302,41 +295,47 @@ document.addEventListener('DOMContentLoaded', () => {
         offset += 2;
       }
     }
-
     return new Blob([view], { type: 'audio/wav' });
   };
 
   async function processFiles(files) {
     overlay.style.display = 'block';
     loader.style.display = 'block';
-
-    const context = initAudioContext();
-    const segments = 20;
     segmentContainer.innerHTML = '';
-
+    const segments = 20;
     for (let i = 0; i < segments; i++) {
       const seg = document.createElement('div');
       seg.className = 'progress-segment';
       segmentContainer.appendChild(seg);
     }
 
+    const context = initAudioContext();
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      const originalSize = file.size;
       const arrayBuffer = await file.arrayBuffer();
       const decoded = await context.decodeAudioData(arrayBuffer);
-
       const fidelity = getSelectedValue('fidelity');
       const channels = getSelectedValue('channels');
       const converted = await convertChannels(decoded, channels);
       const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
       const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
       const wavBlob = audioBufferToWav(processed);
+      const processedSize = wavBlob.size;
 
       if (i === 0) {
         player.src = URL.createObjectURL(wavBlob);
         player.style.display = 'block';
         player.load();
       }
+
+      fileInfo.textContent =
+        `Файл: ${file.name}
+Формат: ${file.name.split('.').pop().toUpperCase()}
+Fidelity: ${fidelity}
+Channels: ${channels}
+Размер до: ${(originalSize / 1024 / 1024).toFixed(2)} MB
+Размер после: ${(processedSize / 1024 / 1024).toFixed(2)} MB`;
 
       const activeSegments = Math.round(((i + 1) / files.length) * segments);
       document.querySelectorAll('.progress-segment').forEach((seg, index) => {
@@ -365,8 +364,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
   });
 
-  selectButton.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
+  // 👇 Клик по зоне вызывает выбор файлов
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) processFiles(fileInput.files);
+  });
 });
 </script>
 </body>
