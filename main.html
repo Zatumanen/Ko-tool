@@ -148,10 +148,12 @@
         <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
-      <div class="drop-zone">
-        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" style="display:none;">
-        <span id="drop-text">DRAG AND DROP TO UPLOAD AN AUDIO FILE</span>
-      </div>
+      <div class="drop-zone" id="drop-zone">
+  <span>DRAG AND DROP TO UPLOAD AN AUDIO FILE</span>
+</div>
+
+<!-- ВНЕ drop-zone: -->
+<input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" style="display:none;">
       <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Audio File</button>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
