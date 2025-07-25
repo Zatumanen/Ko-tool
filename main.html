@@ -111,20 +111,20 @@
     }
 
     #win95-loader {
-      position: absolute;
-      top: 30%;
-      left: 50%;
-      transform: translate(-50%, -30%);
-      width: 320px;
-      padding: 10px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      z-index: 999;
-      display: none;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      color: #000;
-    }
+  position: fixed; /* фиксировано к экрану */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  padding: 10px;
+  background: #c0c0c0;
+  border: 2px solid #000;
+  z-index: 1000; /* выше overlay и всего остального */
+  display: none;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #000;
+}
 
     .progress-bar-container {
       background: #fff;
