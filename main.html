@@ -376,7 +376,7 @@
         if (audioContext) audioContext.close().catch(err => console.error('Ошибка закрытия AudioContext:', err));
       });
     });
-   <script>
+     <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
@@ -573,11 +573,11 @@
       // Обработка кнопки выбора файла
       selectButton.addEventListener('click', () => {
         console.log('Кнопка "Select File" нажата');
-        if (fileInput) {
+        if (fileInput && !fileInput.disabled) {
           fileInput.click();
           console.log('Вызов fileInput.click() выполнен');
         } else {
-          console.error('fileInput не найден');
+          console.error('fileInput не найден или отключен:', { fileInput, disabled: fileInput?.disabled });
         }
       });
 
