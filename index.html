@@ -1,239 +1,78 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>KO II Audio Tool</title>
+  <meta charset="UTF-8">
+  <title>K.O. II TOOL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     body {
-      background: #fff;
-      font-family: 'Courier New', monospace;
-      color: #000;
       margin: 0;
-      padding: 20px;
+      background: #222;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
+      font-family: 'Press Start 2P', monospace;
+      cursor: pointer;
     }
-    .window {
-      width: 400px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
-      padding: 10px;
-    }
-    .title-bar {
-      background: #000080;
-      color: #fff;
-      padding: 2px 5px;
-      font-size: 12px;
+
+    .crt {
+      background: linear-gradient(to bottom, #fff 0%, #eee 50%, #ddd 100%);
+      border: 16px solid #a39b8c;
+      border-radius: 20px;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+      padding: 40px;
+      width: 90vw;
+      max-width: 700px;
+      height: 400px;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      justify-content: center;
       align-items: center;
-    }
-    .title-bar button {
-      width: 15px;
-      height: 15px;
-      border: none;
-      background: #c0c0c0;
-      cursor: pointer;
-    }
-    .title-bar .minimize { background: #fff; }
-    .title-bar .close { background: #ff0000; }
-    .content {
-      padding: 10px;
-      color: #000;
-    }
-    .options {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .options label {
-      font-size: 14px;
-      margin: 0;
-    }
-    .options input[type="radio"] {
-      margin-right: 5px;
-      transform: scale(1.2);
-    }
-    .settings {
-      margin-top: 10px;
-      padding: 5px;
-      background: #2d7038;
-      color: #000;
-    }
-    .settings label {
-      display: block;
-      font-size: 14px;
-      margin: 5px 0;
-    }
-    .slider {
-      width: 100%;
-      appearance: none;
-      height: 10px;
-      background: #000;
-      outline: none;
-    }
-    .slider::-webkit-slider-thumb {
-      appearance: none;
-      width: 15px;
-      height: 15px;
-      background: #ffd700;
-      cursor: pointer;
-    }
-    .drop-zone {
-      border: 2px dashed #000;
-      padding: 10px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.3);
-      margin-top: 10px;
       position: relative;
-      overflow: hidden;
     }
-    .drop-zone.dragover {
-      background: rgba(255, 255, 255, 0.5);
-      border-color: #ffd700;
-    }
-    .drop-zone input[type="file"] {
+
+    .crt::after {
+      content: "K.O. II TOOL";
       position: absolute;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
+      bottom: 10px;
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.3);
     }
-    .drop-zone span {
-      pointer-events: none;
+
+    h1 {
+      font-size: 36px;
+      letter-spacing: 6px;
+      color: black;
+      text-shadow: 1px 1px #fff, 2px 2px #000, 3px 3px #000;
     }
-    @media (max-width: 480px) {
-      .window {
-        width: 90%;
-      }
-      .options {
-        grid-template-columns: 1fr;
-      }
+
+    .start-text {
+      margin-top: 30px;
+      font-size: 14px;
+      color: black;
+      text-shadow: 1px 1px #fff, 2px 2px #000;
+      animation: blink 1s step-start infinite;
+    }
+
+    .copyright {
+      margin-top: 40px;
+      font-size: 10px;
+      color: #000;
+      text-shadow: 1px 1px #fff, 2px 2px #000;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
     }
   </style>
 </head>
-<body>
-  <div class="window">
-    <div class="title-bar">
-      <span>KO II Audio Tool</span>
-      <div>
-        <button class="minimize">-</button>
-        <button class="close">X</button>
-      </div>
-    </div>
-    <div class="content">
-      <div class="options">
-        <div>
-          <label>FIDELITY</label><br>
-          <input type="radio" name="fidelity" value="cd"> CD (16/46)<br>
-          <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
-          <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
-          <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
-        </div>
-        <div>
-          <label>CHANNELS</label><br>
-          <input type="radio" name="channels" value="stereo"> Stereo<br>
-          <input type="radio" name="channels" value="mono"> Mono<br>
-          <label>PLAYMODE</label><br>
-          <input type="radio" name="playmode" value="oneshot"> Oneshot<br>
-          <input type="radio" name="playmode" value="key"> Key<br>
-          <input type="radio" name="playmode" value="legato"> Legato
-        </div>
-      </div>
-      <div class="settings">
-        <label>EP-133 KO II SETTINGS</label>
-        <label>Pitch <input type="range" class="slider" min="0" max="127" value="64"></label>
-        <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
-      </div>
-      <div class="drop-zone">
-        <input type="file" accept=".mp3,audio/*" id="audio-upload">
-        <span>DRAG AND DROP OR CLICK TO UPLOAD AN AUDIO FILE</span>
-      </div>
-      <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
-      <button id="play-button" style="width:100%;margin-top:10px;display:none;">Play</button>
-    </div>
+<body onclick="location.href='main.html'">
+  <div class="crt">
+    <h1>K.O. II TOOL</h1>
+    <div class="start-text">› PRESS START</div>
+    <div class="copyright">© 2024 &nbsp; K.O. II TOOL</div>
   </div>
-
-  <script>
-    const dropZone = document.querySelector('.drop-zone');
-    const fileInput = document.getElementById('audio-upload');
-    const player = document.getElementById('player');
-    const playButton = document.getElementById('play-button');
-
-    // Обработка drag-and-drop
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        fileInput.files = files; // Присваиваем файлы к input
-        handleFileSelect({ target: fileInput }); // Вызываем обработчик
-      }
-    });
-
-    // Обработка клика и touch
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      fileInput.click();
-    }, { passive: false });
-
-    // Обработка выбора файла
-    function handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (file) {
-        try {
-          const url = URL.createObjectURL(file);
-          if (file.type.startsWith('audio/')) {
-            player.src = url;
-            player.load();
-            player.style.display = 'block';
-            playButton.style.display = 'block';
-            dropZone.querySelector('span').textContent = `Загружен: ${file.name}`;
-          } else {
-            alert('Пожалуйста, выберите .mp3 или другой аудиофайл.');
-            fileInput.value = '';
-          }
-        } catch (error) {
-          console.error('Ошибка загрузки:', error);
-          alert('Ошибка загрузки файла: ' + error.message);
-          fileInput.value = '';
-        }
-      }
-    }
-
-    fileInput.addEventListener('change', handleFileSelect);
-
-    // Обработка кнопки Play
-    playButton.addEventListener('click', () => {
-      player.playbackRate = 2.0;
-      player.play().then(() => {
-        console.log('Воспроизведение начато');
-        playButton.style.display = 'none';
-      }).catch(error => {
-        console.error('Ошибка воспроизведения:', error);
-        alert('Ошибка воспроизведения: ' + error.message);
-      });
-    });
-
-    // Остановка и очистка при закрытии
-    window.addEventListener('unload', () => {
-      player.pause();
-      if (player.src) URL.revokeObjectURL(player.src);
-    });
-  </script>
 </body>
 </html>
