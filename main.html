@@ -372,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Мгновенно заполняем оставшиеся сегменты, если есть незаполненные
 const segments = document.querySelectorAll('.progress-segment');
 segments.forEach(seg => seg.classList.add('active'));
+        segments.forEach(seg => seg.classList.add('active'));
     setTimeout(() => {
       overlay.style.display = 'none';
       loader.style.display = 'none';
