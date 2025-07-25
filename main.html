@@ -159,7 +159,141 @@
     </div>
   </div>
 <script>
-// JavaScript код будет добавлен на следующем шаге
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('audio-upload');
+  const player = document.getElementById('player');
+  const selectButton = document.getElementById('select-file-button');
+  const channelOptions = document.querySelectorAll('input[name="channels"]');
+
+  let audioContext;
+
+  function initAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContext;
+  }
+
+  async function convertAudioChannels(audioBuffer, channels) {
+    const context = initAudioContext();
+    const offlineContext = new OfflineAudioContext(
+      channels === 'mono' ? 1 : 2,
+      audioBuffer.length,
+      audioBuffer.sampleRate
+    );
+
+    const source = offlineContext.createBufferSource();
+    source.buffer = audioBuffer;
+
+    if (channels === 'mono') {
+      const splitter = offlineContext.createChannelSplitter(audioBuffer.numberOfChannels);
+      const merger = offlineContext.createChannelMerger(1);
+      source.connect(splitter);
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        splitter.connect(merger, i, 0);
+      }
+      merger.connect(offlineContext.destination);
+    } else {
+      source.connect(offlineContext.destination);
+    }
+
+    source.start();
+    return await offlineContext.startRendering();
+  }
+
+  function audioBufferToWav(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length;
+
+    const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
+    const view = new DataView(bufferArray);
+
+    const writeString = (view, offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + length * 2 * numChannels, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, length * 2 * numChannels, true);
+
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 0x7FFF;
+        view.setInt16(offset, sample, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+  }
+
+  async function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const context = initAudioContext();
+      const audioBuffer = await context.decodeAudioData(arrayBuffer);
+      const selectedChannel = Array.from(channelOptions).find(opt => opt.checked)?.value || 'stereo';
+      const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
+      const wavBlob = audioBufferToWav(convertedBuffer);
+
+      player.src = URL.createObjectURL(wavBlob);
+      player.playbackRate = 2.0;
+      player.load();
+      player.style.display = 'block';
+
+      dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x, ${selectedChannel})`;
+    } catch (error) {
+      console.error('Ошибка обработки:', error);
+      alert('Ошибка: ' + error.message);
+      player.style.display = 'none';
+      if (player.src) URL.revokeObjectURL(player.src);
+    }
+  }
+
+  // Drag & Drop
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      handleFileSelect({ target: fileInput });
+    }
+  });
+
+  // 🟢 FIX: Селектор файла
+  selectButton.addEventListener('click', () => {
+    fileInput.click(); // теперь работает
+  });
+
+  fileInput.addEventListener('change', handleFileSelect);
+});
 </script>
 </body>
 </html>
