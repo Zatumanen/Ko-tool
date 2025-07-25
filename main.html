@@ -136,11 +136,7 @@
         <div>
           <label>CHANNELS</label><br>
           <input type="radio" name="channels" value="stereo" checked> Stereo<br>
-          <input type="radio" name="channels" value="mono"> Mono<br>
-          <label>PLAYMODE</label><br>
-          <input type="radio" name="playmode" value="oneshot" checked> Oneshot<br>
-          <input type="radio" name="playmode" value="key"> Key<br>
-          <input type="radio" name="playmode" value="legato"> Legato
+          <input type="radio" name="channels" value="mono"> Mono
         </div>
       </div>
       <div class="settings">
@@ -148,19 +144,18 @@
         <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
-      <div class="drop-zone" id="drop-zone">
-  <span>DRAG AND DROP TO UPLOAD AN AUDIO FILE</span>
-</div>
-
-<!-- ВНЕ drop-zone: -->
-<input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" style="display:none;">
+      <div class="drop-zone">
+        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" style="display:none;">
+        <span>DRAG AND DROP TO UPLOAD AN AUDIO FILE</span>
+      </div>
       <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Audio File</button>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const dropZone = document.getElementById('drop-zone');
+  const dropZone = document.querySelector('.drop-zone');
   const fileInput = document.getElementById('audio-upload');
   const player = document.getElementById('player');
   const selectButton = document.getElementById('select-file-button');
@@ -175,31 +170,50 @@ document.addEventListener('DOMContentLoaded', () => {
     return audioContext;
   }
 
-  async function convertAudioChannels(audioBuffer, channels) {
+  function getDownsampleRate(fidelity, originalRate) {
+    switch (fidelity) {
+      case 'sp8': return 10000;
+      case 'sp16': return 16000;
+      case 'sk': return 9000;
+      default: return originalRate;
+    }
+  }
+
+  async function convertAudioChannels(buffer, mode) {
     const context = initAudioContext();
-    const offlineContext = new OfflineAudioContext(
-      channels === 'mono' ? 1 : 2,
-      audioBuffer.length,
-      audioBuffer.sampleRate
+    const offlineCtx = new OfflineAudioContext(
+      mode === 'mono' ? 1 : 2,
+      buffer.length,
+      buffer.sampleRate
     );
+    const src = offlineCtx.createBufferSource();
+    src.buffer = buffer;
 
-    const source = offlineContext.createBufferSource();
-    source.buffer = audioBuffer;
-
-    if (channels === 'mono') {
-      const splitter = offlineContext.createChannelSplitter(audioBuffer.numberOfChannels);
-      const merger = offlineContext.createChannelMerger(1);
-      source.connect(splitter);
-      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+    if (mode === 'mono' && buffer.numberOfChannels > 1) {
+      const splitter = offlineCtx.createChannelSplitter(buffer.numberOfChannels);
+      const merger = offlineCtx.createChannelMerger(1);
+      src.connect(splitter);
+      for (let i = 0; i < buffer.numberOfChannels; i++) {
         splitter.connect(merger, i, 0);
       }
-      merger.connect(offlineContext.destination);
+      merger.connect(offlineCtx.destination);
     } else {
-      source.connect(offlineContext.destination);
+      src.connect(offlineCtx.destination);
     }
 
-    source.start();
-    return await offlineContext.startRendering();
+    src.start();
+    return await offlineCtx.startRendering();
+  }
+
+  async function applySpeedAndFidelity(buffer, speed, sampleRate) {
+    const length = Math.floor(buffer.length / speed);
+    const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
+    const src = offlineCtx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = speed;
+    src.connect(offlineCtx.destination);
+    src.start();
+    return await offlineCtx.startRendering();
   }
 
   function audioBufferToWav(buffer) {
@@ -210,11 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
     const view = new DataView(bufferArray);
 
-    const writeString = (view, offset, string) => {
+    function writeString(view, offset, string) {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
       }
-    };
+    }
 
     writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + length * 2 * numChannels, true);
@@ -233,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 0x7FFF;
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
         view.setInt16(offset, sample, true);
         offset += 2;
       }
@@ -250,26 +264,30 @@ document.addEventListener('DOMContentLoaded', () => {
       const arrayBuffer = await file.arrayBuffer();
       const context = initAudioContext();
       const audioBuffer = await context.decodeAudioData(arrayBuffer);
-      const selectedChannel = Array.from(channelOptions).find(opt => opt.checked)?.value || 'stereo';
-      const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
-      const wavBlob = audioBufferToWav(convertedBuffer);
+
+      const channel = document.querySelector('input[name="channels"]:checked')?.value || 'stereo';
+      const fidelity = document.querySelector('input[name="fidelity"]:checked')?.value || 'cd';
+      const converted = await convertAudioChannels(audioBuffer, channel);
+      const rate = getDownsampleRate(fidelity, converted.sampleRate);
+      const speed = 2.0;
+
+      const processed = await applySpeedAndFidelity(converted, speed, rate);
+      const wavBlob = audioBufferToWav(processed);
 
       player.src = URL.createObjectURL(wavBlob);
-      player.playbackRate = 2.0;
       player.load();
+      player.playbackRate = 1.0;
       player.style.display = 'block';
 
-      dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x, ${selectedChannel})`;
-    } catch (error) {
-      console.error('Ошибка обработки:', error);
-      alert('Ошибка: ' + error.message);
-      player.style.display = 'none';
-      if (player.src) URL.revokeObjectURL(player.src);
+      dropZone.querySelector('span').textContent = `Загружен: ${file.name} (${channel}, ${fidelity}, 2x)`;
+
+    } catch (err) {
+      alert('Ошибка: ' + err.message);
+      console.error(err);
     }
   }
 
-  // Drag & Drop
-  dropZone.addEventListener('dragover', e => {
+  dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
   });
@@ -278,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.classList.remove('dragover');
   });
 
-  dropZone.addEventListener('drop', e => {
+  dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
     if (e.dataTransfer.files.length > 0) {
@@ -287,9 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 🟢 FIX: Селектор файла
   selectButton.addEventListener('click', () => {
-    fileInput.click(); // теперь работает
+    fileInput.click();
   });
 
   fileInput.addEventListener('change', handleFileSelect);
