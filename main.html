@@ -157,23 +157,55 @@
   </div>
 
   <script>
-    // Ждем загрузки DOM
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const player = document.getElementById('player');
-      const pitchSlider = document.getElementById('pitch-slider');
-      const releaseSlider = document.getElementById('release-slider');
 
-      // Функция обработки файла
+      // Обработка drag-and-drop
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+        console.log('Drag over detected');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+        console.log('Drag leave detected');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        console.log('Drop detected');
+        if (e.dataTransfer.files.length > 0) {
+          fileInput.files = e.dataTransfer.files;
+          handleFileSelect({ target: fileInput });
+        }
+      });
+
+      // Обработка клика и touch
+      dropZone.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Click detected');
+        fileInput.click();
+      });
+
+      dropZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        console.log('Touch detected');
+        fileInput.click();
+      }, { passive: false });
+
+      // Обработка файла
       function handleFileSelect(event) {
-        const file = event.target.files ? event.target.files[0] : event.dataTransfer.files[0];
+        const file = event.target.files[0];
         if (file) {
           try {
             const url = URL.createObjectURL(file);
             player.src = url;
-            player.load(); // Загружаем файл
-            player.playbackRate = 2.0; // Устанавливаем ускорение в 2 раза
+            player.load();
+            player.playbackRate = 2.0; // Ускорение в 2 раза
             player.style.display = 'block';
             player.play().then(() => {
               console.log('Воспроизведение начато');
@@ -191,32 +223,6 @@
         }
       }
 
-      // Drag-and-drop события
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-      });
-
-      dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('dragover');
-      });
-
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-          handleFileSelect(e);
-        }
-      });
-
-      // Клик и touch события
-      dropZone.addEventListener('click', () => fileInput.click());
-      dropZone.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        fileInput.click();
-      }, { passive: false });
-
-      // Обработка выбора файла через input
       fileInput.addEventListener('change', handleFileSelect);
 
       // Очистка ресурсов
