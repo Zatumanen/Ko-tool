@@ -157,17 +157,109 @@
     </div>
   </div>
 
-    <script>
+      <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const player = document.getElementById('player');
       const selectButton = document.getElementById('select-file-button');
+      const channelOptions = document.querySelectorAll('input[name="channels"]');
 
       // Проверка доступности элементов
       if (!dropZone || !fileInput || !player || !selectButton) {
         console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton });
         return;
+      }
+
+      let audioContext;
+      let sourceNode;
+
+      // Инициализация AudioContext
+      function initAudioContext() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioContext;
+      }
+
+      // Функция конвертации аудио в моно или стерео
+      async function convertAudioChannels(audioBuffer, channels) {
+        const context = initAudioContext();
+        const offlineContext = new OfflineAudioContext(
+          channels === 'mono' ? 1 : 2, // Количество каналов
+          audioBuffer.length,
+          audioBuffer.sampleRate
+        );
+
+        const offlineSource = offlineContext.createBufferSource();
+        offlineSource.buffer = audioBuffer;
+
+        const merger = offlineContext.createChannelMerger(channels === 'mono' ? 1 : 2);
+        offlineSource.connect(merger);
+
+        if (channels === 'mono') {
+          // Для моно объединяем все каналы в один
+          const splitter = offlineContext.createChannelSplitter(2);
+          merger.connect(splitter);
+          const merger2 = offlineContext.createChannelMerger(1);
+          for (let i = 0; i < 2; i++) {
+            splitter.connect(merger2, i, 0);
+          }
+          merger2.connect(offlineContext.destination);
+        } else {
+          // Для стерео сохраняем или дублируем каналы
+          merger.connect(offlineContext.destination);
+        }
+
+        offlineSource.start(0);
+        const renderedBuffer = await offlineContext.startRendering();
+        return renderedBuffer;
+      }
+
+      // Обработка файла
+      async function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const context = initAudioContext();
+            const audioBuffer = await context.decodeAudioData(arrayBuffer);
+
+            // Определяем выбранный канал
+            const selectedChannel = Array.from(channelOptions)
+              .find(option => option.checked)?.value || 'stereo';
+
+            // Конвертируем аудио
+            const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
+
+            // Создаем новый источник для воспроизведения
+            if (sourceNode) sourceNode.stop();
+            sourceNode = context.createBufferSource();
+            sourceNode.buffer = convertedBuffer;
+            sourceNode.playbackRate.value = 2.0; // Ускорение в 2 раза
+            sourceNode.connect(context.destination);
+            sourceNode.start(0);
+
+            // Обновляем плеер для контроля
+            const audioUrl = URL.createObjectURL(new Blob([await convertedBuffer.arrayBuffer]));
+            player.src = audioUrl;
+            player.load();
+            player.style.display = 'block';
+            player.playbackRate = 2.0; // Синхронизация скорости
+            player.play().then(() => {
+              console.log('Воспроизведение начато');
+              dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x скорость, ${selectedChannel})`;
+            }).catch(error => {
+              console.error('Ошибка воспроизведения:', error);
+              alert('Ошибка воспроизведения: ' + error.message);
+              player.style.display = 'none';
+            });
+          } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            alert('Ошибка загрузки файла: ' + error.message);
+            fileInput.value = '';
+          }
+        }
       }
 
       // Обработка drag-and-drop
@@ -198,40 +290,16 @@
         fileInput.click();
       });
 
-      // Обработка файла
-      function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file) {
-          try {
-            const url = URL.createObjectURL(file);
-            player.src = url;
-            player.load();
-            player.playbackRate = 2.0; // Ускорение в 2 раза
-            player.style.display = 'block';
-            player.play().then(() => {
-              console.log('Воспроизведение начато');
-              dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x скорость)`;
-            }).catch(error => {
-              console.error('Ошибка воспроизведения:', error);
-              alert('Ошибка воспроизведения: ' + error.message);
-              player.style.display = 'none';
-            });
-          } catch (error) {
-            console.error('Ошибка загрузки:', error);
-            alert('Ошибка загрузки файла: ' + error.message);
-            fileInput.value = '';
-          }
-        }
-      }
-
       fileInput.addEventListener('change', handleFileSelect);
 
       // Очистка ресурсов
       window.addEventListener('beforeunload', () => {
         if (player.src) {
           player.pause();
+          if (sourceNode) sourceNode.stop();
           URL.revokeObjectURL(player.src);
         }
+        if (audioContext) audioContext.close();
       });
     });
   </script>
