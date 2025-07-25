@@ -157,7 +157,7 @@
     </div>
   </div>
 
-            <script>
+  <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
@@ -217,26 +217,23 @@
 
         offlineSource.start(0);
         const renderedBuffer = await offlineContext.startRendering();
-        console.log('Аудио сконвертировано:', { channels, duration: renderedBuffer.duration });
+        console.log('Аудио сконвертировано:', { channels, duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
         return renderedBuffer;
       }
 
-      // Функция для экспорта AudioBuffer в WAV Blob
+      // Функция для экспорта AudioBuffer в WAV Blob с поддержкой нескольких каналов
       function audioBufferToWav(buffer) {
         const numChannels = buffer.numberOfChannels;
         const sampleRate = buffer.sampleRate;
         const length = buffer.length;
-        const data = new Float32Array(length * numChannels);
-        for (let i = 0; i < numChannels; i++) {
-          data.set(buffer.getChannelData(i), i * length);
-        }
+        const dataLength = length * 2; // 16-bit samples
 
-        const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
+        const bufferArray = new ArrayBuffer(44 + dataLength * numChannels);
         const view = new DataView(bufferArray);
 
         // Заголовок WAV
         writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + length * 2 * numChannels, true);
+        view.setUint32(4, 36 + dataLength * numChannels, true);
         writeString(view, 8, 'WAVE');
         writeString(view, 12, 'fmt ');
         view.setUint32(16, 16, true);
@@ -247,13 +244,16 @@
         view.setUint16(32, numChannels * 2, true); // Block align
         view.setUint16(34, 16, true); // Bits per sample
         writeString(view, 36, 'data');
-        view.setUint32(40, length * 2 * numChannels, true);
+        view.setUint32(40, dataLength * numChannels, true);
 
-        // Запись данных
-        const audioData = buffer.getChannelData(0);
-        for (let i = 0; i < length; i++) {
-          const sample = Math.max(-1, Math.min(1, audioData[i])) * 32767;
-          view.setInt16(44 + i * 2, sample, true);
+        // Запись данных для каждого канала
+        for (let channel = 0; channel < numChannels; channel++) {
+          const audioData = buffer.getChannelData(channel);
+          for (let i = 0; i < length; i++) {
+            const sample = Math.max(-1, Math.min(1, audioData[i])) * 32767;
+            const offset = 44 + (channel * length + i) * 2;
+            view.setInt16(offset, sample, true);
+          }
         }
 
         return new Blob([bufferArray], { type: 'audio/wav' });
