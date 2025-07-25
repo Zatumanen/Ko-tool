@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loader.style.display = 'block';
 
     const context = initAudioContext();
-    const totalSegments = 40;
+    const totalSegments = 50;
     const segmentsPerFile = files.length === 1 ? totalSegments : Math.floor(totalSegments / files.length);;
     segmentContainer.innerHTML = '';
     fileInfo.innerHTML = '';
