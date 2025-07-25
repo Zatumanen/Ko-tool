@@ -376,7 +376,130 @@
         if (audioContext) audioContext.close().catch(err => console.error('Ошибка закрытия AudioContext:', err));
       });
     });
-  </script>
+   <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const dropZone = document.querySelector('.drop-zone');
+      const fileInput = document.getElementById('audio-upload');
+      const player = document.getElementById('player');
+      const selectButton = document.getElementById('select-file-button');
+      const channelOptions = document.querySelectorAll('input[name="channels"]');
+      const stereoOption = document.querySelector('input[value="stereo"]');
+
+      // Проверка доступности элементов
+      if (!dropZone || !fileInput || !player || !selectButton || !stereoOption) {
+        console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton, stereoOption });
+        return;
+      }
+
+      let audioContext;
+      let originalChannels = null;
+
+      // Инициализация AudioContext с проверкой
+      function initAudioContext() {
+        if (!audioContext) {
+          if (typeof (window.AudioContext || window.webkitAudioContext) !== 'function') {
+            console.error('Web Audio API не поддерживается');
+            alert('Ваш браузер не поддерживает Web Audio API.');
+            return null;
+          }
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioContext;
+      }
+
+      // Функция конвертации аудио в моно или стерео
+      async function convertAudioChannels(audioBuffer, targetChannels) {
+        const context = initAudioContext();
+        if (!context) return null;
+
+        // Конвертируем только если нужно изменить каналы
+        if (targetChannels === 'mono' && audioBuffer.numberOfChannels > 1) {
+          const offlineContext = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+          console.log('Конвертация в моно:', { length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
+
+          const offlineSource = offlineContext.createBufferSource();
+          offlineSource.buffer = audioBuffer;
+
+          const splitter = offlineContext.createChannelSplitter(audioBuffer.numberOfChannels);
+          const merger = offlineContext.createChannelMerger(1);
+          offlineSource.connect(splitter);
+          for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+            splitter.connect(merger, i, 0);
+          }
+          merger.connect(offlineContext.destination);
+
+          offlineSource.start(0);
+          const renderedBuffer = await offlineContext.startRendering();
+          console.log('Аудио сконвертировано в моно:', { duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
+          return renderedBuffer;
+        } else if (targetChannels === 'stereo' && audioBuffer.numberOfChannels === 1) {
+          const offlineContext = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
+          console.log('Конвертация в стерео:', { length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
+
+          const offlineSource = offlineContext.createBufferSource();
+          offlineSource.buffer = audioBuffer;
+
+          const splitter = offlineContext.createChannelSplitter(1);
+          const merger = offlineContext.createChannelMerger(2);
+          offlineSource.connect(splitter);
+          splitter.connect(merger, 0, 0);
+          splitter.connect(merger, 0, 1);
+          merger.connect(offlineContext.destination);
+
+          offlineSource.start(0);
+          const renderedBuffer = await offlineContext.startRendering();
+          console.log('Аудио сконвертировано в стерео:', { duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
+          return renderedBuffer;
+        } else {
+          console.log('Каналы уже соответствуют, возвращаем оригинал:', { currentChannels: audioBuffer.numberOfChannels, targetChannels, length: audioBuffer.length });
+          return audioBuffer; // Возвращаем оригинальный буфер без изменений
+        }
+      }
+
+      // Функция для экспорта AudioBuffer в WAV Blob с поддержкой нескольких каналов
+      function audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const length = buffer.length;
+        const dataLength = length * 2; // 16-bit samples
+
+        const bufferArray = new ArrayBuffer(44 + dataLength * numChannels);
+        const view = new DataView(bufferArray);
+
+        // Заголовок WAV
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + dataLength * numChannels, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true); // PCM
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2 * numChannels, true); // Byte rate
+        view.setUint16(32, numChannels * 2, true); // Block align
+        view.setUint16(34, 16, true); // Bits per sample
+        writeString(view, 36, 'data');
+        view.setUint32(40, dataLength * numChannels, true);
+
+        // Запись данных для каждого канала
+        for (let channel = 0; channel < numChannels; channel++) {
+          const audioData = buffer.getChannelData(channel);
+          for (let i = 0; i < length; i++) {
+            const sample = Math.max(-1, Math.min(1, audioData[i])) * 32767;
+            const offset = 44 + (channel * length + i) * 2;
+            view.setInt16(offset, sample, true);
+          }
+        }
+
+        console.log('WAV создан:', { numChannels, length, dataLength });
+        return new Blob([bufferArray], { type: 'audio/wav' });
+      }
+
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      }
 
       // Обработка файла
       async function handleFileSelect(event) {
@@ -398,7 +521,7 @@
           console.log('Аудио декодировано:', { channels: audioBuffer.numberOfChannels, duration: audioBuffer.duration });
 
           originalChannels = audioBuffer.numberOfChannels;
-          // Отключаем "Stereo", если исходный файл моно (опционально, можно убрать)
+          // Отключаем "Stereo", если исходный файл моно
           stereoOption.disabled = originalChannels === 1;
 
           const selectedChannel = Array.from(channelOptions)
@@ -414,10 +537,7 @@
           player.load();
           player.playbackRate = 2.0; // Ускорение в 2 раза
           player.style.display = 'block';
-          await player.play().catch(error => {
-            console.error('Ошибка воспроизведения:', error);
-            alert('Ошибка воспроизведения: ' + error.message);
-          });
+          // Убираем автопроигрывание, пользователь сам нажмет Play
           dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x скорость, ${selectedChannel})`;
         } catch (error) {
           console.error('Общая ошибка обработки:', error);
@@ -452,8 +572,13 @@
 
       // Обработка кнопки выбора файла
       selectButton.addEventListener('click', () => {
-        console.log('Select button clicked');
-        fileInput.click();
+        console.log('Кнопка "Select File" нажата');
+        if (fileInput) {
+          fileInput.click();
+          console.log('Вызов fileInput.click() выполнен');
+        } else {
+          console.error('fileInput не найден');
+        }
       });
 
       fileInput.addEventListener('change', handleFileSelect);
