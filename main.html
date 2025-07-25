@@ -157,7 +157,7 @@
     </div>
   </div>
 
-  <script>
+    <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
@@ -188,28 +188,19 @@
         return audioContext;
       }
 
-      // Функция конвертации аудио в моно или стерео только при необходимости
+      // Функция конвертации аудио в моно или стерео
       async function convertAudioChannels(audioBuffer, targetChannels) {
         const context = initAudioContext();
         if (!context) return null;
 
-        if (originalChannels === audioBuffer.numberOfChannels && targetChannels === (originalChannels === 1 ? 'mono' : 'stereo')) {
-          console.log('Каналы уже соответствуют, пропускаем конвертацию');
-          return audioBuffer;
-        }
-
-        const offlineContext = new OfflineAudioContext(
-          targetChannels === 'mono' ? 1 : 2, // Целевые каналы
-          audioBuffer.length,
-          audioBuffer.sampleRate
-        );
-        console.log('OfflineContext создан:', { targetChannels, length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
-
-        const offlineSource = offlineContext.createBufferSource();
-        offlineSource.buffer = audioBuffer;
-
+        // Конвертируем только если нужно изменить каналы
         if (targetChannels === 'mono' && audioBuffer.numberOfChannels > 1) {
-          // Объединяем каналы в моно
+          const offlineContext = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+          console.log('Конвертация в моно:', { length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
+
+          const offlineSource = offlineContext.createBufferSource();
+          offlineSource.buffer = audioBuffer;
+
           const splitter = offlineContext.createChannelSplitter(audioBuffer.numberOfChannels);
           const merger = offlineContext.createChannelMerger(1);
           offlineSource.connect(splitter);
@@ -217,23 +208,33 @@
             splitter.connect(merger, i, 0);
           }
           merger.connect(offlineContext.destination);
+
+          offlineSource.start(0);
+          const renderedBuffer = await offlineContext.startRendering();
+          console.log('Аудио сконвертировано в моно:', { duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
+          return renderedBuffer;
         } else if (targetChannels === 'stereo' && audioBuffer.numberOfChannels === 1) {
-          // Дублируем моно в стерео (но отключим опцию, если моно)
+          const offlineContext = new OfflineAudioContext(2, audioBuffer.length, audioBuffer.sampleRate);
+          console.log('Конвертация в стерео:', { length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
+
+          const offlineSource = offlineContext.createBufferSource();
+          offlineSource.buffer = audioBuffer;
+
           const splitter = offlineContext.createChannelSplitter(1);
           const merger = offlineContext.createChannelMerger(2);
           offlineSource.connect(splitter);
           splitter.connect(merger, 0, 0);
           splitter.connect(merger, 0, 1);
           merger.connect(offlineContext.destination);
-        } else {
-          // Сохраняем оригинальные каналы
-          offlineSource.connect(offlineContext.destination);
-        }
 
-        offlineSource.start(0);
-        const renderedBuffer = await offlineContext.startRendering();
-        console.log('Аудио сконвертировано:', { targetChannels, duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
-        return renderedBuffer;
+          offlineSource.start(0);
+          const renderedBuffer = await offlineContext.startRendering();
+          console.log('Аудио сконвертировано в стерео:', { duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
+          return renderedBuffer;
+        } else {
+          console.log('Каналы уже соответствуют, пропускаем конвертацию:', { currentChannels: audioBuffer.numberOfChannels, targetChannels });
+          return audioBuffer; // Возвращаем оригинальный буфер, если конвертация не нужна
+        }
       }
 
       // Функция для экспорта AudioBuffer в WAV Blob с поддержкой нескольких каналов
@@ -300,16 +301,11 @@
           console.log('Аудио декодировано:', { channels: audioBuffer.numberOfChannels, duration: audioBuffer.duration });
 
           originalChannels = audioBuffer.numberOfChannels;
-          // Отключаем "Stereo", если исходный файл моно
+          // Отключаем "Stereo", если исходный файл моно (опционально, можно убрать)
           stereoOption.disabled = originalChannels === 1;
-          channelOptions.forEach(option => {
-            if (option.value === (originalChannels === 1 ? 'mono' : 'stereo')) {
-              option.checked = true;
-            }
-          });
 
           const selectedChannel = Array.from(channelOptions)
-            .find(option => option.checked)?.value || 'stereo';
+            .find(option => option.checked)?.value || (originalChannels === 1 ? 'mono' : 'stereo');
           console.log('Выбранный канал:', selectedChannel);
 
           const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
