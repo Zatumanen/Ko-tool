@@ -157,7 +157,7 @@
     </div>
   </div>
 
-        <script>
+          <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
@@ -172,7 +172,6 @@
       }
 
       let audioContext;
-      let sourceNode;
 
       // Инициализация AudioContext с проверкой
       function initAudioContext() {
@@ -228,16 +227,16 @@
         if (!file) return;
 
         try {
-          console.log('Начало обработки файла:', file.name);
+          console.log('Начало обработки файла:', file.name, file.type);
           const arrayBuffer = await file.arrayBuffer();
-          console.log('Файл декодируется:', arrayBuffer.byteLength);
+          console.log('Файл загружен в буфер:', arrayBuffer.byteLength);
 
           const context = initAudioContext();
           if (!context) throw new Error('AudioContext не инициализирован');
 
           const audioBuffer = await context.decodeAudioData(arrayBuffer).catch(err => {
-            console.error('Ошибка декодирования аудио:', err);
-            throw err;
+            console.error('Ошибка декодирования аудио:', err, file.type);
+            throw new Error(`Не удалось декодировать файл ${file.name}: ${err.message}`);
           });
           console.log('Аудио декодировано:', { channels: audioBuffer.numberOfChannels, duration: audioBuffer.duration });
 
@@ -248,31 +247,24 @@
           const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
           if (!convertedBuffer) throw new Error('Ошибка конвертации аудио');
 
-          // Остановка предыдущего источника
-          if (sourceNode) sourceNode.stop();
-
-          sourceNode = context.createBufferSource();
-          sourceNode.buffer = convertedBuffer;
-          sourceNode.playbackRate.value = 2.0; // Ускорение в 2 раза
-          sourceNode.connect(context.destination);
-          sourceNode.start(0);
-
-          // Обновление плеера
-          const audioUrl = URL.createObjectURL(new Blob([await convertedBuffer.arrayBuffer]));
-          player.src = audioUrl;
+          // Конвертируем буфер в аудиофайл и устанавливаем в плеер
+          const audioData = await convertedBuffer.arrayBuffer();
+          const blob = new Blob([audioData], { type: file.type || 'audio/mpeg' });
+          player.src = URL.createObjectURL(blob);
           player.load();
-          player.playbackRate = 2.0; // Синхронизация скорости
+          player.playbackRate = 2.0; // Ускорение в 2 раза
           player.style.display = 'block';
           await player.play().catch(error => {
             console.error('Ошибка воспроизведения:', error);
             alert('Ошибка воспроизведения: ' + error.message);
-            player.style.display = 'none';
           });
           dropZone.querySelector('span').textContent = `Загружен: ${file.name} (2x скорость, ${selectedChannel})`;
         } catch (error) {
           console.error('Общая ошибка обработки:', error);
           alert('Ошибка обработки файла: ' + error.message);
           fileInput.value = '';
+          player.style.display = 'none';
+          if (player.src) URL.revokeObjectURL(player.src);
         }
       }
 
@@ -310,7 +302,6 @@
       window.addEventListener('beforeunload', () => {
         if (player.src) {
           player.pause();
-          if (sourceNode) sourceNode.stop();
           URL.revokeObjectURL(player.src);
         }
         if (audioContext) audioContext.close().catch(err => console.error('Ошибка закрытия AudioContext:', err));
