@@ -148,19 +148,27 @@
         <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
         <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
       </div>
-      <div class="drop-zone">
-        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg">
-        <span>DRAG AND DROP OR CLICK TO UPLOAD AN AUDIO FILE</span>
+            <div class="drop-zone">
+        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" style="display:none;">
+        <span>DRAG AND DROP TO UPLOAD AN AUDIO FILE</span>
       </div>
+      <button id="select-file-button" style="width:100%; margin-top:5px; background:#c0c0c0; border:2px solid #000; color:#000; font-family:'Courier New', monospace; padding:5px; cursor:pointer;">Select Audio File</button>
       <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
 
-  <script>
+    <script>
     document.addEventListener('DOMContentLoaded', () => {
       const dropZone = document.querySelector('.drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const player = document.getElementById('player');
+      const selectButton = document.getElementById('select-file-button');
+
+      // Проверка доступности элементов
+      if (!dropZone || !fileInput || !player || !selectButton) {
+        console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton });
+        return;
+      }
 
       // Обработка drag-and-drop
       dropZone.addEventListener('dragover', (e) => {
@@ -184,18 +192,11 @@
         }
       });
 
-      // Обработка клика и touch
-      dropZone.addEventListener('click', (e) => {
-        e.preventDefault();
-        console.log('Click detected');
+      // Обработка кнопки выбора файла
+      selectButton.addEventListener('click', () => {
+        console.log('Select button clicked');
         fileInput.click();
       });
-
-      dropZone.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        console.log('Touch detected');
-        fileInput.click();
-      }, { passive: false });
 
       // Обработка файла
       function handleFileSelect(event) {
