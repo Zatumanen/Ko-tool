@@ -165,6 +165,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectButton = document.getElementById('select-file-button');
   const channelOptions = document.querySelectorAll('input[name="channels"]');
 
+  // Проверка доступности элементов
+  if (!dropZone || !fileInput || !player || !selectButton) {
+    console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton });
+    return;
+  }
+
   let audioContext;
 
   function initAudioContext() {
@@ -229,12 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
     writeString(view, 36, 'data');
     view.setUint32(40, length * 2 * numChannels, true);
 
-    // ✅ Fixed: Interleaved audio
+    // Interleaved audio
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-        view.setInt16(offset, sample * 0x7FFF, true);
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 0x7FFF;
+        view.setInt16(offset, sample, true);
         offset += 2;
       }
     }
@@ -246,19 +252,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    const arrayBuffer = await file.arrayBuffer();
-    const context = initAudioContext();
-    const audioBuffer = await context.decodeAudioData(arrayBuffer);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const context = initAudioContext();
+      const audioBuffer = await context.decodeAudioData(arrayBuffer).catch(err => {
+        console.error('Ошибка декодирования аудио:', err);
+        throw err;
+      });
 
-    const selectedChannel = Array.from(channelOptions).find(option => option.checked)?.value || 'stereo';
-    const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
-    const wavBlob = audioBufferToWav(convertedBuffer);
+      const selectedChannel = Array.from(channelOptions).find(option => option.checked)?.value || 'stereo';
+      const convertedBuffer = await convertAudioChannels(audioBuffer, selectedChannel);
+      const wavBlob = audioBufferToWav(convertedBuffer);
 
-    player.src = URL.createObjectURL(wavBlob);
-    player.playbackRate = 2.0;
-    player.style.display = 'block';
-    player.load();
-    await player.play().catch(console.error);
+      player.src = URL.createObjectURL(wavBlob);
+      player.load();
+      player.playbackRate = 2.0; // Ускорение в 2 раза
+      player.style.display = 'block';
+      // Убираем автопроигрывание, пользователь нажмет Play вручную
+    } catch (error) {
+      console.error('Общая ошибка обработки:', error);
+      alert('Ошибка обработки файла: ' + error.message);
+      fileInput.value = '';
+      player.style.display = 'none';
+      if (player.src) URL.revokeObjectURL(player.src);
+    }
   }
 
   dropZone.addEventListener('dragover', (e) => {
@@ -279,8 +296,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  selectButton.addEventListener('click', () => fileInput.click());
+  selectButton.addEventListener('click', () => {
+    console.log('Кнопка "Select File" нажата');
+    if (fileInput && !fileInput.disabled) {
+      fileInput.click();
+      console.log('Вызов fileInput.click() выполнен');
+    } else {
+      console.error('fileInput не найден или отключен:', { fileInput, disabled: fileInput?.disabled });
+    }
+  });
+
   fileInput.addEventListener('change', handleFileSelect);
+
+  // Очистка ресурсов
+  window.addEventListener('beforeunload', () => {
+    if (player.src) {
+      player.pause();
+      URL.revokeObjectURL(player.src);
+    }
+    if (audioContext) audioContext.close().catch(err => console.error('Ошибка закрытия AudioContext:', err));
+  });
 });
 </script>
 
