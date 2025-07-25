@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <title>KO II Audio Tool</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     body {
       background: #fff;
@@ -15,370 +14,358 @@
       align-items: center;
       height: 100vh;
     }
-
     .window {
-      width: 100%;
-      max-width: 400px;
+      width: 400px;
       background: #c0c0c0;
       border: 2px solid #000;
-      box-shadow: 4px 4px 12px rgba(0,0,0,0.4);
+      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
       padding: 10px;
       position: relative;
-      z-index: 1;
     }
-
     .title-bar {
       background: #000080;
       color: #fff;
-      padding: 2px 6px;
-      font-size: 13px;
+      padding: 2px 5px;
+      font-size: 12px;
       display: flex;
       justify-content: space-between;
+      align-items: center;
     }
-
     .title-bar button {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       border: none;
-      background: #ff0000;
+      background: #c0c0c0;
       cursor: pointer;
+    }
+    .title-bar .minimize { background: #fff; }
+    .title-bar .close { background: #ff0000; }
+
+    .content {
+      padding: 10px;
     }
 
     .options {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      font-size: 13px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .options label {
+      font-size: 14px;
+    }
+    .options input[type="radio"] {
+      margin-right: 5px;
+      transform: scale(1.2);
     }
 
     .settings {
       margin-top: 10px;
-      background: #2d7038;
       padding: 5px;
-      color: #000;
+      background: #2d7038;
     }
-
     .settings label {
       display: block;
-      font-size: 13px;
-      margin: 4px 0;
+      font-size: 14px;
+      margin: 5px 0;
     }
 
     .slider {
       width: 100%;
+      appearance: none;
+      height: 10px;
+      background: #000;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      background: #ffd700;
+      cursor: pointer;
     }
 
     .drop-zone {
       border: 2px dashed #000;
-      background: #e0e0e0;
+      padding: 10px;
       text-align: center;
-      padding: 12px;
+      background: rgba(255, 255, 255, 0.3);
       margin-top: 10px;
       position: relative;
       cursor: pointer;
     }
-
     .drop-zone.dragover {
-      background: #ffd;
-      border-color: #000080;
+      background: rgba(255, 255, 255, 0.5);
+      border-color: #ffd700;
     }
-
     .drop-zone span {
-      display: block;
       pointer-events: none;
+      display: block;
     }
 
     .drop-zone input[type="file"] {
       position: absolute;
-      inset: 0;
+      width: 100%;
+      height: 100%;
       opacity: 0;
       cursor: pointer;
+      top: 0;
+      left: 0;
     }
 
-    .player {
-      margin-top: 10px;
-      width: 100%;
-    }
-
-    /* Сегментированная загрузка */
     #overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 10;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 99;
+      justify-content: center;
+      align-items: center;
     }
 
-    #win95-loader {
+    #loader-box {
       background: #c0c0c0;
       border: 2px solid #000;
-      width: 300px;
       padding: 10px;
-      font-size: 13px;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      width: 300px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
     }
 
     .progress-bar-container {
-      display: flex;
-      gap: 1px;
-      margin-top: 10px;
       background: #fff;
       border: 2px inset #808080;
+      height: 18px;
+      margin-top: 8px;
+      display: flex;
+      gap: 2px;
       padding: 2px;
-      height: 20px;
     }
 
     .progress-segment {
-      width: 6px;
+      flex: 1;
       background: #c0c0c0;
+      height: 100%;
     }
-
     .progress-segment.active {
       background: #000080;
     }
 
     @media (max-width: 480px) {
-      body { padding: 10px; }
-      .window { width: 100%; }
-      .options { flex-direction: column; gap: 5px; }
+      .window {
+        width: 90%;
+      }
+      .options {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-
-<div class="window">
-  <div class="title-bar">
-    <span>KO II Audio Tool</span>
-    <button>X</button>
-  </div>
-
-  <div class="options">
-    <div>
-      <strong>FIDELITY</strong><br>
-      <input type="radio" name="fidelity" value="cd" checked> CD<br>
-      <input type="radio" name="fidelity" value="sp8"> SP-8bit<br>
-      <input type="radio" name="fidelity" value="sp16"> SP-16bit<br>
-      <input type="radio" name="fidelity" value="sk"> SK-1
+  <div class="window">
+    <div class="title-bar">
+      <span>KO II Audio Tool</span>
+      <div>
+        <button class="minimize">-</button>
+        <button class="close">X</button>
+      </div>
     </div>
-    <div>
-      <strong>CHANNELS</strong><br>
-      <input type="radio" name="channels" value="stereo" checked> Stereo<br>
-      <input type="radio" name="channels" value="mono"> Mono
-    </div>
-  </div>
-
-  <div class="settings">
-    <label>EP-133 KO II SETTINGS</label>
-    <label>Pitch <input type="range" class="slider" min="0" max="127" value="64"></label>
-    <label>Release <input type="range" class="slider" min="0" max="255" value="128"></label>
-  </div>
-
-  <div class="drop-zone" id="drop-zone">
-    <input type="file" id="file-input" accept="audio/*" multiple />
-    <span>DRAG & DROP or CLICK TO SELECT AUDIO</span>
-  </div>
-
-  <audio id="player" class="player" controls style="display:none;"></audio>
-</div>
-
-<div id="overlay">
-  <div id="win95-loader">
-    <div>Processing...</div>
-    <div id="file-info">...</div>
-    <div class="progress-bar-container" id="progress-bar">
-      <!-- Segments will be added here -->
+    <div class="content">
+      <div class="options">
+        <div>
+          <label>FIDELITY</label><br>
+          <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
+          <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
+          <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
+          <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
+        </div>
+        <div>
+          <label>CHANNELS</label><br>
+          <input type="radio" name="channels" value="stereo" checked> Stereo<br>
+          <input type="radio" name="channels" value="mono"> Mono
+        </div>
+      </div>
+      <div class="settings">
+        <label>EP-133 KO II SETTINGS</label>
+        <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
+        <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .ogg" multiple />
+        <span id="drop-message">DRAG AND DROP OR CLICK TO SELECT FILES</span>
+      </div>
+      <audio id="player" controls style="width:100%;margin-top:10px;display:none;"></audio>
     </div>
   </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const dropZone = document.getElementById('drop-zone');
-  const fileInput = document.getElementById('audio-upload');
-  const player = document.getElementById('player');
-  const selectButton = document.getElementById('select-file-button');
-  const overlay = document.getElementById('overlay');
-  const progressBar = document.getElementById('progress-bar');
-  const sizeInfo = document.getElementById('size-info');
+  <div id="overlay">
+    <div id="loader-box">
+      <div>Processing...</div>
+      <div class="progress-bar-container" id="progress-bar"></div>
+    </div>
+  </div>
 
-  const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || 'cd';
-  const initContext = () => new (window.AudioContext || window.webkitAudioContext)();
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('audio-upload');
+      const player = document.getElementById('player');
+      const dropMessage = document.getElementById('drop-message');
+      const overlay = document.getElementById('overlay');
+      const progressBar = document.getElementById('progress-bar');
 
-  const getDownsampleRate = (fidelity, originalRate) => {
-    switch (fidelity) {
-      case 'sp8': return 10000;
-      case 'sp16': return 16000;
-      case 'sk': return 9000;
-      default: return originalRate; // CD
-    }
-  };
+      function getSelectedValue(name) {
+        const el = document.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : '';
+      }
 
-  const convertChannels = async (buffer, mode) => {
-    const ctx = new OfflineAudioContext(mode === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
+      function initAudioContext() {
+        return new (window.AudioContext || window.webkitAudioContext)();
+      }
 
-    if (mode === 'mono' && buffer.numberOfChannels > 1) {
-      const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-      const merger = ctx.createChannelMerger(1);
-      src.connect(splitter);
-      for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(merger, i, 0);
-      merger.connect(ctx.destination);
-    } else {
-      src.connect(ctx.destination);
-    }
+      function getDownsampleRate(fidelity, originalRate) {
+        switch (fidelity) {
+          case 'sp8': return 10000;
+          case 'sp16': return 16000;
+          case 'sk': return 9000;
+          default: return originalRate;
+        }
+      }
 
-    src.start();
-    return await ctx.startRendering();
-  };
+      async function convertChannels(buffer, channels) {
+        const offlineCtx = new OfflineAudioContext(channels === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
+        const src = offlineCtx.createBufferSource();
+        src.buffer = buffer;
 
-  const applySpeedAndFidelity = async (buffer, speed, rate) => {
-    const length = Math.floor(buffer.length / speed);
-    const ctx = new OfflineAudioContext(buffer.numberOfChannels, length, rate);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = speed;
-    src.connect(ctx.destination);
-    src.start();
-    return await ctx.startRendering();
-  };
-
-  const audioBufferToWav = (buffer, bitDepth = 16) => {
-    const numChannels = buffer.numberOfChannels;
-    const length = buffer.length;
-    const sampleRate = buffer.sampleRate;
-    const bytesPerSample = bitDepth / 8;
-
-    const bufferArray = new ArrayBuffer(44 + length * bytesPerSample * numChannels);
-    const view = new DataView(bufferArray);
-
-    const writeString = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + length * bytesPerSample * numChannels, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
-    view.setUint16(32, numChannels * bytesPerSample, true);
-    view.setUint16(34, bitDepth, true);
-    writeString(36, 'data');
-    view.setUint32(40, length * bytesPerSample * numChannels, true);
-
-    let offset = 44;
-    const maxValue = bitDepth === 8 ? 0x7F : 0x7FFF;
-    for (let i = 0; i < length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * maxValue;
-        if (bitDepth === 8) {
-          view.setInt8(offset, sample / 256, true); // Нормализация для 8 бит
-          offset += 1;
+        if (channels === 'mono' && buffer.numberOfChannels > 1) {
+          const splitter = offlineCtx.createChannelSplitter(buffer.numberOfChannels);
+          const merger = offlineCtx.createChannelMerger(1);
+          src.connect(splitter);
+          for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(merger, i, 0);
+          merger.connect(offlineCtx.destination);
         } else {
-          view.setInt16(offset, sample, true);
-          offset += 2;
-        }
-      }
-    }
-
-    return new Blob([view], { type: 'audio/wav' });
-  };
-
-  const createSegments = (count) => {
-    progressBar.innerHTML = '';
-    for (let i = 0; i < count; i++) {
-      const seg = document.createElement('div');
-      seg.className = 'progress-segment';
-      progressBar.appendChild(seg);
-    }
-  };
-
-  const activateSegment = (index) => {
-    const segments = document.querySelectorAll('.progress-segment');
-    if (segments[index]) segments[index].classList.add('active');
-  };
-
-  async function processFiles(files) {
-    try {
-      overlay.style.display = 'flex';
-      createSegments(files.length);
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        console.log(`Обработка файла ${i + 1}/${files.length}: ${file.name}`);
-
-        const arrayBuffer = await file.arrayBuffer();
-        const ctx = initContext();
-        const decoded = await ctx.decodeAudioData(arrayBuffer).catch(err => {
-          console.error(`Ошибка декодирования ${file.name}:`, err);
-          throw err;
-        });
-
-        const fidelity = getSelectedValue('fidelity');
-        const channel = getSelectedValue('channels');
-        const converted = await convertChannels(decoded, channel);
-        const rate = getDownsampleRate(fidelity, converted.sampleRate);
-        const bitDepth = fidelity === 'sp8' || fidelity === 'sk' ? 8 : 16;
-        const speed = 2.0;
-        const processed = await applySpeedAndFidelity(converted, speed, rate);
-        const wav = audioBufferToWav(processed, bitDepth);
-        const beforeSize = (file.size / 1024).toFixed(1) + ' KB';
-        const afterSize = (wav.size / 1024).toFixed(1) + ' KB';
-
-        if (i === 0) {
-          player.src = URL.createObjectURL(wav);
-          player.style.display = 'block';
-          player.load();
-          sizeInfo.textContent = `Размер до: ${beforeSize}, после: ${afterSize}`;
+          src.connect(offlineCtx.destination);
         }
 
-        activateSegment(i);
+        src.start();
+        return await offlineCtx.startRendering();
       }
-    } catch (error) {
-      console.error('Общая ошибка обработки:', error);
-      alert('Произошла ошибка при обработке файлов: ' + error.message);
-    } finally {
-      setTimeout(() => overlay.style.display = 'none', 500);
-    }
-  }
 
-  // Проверка совместимости с iOS
-  if (!fileInput || typeof fileInput.click !== 'function') {
-    console.error('Элемент fileInput недоступен или не поддерживается');
-    alert('Загрузка файлов не поддерживается в текущем контексте. Используйте HTTPS или локальный сервер.');
-  }
+      async function applySpeedAndFidelity(buffer, speed, sampleRate) {
+        const length = Math.floor(buffer.length / speed);
+        const offlineCtx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
+        const src = offlineCtx.createBufferSource();
+        src.buffer = buffer;
+        src.playbackRate.value = speed;
+        src.connect(offlineCtx.destination);
+        src.start();
+        return await offlineCtx.startRendering();
+      }
 
-  dropZone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
+      function audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const length = buffer.length;
 
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-  });
+        const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
+        const view = new DataView(bufferArray);
 
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
-  });
+        const writeString = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + length * 2 * numChannels, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * 2, true);
+        view.setUint16(32, numChannels * 2, true);
+        view.setUint16(34, 16, true);
+        writeString(36, 'data');
+        view.setUint32(40, length * 2 * numChannels, true);
 
-  selectButton.addEventListener('click', () => {
-    console.log('Кнопка "Select Audio Files" нажата');
-    if (fileInput) {
-      fileInput.click();
-      console.log('Вызов fileInput.click() выполнен');
-    } else {
-      console.error('fileInput не найден');
-    }
-  });
+        let offset = 44;
+        for (let i = 0; i < length; i++) {
+          for (let ch = 0; ch < numChannels; ch++) {
+            const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
+            view.setInt16(offset, sample, true);
+            offset += 2;
+          }
+        }
 
-  fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
-});
-</script>
+        return new Blob([view], { type: 'audio/wav' });
+      }
+
+      async function processFiles(files) {
+        const context = initAudioContext();
+        overlay.style.display = 'flex';
+        progressBar.innerHTML = '';
+        const total = files.length;
+        const segments = 20;
+        for (let i = 0; i < segments; i++) {
+          const seg = document.createElement('div');
+          seg.classList.add('progress-segment');
+          progressBar.appendChild(seg);
+        }
+
+        for (let i = 0; i < total; i++) {
+          const file = files[i];
+          const arrayBuffer = await file.arrayBuffer();
+          const decoded = await context.decodeAudioData(arrayBuffer);
+
+          const fidelity = getSelectedValue('fidelity');
+          const channels = getSelectedValue('channels');
+          const converted = await convertChannels(decoded, channels);
+          const downRate = getDownsampleRate(fidelity, converted.sampleRate);
+          const speed = 2.0;
+          const processed = await applySpeedAndFidelity(converted, speed, downRate);
+          const wav = audioBufferToWav(processed);
+
+          if (i === 0) {
+            player.src = URL.createObjectURL(wav);
+            player.style.display = 'block';
+            player.load();
+            dropMessage.textContent = `✔ ${file.name} (${channels}, ${fidelity}, 2x)`;
+          }
+
+          const done = Math.round(((i + 1) / total) * segments);
+          [...progressBar.children].forEach((seg, idx) => {
+            seg.classList.toggle('active', idx < done);
+          });
+        }
+
+        setTimeout(() => overlay.style.display = 'none', 400);
+      }
+
+      // Drag'n'drop
+      dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          processFiles(e.dataTransfer.files);
+        }
+      });
+
+      // Click to select
+      dropZone.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+          processFiles(fileInput.files);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
