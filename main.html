@@ -188,7 +188,7 @@
         return audioContext;
       }
 
-      // Функция конвертации аудио в моно или стерео
+           // Функция конвертации аудио в моно или стерео
       async function convertAudioChannels(audioBuffer, targetChannels) {
         const context = initAudioContext();
         if (!context) return null;
@@ -232,12 +232,12 @@
           console.log('Аудио сконвертировано в стерео:', { duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
           return renderedBuffer;
         } else {
-          console.log('Каналы уже соответствуют, пропускаем конвертацию:', { currentChannels: audioBuffer.numberOfChannels, targetChannels });
-          return audioBuffer; // Возвращаем оригинальный буфер, если конвертация не нужна
+          console.log('Каналы уже соответствуют, возвращаем оригинал:', { currentChannels: audioBuffer.numberOfChannels, targetChannels, length: audioBuffer.length });
+          return audioBuffer; // Возвращаем оригинальный буфер без изменений
         }
       }
 
-      // Функция для экспорта AudioBuffer в WAV Blob с поддержкой нескольких каналов
+            // Функция для экспорта AudioBuffer в WAV Blob с поддержкой нескольких каналов
       function audioBufferToWav(buffer) {
         const numChannels = buffer.numberOfChannels;
         const sampleRate = buffer.sampleRate;
@@ -256,7 +256,7 @@
         view.setUint16(20, 1, true); // PCM
         view.setUint16(22, numChannels, true);
         view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * numChannels * 2, true); // Byte rate
+        view.setUint32(28, sampleRate * 2 * numChannels, true); // Byte rate, исправлено умножение
         view.setUint16(32, numChannels * 2, true); // Block align
         view.setUint16(34, 16, true); // Bits per sample
         writeString(view, 36, 'data');
@@ -272,12 +272,16 @@
           }
         }
 
+        console.log('WAV создан:', { numChannels, length, dataLength });
+        return new Blob([bufferArray], { type: 'audio/wav' });
+      }
+
         return new Blob([bufferArray], { type: 'audio/wav' });
       }
 
       function writeString(view, offset, string) {
         for (let i = 0; i < string.length; i++) {
-          view.setUint8(offset + i, string.charCodeAt(i));
+          view.setUint8(offset + i, stringer .charCodeAt(i));
         }
       }
 
