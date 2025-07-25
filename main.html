@@ -164,14 +164,16 @@
       const player = document.getElementById('player');
       const selectButton = document.getElementById('select-file-button');
       const channelOptions = document.querySelectorAll('input[name="channels"]');
+      const stereoOption = document.querySelector('input[value="stereo"]');
 
       // Проверка доступности элементов
-      if (!dropZone || !fileInput || !player || !selectButton) {
-        console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton });
+      if (!dropZone || !fileInput || !player || !selectButton || !stereoOption) {
+        console.error('Один или более элементов не найдены:', { dropZone, fileInput, player, selectButton, stereoOption });
         return;
       }
 
       let audioContext;
+      let originalChannels = null;
 
       // Инициализация AudioContext с проверкой
       function initAudioContext() {
@@ -186,22 +188,27 @@
         return audioContext;
       }
 
-      // Функция конвертации аудио в моно или стерео
-      async function convertAudioChannels(audioBuffer, channels) {
+      // Функция конвертации аудио в моно или стерео только при необходимости
+      async function convertAudioChannels(audioBuffer, targetChannels) {
         const context = initAudioContext();
         if (!context) return null;
 
+        if (originalChannels === audioBuffer.numberOfChannels && targetChannels === (originalChannels === 1 ? 'mono' : 'stereo')) {
+          console.log('Каналы уже соответствуют, пропускаем конвертацию');
+          return audioBuffer;
+        }
+
         const offlineContext = new OfflineAudioContext(
-          channels === 'mono' ? 1 : 2, // Количество каналов
+          targetChannels === 'mono' ? 1 : 2, // Целевые каналы
           audioBuffer.length,
           audioBuffer.sampleRate
         );
-        console.log('OfflineContext создан:', { channels, length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
+        console.log('OfflineContext создан:', { targetChannels, length: audioBuffer.length, sampleRate: audioBuffer.sampleRate });
 
         const offlineSource = offlineContext.createBufferSource();
         offlineSource.buffer = audioBuffer;
 
-        if (channels === 'mono' && audioBuffer.numberOfChannels > 1) {
+        if (targetChannels === 'mono' && audioBuffer.numberOfChannels > 1) {
           // Объединяем каналы в моно
           const splitter = offlineContext.createChannelSplitter(audioBuffer.numberOfChannels);
           const merger = offlineContext.createChannelMerger(1);
@@ -210,14 +217,22 @@
             splitter.connect(merger, i, 0);
           }
           merger.connect(offlineContext.destination);
+        } else if (targetChannels === 'stereo' && audioBuffer.numberOfChannels === 1) {
+          // Дублируем моно в стерео (но отключим опцию, если моно)
+          const splitter = offlineContext.createChannelSplitter(1);
+          const merger = offlineContext.createChannelMerger(2);
+          offlineSource.connect(splitter);
+          splitter.connect(merger, 0, 0);
+          splitter.connect(merger, 0, 1);
+          merger.connect(offlineContext.destination);
         } else {
-          // Сохраняем или дублируем каналы для стерео
+          // Сохраняем оригинальные каналы
           offlineSource.connect(offlineContext.destination);
         }
 
         offlineSource.start(0);
         const renderedBuffer = await offlineContext.startRendering();
-        console.log('Аудио сконвертировано:', { channels, duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
+        console.log('Аудио сконвертировано:', { targetChannels, duration: renderedBuffer.duration, numChannels: renderedBuffer.numberOfChannels });
         return renderedBuffer;
       }
 
@@ -283,6 +298,15 @@
             throw new Error(`Не удалось декодировать файл ${file.name}: ${err.message}`);
           });
           console.log('Аудио декодировано:', { channels: audioBuffer.numberOfChannels, duration: audioBuffer.duration });
+
+          originalChannels = audioBuffer.numberOfChannels;
+          // Отключаем "Stereo", если исходный файл моно
+          stereoOption.disabled = originalChannels === 1;
+          channelOptions.forEach(option => {
+            if (option.value === (originalChannels === 1 ? 'mono' : 'stereo')) {
+              option.checked = true;
+            }
+          });
 
           const selectedChannel = Array.from(channelOptions)
             .find(option => option.checked)?.value || 'stereo';
