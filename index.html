@@ -224,6 +224,7 @@
     </div>
   </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
@@ -362,6 +363,8 @@ async function processFiles(files) {
       segmentContainer.appendChild(seg);
     }
 
+    const zip = new JSZip();
+
     for (let i = 0; i < files.length; i++) {
       const startSeg = i * segmentsPerFile;
       const endSeg = Math.min(startSeg + segmentsPerFile - 1, totalSegments - 1);
@@ -379,6 +382,9 @@ async function processFiles(files) {
       const ko2Buffer = getKO2Buffer();
       const wavBlob = audioBufferToWav(processed, ko2Buffer);
 
+      const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+      zip.file(fileName, wavBlob);
+
       if (i === 0) {
         player.src = URL.createObjectURL(wavBlob);
         player.style.display = 'block';
@@ -394,6 +400,14 @@ async function processFiles(files) {
           <div>Channels: ${channels}</div>
         `;
       }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const zipUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = zipUrl;
+    a.download = "processed_ko2_audio.zip";
+    a.click();
     }
 // Мгновенно заполняем оставшиеся сегменты, если есть незаполненные
 const segments = document.querySelectorAll('.progress-segment');
