@@ -267,15 +267,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const applySpeedAndFidelity = async (buffer, speed, sampleRate) => {
-    const length = Math.floor(buffer.length / speed);
-    const ctx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.playbackRate.value = speed;
-    source.connect(ctx.destination);
-    source.start();
-    return await ctx.startRendering();
-  };
+  const duration = buffer.duration / speed;
+  const ctx = new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.playbackRate.value = speed;
+  source.connect(ctx.destination);
+  source.start();
+  return await ctx.startRendering();
+};
 
   const audioBufferToWav = (buffer, ko2Buffer) => {
     const numChannels = buffer.numberOfChannels;
