@@ -376,30 +376,8 @@ async function processFiles(files) {
       const converted = await convertChannels(decoded, channels);
       const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
       const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-      const speed = 2.0;
       const ko2Buffer = getKO2Buffer();
-      const channels = getSelectedValue('channels');
-      const fidelity = getSelectedValue('fidelity');
-
-      const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-      const bitDepth = (fidelity === 'sp8' || fidelity === 'sk') ? 8 : 16;
-
-      const originalSampleRate = converted.sampleRate;
-      const newLength = Math.floor(converted.length / speed);
-      const tempBuffer = audioCtx.createBuffer(converted.numberOfChannels, newLength, originalSampleRate);
-
-      for (let ch = 0; ch < converted.numberOfChannels; ch++) {
-        const input = converted.getChannelData(ch);
-        const output = tempBuffer.getChannelData(ch);
-        for (let i = 0; i < newLength; i++) {
-          output[i] = input[Math.floor(i * speed)];
-        }
-      }
-
-      const resampled = resampleBuffer(tempBuffer, originalSampleRate, downsampleRate);
-      const quantized = quantizeBuffer(resampled, bitDepth, audioCtx);
-
-      const wavBlob = audioBufferToWav(quantized, ko2Buffer);
+      const wavBlob = audioBufferToWav(processed, ko2Buffer);
 
       if (i === 0) {
         player.src = URL.createObjectURL(wavBlob);
@@ -445,40 +423,6 @@ segments.forEach(seg => seg.classList.add('active'));
   selectButton.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
 });
-function resampleBuffer(buffer, sampleRate, newSampleRate) {
-  const length = Math.floor(buffer.length * newSampleRate / sampleRate);
-  const newBuffer = audioCtx.createBuffer(buffer.numberOfChannels, length, newSampleRate);
-
-  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-    const input = buffer.getChannelData(ch);
-    const output = newBuffer.getChannelData(ch);
-    for (let i = 0; i < length; i++) {
-      const pos = i * sampleRate / newSampleRate;
-      const i0 = Math.floor(pos);
-      const i1 = Math.min(i0 + 1, input.length - 1);
-      const frac = pos - i0;
-      output[i] = input[i0] * (1 - frac) + input[i1] * frac;
-    }
-  }
-
-  return newBuffer;
-}
-
-function quantizeBuffer(buffer, bitDepth, audioCtx) {
-  const max = Math.pow(2, bitDepth - 1) - 1;
-  const newBuffer = audioCtx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-
-  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-    const input = buffer.getChannelData(ch);
-    const output = newBuffer.getChannelData(ch);
-    for (let i = 0; i < input.length; i++) {
-      const s = Math.max(-1, Math.min(1, input[i]));
-      output[i] = Math.round(s * max) / max;
-    }
-  }
-
-  return newBuffer;
-}
 </script>
 </body>
 </html>
