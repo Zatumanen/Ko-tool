@@ -369,8 +369,43 @@ async function processFiles(files) {
         const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
         const speed = 2.0;
         const ko2Buffer = getKO2Buffer();
-        const processed = await applySpeedAndFidelity(converted, speed, downsampleRate);
-        const wavBlob = audioBufferToWav(processed, ko2Buffer);
+        const fidelity = getSelectedValue('fidelity');
+        const channels = getSelectedValue('channels');
+        const speed = 2.0;
+
+        const sRateVal = getDownsampleRate(fidelity, converted.sampleRate);
+        const bitVal = (fidelity === 'sp8' || fidelity === 'sk') ? 8 : 16;
+
+        const x = speed;
+        const length = Math.floor(converted.length / x);
+        let newBuffer;
+
+        if (channels === 'mono') {
+            const monoData = new Float32Array(length);
+            for (let j = 0; j < length; j++) {
+                monoData[j] = (converted.getChannelData(0)[j * x] + converted.getChannelData(1 % converted.numberOfChannels)[j * x]) / 2;
+            }
+            newBuffer = new AudioContext().createBuffer(1, length, converted.sampleRate);
+            newBuffer.copyToChannel(monoData, 0);
+        } else {
+            const channelData = [];
+            for (let i = 0; i < converted.numberOfChannels; i++) {
+                const inputData = converted.getChannelData(i);
+                const newData = new Float32Array(length);
+                for (let j = 0; j < length; j++) {
+                    newData[j] = inputData[j * x];
+                }
+                channelData.push(newData);
+            }
+            newBuffer = new AudioContext().createBuffer(converted.numberOfChannels, length, converted.sampleRate);
+            for (let i = 0; i < converted.numberOfChannels; i++) {
+                newBuffer.copyToChannel(channelData[i], i);
+            }
+        }
+
+        const resampled = resampleBuffer(newBuffer, converted.sampleRate, sRateVal);
+        const quantized = quantizeBuffer(resampled, bitVal, new AudioContext());
+        const wavBlob = audioBufferToWav(quantized, ko2Buffer);
 
         if (i === 0) {
           player.src = URL.createObjectURL(wavBlob);
@@ -430,6 +465,43 @@ async function processFiles(files) {
   selectButton.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
 });
+function resampleBuffer(buffer, sampleRate, newSampleRate) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const newLength = Math.floor(buffer.length * newSampleRate / sampleRate);
+    const newBuffer = audioContext.createBuffer(buffer.numberOfChannels, newLength, newSampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        const inputData = buffer.getChannelData(channel);
+        const outputData = newBuffer.getChannelData(channel);
+
+        for (let i = 0; i < newLength; i++) {
+            const ratio = i * sampleRate / newSampleRate;
+            const index = Math.floor(ratio);
+            const frac = ratio - index;
+
+            outputData[i] = inputData[index] * (1 - frac) + inputData[index + 1] * frac;
+        }
+    }
+
+    return newBuffer;
+}
+
+function quantizeBuffer(buffer, bitDepth, audioContext) {
+    const maxValue = Math.pow(2, bitDepth) - 1;
+    const newBuffer = audioContext.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        const inputData = buffer.getChannelData(channel);
+        const outputData = newBuffer.getChannelData(channel);
+
+        for (let i = 0; i < buffer.length; i++) {
+            const quantizedValue = Math.round(inputData[i] * maxValue) / maxValue;
+            outputData[i] = quantizedValue;
+        }
+    }
+
+    return newBuffer;
+}
 </script>
 
 </body>
