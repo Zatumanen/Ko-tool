@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return await ctx.startRendering();
   };
 
-  const audioBufferToWav = (buffer) => {
+  const audioBufferToWav = (buffer, ko2Buffer) => {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
@@ -320,7 +320,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function processFiles(files) {
+  
+function getKO2Buffer() {
+  const pitch = parseInt(document.getElementById('pitch-slider').value || '64');
+  const release = parseInt(document.getElementById('release-slider').value || '128');
+
+  const settings = {
+    'sound.pitch': pitch,
+    'sound.release': release
+  };
+
+  const settingsStringified = JSON.stringify(settings);
+  const textEncoder = new TextEncoder();
+  return textEncoder.encode(settingsStringified);
+}
+
+
+async function processFiles(files) {
     try {
       overlay.style.display = 'block';
       loader.style.display = 'block';
@@ -352,8 +368,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const converted = await convertChannels(decoded, channels);
         const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
         const speed = 2.0;
+        const ko2Buffer = getKO2Buffer();
         const processed = await applySpeedAndFidelity(converted, speed, downsampleRate);
-        const wavBlob = audioBufferToWav(processed);
+        const wavBlob = audioBufferToWav(processed, ko2Buffer);
 
         if (i === 0) {
           player.src = URL.createObjectURL(wavBlob);
