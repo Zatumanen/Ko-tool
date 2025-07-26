@@ -227,6 +227,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const globalCtx = new (window.AudioContext || window.webkitAudioContext)();
+
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('audio-upload');
   const player = document.getElementById('player');
@@ -385,7 +387,7 @@ async function processFiles(files) {
             for (let j = 0; j < length; j++) {
                 monoData[j] = (converted.getChannelData(0)[j * x] + converted.getChannelData(1 % converted.numberOfChannels)[j * x]) / 2;
             }
-            newBuffer = new AudioContext().createBuffer(1, length, converted.sampleRate);
+            newBuffer = globalCtx.createBuffer(1, length, converted.sampleRate);
             newBuffer.copyToChannel(monoData, 0);
         } else {
             const channelData = [];
@@ -397,14 +399,14 @@ async function processFiles(files) {
                 }
                 channelData.push(newData);
             }
-            newBuffer = new AudioContext().createBuffer(converted.numberOfChannels, length, converted.sampleRate);
+            newBuffer = globalCtx.createBuffer(converted.numberOfChannels, length, converted.sampleRate);
             for (let i = 0; i < converted.numberOfChannels; i++) {
                 newBuffer.copyToChannel(channelData[i], i);
             }
         }
 
         const resampled = resampleBuffer(newBuffer, converted.sampleRate, sRateVal);
-        const quantized = quantizeBuffer(resampled, bitVal, new AudioContext());
+        const quantized = quantizeBuffer(resampled, bitVal, globalCtx);
         const wavBlob = audioBufferToWav(quantized, ko2Buffer);
 
         if (i === 0) {
@@ -466,7 +468,7 @@ async function processFiles(files) {
   fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
 });
 function resampleBuffer(buffer, sampleRate, newSampleRate) {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioContext = globalCtx;
     const newLength = Math.floor(buffer.length * newSampleRate / sampleRate);
     const newBuffer = audioContext.createBuffer(buffer.numberOfChannels, newLength, newSampleRate);
 
