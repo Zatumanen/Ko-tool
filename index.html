@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KO II Audio Tool</title>
@@ -224,7 +225,6 @@
     </div>
   </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
@@ -364,6 +364,7 @@ async function processFiles(files) {
     }
 
     const zip = new JSZip();
+    let firstProcessed = null;
 
     for (let i = 0; i < files.length; i++) {
       const startSeg = i * segmentsPerFile;
@@ -385,8 +386,9 @@ async function processFiles(files) {
       const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
       zip.file(fileName, wavBlob);
 
-      if (i === 0) {
-        player.src = URL.createObjectURL(wavBlob);
+      if (!firstProcessed) {
+        firstProcessed = wavBlob;
+        player.src = URL.createObjectURL(firstProcessed);
         player.style.display = 'block';
         player.load();
 
