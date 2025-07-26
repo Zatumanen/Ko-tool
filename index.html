@@ -504,6 +504,59 @@ function quantizeBuffer(buffer, bitDepth, audioContext) {
 
     return newBuffer;
 }
+function audioBufferToWav(buffer, ko2Buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const length = buffer.length;
+
+  const dataLength = length * 2 * numChannels;
+  const chunkSize = 36 + dataLength;
+  const bufferLength = 44 + dataLength + (ko2Buffer ? ko2Buffer.length + 8 : 0);
+  const wavBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(wavBuffer);
+
+  const writeString = (offset, str) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, chunkSize + (ko2Buffer ? ko2Buffer.length + 8 : 0), true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size
+  view.setUint16(20, 1, true);  // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true); // Byte rate
+  view.setUint16(32, numChannels * 2, true); // Block align
+  view.setUint16(34, 16, true); // Bits per sample
+  writeString(36, 'data');
+  view.setUint32(40, dataLength, true);
+
+  let offset = 44;
+  for (let i = 0; i < length; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = buffer.getChannelData(ch)[i];
+      const s = Math.max(-1, Math.min(1, sample));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+
+  if (ko2Buffer) {
+    writeString(offset, 'TNGE');
+    offset += 4;
+    view.setUint32(offset, ko2Buffer.length, true);
+    offset += 4;
+    for (let i = 0; i < ko2Buffer.length; i++) {
+      view.setUint8(offset++, ko2Buffer[i]);
+    }
+  }
+
+  return new Blob([view], { type: 'audio/wav' });
+}
 </script>
 
 </body>
