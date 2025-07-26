@@ -1,218 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>K.O. II AUDIO TOOL</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <title>K.O. II TOOL</title>
   <style>
     body {
       margin: 0;
-      background: #222;
-      color: #fff;
+      background: black;
+      color: #00ff00;
       font-family: 'Press Start 2P', monospace;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    .crt {
+      width: 100vw;
+      height: 100vh;
+      background: black;
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 20px;
-    }
-
-    h1 {
-      font-size: 18px;
-      margin-bottom: 20px;
-      text-shadow: 1px 1px #000;
-    }
-
-    .drop-zone {
-      width: 100%;
-      max-width: 500px;
-      border: 2px dashed #aaa;
-      padding: 40px;
-      text-align: center;
-      cursor: pointer;
-      margin-bottom: 20px;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    button {
-      font-family: inherit;
-      font-size: 10px;
-      padding: 10px 20px;
-      background: #111;
-      color: #0f0;
-      border: 1px solid #0f0;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-
-    audio {
-      margin-top: 20px;
-      width: 100%;
-      max-width: 500px;
-    }
-
-    .controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
       justify-content: center;
-      margin-bottom: 10px;
+      align-items: center;
+      font-size: 16px;
+      cursor: pointer;
+      animation: blink 1s step-start infinite;
     }
 
-    label {
+    @keyframes blink {
+      50% {
+        opacity: 0.3;
+      }
+    }
+
+    .main-interface {
+      display: none;
+      background: #c0c0c0;
+      color: black;
+      height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
+      font-size: 12px;
+    }
+
+    .title-bar {
+      background: #000080;
+      color: #fff;
+      padding: 5px 10px;
       font-size: 10px;
+    }
+
+    .panel {
+      margin-top: 20px;
+      background: white;
+      padding: 10px;
+      border: 2px solid #000;
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 10px;
+      color: black;
+    }
+
+    .panel label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 10px;
+      color: black;
     }
 
     .slider {
-      width: 100px;
+      width: 100%;
+    }
+
+    .drop-zone {
+      border: 2px dashed #000;
+      padding: 20px;
+      text-align: center;
+      background: #eee;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .drop-zone input {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>K.O. II AUDIO TOOL</h1>
-  <div class="drop-zone" id="drop-zone">DROP AUDIO FILE HERE OR CLICK</div>
-  <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" />
-  
-  <div class="controls">
-    <label>
-      Volume
-      <input type="range" id="volume" class="slider" min="0" max="2" step="0.1" value="1" />
-    </label>
-    <label>
-      Speed
-      <input type="range" id="speed" class="slider" min="0.5" max="3" step="0.1" value="2" />
-    </label>
-    <label>
-      <input type="checkbox" id="mono" />
-      Mono
-    </label>
+
+  <!-- START SCREEN -->
+  <div class="crt" id="start-screen">
+    PRESS START
   </div>
 
-  <button id="export-btn">Export WAV</button>
-  <audio controls id="player"></audio>
+  <!-- MAIN INTERFACE -->
+  <div class="main-interface" id="main-interface">
+    <div class="title-bar">K.O. II TOOL</div>
+    <div class="panel">
+      <h2>EP-133 KO II SETTINGS</h2>
+
+      <label for="fidelity">Fidelity:</label>
+      <select id="fidelity">
+        <option>CD (16/44)</option>
+        <option>SP-1200 8 Bit</option>
+        <option>SP-1200 16 Bit</option>
+        <option>SK-1 (8/9)</option>
+      </select>
+
+      <label for="channels">Channels:</label>
+      <select id="channels">
+        <option>Stereo</option>
+        <option>Mono</option>
+      </select>
+
+      <label for="playmode">Playmode:</label>
+      <select id="playmode">
+        <option>Oneshot</option>
+        <option>Key</option>
+        <option>Legato</option>
+      </select>
+
+      <label for="pitch">Pitch:</label>
+      <input id="pitch" type="range" class="slider" min="-24" max="24" value="0" />
+
+      <label for="release">Release:</label>
+      <input id="release" type="range" class="slider" min="0" max="255" value="128" />
+    </div>
+
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" accept="audio/mp3,audio/wav" id="audio-input" />
+      <span>Drop or click to load your audio file</span>
+    </div>
+
+    <audio id="audio-player" controls></audio>
+  </div>
 
   <script>
-    const dropZone = document.getElementById("drop-zone");
-    const fileInput = document.getElementById("audio-upload");
-    const player = document.getElementById("player");
-    const volumeSlider = document.getElementById("volume");
-    const speedSlider = document.getElementById("speed");
-    const monoCheckbox = document.getElementById("mono");
-    const exportBtn = document.getElementById("export-btn");
-
-    let audioContext, sourceNode, gainNode, audioBuffer, processedBuffer;
-
-    dropZone.addEventListener("click", () => fileInput.click());
-    dropZone.addEventListener("dragover", e => {
-      e.preventDefault();
-      dropZone.style.borderColor = "#0f0";
-    });
-    dropZone.addEventListener("dragleave", () => dropZone.style.borderColor = "#aaa");
-    dropZone.addEventListener("drop", async e => {
-      e.preventDefault();
-      dropZone.style.borderColor = "#aaa";
-      const file = e.dataTransfer.files[0];
-      if (file) handleAudio(file);
+    // Переход с экрана старта
+    document.getElementById('start-screen').addEventListener('click', () => {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('main-interface').style.display = 'block';
     });
 
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files[0];
-      if (file) handleAudio(file);
-    });
+    // Загрузка и воспроизведение аудио
+    const fileInput = document.getElementById('audio-input');
+    const player = document.getElementById('audio-player');
 
-    async function handleAudio(file) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const arrayBuffer = await file.arrayBuffer();
-      const rawBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      audioBuffer = applyProcessing(rawBuffer);
-
-      playAudioBuffer(audioBuffer);
-    }
-
-    function applyProcessing(buffer) {
-      const speed = parseFloat(speedSlider.value);
-      const volume = parseFloat(volumeSlider.value);
-      const makeMono = monoCheckbox.checked;
-
-      let length = Math.floor(buffer.length / speed);
-      let output = audioContext.createBuffer(
-        makeMono ? 1 : buffer.numberOfChannels,
-        length,
-        buffer.sampleRate
-      );
-
-      for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-        let inputData = buffer.getChannelData(channel);
-        let outputData = output.getChannelData(makeMono ? 0 : channel);
-        for (let i = 0; i < length; i++) {
-          outputData[i] = inputData[Math.floor(i * speed)] * volume;
-        }
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file && file.type.startsWith('audio/')) {
+        const url = URL.createObjectURL(file);
+        player.src = url;
+        player.playbackRate = 2.0; // ускорение в 2 раза
+        player.play();
       }
-
-      return output;
-    }
-
-    function playAudioBuffer(buffer) {
-      if (sourceNode) sourceNode.disconnect();
-
-      sourceNode = audioContext.createBufferSource();
-      sourceNode.buffer = buffer;
-      sourceNode.connect(audioContext.destination);
-      sourceNode.start(0);
-
-      const wavBlob = bufferToWavBlob(buffer);
-      player.src = URL.createObjectURL(wavBlob);
-      processedBuffer = wavBlob;
-    }
-
-    function bufferToWavBlob(buffer) {
-      const numChannels = buffer.numberOfChannels;
-      const length = buffer.length * numChannels * 2 + 44;
-      const wav = new DataView(new ArrayBuffer(length));
-
-      function writeString(view, offset, string) {
-        for (let i = 0; i < string.length; i++) {
-          view.setUint8(offset + i, string.charCodeAt(i));
-        }
-      }
-
-      let offset = 0;
-
-      writeString(wav, offset, 'RIFF'); offset += 4;
-      wav.setUint32(offset, 36 + buffer.length * numChannels * 2, true); offset += 4;
-      writeString(wav, offset, 'WAVE'); offset += 4;
-      writeString(wav, offset, 'fmt '); offset += 4;
-      wav.setUint32(offset, 16, true); offset += 4;
-      wav.setUint16(offset, 1, true); offset += 2;
-      wav.setUint16(offset, numChannels, true); offset += 2;
-      wav.setUint32(offset, buffer.sampleRate, true); offset += 4;
-      wav.setUint32(offset, buffer.sampleRate * numChannels * 2, true); offset += 4;
-      wav.setUint16(offset, numChannels * 2, true); offset += 2;
-      wav.setUint16(offset, 16, true); offset += 2;
-      writeString(wav, offset, 'data'); offset += 4;
-      wav.setUint32(offset, buffer.length * numChannels * 2, true); offset += 4;
-
-      for (let i = 0; i < buffer.length; i++) {
-        for (let ch = 0; ch < numChannels; ch++) {
-          let sample = buffer.getChannelData(ch)[i];
-          sample = Math.max(-1, Math.min(1, sample));
-          wav.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-          offset += 2;
-        }
-      }
-
-      return new Blob([wav], { type: 'audio/wav' });
-    }
-
-    exportBtn.addEventListener("click", () => {
-      if (!processedBuffer) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(processedBuffer);
-      a.download = "processed.wav";
-      a.click();
     });
   </script>
 </body>
