@@ -267,8 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const applySpeedAndFidelity = async (buffer, speed, sampleRate) => {
-    const length = Math.floor(buffer.length / speed);
-    const ctx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
+    const ctx = new OfflineAudioContext(buffer.numberOfChannels, buffer.length, sampleRate);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.playbackRate.value = speed;
@@ -352,8 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const channels = getSelectedValue('channels');
         const converted = await convertChannels(decoded, channels);
         const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-        const pitch = parseInt(document.getElementById('pitch-slider').value || '64');
-        const speed = 2.0 * (pitch / 64);
+        const speed = 2.0;
         const processed = await applySpeedAndFidelity(converted, speed, downsampleRate);
         const wavBlob = audioBufferToWav(processed);
 
