@@ -2,86 +2,99 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>K.O. II TOOL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KO II Audio Tool</title>
   <style>
     body {
+      background: #fff;
+      font-family: 'Courier New', monospace;
       margin: 0;
-      background: black;
-      color: #00ff00;
-      font-family: 'Press Start 2P', monospace;
-    }
-
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
-    .crt {
-      width: 100vw;
-      height: 100vh;
-      background: black;
+      padding: 10px;
       display: flex;
       justify-content: center;
-      align-items: center;
-      font-size: 16px;
-      cursor: pointer;
-      animation: blink 1s step-start infinite;
+      align-items: flex-start;
+      min-height: 100vh;
     }
-
-    @keyframes blink {
-      50% {
-        opacity: 0.3;
-      }
-    }
-
-    .main-interface {
-      display: none;
+    .window {
+      width: 100%;
+      max-width: 420px;
       background: #c0c0c0;
-      color: black;
-      height: 100vh;
-      padding: 20px;
+      border: 2px solid #000;
+      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
+      padding: 10px;
       box-sizing: border-box;
-      font-size: 12px;
     }
-
     .title-bar {
       background: #000080;
       color: #fff;
-      padding: 5px 10px;
-      font-size: 10px;
+      padding: 4px 8px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title-bar button {
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: #c0c0c0;
+      cursor: pointer;
+    }
+    .title-bar .minimize { background: #fff; }
+    .title-bar .close { background: #ff0000; }
+
+    .content {
+      padding: 10px 0;
     }
 
-    .panel {
-      margin-top: 20px;
-      background: white;
-      padding: 10px;
-      border: 2px solid #000;
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
-    .panel h2 {
-      margin-top: 0;
-      font-size: 10px;
-      color: black;
+    .options label,
+    .settings label {
+      font-size: 16px;
     }
 
-    .panel label {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 10px;
-      color: black;
+    .options input[type="radio"] {
+      margin-right: 5px;
+      transform: scale(1.3);
+    }
+
+    .settings {
+      margin-top: 10px;
+      padding: 5px;
+      background: #2d7038;
     }
 
     .slider {
       width: 100%;
+      height: 12px;
+      background: #000;
+      appearance: none;
+      outline: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #ffd700;
+      cursor: pointer;
     }
 
     .drop-zone {
       border: 2px dashed #000;
-      padding: 20px;
+      padding: 14px;
       text-align: center;
-      background: #eee;
-      cursor: pointer;
+      background: rgba(255, 255, 255, 0.3);
+      margin-top: 12px;
       position: relative;
     }
 
-    .drop-zone input {
+    .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
       height: 100%;
@@ -89,81 +102,272 @@
       cursor: pointer;
     }
 
-    audio {
+    .drop-zone span {
+      pointer-events: none;
+      font-size: 16px;
+    }
+
+    button#select-file-button {
       width: 100%;
       margin-top: 10px;
+      background: #c0c0c0;
+      border: 2px solid #000;
+      color: #000;
+      font-family: 'Courier New', monospace;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    audio#player {
+      width: 100%;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* Для сегментированной полосы загрузки */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 999;
+    }
+
+    #win95-loader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      padding: 12px;
+      background: #c0c0c0;
+      border: 2px solid #000;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #000;
+      display: none;
+      z-index: 1000;
+    }
+
+    .progress-bar-container {
+      background: #fff;
+      border: 2px inset #808080;
+      height: 18px;
+      margin-top: 8px;
+      display: flex;
+      padding: 2px;
+      gap: 1px;
+      justify-content: flex-start;
+    }
+
+    .progress-segment {
+      width: 6px;
+      height: 100%;
+      background: #c0c0c0;
+    }
+
+    .progress-segment.active {
+      background: #000080;
     }
   </style>
 </head>
 <body>
-
-  <!-- START SCREEN -->
-  <div class="crt" id="start-screen">
-    PRESS START
+  <div class="window">
+    <div class="title-bar">
+      <span>KO II Audio Tool</span>
+      <div>
+        <button class="minimize">-</button>
+        <button class="close">X</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="options">
+        <div>
+          <label>FIDELITY</label><br>
+          <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
+          <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
+          <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
+          <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
+        </div>
+        <div>
+          <label>CHANNELS</label><br>
+          <input type="radio" name="channels" value="stereo" checked> Stereo<br>
+          <input type="radio" name="channels" value="mono"> Mono
+        </div>
+      </div>
+      <div class="settings">
+        <label>EP-133 KO II SETTINGS</label>
+        <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
+        <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
+        <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
+      </div>
+      <button id="select-file-button">Select Audio Files</button>
+      <audio id="player" controls></audio>
+    </div>
   </div>
 
-  <!-- MAIN INTERFACE -->
-  <div class="main-interface" id="main-interface">
-    <div class="title-bar">K.O. II TOOL</div>
-    <div class="panel">
-      <h2>EP-133 KO II SETTINGS</h2>
-
-      <label for="fidelity">Fidelity:</label>
-      <select id="fidelity">
-        <option>CD (16/44)</option>
-        <option>SP-1200 8 Bit</option>
-        <option>SP-1200 16 Bit</option>
-        <option>SK-1 (8/9)</option>
-      </select>
-
-      <label for="channels">Channels:</label>
-      <select id="channels">
-        <option>Stereo</option>
-        <option>Mono</option>
-      </select>
-
-      <label for="playmode">Playmode:</label>
-      <select id="playmode">
-        <option>Oneshot</option>
-        <option>Key</option>
-        <option>Legato</option>
-      </select>
-
-      <label for="pitch">Pitch:</label>
-      <input id="pitch" type="range" class="slider" min="-24" max="24" value="0" />
-
-      <label for="release">Release:</label>
-      <input id="release" type="range" class="slider" min="0" max="255" value="128" />
+  <!-- Перекрывающая тень и панель загрузки -->
+  <div id="overlay">
+    <div id="win95-loader">
+      <div>Copying...</div>
+      <div>From KO Tool to Player</div>
+      <div class="progress-bar-container" id="segment-container"></div>
     </div>
-
-    <div class="drop-zone" id="drop-zone">
-      <input type="file" accept="audio/mp3,audio/wav" id="audio-input" />
-      <span>Drop or click to load your audio file</span>
-    </div>
-
-    <audio id="audio-player" controls></audio>
   </div>
 
-  <script>
-    // Переход с экрана старта
-    document.getElementById('start-screen').addEventListener('click', () => {
-      document.getElementById('start-screen').style.display = 'none';
-      document.getElementById('main-interface').style.display = 'block';
-    });
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('audio-upload');
+  const player = document.getElementById('player');
+  const selectButton = document.getElementById('select-file-button');
+  const overlay = document.getElementById('overlay');
+  const loader = document.getElementById('win95-loader');
+  const segmentContainer = document.getElementById('segment-container');
 
-    // Загрузка и воспроизведение аудио
-    const fileInput = document.getElementById('audio-input');
-    const player = document.getElementById('audio-player');
+  const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file && file.type.startsWith('audio/')) {
-        const url = URL.createObjectURL(file);
-        player.src = url;
-        player.playbackRate = 2.0; // ускорение в 2 раза
-        player.play();
+  const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
+
+  const getDownsampleRate = (fidelity, originalRate) => {
+    switch (fidelity) {
+      case 'sp8': return 10000;
+      case 'sp16': return 16000;
+      case 'sk': return 9000;
+      default: return originalRate;
+    }
+  };
+
+  const convertChannels = async (buffer, channels) => {
+    const ctx = new OfflineAudioContext(channels === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    if (channels === 'mono') {
+      const merger = ctx.createChannelMerger(1);
+      const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
+      source.connect(splitter);
+      for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(merger, i, 0);
+      merger.connect(ctx.destination);
+    } else {
+      source.connect(ctx.destination);
+    }
+
+    source.start();
+    return await ctx.startRendering();
+  };
+
+  const applySpeedAndFidelity = async (buffer, speed, sampleRate) => {
+    const length = Math.floor(buffer.length / speed);
+    const ctx = new OfflineAudioContext(buffer.numberOfChannels, length, sampleRate);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = speed;
+    source.connect(ctx.destination);
+    source.start();
+    return await ctx.startRendering();
+  };
+
+  const audioBufferToWav = (buffer) => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length;
+    const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
+    const view = new DataView(bufferArray);
+
+    const writeString = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * 2 * numChannels, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * 2 * numChannels, true);
+
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
+        view.setInt16(offset, sample, true);
+        offset += 2;
       }
-    });
-  </script>
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+  };
+
+  async function processFiles(files) {
+    overlay.style.display = 'block';
+    loader.style.display = 'block';
+
+    const context = initAudioContext();
+    const segments = 20;
+    segmentContainer.innerHTML = '';
+
+    for (let i = 0; i < segments; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'progress-segment';
+      segmentContainer.appendChild(seg);
+    }
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const arrayBuffer = await file.arrayBuffer();
+      const decoded = await context.decodeAudioData(arrayBuffer);
+
+      const fidelity = getSelectedValue('fidelity');
+      const channels = getSelectedValue('channels');
+      const converted = await convertChannels(decoded, channels);
+      const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
+      const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+      const wavBlob = audioBufferToWav(processed);
+
+      if (i === 0) {
+        player.src = URL.createObjectURL(wavBlob);
+        player.style.display = 'block';
+        player.load();
+      }
+
+      const activeSegments = Math.round(((i + 1) / files.length) * segments);
+      document.querySelectorAll('.progress-segment').forEach((seg, index) => {
+        seg.classList.toggle('active', index < activeSegments);
+      });
+    }
+
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      loader.style.display = 'none';
+    }, 500);
+  }
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
+  });
+
+  selectButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
+});
+</script>
 </body>
 </html>
