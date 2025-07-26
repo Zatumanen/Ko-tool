@@ -385,23 +385,21 @@ async function processFiles(files) {
       const bitDepth = (fidelity === 'sp8' || fidelity === 'sk') ? 8 : 16;
 
       const originalSampleRate = converted.sampleRate;
-      const targetSampleRate = downsampleRate;
-
       const newLength = Math.floor(converted.length / speed);
-      const newBuffer = audioCtx.createBuffer(converted.numberOfChannels, newLength, originalSampleRate);
+      const tempBuffer = audioCtx.createBuffer(converted.numberOfChannels, newLength, originalSampleRate);
 
       for (let ch = 0; ch < converted.numberOfChannels; ch++) {
         const input = converted.getChannelData(ch);
-        const output = newBuffer.getChannelData(ch);
+        const output = tempBuffer.getChannelData(ch);
         for (let i = 0; i < newLength; i++) {
           output[i] = input[Math.floor(i * speed)];
         }
       }
 
-      const resampledBuffer = resampleBuffer(newBuffer, originalSampleRate, targetSampleRate);
-      const quantizedBuffer = quantizeBuffer(resampledBuffer, bitDepth, audioCtx);
+      const resampled = resampleBuffer(tempBuffer, originalSampleRate, downsampleRate);
+      const quantized = quantizeBuffer(resampled, bitDepth, audioCtx);
 
-      const wavBlob = audioBufferToWav(quantizedBuffer, ko2Buffer);
+      const wavBlob = audioBufferToWav(quantized, ko2Buffer);
 
       if (i === 0) {
         player.src = URL.createObjectURL(wavBlob);
