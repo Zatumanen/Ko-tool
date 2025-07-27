@@ -177,11 +177,6 @@ newWavesurfer.on('error', () => {
 const waveformQueue = [];
 let waveformBusy = false;
 
-function enqueueWaveformRender(blob, filename) {
-  waveformQueue.push({ blob, filename });
-  processNextWaveform();
-}
-
 , 50); // слегка задержим для стабильности в Safari
 }
 
@@ -276,18 +271,13 @@ newWavesurfer.on('error', () => {
 const waveformQueue = [];
 let waveformBusy = false;
 
-function enqueueWaveformRender(blob, filename) {
-  waveformQueue.push({ blob, filename });
-  processNextWaveform();
-}
-
 , 50); // слегка задержим для стабильности в Safari
 }
 
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.1</title>
+  <title>KO II Audio Tool v1.59</title>
   <style>
     body {
       background: #fff;
@@ -513,7 +503,7 @@ function enqueueWaveformRender(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.1</span>
+      <span>KO II Audio Tool — v1.59</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -939,74 +929,109 @@ newWavesurfer.on('error', () => {
 const waveformQueue = [];
 let waveformBusy = false;
 
-function enqueueWaveformRender(blob, filename) {
-  waveformQueue.push({ blob, filename });
-  processNextWaveform();
-}
-
 , 50); // слегка задержим для стабильности в Safari
 }
 
 </script>
 
 <script>
-const waveformQueue = [];
-let waveformBusy = false;
+const taskQueue = [];
+let isProcessing = false;
 
-function enqueueWaveformRender(blob, filename) {
-  waveformQueue.push({ blob, filename });
-  processNextWaveform();
+function enqueueFileProcessing(file) {
+  taskQueue.push(() => processFile(file));
+  processNextInQueue();
 }
 
-async function processNextWaveform() {
-  if (waveformBusy || waveformQueue.length === 0) return;
-  waveformBusy = true;
+async function processNextInQueue() {
+  if (isProcessing || taskQueue.length === 0) return;
+  isProcessing = true;
 
-  const { blob, filename } = waveformQueue.shift();
+  const task = taskQueue.shift();
   try {
-    await renderWaveform(blob, filename);
+    await task();
   } catch (err) {
-    console.error('Waveform render error:', err);
+    console.error("Processing error:", err);
   } finally {
-    waveformBusy = false;
-    processNextWaveform();
+    isProcessing = false;
+    processNextInQueue();
   }
+}
+
+async function processFile(file) {
+  const filename = encodeURIComponent(file.name);
+
+  // Показать прогрессбар
+  showProgress(filename, 0);
+
+  // Обработка файла: ресемплирование и WAV-конвертация
+  const wavBlob = await encodeAndResample(file);
+
+  // Обновление прогресса
+  showProgress(filename, 100);
+
+  // Рендер waveform
+  await renderWaveform(wavBlob, filename);
+
+  // Здесь можно добавить создание метаданных и упаковку в ZIP
+}
+
+// Простая реализация отображения прогресса
+function showProgress(filename, percent) {
+  let bar = document.getElementById(`progress-${filename}`);
+  if (!bar) {
+    const container = document.createElement('div');
+    container.style.margin = '6px 0';
+
+    const label = document.createElement('div');
+    label.textContent = decodeURIComponent(filename);
+    label.style.fontSize = '12px';
+
+    bar = document.createElement('div');
+    bar.id = `progress-${filename}`;
+    bar.style.height = '12px';
+    bar.style.width = '0%';
+    bar.style.backgroundColor = '#0080ff';
+    bar.style.transition = 'width 0.3s ease';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.border = '1px solid #ccc';
+    wrapper.style.width = '100%';
+    wrapper.appendChild(bar);
+
+    container.appendChild(label);
+    container.appendChild(wrapper);
+    document.getElementById('waveform-list').appendChild(container);
+  }
+
+  bar.style.width = percent + '%';
 }
 
 async function renderWaveform(blob, filename) {
-  if (!blob || blob.size < 500) {
-    console.warn('Skipped rendering small or empty blob:', filename);
-    return;
-  }
-
   return new Promise((resolve) => {
     const container = document.createElement('div');
-    container.style.marginBottom = '20px';
-    container.style.border = '2px inset #808080';
+    container.style.marginTop = '10px';
     container.style.padding = '10px';
-    container.style.background = '#e0e0e0';
-    container.style.overflowX = 'auto';
+    container.style.background = '#f0f0f0';
+    container.style.border = '1px dashed #888';
 
     const title = document.createElement('div');
     title.textContent = decodeURIComponent(filename);
-    title.style.fontFamily = "'Courier New', monospace";
     title.style.fontSize = '14px';
     title.style.marginBottom = '6px';
 
     const wave = document.createElement('div');
     wave.style.width = '100%';
-    wave.style.minHeight = '64px';
     wave.style.height = '64px';
 
     const button = document.createElement('button');
     button.textContent = '▶️ Play';
     button.style.marginTop = '6px';
-    button.style.fontFamily = "'Courier New', monospace";
 
     const wavesurfer = WaveSurfer.create({
       container: wave,
       waveColor: '#000',
-      progressColor: '#000080',
+      progressColor: '#008',
       height: 64,
       barWidth: 1.4,
       minPxPerSec: 100,
@@ -1014,23 +1039,7 @@ async function renderWaveform(blob, filename) {
       cursorColor: '#ff0000',
     });
 
-    let didRender = false;
-
-    const fallbackTimeout = setTimeout(() => {
-      if (!didRender) {
-        const failNote = document.createElement('div');
-        failNote.textContent = '⚠️ Failed to render waveform';
-        failNote.style.color = 'red';
-        container.appendChild(title);
-        container.appendChild(failNote);
-        document.getElementById('waveform-list').appendChild(container);
-        resolve();
-      }
-    }, 4000);
-
     wavesurfer.on('ready', () => {
-      clearTimeout(fallbackTimeout);
-      didRender = true;
       container.appendChild(title);
       container.appendChild(wave);
       container.appendChild(button);
@@ -1039,49 +1048,19 @@ async function renderWaveform(blob, filename) {
     });
 
     wavesurfer.on('error', () => {
-      console.warn('WaveSurfer error. Retry...');
-      wavesurfer.destroy();
-      wave.innerHTML = "";
-
-      const retry = WaveSurfer.create({
-        container: wave,
-        waveColor: '#000',
-        progressColor: '#000080',
-        height: 64,
-        barWidth: 1.4,
-        minPxPerSec: 100,
-        responsive: true,
-        cursorColor: '#ff0000',
-      });
-
-      retry.on('ready', () => {
-        clearTimeout(fallbackTimeout);
-        didRender = true;
-        container.appendChild(title);
-        container.appendChild(wave);
-        container.appendChild(button);
-        document.getElementById('waveform-list').appendChild(container);
-        resolve();
-      });
-
-      retry.on('error', () => {
-        const failNote = document.createElement('div');
-        failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
-        failNote.style.color = 'red';
-        container.innerHTML = '';
-        container.appendChild(title);
-        container.appendChild(failNote);
-        document.getElementById('waveform-list').appendChild(container);
-        resolve();
-      });
-
-      retry.loadBlob(blob);
+      const errorNote = document.createElement('div');
+      errorNote.textContent = '⚠️ Failed to render waveform';
+      errorNote.style.color = 'red';
+      container.appendChild(title);
+      container.appendChild(errorNote);
+      document.getElementById('waveform-list').appendChild(container);
+      resolve();
     });
 
     try {
       wavesurfer.loadBlob(blob);
-    } catch (err) {
-      console.error('WaveSurfer loadBlob failed:', err);
+    } catch (e) {
+      console.error('LoadBlob error:', e);
       resolve();
     }
 
