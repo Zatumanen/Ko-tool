@@ -44,7 +44,7 @@ function renderWaveform(blob, filename) {
     barWidth: 2,
     responsive: true,
     cursorColor: '#ff0000',
-    normalize: true
+    splitChannels: false
   });
 
   wavesurfer.loadBlob(blob);
@@ -105,7 +105,7 @@ function renderWaveform(blob, filename) {
     barWidth: 2,
     responsive: true,
     cursorColor: '#ff0000',
-    normalize: true
+    splitChannels: false
   });
 
   wavesurfer.loadBlob(blob);
@@ -124,7 +124,7 @@ function renderWaveform(blob, filename) {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.22</title>
+  <title>KO II Audio Tool v1.23</title>
   <style>
     body {
       background: #fff;
@@ -319,7 +319,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.22</span>
+      <span>KO II Audio Tool — v1.23</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -679,7 +679,7 @@ function renderWaveform(blob, filename) {
     barWidth: 2,
     responsive: true,
     cursorColor: '#ff0000',
-    normalize: true
+    splitChannels: false
   });
 
   wavesurfer.loadBlob(blob);
