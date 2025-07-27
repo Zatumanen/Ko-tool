@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.10</span>
+      <span>KO II Audio Tool — v1.11</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -409,7 +409,24 @@ let stereoCount = 0;
     player.load();
 
     const originalSize = (file.size / 1024 / 1024).toFixed(2);
-    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
+    
+  let monoCount = 0;
+  let stereoCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded = await context.decodeAudioData(arrayBuffer);
+
+    if (decoded.numberOfChannels === 1) {
+      monoCount++;
+    } else {
+      stereoCount++;
+    }
+  }
+
+
+  const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
     const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
