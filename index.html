@@ -75,9 +75,28 @@ function renderWaveform(blob, filename) {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
+  
+wavesurfer.on('error', (e) => {
+  if (!wavesurfer._retried) {
+    console.warn('Retrying waveform render...');
+    wavesurfer._retried = true;
+    try {
+      wavesurfer.loadBlob(blob);
+    } catch (retryErr) {
+      console.error('Retry failed:', retryErr);
+    }
+    return;
+  }
+
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     wavesurfer.loadBlob(blob);
@@ -199,9 +218,28 @@ function renderWaveform(blob, filename) {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
+  
+wavesurfer.on('error', (e) => {
+  if (!wavesurfer._retried) {
+    console.warn('Retrying waveform render...');
+    wavesurfer._retried = true;
+    try {
+      wavesurfer.loadBlob(blob);
+    } catch (retryErr) {
+      console.error('Retry failed:', retryErr);
+    }
+    return;
+  }
+
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     wavesurfer.loadBlob(blob);
@@ -476,7 +514,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.53</span>
+      <span>KO II Audio Tool — v1.54</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -882,9 +920,28 @@ function renderWaveform(blob, filename) {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
+  
+wavesurfer.on('error', (e) => {
+  if (!wavesurfer._retried) {
+    console.warn('Retrying waveform render...');
+    wavesurfer._retried = true;
+    try {
+      wavesurfer.loadBlob(blob);
+    } catch (retryErr) {
+      console.error('Retry failed:', retryErr);
+    }
+    return;
+  }
+
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     wavesurfer.loadBlob(blob);
