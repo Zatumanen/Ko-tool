@@ -1,12 +1,293 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<script src="https://unpkg.com/wavesurfer.js"></script>
+<script src="https://unpkg.com/wavesurfer.js">
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+
+, 4000);
+
+    wavesurfer.on('ready', () => {
+      clearTimeout(fallbackTimeout);
+      didRender = true;
+      container.appendChild(title);
+      container.appendChild(wave);
+      container.appendChild(button);
+      document.getElementById('waveform-list').appendChild(container);
+    });
+
+    wavesurfer.on('error', (e) => {
+      console.warn('WaveSurfer error, recreating instance...');
+
+      wavesurfer.destroy();
+      wave.innerHTML = "";
+
+      const newWavesurfer = WaveSurfer.create({
+        container: wave,
+        waveColor: '#000',
+        progressColor: '#000080',
+        height: 64,
+        barWidth: 1.4,
+        minPxPerSec: 100,
+        responsive: true,
+        cursorColor: '#ff0000',
+        splitChannels: false
+      });
+
+      newWavesurfer.on('ready', () => {
+        clearTimeout(fallbackTimeout);
+        didRender = true;
+        container.appendChild(title);
+        container.appendChild(wave);
+        container.appendChild(button);
+        document.getElementById('waveform-list').appendChild(container);
+      });
+
+      newWavesurfer.on('error', () => {
+        console.warn('Second attempt failed to render:', filename);
+        const failNote = document.createElement('div');
+        failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+        failNote.style.color = 'red';
+        failNote.style.fontSize = '13px';
+        container.innerHTML = '';
+        container.appendChild(title);
+        container.appendChild(failNote);
+        document.getElementById('waveform-list').appendChild(container);
+      });
+
+      try {
+        newWavesurfer.loadBlob(blob);
+      } catch (err2) {
+        console.error('Retry loading failed:', err2);
+      }
+    });
+
+    try {
+      wavesurfer.loadBlob(blob);
+    } catch (err) {
+      console.error('WaveSurfer loadBlob failed:', err);
+    }
+
+    button.onclick = () => {
+      if (wavesurfer.isPlaying()) {
+        wavesurfer.pause();
+        button.textContent = '▶️ Play';
+      } else {
+        wavesurfer.play();
+        button.textContent = '⏸ Pause';
+      }
+    };
+  }, 50);
+});
+
+
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
+
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+
+wavesurfer.on('error', (e) => {
+  console.warn('WaveSurfer error, recreating instance...');
+
+  // Очистка старого экземпляра
+  wavesurfer.destroy();
+  wave.innerHTML = "";
+
+  const newWavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
+
+  newWavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
+
+  try {
+    newWavesurfer.loadBlob(blob);
+  } catch (err2) {
+    console.error('Retry loading failed:', err2);
+  }
+});
+
+
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+, 50); // слегка задержим для стабильности в Safari
+}
+
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+
+
+
+, 4000);
+
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+
+wavesurfer.on('error', (e) => {
+  console.warn('WaveSurfer error, recreating instance...');
+
+  // Очистка старого экземпляра
+  wavesurfer.destroy();
+  wave.innerHTML = "";
+
+  const newWavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
+
+  newWavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
+
+  try {
+    newWavesurfer.loadBlob(blob);
+  } catch (err2) {
+    console.error('Retry loading failed:', err2);
+  }
+});
+
+
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+, 50); // слегка задержим для стабильности в Safari
+}
+
+</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.59</title>
+  <title>KO II Audio Tool v2.0.1</title>
   <style>
     body {
       background: #fff;
@@ -232,7 +513,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.59</span>
+      <span>KO II Audio Tool — v2.0.1</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -573,66 +854,7 @@ const checkRenderDone = setInterval(() => {
 
 
 
-function renderWaveform(blob, filename) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform render skipped due to empty or too small blob:', filename);
-    console.warn('Skipping empty or invalid blob:', filename);
-    return;
-  }
-
-  const container = document.createElement('div');
-  container.style.marginBottom = '20px';
-  container.style.border = '2px inset #808080';
-  container.style.padding = '10px';
-  container.style.background = '#e0e0e0';
-  container.style.overflowX = 'auto';
-
-  const title = document.createElement('div');
-  try {
-    title.textContent = decodeURIComponent(filename);
-  } catch {
-    title.textContent = filename;
-  }
-  title.style.fontFamily = "'Courier New', monospace";
-  title.style.fontSize = '14px';
-  title.style.marginBottom = '6px';
-  title.style.wordBreak = 'break-word';
-
-  const wave = document.createElement('div');
-  wave.style.width = '100%';
-  wave.style.minHeight = '64px';
-  wave.style.height = '64px';
-
-  const button = document.createElement('button');
-  button.textContent = '▶️ Play';
-  button.style.marginTop = '6px';
-  button.style.fontFamily = "'Courier New', monospace";
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#000',
-    progressColor: '#000080',
-    height: 64,
-    barWidth: 1.4,
-    minPxPerSec: 100,
-    responsive: true,
-    cursorColor: '#ff0000',
-    splitChannels: false
-  });
-
-  let didRender = false;
-  const fallbackTimeout = setTimeout(() => {
-    if (!didRender) {
-      const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
-      failNote.style.color = 'red';
-      failNote.style.fontSize = '13px';
-      container.appendChild(title);
-      container.appendChild(failNote);
-      document.getElementById('waveform-list').appendChild(container);
-    }
-  }, 4000);
+, 4000);
 
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
@@ -741,7 +963,6 @@ async function processNextWaveform() {
   waveformBusy = true;
 
   const { blob, filename } = waveformQueue.shift();
-
   try {
     await renderWaveform(blob, filename);
   } catch (err) {
@@ -753,20 +974,13 @@ async function processNextWaveform() {
 }
 
 async function renderWaveform(blob, filename) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform render skipped due to empty or too small blob:', filename);
-    return;
-  }
-
-  if (document.getElementById(`waveform-${filename}`)) {
-    console.warn('Already rendered:', filename);
+  if (!blob || blob.size < 500) {
+    console.warn('Skipped rendering small or empty blob:', filename);
     return;
   }
 
   return new Promise((resolve) => {
     const container = document.createElement('div');
-    container.id = `waveform-${filename}`;
     container.style.marginBottom = '20px';
     container.style.border = '2px inset #808080';
     container.style.padding = '10px';
@@ -774,15 +988,10 @@ async function renderWaveform(blob, filename) {
     container.style.overflowX = 'auto';
 
     const title = document.createElement('div');
-    try {
-      title.textContent = decodeURIComponent(filename);
-    } catch {
-      title.textContent = filename;
-    }
+    title.textContent = decodeURIComponent(filename);
     title.style.fontFamily = "'Courier New', monospace";
     title.style.fontSize = '14px';
     title.style.marginBottom = '6px';
-    title.style.wordBreak = 'break-word';
 
     const wave = document.createElement('div');
     wave.style.width = '100%';
@@ -803,16 +1012,15 @@ async function renderWaveform(blob, filename) {
       minPxPerSec: 100,
       responsive: true,
       cursorColor: '#ff0000',
-      splitChannels: false
     });
 
     let didRender = false;
+
     const fallbackTimeout = setTimeout(() => {
       if (!didRender) {
         const failNote = document.createElement('div');
         failNote.textContent = '⚠️ Failed to render waveform';
         failNote.style.color = 'red';
-        failNote.style.fontSize = '13px';
         container.appendChild(title);
         container.appendChild(failNote);
         document.getElementById('waveform-list').appendChild(container);
@@ -831,10 +1039,11 @@ async function renderWaveform(blob, filename) {
     });
 
     wavesurfer.on('error', () => {
+      console.warn('WaveSurfer error. Retry...');
       wavesurfer.destroy();
       wave.innerHTML = "";
 
-      const newWavesurfer = WaveSurfer.create({
+      const retry = WaveSurfer.create({
         container: wave,
         waveColor: '#000',
         progressColor: '#000080',
@@ -843,10 +1052,9 @@ async function renderWaveform(blob, filename) {
         minPxPerSec: 100,
         responsive: true,
         cursorColor: '#ff0000',
-        splitChannels: false
       });
 
-      newWavesurfer.on('ready', () => {
+      retry.on('ready', () => {
         clearTimeout(fallbackTimeout);
         didRender = true;
         container.appendChild(title);
@@ -856,11 +1064,10 @@ async function renderWaveform(blob, filename) {
         resolve();
       });
 
-      newWavesurfer.on('error', () => {
+      retry.on('error', () => {
         const failNote = document.createElement('div');
         failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
         failNote.style.color = 'red';
-        failNote.style.fontSize = '13px';
         container.innerHTML = '';
         container.appendChild(title);
         container.appendChild(failNote);
@@ -868,12 +1075,7 @@ async function renderWaveform(blob, filename) {
         resolve();
       });
 
-      try {
-        newWavesurfer.loadBlob(blob);
-      } catch (err2) {
-        console.error('Retry loading failed:', err2);
-        resolve();
-      }
+      retry.loadBlob(blob);
     });
 
     try {
