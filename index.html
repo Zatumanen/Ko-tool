@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.63</title>
+  <title>KO II Audio Tool v1.64</title>
   <style>
     body {
       background: #fff;
@@ -239,7 +239,7 @@
     
     .wave-element {
       width: 100%;
-      min-height: 64px;
+      minHeight: 64px;
       height: 64px;
     }
     
@@ -260,7 +260,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.63</span>
+      <span>KO II Audio Tool — v1.64</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -397,7 +397,7 @@
     }
 
     // Обработка файлов
-    function processFiles(files) {
+    async function processFiles(files) {
       const overlay = document.getElementById('overlay');
       const loader = document.getElementById('win95-loader');
       const segmentContainer = document.getElementById('segment-container');
@@ -438,94 +438,130 @@
         segmentContainer.appendChild(seg);
       }
 
+      // Создаем массив промисов для обработки файлов
+      const processingPromises = [];
+      
       // Обработка каждого файла
-      let processedCount = 0;
-      Array.from(files).forEach(async function(file) {
-        try {
-          totalOriginalSize += file.size;
-          
-          // Декодирование аудио
-          const arrayBuffer = await file.arrayBuffer();
-          const decoded = await activeAudioContext.decodeAudioData(arrayBuffer);
-          
-          // Статистика каналов
-          if (decoded.numberOfChannels === 1) monoOriginal++;
-          else if (decoded.numberOfChannels === 2) stereoOriginal++;
-          
-          // Получение настроек
-          const fidelity = getSelectedValue('fidelity');
-          const channels = getSelectedValue('channels');
-          
-          // Обработка аудио
-          const converted = await convertChannels(decoded, channels);
-          const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-          const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-          
-          // Генерация WAV
-          const ko2Buffer = getKO2Buffer();
-          const wavBlob = audioBufferToWav(processed, ko2Buffer);
-          totalProcessedSize += wavBlob.size;
-          
-          // Добавление в ZIP
-          const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-          zip.file(fileName, wavBlob);
-          
-          // Визуализация
-          enqueueWaveformRender(wavBlob, fileName);
-          
-          // Анимация прогресса
-          processedCount++;
-          await animateProgress(processedCount / files.length);
-          
-        } catch (error) {
-          console.error('Error processing file:', error);
-          fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
+      for (let i = 0; i < files.length; i++) {
+        processingPromises.push(
+          processFile(files[i], zip, i, files.length)
+            .then(stats => {
+              stereoOriginal += stats.stereo ? 1 : 0;
+              monoOriginal += stats.mono ? 1 : 0;
+              totalOriginalSize += stats.originalSize;
+              totalProcessedSize += stats.processedSize;
+            })
+            .catch(error => {
+              console.error('Error processing file:', error);
+              fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
+              return null;
+            })
+        );
+      }
+
+      // Ждем завершения обработки всех файлов
+      try {
+        await Promise.all(processingPromises);
+        
+        // Завершение прогресс бара
+        segmentContainer.querySelectorAll('.progress-segment').forEach(function(seg) {
+          seg.classList.add('active');
+        });
+
+        // Скачивание ZIP
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipUrl = URL.createObjectURL(zipBlob);
+        createdObjectURLs.push(zipUrl);
+        
+        const a = document.createElement('a');
+        a.href = zipUrl;
+        a.download = "ko2_processed_audio.zip";
+        a.click();
+        
+        // Статистика
+        fileInfo.innerHTML = `
+          <div><b>Processed ${files.length} files</b></div>
+          <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
+          <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
+          <div>Fidelity: ${getSelectedValue('fidelity')}</div>
+          <div>Channels: ${getSelectedValue('channels')}</div>
+          <div>Pitch: ${document.getElementById('pitch-slider').value}</div>
+          <div>Release: ${document.getElementById('release-slider').value}</div>
+          <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
+        `;
+      } catch (error) {
+        console.error('ZIP creation failed:', error);
+      }
+
+      // Закрытие оверлея после рендеринга
+      waitForRenderCompletion().then(function() {
+        overlay.style.display = 'none';
+        loader.style.display = 'none';
+        if (activeAudioContext) {
+          activeAudioContext.close().catch(console.error);
+          activeAudioContext = null;
         }
       });
+    }
 
-      // Скачивание ZIP после обработки всех файлов
-      Promise.all(Array.from(files).map(() => new Promise(resolve => setTimeout(resolve))))
-        .then(async function() {
-          // Завершение прогресс бара
-          segmentContainer.querySelectorAll('.progress-segment').forEach(function(seg) {
-            seg.classList.add('active');
-          });
-
-          try {
-            const zipBlob = await zip.generateAsync({ type: "blob" });
-            const zipUrl = URL.createObjectURL(zipBlob);
-            createdObjectURLs.push(zipUrl); // Для последующей очистки
-            
-            const a = document.createElement('a');
-            a.href = zipUrl;
-            a.download = "ko2_processed_audio.zip";
-            a.click();
-            
-            // Статистика
-            fileInfo.innerHTML = `
-              <div><b>Processed ${files.length} files</b></div>
-              <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-              <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
-              <div>Fidelity: ${getSelectedValue('fidelity')}</div>
-              <div>Channels: ${getSelectedValue('channels')}</div>
-              <div>Pitch: ${document.getElementById('pitch-slider').value}</div>
-              <div>Release: ${document.getElementById('release-slider').value}</div>
-              <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-            `;
-          } catch (error) {
-            console.error('ZIP creation failed:', error);
-          }
-
-          // Закрытие оверлея после рендеринга
-          waitForRenderCompletion().then(function() {
-            overlay.style.display = 'none';
-            loader.style.display = 'none';
-            if (activeAudioContext) {
-              activeAudioContext.close().catch(console.error);
-              activeAudioContext = null;
-            }
-          });
-        });
+    // Обработка одного файла
+    async function processFile(file, zip, index, totalFiles) {
+      const segmentContainer = document.getElementById('segment-container');
+      
+      // Сброс прогресс бара
+      segmentContainer.querySelectorAll('.progress-segment').forEach(function(seg) {
+        seg.classList.remove('active');
+      });
+      
+      const originalSize = file.size;
+      let processedSize = 0;
+      let isStereo = false;
+      let isMono = false;
+      
+      try {
+        // Декодирование аудио
+        const arrayBuffer = await file.arrayBuffer();
+        const decoded = await activeAudioContext.decodeAudioData(arrayBuffer);
+        
+        // Статистика каналов
+        if (decoded.numberOfChannels === 1) isMono = true;
+        else if (decoded.numberOfChannels === 2) isStereo = true;
+        
+        // Получение настроек
+        const fidelity = getSelectedValue('fidelity');
+        const channels = getSelectedValue('channels');
+        
+        // Обработка аудио
+        const converted = await convertChannels(decoded, channels);
+        const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
+        const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+        
+        // Генерация WAV
+        const ko2Buffer = getKO2Buffer();
+        const wavBlob = audioBufferToWav(processed, ko2Buffer);
+        processedSize = wavBlob.size;
+        
+        // Добавление в ZIP
+        const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+        zip.file(fileName, wavBlob);
+        
+        // Визуализация
+        enqueueWaveformRender(wavBlob, fileName);
+        
+        // Анимация прогресса
+        await animateProgress((index + 1) / totalFiles);
+        
+      } catch (error) {
+        console.error('Error processing file:', file.name, error);
+        throw error;
+      }
+      
+      return {
+        stereo: isStereo,
+        mono: isMono,
+        originalSize: originalSize,
+        processedSize: processedSize
+      };
     }
 
     // Аудио обработка
