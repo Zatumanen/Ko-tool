@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.12</span>
+      <span>KO II Audio Tool — v1.14</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -350,21 +350,18 @@ function getKO2Buffer() {
 }
 
 
-// KO II Audio Tool v1.12
+
 async function processFiles(files) {
   let stereoOriginal = 0;
   let monoOriginal = 0;
-
   console.log('Process started:', files);
   overlay.style.display = 'block';
   loader.style.display = 'block';
 
   const context = initAudioContext();
   const totalSegments = 50;
-  const segmentsPerFile = files.length === 1 ? totalSegments : Math.floor(totalSegments / files.length);
   segmentContainer.innerHTML = '';
   fileInfo.innerHTML = '';
-
   for (let i = 0; i < totalSegments; i++) {
     const seg = document.createElement('div');
     seg.className = 'progress-segment';
@@ -374,6 +371,9 @@ async function processFiles(files) {
   const zip = new JSZip();
   let firstProcessed = null;
 
+  let totalOriginalSize = 0;
+  let totalProcessedSize = 0;
+
   for (let i = 0; i < files.length; i++) {
     segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
 
@@ -381,11 +381,8 @@ async function processFiles(files) {
     const arrayBuffer = await file.arrayBuffer();
     const decoded = await context.decodeAudioData(arrayBuffer);
 
-    if (decoded.numberOfChannels === 1) {
-      monoOriginal++;
-    } else if (decoded.numberOfChannels === 2) {
-      stereoOriginal++;
-    }
+    if (decoded.numberOfChannels === 1) monoOriginal++;
+    else if (decoded.numberOfChannels === 2) stereoOriginal++;
 
     const fidelity = getSelectedValue('fidelity');
     const channels = getSelectedValue('channels');
@@ -403,6 +400,9 @@ async function processFiles(files) {
 
     const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
     zip.file(fileName, wavBlob);
+
+    totalOriginalSize += file.size;
+    totalProcessedSize += wavBlob.size;
 
     if (!firstProcessed) {
       firstProcessed = wavBlob;
@@ -422,10 +422,6 @@ async function processFiles(files) {
   a.download = "processed_ko2_audio.zip";
   a.click();
 
-  // Summary info AFTER processing all files
-  const originalSizeMB = Array.from(files).reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
-  const processedSizeMB = zipBlob.size / 1024 / 1024;
-
   const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
   const release = parseInt(document.getElementById('release-slider')?.value || '128');
   const fidelity = getSelectedValue('fidelity');
@@ -433,8 +429,8 @@ async function processFiles(files) {
 
   fileInfo.innerHTML = `
     <div><b>Files: ${files.length}</b></div>
-    <div>Original: ${originalSizeMB.toFixed(2)} MB</div>
-    <div>Processed (ZIP): ${processedSizeMB.toFixed(2)} MB</div>
+    <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
+    <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
     <div>Fidelity: ${fidelity}</div>
     <div>Channels (convert to): ${channels}</div>
     <div>Pitch: ${pitch}</div>
@@ -448,21 +444,6 @@ async function processFiles(files) {
   }, 500);
 }
 
-  const segments = document.querySelectorAll('.progress-segment');
-  segments.forEach(seg => seg.classList.add('active'));
-
-  const zipBlob = await zip.generateAsync({ type: "blob" });
-  const zipUrl = URL.createObjectURL(zipBlob);
-  const a = document.createElement('a');
-  a.href = zipUrl;
-  a.download = "processed_ko2_audio.zip";
-  a.click();
-
-  setTimeout(() => {
-    overlay.style.display = 'none';
-    loader.style.display = 'none';
-  }, 500);
-}
 
   dropZone.addEventListener('dragover', e => {
     e.preventDefault();
