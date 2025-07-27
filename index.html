@@ -52,12 +52,9 @@
     button:hover {
       background-color: #555;
     }
-    button.active {
-      background-color: #4CAF50;
-      color: white;
-    }
-    input[type="range"] {
-      width: 100%;
+    input[type="file"] {
+      display: block;
+      margin-top: 10px;
     }
     .file-upload {
       border: 2px dashed #555;
@@ -102,15 +99,15 @@
     </div>
     <div class="controls">
       <h2>EP-133 KO II SETTINGS</h2>
-      <label>Pitch <input type="range" min="0" max="100" aria-label="Pitch control"></label>
-      <label>Release <input type="range" min="0" max="100" aria-label="Release control"></label>
+      <label>Pitch <input type="range" min="0" max="100"></label>
+      <label>Release <input type="range" min="0" max="100"></label>
     </div>
     <div class="file-upload">
       <h2>DRAG AND DROP OR SELECT AUDIO FILES</h2>
-      <input type="file" multiple accept="audio/wav,audio/mp3">
+      <input type="file" multiple accept="audio/*">
     </div>
   </div>
-  <div class="copying" aria-live="polite">
+  <div class="copying">
     <h2>Copying...</h2>
     <p>From KO Tool to Player</p>
   </div>
@@ -139,7 +136,9 @@
         const savedValue = localStorage.getItem(slider.previousElementSibling.textContent);
         if (savedValue) {
           slider.value = savedValue;
-          slider.nextElementSibling.textContent = savedValue;
+          if (slider.nextElementSibling) {
+            slider.nextElementSibling.textContent = savedValue;
+          }
         }
       });
     });
@@ -167,8 +166,14 @@
         alert('Неподдерживаемые файлы: ' + invalidFiles.map(f => f.name).join(', '));
         return;
       }
+      const fileList = document.createElement('ul');
+      files.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = file.name;
+        fileList.appendChild(li);
+      });
+      dropZone.appendChild(fileList);
       console.log('Загруженные файлы:', files.map(f => f.name));
-      // Здесь можно добавить передачу файлов на сервер
     });
 
     dropZone.addEventListener('dragover', e => e.preventDefault());
@@ -181,8 +186,14 @@
         alert('Неподдерживаемые файлы: ' + invalidFiles.map(f => f.name).join(', '));
         return;
       }
+      const fileList = document.createElement('ul');
+      files.forEach(file => {
+        const li = document.createElement('li');
+        li.textContent = file.name;
+        fileList.appendChild(li);
+      });
+      dropZone.appendChild(fileList);
       console.log('Перетащенные файлы:', files.map(f => f.name));
-      // Здесь можно добавить передачу файлов
     });
 
     // Обработка кнопки Select Audio Files и секции копирования
