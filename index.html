@@ -401,12 +401,12 @@ async function processFiles(files) {
     const originalSize = (file.size / 1024 / 1024).toFixed(2);
     const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
     fileInfo.innerHTML = `
-      <div><b>${file.name}</b></div>
-      <div>Original: ${originalSize} MB</div>
-      <div>Processed: ${processedSize} MB</div>
-      <div>Fidelity: ${fidelity}</div>
-      <div>Channels: ${channels}</div>
-    `;
+  <div><b>Files: ${files.length}</b></div>
+  <div>Original: ${originalSize} MB</div>
+  <div>Processed: ${processedSize} MB</div>
+  <div>Fidelity: ${fidelity}</div>
+  <div>Channels: ${channels}</div>
+`;
   }
 }
 
