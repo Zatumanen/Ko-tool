@@ -7,7 +7,8 @@
 
 function renderWaveform(blob, filename) {
   console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0) {
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
     return;
   }
@@ -78,7 +79,11 @@ function renderWaveform(blob, filename) {
     console.error('WaveSurfer error:', e);
   });
 
-  wavesurfer.loadBlob(blob);
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
@@ -99,7 +104,8 @@ function renderWaveform(blob, filename) {
 
 function renderWaveform(blob, filename) {
   console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0) {
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
     return;
   }
@@ -170,7 +176,11 @@ function renderWaveform(blob, filename) {
     console.error('WaveSurfer error:', e);
   });
 
-  wavesurfer.loadBlob(blob);
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
@@ -750,7 +760,8 @@ async function processFiles(files) {
 
 function renderWaveform(blob, filename) {
   console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0) {
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
     return;
   }
@@ -821,7 +832,11 @@ function renderWaveform(blob, filename) {
     console.error('WaveSurfer error:', e);
   });
 
-  wavesurfer.loadBlob(blob);
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
