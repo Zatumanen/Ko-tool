@@ -395,15 +395,8 @@ let stereoCount = 0;
   zip.file(fileName, wavBlob);
 
   if (!firstProcessed) {
-    firstProcessed = wavBlob;
-    player.src = URL.createObjectURL(firstProcessed);
-    player.style.display = 'block';
-    player.load();
 
-    const originalSize = (file.size / 1024 / 1024).toFixed(2);
-    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
-    fileInfo.innerHTML = `
-  const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
+const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
 fileInfo.innerHTML = `
@@ -416,6 +409,15 @@ fileInfo.innerHTML = `
   <div>Pitch: ${pitch}</div>
   <div>Release: ${release}</div>
 `;
+
+    firstProcessed = wavBlob;
+    player.src = URL.createObjectURL(firstProcessed);
+    player.style.display = 'block';
+    player.load();
+
+    const originalSize = (file.size / 1024 / 1024).toFixed(2);
+    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
+    
   }
 }
 
