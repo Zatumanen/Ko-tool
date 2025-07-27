@@ -383,11 +383,41 @@ function renderWaveform(blob, filename) {
 }
 
 </style>
+
+<style>
+.win95-box {
+  border: 2px inset #fff;
+  background: #c0c0c0;
+  padding: 4px;
+  font-family: "Courier New", monospace;
+  margin-bottom: 10px;
+}
+.group-title {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+.win95-listbox {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid black;
+  background: white;
+}
+.win95-listbox li {
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.win95-listbox li.selected {
+  background-color: navy;
+  color: white;
+}
+</style>
+
 </head>
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.46</span>
+      <span>KO II Audio Tool — v1.50</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -398,15 +428,15 @@ function renderWaveform(blob, filename) {
 <div style="display: flex; gap: 8px; margin-bottom: 10px;">
   <div class="win95-inset" style="flex: 1;">
     <label>FIDELITY</label><br>
-    <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
-    <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
-    <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
-    <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
+     CD (16/46)<br>
+     SP-1200 8 Bit<br>
+     SP-1200 16 Bit<br>
+     SK-1 (8/9)
   </div>
   <div class="win95-inset" style="flex: 1;">
     <label>CHANNELS</label><br>
-    <input type="radio" name="channels" value="stereo" checked> Stereo<br>
-    <input type="radio" name="channels" value="mono"> Mono
+     Stereo<br>
+     Mono
   </div>
 </div>
 
@@ -443,349 +473,70 @@ function renderWaveform(blob, filename) {
     </div>
   </div>
 
+
+
+
+
+
+
+
+
+
+
+
 <script>
-function updateSliderValue(type) {
-  const slider = document.getElementById(`${type}-slider`);
-  const valueSpan = document.getElementById(`${type}-value`);
-  if (slider && valueSpan) {
-    valueSpan.textContent = slider.value;
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  updateSliderValue('pitch');
-  updateSliderValue('release');
-
-  const dropZone = document.getElementById('drop-zone');
-  const fileInput = document.getElementById('audio-upload');
-  const player = document.getElementById('player');
-  const selectButton = document.getElementById('select-file-button');
-  const overlay = document.getElementById('overlay');
-  const loader = document.getElementById('win95-loader');
-  const segmentContainer = document.getElementById('segment-container');
-  const fileInfo = document.getElementById('file-info');
-
-  const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
-  const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
-
-  const getDownsampleRate = (fidelity, originalRate) => {
-    switch (fidelity) {
-      case 'sp8': return 10000;
-      case 'sp16': return 16000;
-      case 'sk': return 9000;
-      default: return originalRate;
-    }
-  };
-
-  const convertChannels = async (buffer, channels) => {
-    const ctx = new OfflineAudioContext(channels === 'mono' ? 1 : 2, buffer.length, buffer.sampleRate);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    if (channels === 'mono') {
-      const merger = ctx.createChannelMerger(1);
-      const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-      source.connect(splitter);
-      for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(merger, i, 0);
-      merger.connect(ctx.destination);
-    } else {
-      source.connect(ctx.destination);
-    }
-
-    source.start();
-    return await ctx.startRendering();
-  };
-
-  const applySpeedAndFidelity = async (buffer, speed, sampleRate) => {
-  const duration = buffer.duration / speed;
-  const ctx = new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.playbackRate.value = speed;
-  source.connect(ctx.destination);
-  source.start();
-  return await ctx.startRendering();
+let editorState = {
+  fidelity: "cd",
+  channels: "stereo"
 };
 
-  const audioBufferToWav = (buffer, ko2Buffer) => {
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const length = buffer.length;
-    const bufferArray = new ArrayBuffer(44 + length * 2 * numChannels);
-    const view = new DataView(bufferArray);
+function applyEditorState(name, value) {
+  editorState[name] = value;
 
-    const writeString = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + length * 2 * numChannels, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * 2, true);
-    view.setUint16(32, numChannels * 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length * 2 * numChannels, true);
-
-    let offset = 44;
-    for (let i = 0; i < length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i])) * 32767;
-        view.setInt16(offset, sample, true);
-        offset += 2;
-      }
-    }
-
-    
-    if (ko2Buffer) {
-      const newBuffer = new Uint8Array(view.byteLength + 8 + ko2Buffer.length);
-      newBuffer.set(new Uint8Array(view.buffer), 0);
-      const dv = new DataView(newBuffer.buffer);
-      let offset = view.byteLength;
-      ['T','N','G','E'].forEach((c, i) => dv.setUint8(offset + i, c.charCodeAt(0)));
-      dv.setUint32(offset + 4, ko2Buffer.length, true);
-      for (let i = 0; i < ko2Buffer.length; i++) dv.setUint8(offset + 8 + i, ko2Buffer[i]);
-      return new Blob([newBuffer], { type: 'audio/wav' });
-    }
-    return new Blob([view], { type: 'audio/wav' });
-    
-  };
-
-  
-
-async function animateSegmentsFullBar(durationMs) {
-  const segments = document.querySelectorAll('.progress-segment');
-  const delay = durationMs / segments.length;
-
-  for (let i = 0; i < segments.length; i++) {
-    segments[i].classList.add('active');
-    await new Promise(res => setTimeout(res, delay));
+  // Вызов функции, которая применяет параметры к аудио (имитация)
+  if (typeof updateInput === "function") {
+    updateInput(name, value);
+  } else if (typeof setEditorParam === "function") {
+    setEditorParam(name, value);
+  } else {
+    console.log(`[FAKE APPLY] ${name} = ${value}`);
   }
 }
 
+function initWin95List(id) {
+  const list = document.getElementById(id);
+  const items = list.querySelectorAll("li");
+  items.forEach(item => {
+    item.addEventListener("click", () => {
+      items.forEach(i => i.classList.remove("selected"));
+      item.classList.add("selected");
 
-  
-function getKO2Buffer() {
-  const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
-  const release = parseInt(document.getElementById('release-slider')?.value || '128');
-  const settings = {
-    'sound.pitch': pitch,
-    'sound.release': release
-  };
-  settings['sound.playmode'] = 'oneshot';
-  const str = JSON.stringify(settings);
-  return new TextEncoder().encode(str);
-}
+      const paramName = item.dataset.name;
+      const paramValue = item.dataset.value;
 
+      applyEditorState(paramName, paramValue);
 
-
-async function processFiles(files) {
-  let stereoOriginal = 0;
-  let monoOriginal = 0;
-  console.log('Process started:', files);
-  overlay.style.display = 'block';
-  loader.style.display = 'block';
-
-  const context = initAudioContext();
-  const totalSegments = 50;
-  segmentContainer.innerHTML = '';
-  fileInfo.innerHTML = '';
-  for (let i = 0; i < totalSegments; i++) {
-    const seg = document.createElement('div');
-    seg.className = 'progress-segment';
-    segmentContainer.appendChild(seg);
-  }
-
-  const zip = new JSZip();
-  let firstProcessed = null;
-
-  let totalOriginalSize = 0;
-  let totalProcessedSize = 0;
-
-  for (let i = 0; i < files.length; i++) {
-    segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
-
-    const file = files[i];
-    const arrayBuffer = await file.arrayBuffer();
-    const decoded = await context.decodeAudioData(arrayBuffer);
-
-    if (decoded.numberOfChannels === 1) monoOriginal++;
-    else if (decoded.numberOfChannels === 2) stereoOriginal++;
-
-    const fidelity = getSelectedValue('fidelity');
-    const channels = getSelectedValue('channels');
-    const converted = await convertChannels(decoded, channels);
-    const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-
-    const startTime = performance.now();
-    const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-    const durationMs = performance.now() - startTime;
-
-    await animateSegmentsFullBar(durationMs);
-
-    const ko2Buffer = getKO2Buffer();
-    const wavBlob = audioBufferToWav(processed, ko2Buffer);
-
-    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-    
-    renderWaveform(wavBlob, fileName);
-    zip.file(fileName, wavBlob);
-
-    totalOriginalSize += file.size;
-    totalProcessedSize += wavBlob.size;
-
-    
-  }
-
-  const segments = document.querySelectorAll('.progress-segment');
-  segments.forEach(seg => seg.classList.add('active'));
-
-  
-  
-
-
-  const zipBlob = await zip.generateAsync({ type: "blob" });
-  const zipUrl = URL.createObjectURL(zipBlob);
-  const a = document.createElement('a');
-  a.href = zipUrl;
-  a.download = "processed_ko2_audio.zip";
-  a.click();
-
-  const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
-  const release = parseInt(document.getElementById('release-slider')?.value || '128');
-  const fidelity = getSelectedValue('fidelity');
-  const channels = getSelectedValue('channels');
-
-  fileInfo.innerHTML = `
-    <div><b>Files: ${files.length}</b></div>
-    <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-    <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
-    <div>Fidelity: ${fidelity}</div>
-    <div>Channels (convert to): ${channels}</div>
-    <div>Pitch: ${pitch}</div>
-    <div>Release: ${release}</div>
-    <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
-  `;
-
-  setTimeout(() => {
-    overlay.style.display = 'none';
-    loader.style.display = 'none';
-  }, 500);
-}
-
-
-  dropZone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
-
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-  });
-
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
-  });
-
-  selectButton.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => {
-      console.log('Change event:', fileInput.files);
-      if (fileInput.files.length) processFiles(fileInput.files);
+      const event = new CustomEvent("inputChange", {
+        detail: { name: paramName, value: paramValue }
+      });
+      document.dispatchEvent(event);
     });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initWin95List("fidelity-options");
+  initWin95List("channel-options");
 });
 
-
-
-
-function renderWaveform(blob, filename) {
-  if (!blob || blob.size === 0) {
-    console.warn('Skipping empty or invalid blob:', filename);
-    return;
+// Глобальный слушатель события inputChange
+document.addEventListener("inputChange", (e) => {
+  const { name, value } = e.detail || {};
+  if (name && value) {
+    applyEditorState(name, value);
   }
-
-  const container = document.createElement('div');
-  container.style.marginBottom = '20px';
-  container.style.border = '2px inset #808080';
-  container.style.padding = '10px';
-  container.style.background = '#e0e0e0';
-  container.style.overflowX = 'auto';
-
-  const title = document.createElement('div');
-  try {
-    title.textContent = decodeURIComponent(filename);
-  } catch {
-    title.textContent = filename;
-  }
-  title.style.fontFamily = "'Courier New', monospace";
-  title.style.fontSize = '14px';
-  title.style.marginBottom = '6px';
-  title.style.wordBreak = 'break-word';
-
-  const wave = document.createElement('div');
-  wave.style.width = '100%';
-  wave.style.minHeight = '64px';
-  wave.style.height = '64px';
-
-  const button = document.createElement('button');
-  button.textContent = '▶️ Play';
-  button.style.marginTop = '6px';
-  button.style.fontFamily = "'Courier New', monospace";
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#000',
-    progressColor: '#000080',
-    height: 64,
-    barWidth: 1.4,
-    minPxPerSec: 100,
-    responsive: true,
-    cursorColor: '#ff0000',
-    splitChannels: false
-  });
-
-  let didRender = false;
-  const fallbackTimeout = setTimeout(() => {
-    if (!didRender) {
-      const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
-      failNote.style.color = 'red';
-      failNote.style.fontSize = '13px';
-      container.appendChild(title);
-      container.appendChild(failNote);
-      document.getElementById('waveform-list').appendChild(container);
-    }
-  }, 4000);
-
-  wavesurfer.on('ready', () => {
-    clearTimeout(fallbackTimeout);
-    didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
-    container.appendChild(button);
-    document.getElementById('waveform-list').appendChild(container);
-  });
-
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
-
-  wavesurfer.loadBlob(blob);
-
-  button.onclick = () => {
-    if (wavesurfer.isPlaying()) {
-      wavesurfer.pause();
-      button.textContent = '▶️ Play';
-    } else {
-      wavesurfer.play();
-      button.textContent = '⏸ Pause';
-    }
-  };
-}
-
+});
 </script>
+
 </body>
 </html>
