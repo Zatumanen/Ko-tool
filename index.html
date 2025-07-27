@@ -211,6 +211,7 @@
         <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
         <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
         <div id="file-info"></div>
+<div id="channel-stats" style="font-size: 14px; margin-top: 6px;"></div>
       </div>
       <button id="select-file-button">Select Audio Files</button>
       <audio id="player" controls></audio>
@@ -235,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loader = document.getElementById('win95-loader');
   const segmentContainer = document.getElementById('segment-container');
   const fileInfo = document.getElementById('file-info');
+  const channelStats = document.getElementById('channel-stats');
 
   const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
   const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
@@ -420,8 +422,8 @@ fileInfo.innerHTML = `
   <div>Channels (convert to): ${channels}</div>
   <div>Pitch: ${pitch}</div>
   <div>Release: ${release}</div>
-  <div>Original Channels: ${stereoCount} Stereo / ${monoCount} Mono</div>
 `;
+channelStats.innerHTML = `Original Channels: ${stereoCount} Stereo / ${monoCount} Mono`;
   }
 }
 
