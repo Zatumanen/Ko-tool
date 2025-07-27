@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.16</span>
+      <span>KO II Audio Tool — v1.17</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   
 
+
 async function animateSegmentsFullBar(durationMs) {
   const segments = document.querySelectorAll('.progress-segment');
   const delay = durationMs / segments.length;
@@ -334,7 +335,14 @@ async function animateSegmentsFullBar(durationMs) {
     segments[i].classList.add('active');
     await new Promise(res => setTimeout(res, delay));
   }
+
+  // Принудительно скрываем оверлей и лоадер после финального прогресса
+  setTimeout(() => {
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('win95-loader').style.display = 'none';
+  }, 300);
 }
+
 
 
   
