@@ -2,18 +2,25 @@
 <html lang="ru">
 <head>
 <script src="https://unpkg.com/wavesurfer.js">
+
 function renderWaveform(blob, filename) {
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
   container.style.border = '2px inset #808080';
   container.style.padding = '10px';
   container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
-  title.textContent = filename;
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
   title.style.fontFamily = "'Courier New', monospace";
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
@@ -36,7 +43,8 @@ function renderWaveform(blob, filename) {
     height: 64,
     barWidth: 2,
     responsive: true,
-    cursorColor: '#ff0000'
+    cursorColor: '#ff0000',
+    normalize: true
   });
 
   wavesurfer.loadBlob(blob);
@@ -55,18 +63,25 @@ function renderWaveform(blob, filename) {
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+
 function renderWaveform(blob, filename) {
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
   container.style.border = '2px inset #808080';
   container.style.padding = '10px';
   container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
-  title.textContent = filename;
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
   title.style.fontFamily = "'Courier New', monospace";
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
@@ -89,7 +104,8 @@ function renderWaveform(blob, filename) {
     height: 64,
     barWidth: 2,
     responsive: true,
-    cursorColor: '#ff0000'
+    cursorColor: '#ff0000',
+    normalize: true
   });
 
   wavesurfer.loadBlob(blob);
@@ -108,7 +124,7 @@ function renderWaveform(blob, filename) {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.21</title>
+  <title>KO II Audio Tool v1.22</title>
   <style>
     body {
       background: #fff;
@@ -303,7 +319,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.21</span>
+      <span>KO II Audio Tool — v1.22</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -346,11 +362,7 @@ function renderWaveform(blob, filename) {
       </div>
       <div id="waveform-list" style="margin-top: 10px;"></div>
 <button id="select-file-button">Select Audio Files</button>
-      <audio id="player" controls></audio>
-<button id="preview-button" style="display:none; width: 100%; margin-top: 10px; background: #c0c0c0; border: 2px solid #000; font-family: 'Courier New', monospace; font-size: 16px; cursor: pointer;">
-▶️ Play Preview
-</button>
-    </div>
+          </div>
   </div>
 
   <div id="overlay">
@@ -625,18 +637,25 @@ async function processFiles(files) {
     });
 });
 
+
 function renderWaveform(blob, filename) {
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
   container.style.border = '2px inset #808080';
   container.style.padding = '10px';
   container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
-  title.textContent = filename;
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
   title.style.fontFamily = "'Courier New', monospace";
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
@@ -659,7 +678,8 @@ function renderWaveform(blob, filename) {
     height: 64,
     barWidth: 2,
     responsive: true,
-    cursorColor: '#ff0000'
+    cursorColor: '#ff0000',
+    normalize: true
   });
 
   wavesurfer.loadBlob(blob);
