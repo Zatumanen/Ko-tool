@@ -5,8 +5,6 @@
 
 
 
-
-
 function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
@@ -15,9 +13,9 @@ function renderWaveform(blob, filename) {
 
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
-  container.style.border = '2px solid #c0c0c0';
+  container.style.border = '2px inset #808080';
   container.style.padding = '10px';
-  container.style.background = 'inherit';
+  container.style.background = '#e0e0e0';
   container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
@@ -30,32 +28,26 @@ function renderWaveform(blob, filename) {
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
   title.style.wordBreak = 'break-word';
-  title.style.color = '#000';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
-  wave.style.minHeight = '80px';
-  wave.style.height = '80px';
-  wave.style.border = '1px solid #c0c0c0';
-  wave.style.backgroundColor = 'inherit';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.style.marginTop = '6px';
   button.style.fontFamily = "'Courier New', monospace";
-  button.style.background = '#000000';
-  button.style.color = '#00ff66';
-  button.style.border = '1px solid #00ff66';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
-    waveColor: '#00cc00',
-    progressColor: '#00ff66',
-    cursorColor: '#ffff00',
-    height: 80,
-    barWidth: 1.2,
-    normalize: true,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
     responsive: true,
+    cursorColor: '#ff0000',
     splitChannels: false
   });
 
@@ -104,8 +96,6 @@ function renderWaveform(blob, filename) {
 
 
 
-
-
 function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
@@ -114,9 +104,9 @@ function renderWaveform(blob, filename) {
 
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
-  container.style.border = '2px solid #c0c0c0';
+  container.style.border = '2px inset #808080';
   container.style.padding = '10px';
-  container.style.background = 'inherit';
+  container.style.background = '#e0e0e0';
   container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
@@ -129,32 +119,26 @@ function renderWaveform(blob, filename) {
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
   title.style.wordBreak = 'break-word';
-  title.style.color = '#000';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
-  wave.style.minHeight = '80px';
-  wave.style.height = '80px';
-  wave.style.border = '1px solid #c0c0c0';
-  wave.style.backgroundColor = 'inherit';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.style.marginTop = '6px';
   button.style.fontFamily = "'Courier New', monospace";
-  button.style.background = '#000000';
-  button.style.color = '#00ff66';
-  button.style.border = '1px solid #00ff66';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
-    waveColor: '#00cc00',
-    progressColor: '#00ff66',
-    cursorColor: '#ffff00',
-    height: 80,
-    barWidth: 1.2,
-    normalize: true,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
     responsive: true,
+    cursorColor: '#ff0000',
     splitChannels: false
   });
 
@@ -200,7 +184,7 @@ function renderWaveform(blob, filename) {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.38</title>
+  <title>KO II Audio Tool v1.41</title>
   <style>
     body {
       background: #fff;
@@ -391,25 +375,26 @@ function renderWaveform(blob, filename) {
     }
 
 
-.embossed {
-    border: 2px solid #c0c0c0;
-    box-shadow: inset -2px -2px 0 #ffffff, inset 2px 2px 0 #808080;
-    padding: 6px;
-    background-color: inherit;
+.win95-inset {
+  border: 2px inset #808080;
+  background: #c0c0c0;
+  padding: 6px;
+  margin-bottom: 6px;
 }
+
 </style>
 </head>
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.38</span>
+      <span>KO II Audio Tool — v1.41</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
       </div>
     </div>
     <div class="content">
-      <div class="options">
+      <div class="options win95-inset">
         <div>
           <label>FIDELITY</label><br>
           <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
@@ -423,7 +408,7 @@ function renderWaveform(blob, filename) {
           <input type="radio" name="channels" value="mono"> Mono
         </div>
       </div>
-      <div class="settings">
+      <div class="settings win95-inset">
         <label>EP-133 KO II SETTINGS</label>
         
     <div class="slider-wrapper">
@@ -714,8 +699,6 @@ async function processFiles(files) {
 
 
 
-
-
 function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
@@ -724,9 +707,9 @@ function renderWaveform(blob, filename) {
 
   const container = document.createElement('div');
   container.style.marginBottom = '20px';
-  container.style.border = '2px solid #c0c0c0';
+  container.style.border = '2px inset #808080';
   container.style.padding = '10px';
-  container.style.background = 'inherit';
+  container.style.background = '#e0e0e0';
   container.style.overflowX = 'auto';
 
   const title = document.createElement('div');
@@ -739,32 +722,26 @@ function renderWaveform(blob, filename) {
   title.style.fontSize = '14px';
   title.style.marginBottom = '6px';
   title.style.wordBreak = 'break-word';
-  title.style.color = '#000';
 
   const wave = document.createElement('div');
   wave.style.width = '100%';
-  wave.style.minHeight = '80px';
-  wave.style.height = '80px';
-  wave.style.border = '1px solid #c0c0c0';
-  wave.style.backgroundColor = 'inherit';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.style.marginTop = '6px';
   button.style.fontFamily = "'Courier New', monospace";
-  button.style.background = '#000000';
-  button.style.color = '#00ff66';
-  button.style.border = '1px solid #00ff66';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
-    waveColor: '#00cc00',
-    progressColor: '#00ff66',
-    cursorColor: '#ffff00',
-    height: 80,
-    barWidth: 1.2,
-    normalize: true,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
     responsive: true,
+    cursorColor: '#ff0000',
     splitChannels: false
   });
 
