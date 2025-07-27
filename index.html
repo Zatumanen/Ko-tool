@@ -432,14 +432,14 @@ const release = parseInt(document.getElementById('release-slider')?.value || '12
 
 fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
-  <div>Original: ${originalSize} MB</div>
-  <div>Processed: ${processedSize} MB</div>
+  <div>Original: ${totalOriginalSize.toFixed(2)} MB</div>
+  <div>Processed: ${totalProcessedSize.toFixed(2)} MB</div>
   <div>Fidelity: ${fidelity}</div>
   <div>Channels (convert to): ${channels}</div>
   <div>Pitch: ${pitch}</div>
   <div>Release: ${release}</div>
-  <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
-`;
+  <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
+`;;
   }
 }
 
