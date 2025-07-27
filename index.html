@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.6</span>
+      <span>KO II Audio Tool — v1.7</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -401,34 +401,33 @@ let stereoCount = 0;
   const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
   zip.file(fileName, wavBlob);
 
-  if (!firstProcessed) {
-    firstProcessed = wavBlob;
-    player.src = URL.createObjectURL(firstProcessed);
-    player.style.display = 'block';
-    player.load();
-
-    const originalSize = (file.size / 1024 / 1024).toFixed(2);
-    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
-    const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
-const release = parseInt(document.getElementById('release-slider')?.value || '128');
-
-fileInfo.innerHTML = `
-  <div><b>Files: ${files.length}</b></div>
-  <div>Original: ${originalSize} MB</div>
-  <div>Processed: ${processedSize} MB</div>
-  <div>Fidelity: ${fidelity}</div>
-  <div>Channels (convert to): ${channels}</div>
-  <div>Pitch: ${pitch}</div>
-  <div>Release: ${release}
-  <div>Original Channels: ${stereoCount} Stereo / ${monoCount} Mono</div></div>
-`;
-  }
+  
 }
 
   const segments = document.querySelectorAll('.progress-segment');
   segments.forEach(seg => seg.classList.add('active'));
 
-  const zipBlob = await zip.generateAsync({ type: "blob" });
+  
+  // Статистика после всех файлов
+  const originalSize = (files[0].size / 1024 / 1024).toFixed(2);
+  const processedSize = (zipBlob.size / 1024 / 1024).toFixed(2);
+  fileInfo.innerHTML = `
+    <div><b>Files: ${files.length}</b></div>
+    <div>Original: ${originalSize} MB</div>
+    <div>Processed: ${processedSize} MB</div>
+    <div>Fidelity: ${getSelectedValue('fidelity')}</div>
+    <div>Channels: ${getSelectedValue('channels')}</div>
+    <div>Original Channels: ${stereoCount} Stereo / ${monoCount} Mono</div>
+  `;
+
+  if (player && zip.files && Object.keys(zip.files).length > 0) {
+    const firstFile = await zip.files[Object.keys(zip.files)[0]].async("blob");
+    player.src = URL.createObjectURL(firstFile);
+    player.style.display = 'block';
+    player.load();
+  }
+
+const zipBlob = await zip.generateAsync({ type: "blob" });
   const zipUrl = URL.createObjectURL(zipBlob);
   const a = document.createElement('a');
   a.href = zipUrl;
