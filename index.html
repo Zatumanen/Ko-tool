@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.18</span>
+      <span>KO II Audio Tool — v1.12</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -326,7 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   
 
-
 async function animateSegmentsFullBar(durationMs) {
   const segments = document.querySelectorAll('.progress-segment');
   const delay = durationMs / segments.length;
@@ -335,14 +334,7 @@ async function animateSegmentsFullBar(durationMs) {
     segments[i].classList.add('active');
     await new Promise(res => setTimeout(res, delay));
   }
-
-  // Принудительно скрываем оверлей и лоадер после финального прогресса
-  setTimeout(() => {
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('win95-loader').style.display = 'none';
-  }, 300);
 }
-
 
 
   
@@ -417,24 +409,7 @@ let stereoCount = 0;
     player.load();
 
     const originalSize = (file.size / 1024 / 1024).toFixed(2);
-    
-  let monoCount = 0;
-  let stereoCount = 0;
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const arrayBuffer = await file.arrayBuffer();
-    const decoded = await context.decodeAudioData(arrayBuffer);
-
-    if (decoded.numberOfChannels === 1) {
-      monoCount++;
-    } else {
-      stereoCount++;
-    }
-  }
-
-
-  const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
+    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
     const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
@@ -445,8 +420,6 @@ fileInfo.innerHTML = `
   <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
   <div>Fidelity: ${fidelity}</div>
   <div>Channels (convert to): ${channels}</div>
-  <div>Pitch: ${pitch}</div>
-  <div>Release: ${release}</div>
   <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
 `;
 
@@ -463,8 +436,10 @@ fileInfo.innerHTML = `
   a.download = "processed_ko2_audio.zip";
   a.click();
 
-  overlay.style.display = 'none';
+  setTimeout(() => {
+    overlay.style.display = 'none';
     loader.style.display = 'none';
+  }, 500);
 }
 
   dropZone.addEventListener('dragover', e => {
