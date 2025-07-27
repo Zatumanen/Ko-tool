@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.13</span>
+      <span>KO II Audio Tool — v1.14</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -358,6 +358,8 @@ async function processFiles(files) {
   loader.style.display = 'block';
 
   const context = initAudioContext();
+let totalOriginalSize = 0;
+let totalProcessedSize = 0;
   let monoCount = 0;
 let stereoCount = 0;
   const totalSegments = 50;
@@ -392,6 +394,8 @@ let stereoCount = 0;
 
   const startTime = performance.now();
   const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+  totalOriginalSize += file.size;
+  totalProcessedSize += processed.length * 2 * processed.numberOfChannels;
   const durationMs = performance.now() - startTime;
 
   await animateSegmentsFullBar(durationMs);
@@ -416,6 +420,7 @@ let stereoCount = 0;
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
 
+
 fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
   <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
@@ -424,6 +429,7 @@ fileInfo.innerHTML = `
   <div>Channels (convert to): ${channels}</div>
   <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
 `;
+
 
   }
 }
