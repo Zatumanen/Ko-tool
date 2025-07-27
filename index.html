@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.61</title>
+  <title>KO II Audio Tool v1.62</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.61</span>
+      <span>KO II Audio Tool — v1.62</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -311,6 +311,7 @@
     let waveformBusy = false;
     let activeAudioContext = null;
     let createdObjectURLs = [];
+    const MAX_FILES = 10; // Ограничение количества файлов
 
     // Проверка загрузки Wavesurfer.js
     function waitForWavesurfer() {
@@ -404,6 +405,13 @@
 
     // Обработка файлов
     async function processFiles(files) {
+      // Проверка количества файлов
+      if (files.length > MAX_FILES) {
+        const fileInfo = document.getElementById('file-info');
+        fileInfo.innerHTML = `<div style="color:red">Error: Too many files selected (max ${MAX_FILES})</div>`;
+        return;
+      }
+
       const overlay = document.getElementById('overlay');
       const loader = document.getElementById('win95-loader');
       const segmentContainer = document.getElementById('segment-container');
@@ -651,6 +659,7 @@
         new DataView(metadata.buffer).setUint32(4, ko2Buffer.length, true);
         metadata.set(ko2Buffer, 8);
         
+        // Правильное создание WAV с метаданными
         return new Blob(
           [header, data.buffer, metadata.buffer], 
           { type: 'audio/wav' }
@@ -672,7 +681,7 @@
         // Проверка валидности данных
         if (!blob || blob.size < 500) {
           console.warn('Skipping invalid blob:', filename);
-          return;
+          return resolve();
         }
 
         // Создание контейнера
@@ -703,6 +712,14 @@
         container.appendChild(button);
         document.getElementById('waveform-list').appendChild(container);
         
+        let wavesurferReady = false;
+        const renderTimeout = setTimeout(() => {
+          if (!wavesurferReady) {
+            wave.innerHTML = '<div class="render-error">Render timeout exceeded</div>';
+            resolve();
+          }
+        }, 15000); // 15 секунд таймаут
+        
         try {
           // Инициализация Wavesurfer
           const wavesurfer = WaveSurfer.create({
@@ -717,6 +734,7 @@
 
           // Обработка готовности
           wavesurfer.on('ready', () => {
+            wavesurferReady = true;
             button.addEventListener('click', () => {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
@@ -731,6 +749,7 @@
 
           // Обработка ошибок
           wavesurfer.on('error', (err) => {
+            wavesurferReady = true;
             console.error('Wavesurfer error:', err);
             wave.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
             resolve();
@@ -806,9 +825,20 @@
 
     // Очистка при закрытии
     window.addEventListener('beforeunload', () => {
+      // Очистка Wavesurfer
+      document.querySelectorAll('.wave-container').forEach(container => {
+        if (container.wavesurfer) {
+          container.wavesurfer.destroy();
+        }
+      });
+      
+      // Очистка Object URLs
       createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+      
+      // Закрытие аудиоконтекста
       if (activeAudioContext) {
         activeAudioContext.close();
+        activeAudioContext = null;
       }
     });
   </script>
