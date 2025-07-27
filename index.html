@@ -200,7 +200,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.16</span>
+      <span>KO II Audio Tool — v1.17</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -446,11 +446,25 @@ async function processFiles(files) {
     totalProcessedSize += wavBlob.size;
 
     if (!firstProcessed) {
-      firstProcessed = audioBufferToWav(processed, ko2Buffer, false);
-      player.src = URL.createObjectURL(firstProcessed);
-      player.style.display = 'block';
-      player.load();
+  firstProcessed = audioBufferToWav(processed, ko2Buffer, false);
+  const audioURL = URL.createObjectURL(firstProcessed);
+  player.style.display = 'block';
+
+  player.pause();
+  player.removeAttribute('src');
+
+  player.src = audioURL;
+  player.load();
+
+  player.addEventListener('canplaythrough', function onReady() {
+    player.removeEventListener('canplaythrough', onReady);
+    try {
+      player.play().catch(() => {});
+    } catch (e) {
+      console.warn('Cannot autoplay:', e);
     }
+  });
+}
   }
 
   const segments = document.querySelectorAll('.progress-segment');
