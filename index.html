@@ -129,102 +129,92 @@ function processNextWaveform() {
 }
 
 
+
+
 function renderWaveform(blob, filename) {
-  track('renderWaveform');
-  console.log(`📥 START renderWaveform: ${filename}, size=${blob.size}, type=${blob.type}`);
-  console.log("typeof blob:", typeof blob);
-  blob.arrayBuffer().then(buffer => {
-    const header = new Uint8Array(buffer.slice(0, 12));
-    console.log("🔎 WAV Header (first 12 bytes):", header);
+  if (!blob || blob.size === 0) {
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
 
-    const container = document.createElement('div');
-    container.style.margin = '10px 0';
-    container.style.border = '1px dashed #888';
-    container.style.padding = '6px';
-    container.style.fontFamily = 'monospace';
+  const container = document.createElement('div');
+  container.style.marginBottom = '20px';
+  container.style.border = '2px inset #808080';
+  container.style.padding = '10px';
+  container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
-    const title = document.createElement('div');
+  const title = document.createElement('div');
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
     title.textContent = filename;
-    container.appendChild(title);
+  }
+  title.style.fontFamily = "'Courier New', monospace";
+  title.style.fontSize = '14px';
+  title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
-    if (!blob || blob.size < 1000) {
-      const fail = document.createElement('div');
-      fail.style.color = 'red';
-      fail.textContent = `⚠️ Failed to render: empty or corrupt file`;
-      container.appendChild(fail);
-      document.getElementById('waveform-list').appendChild(container);
-      waveformBusy = false;
-      processNextWaveform();
-      return;
-    }
+  const wave = document.createElement('div');
+  wave.style.width = '100%';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
-    const wave = document.createElement('div');
-    container.appendChild(wave);
-    document.getElementById('waveform-list').appendChild(container);
+  const button = document.createElement('button');
+  button.textContent = '▶️ Play';
+  button.style.marginTop = '6px';
+  button.style.fontFamily = "'Courier New', monospace";
 
-    const wavesurfer = WaveSurfer.create({
-      container: wave,
-      waveColor: '#111',
-      progressColor: '#333',
-      height: 64,
-      responsive: true,
-      barWidth: 1.5
-    });
-
-    let attempt = 1;
-
-    function tryLoad() {
-      console.log(`🌀 Attempt #${attempt} for ${filename}`);
-      try {
-        wavesurfer.loadBlob(blob);
-      } catch (e) {
-        failRender(`loadBlob failed`, e);
-      }
-    }
-
-    function failRender(reason, error = null) {
-      const fail = document.createElement('div');
-      fail.style.color = 'red';
-      fail.textContent = `⚠️ Failed to render waveform${attempt > 1 ? ' (2nd attempt)' : ''} — ${filename}`;
-      if (reason) fail.textContent += ` (${reason})`;
-      container.appendChild(fail);
-      if (error) console.error(`❌ renderWaveform error: ${filename}`, error);
-      waveformBusy = false;
-      processNextWaveform();
-    }
-
-    wavesurfer.on('ready', () => {
-      console.log(`✅ Success renderWaveform: ${filename}`);
-      const playBtn = document.createElement('button');
-      playBtn.textContent = '▶️ Play';
-      playBtn.onclick = () => {
-        if (wavesurfer.isPlaying()) {
-          wavesurfer.pause();
-          playBtn.textContent = '▶️ Play';
-        } else {
-          wavesurfer.play();
-          playBtn.textContent = '⏸ Pause';
-        }
-      };
-      container.appendChild(playBtn);
-      waveformBusy = false;
-      processNextWaveform();
-    });
-
-    wavesurfer.on('error', (e) => {
-      console.warn(`❗ renderWaveform failed attempt #${attempt}: ${filename}`, e);
-      if (attempt === 1) {
-        attempt++;
-        tryLoad();
-      } else {
-        failRender('WaveSurfer error', e);
-      }
-    });
-
-    tryLoad();
+  const wavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
   });
-}
 
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
+
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  wavesurfer.on('error', (e) => {
+    console.error('WaveSurfer error:', e);
+  });
+
+  wavesurfer.loadBlob(blob);
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
+}
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
@@ -291,7 +281,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.6</title>
+  <title>KO II Audio Tool v2.0.7</title>
   <style>
     body {
       background: #fff;
@@ -517,7 +507,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.6</span>
+      <span>KO II Audio Tool — v2.0.7</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
