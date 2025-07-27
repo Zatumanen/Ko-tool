@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.12</span>
+      <span>KO II Audio Tool — v1.13</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -395,6 +395,8 @@ let stereoCount = 0;
   const durationMs = performance.now() - startTime;
 
   await animateSegmentsFullBar(durationMs);
+  overlay.style.display = "none";
+  loader.style.display = "none";
 
   const ko2Buffer = getKO2Buffer();
   const wavBlob = audioBufferToWav(processed, ko2Buffer);
