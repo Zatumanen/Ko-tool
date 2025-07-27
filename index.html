@@ -96,6 +96,33 @@ function renderWaveform(blob, filename) {
   };
 }
 
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+
+  const { blob, filename } = waveformQueue.shift();
+
+  setTimeout(() => {
+    try {
+      enqueueWaveformRender(blob, filename);
+    } catch (err) {
+      console.error('Waveform render error:', err);
+    } finally {
+      waveformBusy = false;
+      processNextWaveform();
+    }
+  }, 50); // слегка задержим для стабильности в Safari
+}
+
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
@@ -191,6 +218,33 @@ function renderWaveform(blob, filename) {
       button.textContent = '⏸ Pause';
     }
   };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+
+  const { blob, filename } = waveformQueue.shift();
+
+  setTimeout(() => {
+    try {
+      enqueueWaveformRender(blob, filename);
+    } catch (err) {
+      console.error('Waveform render error:', err);
+    } finally {
+      waveformBusy = false;
+      processNextWaveform();
+    }
+  }, 50); // слегка задержим для стабильности в Safari
 }
 
 </script>
@@ -422,7 +476,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.51</span>
+      <span>KO II Audio Tool — v1.52</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -687,7 +741,7 @@ async function processFiles(files) {
 
     const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
     
-    renderWaveform(wavBlob, fileName);
+    enqueueWaveformRender(wavBlob, fileName);
     zip.file(fileName, wavBlob);
 
     totalOriginalSize += file.size;
@@ -847,6 +901,33 @@ function renderWaveform(blob, filename) {
       button.textContent = '⏸ Pause';
     }
   };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+
+  const { blob, filename } = waveformQueue.shift();
+
+  setTimeout(() => {
+    try {
+      enqueueWaveformRender(blob, filename);
+    } catch (err) {
+      console.error('Waveform render error:', err);
+    } finally {
+      waveformBusy = false;
+      processNextWaveform();
+    }
+  }, 50); // слегка задержим для стабильности в Safari
 }
 
 </script>
