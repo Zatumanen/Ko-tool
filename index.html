@@ -176,12 +176,31 @@
     .progress-segment.active {
       background: #000080;
     }
-  </style>
+  
+    .slider-wrapper {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+      gap: 8px;
+    }
+
+    .slider-value {
+      background: #fff;
+      border: 2px inset #808080;
+      padding: 2px 6px;
+      font-size: 14px;
+      min-width: 36px;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      color: #000;
+    }
+
+</style>
 </head>
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.15</span>
+      <span>KO II Audio Tool — v1.16</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -204,8 +223,18 @@
       </div>
       <div class="settings">
         <label>EP-133 KO II SETTINGS</label>
-        <label>Pitch <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64"></label>
-        <label>Release <input type="range" class="slider" id="release-slider" min="0" max="255" value="128"></label>
+        
+    <div class="slider-wrapper">
+      <label>Pitch</label>
+      <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64" oninput="updateSliderValue('pitch')">
+      <span class="slider-value" id="pitch-value">64</span>
+    </div>
+    <div class="slider-wrapper">
+      <label>Release</label>
+      <input type="range" class="slider" id="release-slider" min="0" max="255" value="128" oninput="updateSliderValue('release')">
+      <span class="slider-value" id="release-value">128</span>
+    </div>
+    
       </div>
       <div class="drop-zone" id="drop-zone">
         <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
@@ -226,7 +255,18 @@
   </div>
 
 <script>
+function updateSliderValue(type) {
+  const slider = document.getElementById(`${type}-slider`);
+  const valueSpan = document.getElementById(`${type}-value`);
+  if (slider && valueSpan) {
+    valueSpan.textContent = slider.value;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  updateSliderValue('pitch');
+  updateSliderValue('release');
+
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('audio-upload');
   const player = document.getElementById('player');
