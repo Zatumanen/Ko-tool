@@ -456,8 +456,14 @@ fileInfo.innerHTML = `
     if (e.dataTransfer.files.length > 0) processFiles(e.dataTransfer.files);
   });
 
-  selectButton.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => fileInput.files.length && processFiles(fileInput.files));
+  selectButton.addEventListener('click', () => {
+    console.log('Select button clicked');
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', () => {
+    console.log('File input changed', fileInput.files);
+    if (fileInput.files.length) processFiles(fileInput.files);
+  });
 });
 </script>
 </body>
