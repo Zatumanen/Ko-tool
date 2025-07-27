@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.10</span>
+      <span>KO II Audio Tool — v1.12</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -350,40 +350,21 @@ function getKO2Buffer() {
 }
 
 
-
-async function analyzeChannels(files) {
-  const results = await Promise.all(
-    Array.from(files).map(async (file) => {
-      try {
-        const buffer = await file.arrayBuffer();
-        const audioBuffer = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(buffer.slice(0));
-        return audioBuffer.numberOfChannels;
-      } catch (e) {
-        console.warn("Decode error", file.name, e);
-        return 0;
-      }
-    })
-  );
-  return {
-    stereoCount: results.filter(ch => ch === 2).length,
-    monoCount: results.filter(ch => ch === 1).length
-  };
-}
-
+// KO II Audio Tool v1.12
 async function processFiles(files) {
   let stereoOriginal = 0;
   let monoOriginal = 0;
+
   console.log('Process started:', files);
   overlay.style.display = 'block';
   loader.style.display = 'block';
 
   const context = initAudioContext();
-  let monoCount = 0;
-let stereoCount = 0;
   const totalSegments = 50;
   const segmentsPerFile = files.length === 1 ? totalSegments : Math.floor(totalSegments / files.length);
   segmentContainer.innerHTML = '';
   fileInfo.innerHTML = '';
+
   for (let i = 0; i < totalSegments; i++) {
     const seg = document.createElement('div');
     seg.className = 'progress-segment';
@@ -394,57 +375,77 @@ let stereoCount = 0;
   let firstProcessed = null;
 
   for (let i = 0; i < files.length; i++) {
-  segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
+    segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
 
-  const file = files[i];
-  const arrayBuffer = await file.arrayBuffer();
-  const decoded = await context.decodeAudioData(arrayBuffer);
+    const file = files[i];
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded = await context.decodeAudioData(arrayBuffer);
+
     if (decoded.numberOfChannels === 1) {
       monoOriginal++;
     } else if (decoded.numberOfChannels === 2) {
       stereoOriginal++;
     }
 
+    const fidelity = getSelectedValue('fidelity');
+    const channels = getSelectedValue('channels');
+    const converted = await convertChannels(decoded, channels);
+    const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
+
+    const startTime = performance.now();
+    const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+    const durationMs = performance.now() - startTime;
+
+    await animateSegmentsFullBar(durationMs);
+
+    const ko2Buffer = getKO2Buffer();
+    const wavBlob = audioBufferToWav(processed, ko2Buffer);
+
+    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+    zip.file(fileName, wavBlob);
+
+    if (!firstProcessed) {
+      firstProcessed = wavBlob;
+      player.src = URL.createObjectURL(firstProcessed);
+      player.style.display = 'block';
+      player.load();
+    }
+  }
+
+  const segments = document.querySelectorAll('.progress-segment');
+  segments.forEach(seg => seg.classList.add('active'));
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const zipUrl = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = zipUrl;
+  a.download = "processed_ko2_audio.zip";
+  a.click();
+
+  // Summary info AFTER processing all files
+  const originalSizeMB = Array.from(files).reduce((sum, f) => sum + f.size, 0) / 1024 / 1024;
+  const processedSizeMB = zipBlob.size / 1024 / 1024;
+
+  const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
+  const release = parseInt(document.getElementById('release-slider')?.value || '128');
   const fidelity = getSelectedValue('fidelity');
   const channels = getSelectedValue('channels');
-  const converted = await convertChannels(decoded, channels);
-  const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
 
-  const startTime = performance.now();
-  const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-  const durationMs = performance.now() - startTime;
-
-  await animateSegmentsFullBar(durationMs);
-
-  const ko2Buffer = getKO2Buffer();
-  const wavBlob = audioBufferToWav(processed, ko2Buffer);
-
-  const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-  zip.file(fileName, wavBlob);
-
-  if (!firstProcessed) {
-    firstProcessed = wavBlob;
-    player.src = URL.createObjectURL(firstProcessed);
-    player.style.display = 'block';
-    player.load();
-
-    const originalSize = (file.size / 1024 / 1024).toFixed(2);
-    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
-    const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
-const release = parseInt(document.getElementById('release-slider')?.value || '128');
-
-const { stereoCount, monoCount } = await analyzeChannels(files);
   fileInfo.innerHTML = `
-  <div><b>Files: ${files.length}</b></div>
-  <div>Original: ${originalSize} MB</div>
-  <div>Processed: ${processedSize} MB</div>
-  <div>Fidelity: ${fidelity}</div>
-  <div>Channels (convert to): ${channels}</div>
-  <div>Pitch: ${pitch}</div>
-  <div>Release: ${release}</div>
-  <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
-`;
-  }
+    <div><b>Files: ${files.length}</b></div>
+    <div>Original: ${originalSizeMB.toFixed(2)} MB</div>
+    <div>Processed (ZIP): ${processedSizeMB.toFixed(2)} MB</div>
+    <div>Fidelity: ${fidelity}</div>
+    <div>Channels (convert to): ${channels}</div>
+    <div>Pitch: ${pitch}</div>
+    <div>Release: ${release}</div>
+    <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
+  `;
+
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    loader.style.display = 'none';
+  }, 500);
 }
 
   const segments = document.querySelectorAll('.progress-segment');
