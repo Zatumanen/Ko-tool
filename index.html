@@ -6,11 +6,6 @@
 
 
 function renderWaveform(blob, filename) {
-  if (renderedWaveforms.has(filename)) {
-    console.warn('Skipping duplicate waveform:', filename);
-    return;
-  }
-  renderedWaveforms.add(filename);
   console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
@@ -74,8 +69,6 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -179,9 +172,6 @@ function processNextWaveform() {
   }, 50); // слегка задержим для стабильности в Safari
 }
 
-
-const renderedWaveforms = new Set();
-
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
@@ -189,11 +179,6 @@ const renderedWaveforms = new Set();
 
 
 function renderWaveform(blob, filename) {
-  if (renderedWaveforms.has(filename)) {
-    console.warn('Skipping duplicate waveform:', filename);
-    return;
-  }
-  renderedWaveforms.add(filename);
   console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
@@ -257,8 +242,6 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -591,7 +574,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.58</span>
+      <span>KO II Audio Tool — v1.56</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -928,11 +911,6 @@ async function processFiles(files) {
 
 
 function renderWaveform(blob, filename) {
-  if (renderedWaveforms.has(filename)) {
-    console.warn('Skipping duplicate waveform:', filename);
-    return;
-  }
-  renderedWaveforms.add(filename);
   console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
@@ -996,8 +974,6 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
