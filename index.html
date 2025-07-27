@@ -5,8 +5,7 @@
 
 
 
-function renderWaveform(blob, filename, done) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
+function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
@@ -67,11 +66,8 @@ function renderWaveform(blob, filename, done) {
   }, 4000);
 
   wavesurfer.on('ready', () => {
-    renderedWaveforms.add(filename);
-    done && done(); () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -102,7 +98,6 @@ wavesurfer.on('error', (e) => {
   newWavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -166,7 +161,7 @@ function processNextWaveform() {
 
   setTimeout(() => {
     try {
-      enqueueWaveform(blob, filename);
+      renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
@@ -182,8 +177,7 @@ function processNextWaveform() {
 
 
 
-function renderWaveform(blob, filename, done) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
+function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
@@ -244,11 +238,8 @@ function renderWaveform(blob, filename, done) {
   }, 4000);
 
   wavesurfer.on('ready', () => {
-    renderedWaveforms.add(filename);
-    done && done(); () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -279,7 +270,6 @@ wavesurfer.on('error', (e) => {
   newWavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -343,7 +333,7 @@ function processNextWaveform() {
 
   setTimeout(() => {
     try {
-      enqueueWaveform(blob, filename);
+      renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
@@ -356,7 +346,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.66</title>
+  <title>KO II Audio Tool v1.68</title>
   <style>
     body {
       background: #fff;
@@ -582,7 +572,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.66</span>
+      <span>KO II Audio Tool — v1.68</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -801,7 +791,6 @@ function getKO2Buffer() {
 async function processFiles(files) {
   let stereoOriginal = 0;
   let monoOriginal = 0;
-  console.log('Process started:', files);
   overlay.style.display = 'block';
   loader.style.display = 'block';
 
@@ -910,7 +899,6 @@ async function processFiles(files) {
 
   selectButton.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
-      console.log('Change event:', fileInput.files);
       if (fileInput.files.length) processFiles(fileInput.files);
     });
 });
@@ -918,8 +906,7 @@ async function processFiles(files) {
 
 
 
-function renderWaveform(blob, filename, done) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
+function renderWaveform(blob, filename) {
   if (!blob || blob.size === 0 || blob.size < 500) {
     console.warn('Waveform render skipped due to empty or too small blob:', filename);
     console.warn('Skipping empty or invalid blob:', filename);
@@ -980,11 +967,8 @@ function renderWaveform(blob, filename, done) {
   }, 4000);
 
   wavesurfer.on('ready', () => {
-    renderedWaveforms.add(filename);
-    done && done(); () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -1015,7 +999,6 @@ wavesurfer.on('error', (e) => {
   newWavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
-    renderedWaveforms.add(filename);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -1079,7 +1062,7 @@ function processNextWaveform() {
 
   setTimeout(() => {
     try {
-      enqueueWaveform(blob, filename);
+      renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
