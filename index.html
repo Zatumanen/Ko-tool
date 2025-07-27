@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="ru">
 <head>
 <script src="https://unpkg.com/wavesurfer.js">
@@ -263,8 +264,7 @@ function processNextWaveform() {
 }
 
 </script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
 
 
 
@@ -436,10 +436,10 @@ function processNextWaveform() {
 }
 
 </script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.1</title>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KO II Audio Tool v2.0.2</title>
+<style>
     body {
       background: #fff;
       font-family: 'Courier New', monospace;
@@ -659,76 +659,103 @@ function processNextWaveform() {
   color: white;
 }
 </style>
-
 </head>
 <body>
-  <div class="window">
-    <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.1</span>
-      <div>
-        <button class="minimize">-</button>
-        <button class="close">X</button>
-      </div>
-    </div>
-    <div class="content">
-      
-
+<div class="window">
+<div class="title-bar">
+<span>KO II Audio Tool — v2.0.2</span>
+<div>
+<button class="minimize">-</button>
+<button class="close">X</button>
+</div>
+</div>
+<div class="content">
 <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-  <div class="win95-inset" style="flex: 1;">
-    <label>FIDELITY</label><br>
-    <div class="win95-list" data-group="fidelity">
-      <div data-value="cd" class="list-item selected">CD (16/46)</div>
-      <div data-value="sp8" class="list-item">SP-1200 8 Bit</div>
-      <div data-value="sp16" class="list-item">SP-1200 16 Bit</div>
-      <div data-value="sk" class="list-item">SK-1 (8/9)</div>
-    </div>
-  </div>
-  <div class="win95-inset" style="flex: 1;">
-    <label>CHANNELS</label><br>
-    <div class="win95-list" data-group="channels">
-      <div data-value="stereo" class="list-item selected">Stereo</div>
-      <div data-value="mono" class="list-item">Mono</div>
-    </div>
-  </div>
+<div class="win95-inset" style="flex: 1;">
+<label>FIDELITY</label><br/>
+<div class="win95-list" data-group="fidelity">
+<div class="list-item selected" data-value="cd">CD (16/46)</div>
+<div class="list-item" data-value="sp8">SP-1200 8 Bit</div>
+<div class="list-item" data-value="sp16">SP-1200 16 Bit</div>
+<div class="list-item" data-value="sk">SK-1 (8/9)</div>
+</div>
+</div>
+<div class="win95-inset" style="flex: 1;">
+<label>CHANNELS</label><br/>
+<div class="win95-list" data-group="channels">
+<div class="list-item selected" data-value="stereo">Stereo</div>
+<div class="list-item" data-value="mono">Mono</div>
+</div>
+</div>
+</div>
+</div>
+<div class="settings win95-inset">
+<label>EP-133 KO II SETTINGS</label>
+<div class="slider-wrapper">
+<label>Pitch</label>
+<input class="slider" id="pitch-slider" max="127" min="0" oninput="updateSliderValue('pitch')" type="range" value="64"/>
+<span class="slider-value" id="pitch-value">64</span>
+</div>
+<div class="slider-wrapper">
+<label>Release</label>
+<input class="slider" id="release-slider" max="255" min="0" oninput="updateSliderValue('release')" type="range" value="128"/>
+<span class="slider-value" id="release-value">128</span>
+</div>
+</div>
+<div class="drop-zone" id="drop-zone">
+<input accept=".mp3,.wav,.ogg,audio/*" id="audio-upload" multiple="" type="file">
+<span>DRAG AND DROP OR SELECT AUDIO FILES</span>
+<div id="file-info"></div>
+</input></div>
+<div id="waveform-list" style="margin-top: 10px;"></div>
+<button id="select-file-button">Select Audio Files</button>
 </div>
 
-  </div>
-
-      <div class="settings win95-inset">
-        <label>EP-133 KO II SETTINGS</label>
-        
-    <div class="slider-wrapper">
-      <label>Pitch</label>
-      <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64" oninput="updateSliderValue('pitch')">
-      <span class="slider-value" id="pitch-value">64</span>
-    </div>
-    <div class="slider-wrapper">
-      <label>Release</label>
-      <input type="range" class="slider" id="release-slider" min="0" max="255" value="128" oninput="updateSliderValue('release')">
-      <span class="slider-value" id="release-value">128</span>
-    </div>
-    
-      </div>
-      <div class="drop-zone" id="drop-zone">
-        <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
-        <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
-        <div id="file-info"></div>
-      </div>
-      <div id="waveform-list" style="margin-top: 10px;"></div>
-<button id="select-file-button">Select Audio Files</button>
-          </div>
-  </div>
-
-  <div id="overlay">
-    <div id="win95-loader">
-      <div>Copying...</div>
-      <div>From KO Tool to Player</div>
-      <div class="progress-bar-container" id="segment-container"></div>
-    </div>
-  </div>
-
+<div id="overlay">
+<div id="win95-loader">
+<div>Copying...</div>
+<div>From KO Tool to Player</div>
+<div class="progress-bar-container" id="segment-container"></div>
+</div>
+</div>
 <script>
-const appVersion = 'v2.0.1';
+const appVersion = 'v2.0.2';
+
+let waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(task) {
+    waveformQueue.push(task);
+    if (!waveformBusy) processNextWaveform();
+}
+
+function processNextWaveform() {
+    if (waveformQueue.length === 0) return;
+    waveformBusy = true;
+    const task = waveformQueue.shift();
+    console.log(`[${appVersion}] Rendering waveform:`, task.label);
+
+    try {
+        task.instance.on('ready', () => {
+            console.log(`[${appVersion}] Waveform ready:`, task.label);
+            waveformBusy = false;
+            processNextWaveform();
+        });
+
+        task.instance.on('error', (e) => {
+            console.warn(`[${appVersion}] Waveform error:`, e);
+            waveformBusy = false;
+            processNextWaveform();
+        });
+
+        task.instance.load(task.url);
+    } catch (e) {
+        console.error(`[${appVersion}] Exception during render:`, e);
+        waveformBusy = false;
+        processNextWaveform();
+    }
+}
+
 function updateSliderValue(type) {
   const slider = document.getElementById(`${type}-slider`);
   const valueSpan = document.getElementById(`${type}-value`);
