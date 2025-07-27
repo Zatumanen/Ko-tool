@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.60</title>
+  <title>KO II Audio Tool v1.65</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.60</span>
+      <span>KO II Audio Tool — v1.61</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -299,8 +299,11 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
+  <!-- Подключаем библиотеки -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <!-- Wavesurfer через CDN с правильной версией -->
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
 
   <script>
     // Глобальные переменные
@@ -309,8 +312,30 @@
     let activeAudioContext = null;
     let createdObjectURLs = [];
 
-    // Инициализация при загрузке
-    document.addEventListener('DOMContentLoaded', initApp);
+    // Проверка загрузки Wavesurfer.js
+    function waitForWavesurfer() {
+      return new Promise(resolve => {
+        if (window.WaveSurfer) {
+          resolve();
+          return;
+        }
+
+        const checkInterval = setInterval(() => {
+          if (window.WaveSurfer) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    // Инициализация приложения после загрузки библиотек
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Ждем загрузки Wavesurfer
+      await waitForWavesurfer();
+      console.log("Wavesurfer loaded:", !!window.WaveSurfer);
+      initApp();
+    });
 
     function initApp() {
       // Обновление слайдеров
@@ -641,7 +666,7 @@
       }
     }
 
-    // Визуализация волны (исправленная)
+    // Визуализация волны
     function renderWaveform(blob, filename) {
       return new Promise((resolve) => {
         // Проверка валидности данных
@@ -721,7 +746,7 @@
       });
     }
 
-    // Управление очередью рендеринга (исправленное)
+    // Управление очередью рендеринга
     function enqueueWaveformRender(blob, filename) {
       waveformQueue.push({ blob, filename });
       if (!waveformBusy) {
