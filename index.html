@@ -3,18 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.65</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body {
-      background: #fff;
-      <!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.62</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>KO II Audio Tool v1.63</title>
   <style>
     body {
       background: #fff;
@@ -56,6 +45,22 @@
 
     .content {
       padding: 10px 0;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .options label,
+    .settings label {
+      font-size: 16px;
+    }
+
+    .options input[type="radio"] {
+      margin-right: 5px;
+      transform: scale(1.3);
     }
 
     .settings {
@@ -118,6 +123,11 @@
       padding: 10px;
       font-size: 16px;
       cursor: pointer;
+    }
+
+    audio#player {
+      width: 100%;
+      margin-top: 12px;
     }
 
     #overlay {
@@ -236,7 +246,6 @@
     .wave-button {
       margin-top: 6px;
       font-family: 'Courier New', monospace;
-      padding: 4px 8px;
     }
     
     .render-error {
@@ -246,18 +255,12 @@
       background: #ffe6e6;
       border: 1px solid #ff9999;
     }
-    
-    .audio-info {
-      font-size: 12px;
-      color: #666;
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.62</span>
+      <span>KO II Audio Tool — v1.63</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -315,7 +318,6 @@
     </div>
   </div>
 
-  <!-- Подключаем библиотеки -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
 
@@ -327,24 +329,25 @@
     let createdObjectURLs = [];
     let wavesurferInstances = [];
 
-    // Инициализация приложения после загрузки библиотек
-    document.addEventListener('DOMContentLoaded', initApp);
-
-    function initApp() {
-      console.log("Initializing app...");
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
       // Обновление слайдеров
       updateSliderValue('pitch');
       updateSliderValue('release');
       
       // Назначение обработчиков событий
-      document.getElementById('pitch-slider').addEventListener('input', () => updateSliderValue('pitch'));
-      document.getElementById('release-slider').addEventListener('input', () => updateSliderValue('release'));
+      document.getElementById('pitch-slider').addEventListener('input', function() {
+        updateSliderValue('pitch');
+      });
+      document.getElementById('release-slider').addEventListener('input', function() {
+        updateSliderValue('release');
+      });
 
       // Обработка списков
-      document.querySelectorAll('.win95-list').forEach(group => {
-        group.addEventListener('click', e => {
+      document.querySelectorAll('.win95-list').forEach(function(group) {
+        group.addEventListener('click', function(e) {
           if (e.target.classList.contains('list-item')) {
-            group.querySelectorAll('.list-item').forEach(item => {
+            group.querySelectorAll('.list-item').forEach(function(item) {
               item.classList.remove('selected');
             });
             e.target.classList.add('selected');
@@ -358,49 +361,43 @@
       const selectButton = document.getElementById('select-file-button');
 
       // Drag and drop
-      dropZone.addEventListener('dragover', handleDragOver);
-      dropZone.addEventListener('dragleave', handleDragLeave);
-      dropZone.addEventListener('drop', handleDrop);
-      selectButton.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', handleFileSelect);
+      dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', function() {
+        this.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          processFiles(e.dataTransfer.files);
+        }
+      });
+
+      selectButton.addEventListener('click', function() {
+        fileInput.click();
+      });
       
-      console.log("App initialized");
-    }
+      fileInput.addEventListener('change', function() {
+        if (this.files.length) processFiles(this.files);
+      });
+    });
 
     // Функции обновления интерфейса
     function updateSliderValue(type) {
-      const slider = document.getElementById(`${type}-slider`);
-      const valueSpan = document.getElementById(`${type}-value`);
+      const slider = document.getElementById(type + '-slider');
+      const valueSpan = document.getElementById(type + '-value');
       if (slider && valueSpan) {
         valueSpan.textContent = slider.value;
       }
     }
 
-    // Drag and drop обработчики
-    function handleDragOver(e) {
-      e.preventDefault();
-      document.getElementById('drop-zone').classList.add('dragover');
-    }
-
-    function handleDragLeave() {
-      document.getElementById('drop-zone').classList.remove('dragover');
-    }
-
-    function handleDrop(e) {
-      e.preventDefault();
-      document.getElementById('drop-zone').classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
-        processFiles(e.dataTransfer.files);
-      }
-    }
-
-    function handleFileSelect() {
-      if (this.files.length) processFiles(this.files);
-    }
-
     // Обработка файлов
-    async function processFiles(files) {
-      console.log("Processing files:", files.length);
+    function processFiles(files) {
       const overlay = document.getElementById('overlay');
       const loader = document.getElementById('win95-loader');
       const segmentContainer = document.getElementById('segment-container');
@@ -414,7 +411,7 @@
       document.getElementById('waveform-list').innerHTML = '';
       
       // Очистка предыдущих экземпляров
-      wavesurferInstances.forEach(ws => {
+      wavesurferInstances.forEach(function(ws) {
         try {
           if (ws) ws.destroy();
         } catch (e) {
@@ -425,7 +422,6 @@
 
       // Создание контекста
       activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      console.log("AudioContext created");
       
       // Подготовка ZIP
       const zip = new JSZip();
@@ -443,857 +439,9 @@
       }
 
       // Обработка каждого файла
-      for (let i = 0; i < files.length; i++) {
-        // Сброс прогресс бара
-        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-          seg.classList.remove('active');
-        });
-
+      let processedCount = 0;
+      Array.from(files).forEach(async function(file) {
         try {
-          const file = files[i];
-          console.log("Processing file:", file.name);
-          totalOriginalSize += file.size;
-          
-          // Декодирование аудио
-          const arrayBuffer = await file.arrayBuffer();
-          const decoded = await activeAudioContext.decodeAudioData(arrayBuffer);
-          console.log("Audio decoded:", decoded.duration.toFixed(2) + "s", decoded.sampleRate + "Hz");
-          
-          // Статистика каналов
-          if (decoded.numberOfChannels === 1) monoOriginal++;
-          else if (decoded.numberOfChannels === 2) stereoOriginal++;
-          
-          // Получение настроек
-          const fidelity = getSelectedValue('fidelity');
-          const channels = getSelectedValue('channels');
-          console.log("Settings:", fidelity, channels);
-          
-          // Обработка аудио
-          const converted = await convertChannels(decoded, channels);
-          const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
-          console.log("Downsampling to:", downsampleRate + "Hz");
-          
-          const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-          console.log("Audio processed:", processed.duration.toFixed(2) + "s", processed.sampleRate + "Hz");
-          
-          // Генерация WAV
-          const ko2Buffer = getKO2Buffer();
-          const wavBlob = audioBufferToWav(processed, ko2Buffer);
-          console.log("WAV created:", (wavBlob.size / 1024).toFixed(1) + "KB");
-          totalProcessedSize += wavBlob.size;
-          
-          // Добавление в ZIP
-          const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-          zip.file(fileName, wavBlob);
-          
-          // Визуализация
-          enqueueWaveformRender(wavBlob, fileName, processed.duration, processed.sampleRate);
-          
-          // Анимация прогресса
-          await animateProgress(i / files.length);
-          
-        } catch (error) {
-          console.error('Error processing file:', error);
-          fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
-        }
-      }
-
-      // Завершение прогресс бара
-      segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-        seg.classList.add('active');
-      });
-
-      // Скачивание ZIP
-      try {
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const zipUrl = URL.createObjectURL(zipBlob);
-        createdObjectURLs.push(zipUrl); // Для последующей очистки
-        
-        const a = document.createElement('a');
-        a.href = zipUrl;
-        a.download = "ko2_processed_audio.zip";
-        a.click();
-        
-        // Статистика
-        fileInfo.innerHTML = `
-          <div><b>Processed ${files.length} files</b></div>
-          <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-          <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
-          <div>Fidelity: ${getSelectedValue('fidelity')}</div>
-          <div>Channels: ${getSelectedValue('channels')}</div>
-          <div>Pitch: ${document.getElementById('pitch-slider').value}</div>
-          <div>Release: ${document.getElementById('release-slider').value}</div>
-          <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-        `;
-      } catch (error) {
-        console.error('ZIP creation failed:', error);
-      }
-
-      // Закрытие оверлея после рендеринга
-      waitForRenderCompletion().then(() => {
-        overlay.style.display = 'none';
-        loader.style.display = 'none';
-        if (activeAudioContext) {
-          activeAudioContext.close().catch(console.error);
-          activeAudioContext = null;
-        }
-      });
-    }
-
-    // Аудио обработка
-    function getSelectedValue(name) {
-      const group = document.querySelector(`.win95-list[data-group="${name}"]`);
-      return group?.querySelector('.list-item.selected')?.dataset.value || 'cd';
-    }
-
-    function getDownsampleRate(fidelity, originalRate) {
-      switch (fidelity) {
-        case 'sp8': return 10000;
-        case 'sp16': return 16000;
-        case 'sk': return 9000;
-        default: return originalRate;
-      }
-    }
-
-    async function convertChannels(buffer, channels) {
-      const ctx = new OfflineAudioContext(
-        channels === 'mono' ? 1 : 2, 
-        buffer.length, 
-        buffer.sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-
-      if (channels === 'mono' && buffer.numberOfChannels > 1) {
-        const merger = ctx.createChannelMerger(1);
-        const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-        source.connect(splitter);
-        for (let i = 0; i < buffer.numberOfChannels; i++) {
-          splitter.connect(merger, i, 0);
-        }
-        merger.connect(ctx.destination);
-      } else {
-        source.connect(ctx.destination);
-      }
-
-      source.start();
-      return await ctx.startRendering();
-    }
-
-    async function applySpeedAndFidelity(buffer, speed, sampleRate) {
-      const duration = buffer.duration / speed;
-      const ctx = new OfflineAudioContext(
-        buffer.numberOfChannels,
-        Math.ceil(duration * sampleRate),
-        sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.playbackRate.value = speed;
-      source.connect(ctx.destination);
-      source.start();
-      return await ctx.startRendering();
-    }
-
-    function getKO2Buffer() {
-      const pitch = parseInt(document.getElementById('pitch-slider').value);
-      const release = parseInt(document.getElementById('release-slider').value);
-      
-      const settings = {
-        'sound.pitch': pitch,
-        'sound.release': release,
-        'sound.playmode': 'oneshot'
-      };
-      
-      return new TextEncoder().encode(JSON.stringify(settings));
-    }
-
-    function audioBufferToWav(buffer, ko2Buffer) {
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
-      const length = buffer.length;
-      const bytesPerSample = 2;
-      const blockAlign = numChannels * bytesPerSample;
-      
-      // Создание WAV-заголовка
-      const header = new ArrayBuffer(44);
-      const view = new DataView(header);
-      
-      // RIFF identifier
-      writeString(view, 0, 'RIFF');
-      // RIFF chunk length
-      view.setUint32(4, 36 + length * blockAlign, true);
-      // RIFF type
-      writeString(view, 8, 'WAVE');
-      // Format chunk identifier
-      writeString(view, 12, 'fmt ');
-      // Format chunk length
-      view.setUint32(16, 16, true);
-      // Sample format (raw)
-      view.setUint16(20, 1, true);
-      // Channel count
-      view.setUint16(22, numChannels, true);
-      // Sample rate
-      view.setUint32(24, sampleRate, true);
-      // Byte rate (sample rate * block align)
-      view.setUint32(28, sampleRate * blockAlign, true);
-      // Block align (channel count * bytes per sample)
-      view.setUint16(32, blockAlign, true);
-      // Bits per sample
-      view.setUint16(34, 16, true);
-      // Data chunk identifier
-      writeString(view, 36, 'data');
-      // Data chunk length
-      view.setUint32(40, length * blockAlign, true);
-      
-      // Сборка аудиоданных
-      const data = new Float32Array(length * numChannels);
-      let offset = 0;
-      for (let i = 0; i < length; i++) {
-        for (let ch = 0; ch < numChannels; ch++) {
-          data[offset] = buffer.getChannelData(ch)[i];
-          offset++;
-        }
-      }
-      
-      // Конвертация в 16-bit PCM
-      const pcm16 = new Int16Array(data.length);
-      for (let i = 0; i < data.length; i++) {
-        const s = Math.max(-1, Math.min(1, data[i]));
-        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
-      
-      // Добавление метаданных KO II
-      if (ko2Buffer) {
-        const metadata = new Uint8Array(8 + ko2Buffer.length);
-        writeString(new DataView(metadata.buffer), 0, 'TNGE');
-        new DataView(metadata.buffer).setUint32(4, ko2Buffer.length, true);
-        metadata.set(ko2Buffer, 8);
-        
-        return new Blob(
-          [header, pcm16.buffer, metadata.buffer], 
-          { type: 'audio/wav' }
-        );
-      }
-      
-      return new Blob([header, pcm16.buffer], { type: 'audio/wav' });
-    }
-
-    function writeString(view, offset, str) {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    }
-
-    // Визуализация волны
-    function renderWaveform(blob, filename, duration, sampleRate) {
-      return new Promise((resolve) => {
-        // Проверка валидности данных
-        if (!blob || blob.size < 500) {
-          console.warn('Skipping invalid blob:', filename);
-          return resolve();
-        }
-
-        // Создание контейнера
-        const container = document.createElement('div');
-        container.className = 'wave-container';
-        
-        // Заголовок
-        const title = document.createElement('div');
-        title.className = 'wave-title';
-        try {
-          title.textContent = decodeURIComponent(filename);
-        } catch {
-          title.textContent = filename;
-        }
-        
-        // Контейнер волны
-        const wave = document.createElement('div');
-        wave.className = 'wave-element';
-        
-        // Кнопка воспроизведения
-        const button = document.createElement('button');
-        button.className = 'wave-button';
-        button.innerHTML = '<i class="fas fa-play"></i> Play';
-        
-        // Информация об аудио
-        const info = document.createElement('div');
-        info.className = 'audio-info';
-        info.textContent = `${duration.toFixed(1)}s • ${sampleRate}Hz • ${(blob.size/1024).toFixed(1)}KB`;
-        
-        // Добавление элементов
-        container.appendChild(title);
-        container.appendChild(wave);
-        container.appendChild(button);
-        container.appendChild(info);
-        document.getElementById('waveform-list').appendChild(container);
-        
-        try {
-          // Инициализация Wavesurfer
-          const wavesurfer = WaveSurfer.create({
-            container: wave,
-            waveColor: '#000',
-            progressColor: '#000080',
-            height: 64,
-            barWidth: 1.4,
-            minPxPerSec: 100,
-            cursorColor: '#ff0000',
-            normalize: true,
-            sampleRate: sampleRate
-          });
-
-          // Сохраняем экземпляр для последующего уничтожения
-          wavesurferInstances.push(wavesurfer);
-
-          // Обработка готовности
-          wavesurfer.on('ready', () => {
-            console.log("Wavesurfer ready for:", filename);
-            button.addEventListener('click', () => {
-              if (wavesurfer.isPlaying()) {
-                wavesurfer.pause();
-                button.innerHTML = '<i class="fas fa-play"></i> Play';
-              } else {
-                wavesurfer.play();
-                button.innerHTML = '<i class="fas fa-pause"></i> Pause';
-              }
-            });
-            resolve();
-          });
-
-          // Обработка ошибок
-          wavesurfer.on('error', (err) => {
-            console.error('Wavesurfer error:', err, blob);
-            const errorMsg = err.message || 'Unknown error';
-            wave.innerHTML = `<div class="render-error">Render failed: ${errorMsg}</div>`;
-            resolve();
-          });
-
-          // Загрузка
-          console.log("Loading blob into wavesurfer:", filename);
-          wavesurfer.loadBlob(blob).catch(err => {
-            console.error('Load blob error:', err);
-            wave.innerHTML = `<div class="render-error">Load failed: ${err.message}</div>`;
-            resolve();
-          });
-        } catch (err) {
-          console.error('Wavesurfer init error:', err);
-          wave.innerHTML = `<div class="render-error">Init failed: ${err.message}</div>`;
-          resolve();
-        }
-      });
-    }
-
-    // Управление очередью рендеринга
-    function enqueueWaveformRender(blob, filename, duration, sampleRate) {
-      waveformQueue.push({ blob, filename, duration, sampleRate });
-      if (!waveformBusy) {
-        processNextWaveform();
-      }
-    }
-
-    async function processNextWaveform() {
-      if (waveformQueue.length === 0) {
-        waveformBusy = false;
-        return;
-      }
-
-      waveformBusy = true;
-      const { blob, filename, duration, sampleRate } = waveformQueue.shift();
-      
-      try {
-        // Добавляем задержку между рендерингом
-        await new Promise(resolve => setTimeout(resolve, 300));
-        await renderWaveform(blob, filename, duration, sampleRate);
-      } catch (err) {
-        console.error('Waveform render error:', err);
-      }
-      
-      // Обработка следующего элемента
-      setTimeout(processNextWaveform, 0);
-    }
-
-    // Вспомогательные функции
-    function animateProgress(progress) {
-      return new Promise(resolve => {
-        const segments = document.querySelectorAll('.progress-segment');
-        const segmentsToActivate = Math.floor(progress * segments.length);
-        
-        segments.forEach((seg, i) => {
-          if (i <= segmentsToActivate) {
-            seg.classList.add('active');
-          }
-        });
-        
-        resolve();
-      });
-    }
-
-    function waitForRenderCompletion() {
-      return new Promise(resolve => {
-        const check = () => {
-          if (!waveformBusy && waveformQueue.length === 0) {
-            resolve();
-          } else {
-            setTimeout(check, 100);
-          }
-        };
-        check();
-      });
-    }
-
-    // Очистка при закрытии
-    window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
-      wavesurferInstances.forEach(ws => {
-        try {
-          if (ws) ws.destroy();
-        } catch (e) {
-          console.error("Error destroying wavesurfer:", e);
-        }
-      });
-      if (activeAudioContext) {
-        activeAudioContext.close().catch(console.error);
-      }
-    });
-  </script>
-</body>
-</html>-family: 'Courier New', monospace;
-      margin: 0;
-      padding: 10px;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-    }
-    .window {
-      width: 100%;
-      max-width: 420px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    .title-bar {
-      background: #000080;
-      color: #fff;
-      padding: 4px 8px;
-      font-size: 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .title-bar button {
-      width: 18px;
-      height: 18px;
-      border: none;
-      background: #c0c0c0;
-      cursor: pointer;
-    }
-    .title-bar .minimize { background: #fff; }
-    .title-bar .close { background: #ff0000; }
-
-    .content {
-      padding: 10px 0;
-    }
-
-    .settings {
-      margin-top: 10px;
-      padding: 5px;
-      background: #2d7038;
-    }
-
-    .slider {
-      width: 100%;
-      height: 12px;
-      background: #000;
-      appearance: none;
-      outline: none;
-    }
-
-    .slider::-webkit-slider-thumb {
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      background: #ffd700;
-      cursor: pointer;
-    }
-
-    .drop-zone {
-      border: 2px dashed #000;
-      padding: 14px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.3);
-      margin-top: 12px;
-      position: relative;
-    }
-
-    .drop-zone input[type="file"] {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    .drop-zone span {
-      pointer-events: none;
-      font-size: 16px;
-    }
-
-    #file-info {
-      margin-top: 10px;
-      font-size: 14px;
-      text-align: left;
-    }
-
-    button#select-file-button {
-      width: 100%;
-      margin-top: 10px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      color: #000;
-      font-family: 'Courier New', monospace;
-      padding: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    #overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 999;
-    }
-
-    #win95-loader {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 320px;
-      padding: 12px;
-      background: #c0c0c0;
-      border: 2px solid #000;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      color: #000;
-      display: none;
-      z-index: 1000;
-    }
-
-    .progress-bar-container {
-      background: #fff;
-      border: 2px inset #808080;
-      height: 18px;
-      margin-top: 8px;
-      display: flex;
-      padding: 2px;
-      gap: 1px;
-      justify-content: flex-start;
-    }
-
-    .progress-segment {
-      width: 6px;
-      height: 100%;
-      background: #c0c0c0;
-    }
-
-    .progress-segment.active {
-      background: #000080;
-    }
-  
-    .slider-wrapper {
-      display: flex;
-      align-items: center;
-      margin-top: 8px;
-      gap: 8px;
-    }
-
-    .slider-value {
-      background: #fff;
-      border: 2px inset #808080;
-      padding: 2px 6px;
-      font-size: 14px;
-      min-width: 36px;
-      text-align: center;
-      font-family: 'Courier New', monospace;
-      color: #000;
-    }
-
-    .win95-inset {
-      border: 2px inset #808080;
-      background: #c0c0c0;
-      padding: 6px;
-      margin-bottom: 6px;
-    }
-
-    .win95-list {
-      border: 2px inset #808080;
-      background: #fff;
-      padding: 4px;
-      font-family: 'Courier New', monospace;
-    }
-
-    .list-item {
-      padding: 2px 6px;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .list-item:hover {
-      background: #c0c0c0;
-    }
-
-    .list-item.selected {
-      background: #000080;
-      color: white;
-    }
-    
-    .wave-container {
-      margin-bottom: 20px;
-      border: 2px inset #808080;
-      padding: 10px;
-      background: #e0e0e0;
-      overflow-x: auto;
-    }
-    
-    .wave-title {
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      margin-bottom: 6px;
-      word-break: break-word;
-    }
-    
-    .wave-element {
-      width: 100%;
-      min-height: 64px;
-      height: 64px;
-    }
-    
-    .wave-button {
-      margin-top: 6px;
-      font-family: 'Courier New', monospace;
-      padding: 4px 8px;
-    }
-    
-    .render-error {
-      color: red;
-      font-size: 13px;
-      padding: 10px;
-      background: #ffe6e6;
-      border: 1px solid #ff9999;
-    }
-  </style>
-</head>
-<body>
-  <div class="window">
-    <div class="title-bar">
-      <span>KO II Audio Tool — v1.61</span>
-      <div>
-        <button class="minimize">-</button>
-        <button class="close">X</button>
-      </div>
-    </div>
-    <div class="content">
-      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-        <div class="win95-inset" style="flex: 1;">
-          <label>FIDELITY</label><br>
-          <div class="win95-list" data-group="fidelity">
-            <div data-value="cd" class="list-item selected">CD (16/46)</div>
-            <div data-value="sp8" class="list-item">SP-1200 8 Bit</div>
-            <div data-value="sp16" class="list-item">SP-1200 16 Bit</div>
-            <div data-value="sk" class="list-item">SK-1 (8/9)</div>
-          </div>
-        </div>
-        <div class="win95-inset" style="flex: 1;">
-          <label>CHANNELS</label><br>
-          <div class="win95-list" data-group="channels">
-            <div data-value="stereo" class="list-item selected">Stereo</div>
-            <div data-value="mono" class="list-item">Mono</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings win95-inset">
-        <label>EP-133 KO II SETTINGS</label>
-        <div class="slider-wrapper">
-          <label>Pitch</label>
-          <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64">
-          <span class="slider-value" id="pitch-value">64</span>
-        </div>
-        <div class="slider-wrapper">
-          <label>Release</label>
-          <input type="range" class="slider" id="release-slider" min="0" max="255" value="128">
-          <span class="slider-value" id="release-value">128</span>
-        </div>
-      </div>
-      
-      <div class="drop-zone" id="drop-zone">
-        <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
-        <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
-        <div id="file-info"></div>
-      </div>
-      
-      <div id="waveform-list" style="margin-top: 10px;"></div>
-      <button id="select-file-button">Select Audio Files</button>
-    </div>
-  </div>
-
-  <div id="overlay">
-    <div id="win95-loader">
-      <div>Processing Audio Files...</div>
-      <div class="progress-bar-container" id="segment-container"></div>
-    </div>
-  </div>
-
-  <!-- Подключаем библиотеки -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  
-  <!-- Wavesurfer через CDN с правильной версией -->
-  <script src="https://unpkg.com/wavesurfer.js@7"></script>
-
-  <script>
-    // Глобальные переменные
-    const waveformQueue = [];
-    let waveformBusy = false;
-    let activeAudioContext = null;
-    let createdObjectURLs = [];
-
-    // Проверка загрузки Wavesurfer.js
-    function waitForWavesurfer() {
-      return new Promise(resolve => {
-        if (window.WaveSurfer) {
-          resolve();
-          return;
-        }
-
-        const checkInterval = setInterval(() => {
-          if (window.WaveSurfer) {
-            clearInterval(checkInterval);
-            resolve();
-          }
-        }, 100);
-      });
-    }
-
-    // Инициализация приложения после загрузки библиотек
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Ждем загрузки Wavesurfer
-      await waitForWavesurfer();
-      console.log("Wavesurfer loaded:", !!window.WaveSurfer);
-      initApp();
-    });
-
-    function initApp() {
-      // Обновление слайдеров
-      updateSliderValue('pitch');
-      updateSliderValue('release');
-      
-      // Назначение обработчиков событий
-      document.getElementById('pitch-slider').addEventListener('input', () => updateSliderValue('pitch'));
-      document.getElementById('release-slider').addEventListener('input', () => updateSliderValue('release'));
-
-      // Обработка списков
-      document.querySelectorAll('.win95-list').forEach(group => {
-        group.addEventListener('click', e => {
-          if (e.target.classList.contains('list-item')) {
-            group.querySelectorAll('.list-item').forEach(item => {
-              item.classList.remove('selected');
-            });
-            e.target.classList.add('selected');
-          }
-        });
-      });
-
-      // Элементы интерфейса
-      const dropZone = document.getElementById('drop-zone');
-      const fileInput = document.getElementById('audio-upload');
-      const selectButton = document.getElementById('select-file-button');
-
-      // Drag and drop
-      dropZone.addEventListener('dragover', handleDragOver);
-      dropZone.addEventListener('dragleave', handleDragLeave);
-      dropZone.addEventListener('drop', handleDrop);
-      selectButton.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', handleFileSelect);
-    }
-
-    // Функции обновления интерфейса
-    function updateSliderValue(type) {
-      const slider = document.getElementById(`${type}-slider`);
-      const valueSpan = document.getElementById(`${type}-value`);
-      if (slider && valueSpan) {
-        valueSpan.textContent = slider.value;
-      }
-    }
-
-    // Drag and drop обработчики
-    function handleDragOver(e) {
-      e.preventDefault();
-      document.getElementById('drop-zone').classList.add('dragover');
-    }
-
-    function handleDragLeave() {
-      document.getElementById('drop-zone').classList.remove('dragover');
-    }
-
-    function handleDrop(e) {
-      e.preventDefault();
-      document.getElementById('drop-zone').classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
-        processFiles(e.dataTransfer.files);
-      }
-    }
-
-    function handleFileSelect() {
-      if (this.files.length) processFiles(this.files);
-    }
-
-    // Обработка файлов
-    async function processFiles(files) {
-      const overlay = document.getElementById('overlay');
-      const loader = document.getElementById('win95-loader');
-      const segmentContainer = document.getElementById('segment-container');
-      const fileInfo = document.getElementById('file-info');
-
-      // Подготовка интерфейса
-      overlay.style.display = 'block';
-      loader.style.display = 'block';
-      fileInfo.innerHTML = '';
-      segmentContainer.innerHTML = '';
-      document.getElementById('waveform-list').innerHTML = '';
-
-      // Создание контекста
-      activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Подготовка ZIP
-      const zip = new JSZip();
-      let stereoOriginal = 0;
-      let monoOriginal = 0;
-      let totalOriginalSize = 0;
-      let totalProcessedSize = 0;
-
-      // Прогресс бар
-      const totalSegments = 50;
-      for (let i = 0; i < totalSegments; i++) {
-        const seg = document.createElement('div');
-        seg.className = 'progress-segment';
-        segmentContainer.appendChild(seg);
-      }
-
-      // Обработка каждого файла
-      for (let i = 0; i < files.length; i++) {
-        // Сброс прогресс бара
-        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-          seg.classList.remove('active');
-        });
-
-        try {
-          const file = files[i];
           totalOriginalSize += file.size;
           
           // Декодирование аудио
@@ -1326,60 +474,64 @@
           enqueueWaveformRender(wavBlob, fileName);
           
           // Анимация прогресса
-          await animateProgress(i / files.length);
+          processedCount++;
+          await animateProgress(processedCount / files.length);
           
         } catch (error) {
           console.error('Error processing file:', error);
           fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
         }
-      }
-
-      // Завершение прогресс бара
-      segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-        seg.classList.add('active');
       });
 
-      // Скачивание ZIP
-      try {
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        const zipUrl = URL.createObjectURL(zipBlob);
-        createdObjectURLs.push(zipUrl); // Для последующей очистки
-        
-        const a = document.createElement('a');
-        a.href = zipUrl;
-        a.download = "ko2_processed_audio.zip";
-        a.click();
-        
-        // Статистика
-        fileInfo.innerHTML = `
-          <div><b>Processed ${files.length} files</b></div>
-          <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-          <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
-          <div>Fidelity: ${getSelectedValue('fidelity')}</div>
-          <div>Channels: ${getSelectedValue('channels')}</div>
-          <div>Pitch: ${document.getElementById('pitch-slider').value}</div>
-          <div>Release: ${document.getElementById('release-slider').value}</div>
-          <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-        `;
-      } catch (error) {
-        console.error('ZIP creation failed:', error);
-      }
+      // Скачивание ZIP после обработки всех файлов
+      Promise.all(Array.from(files).map(() => new Promise(resolve => setTimeout(resolve))))
+        .then(async function() {
+          // Завершение прогресс бара
+          segmentContainer.querySelectorAll('.progress-segment').forEach(function(seg) {
+            seg.classList.add('active');
+          });
 
-      // Закрытие оверлея после рендеринга
-      waitForRenderCompletion().then(() => {
-        overlay.style.display = 'none';
-        loader.style.display = 'none';
-        if (activeAudioContext) {
-          activeAudioContext.close();
-          activeAudioContext = null;
-        }
-      });
+          try {
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const zipUrl = URL.createObjectURL(zipBlob);
+            createdObjectURLs.push(zipUrl); // Для последующей очистки
+            
+            const a = document.createElement('a');
+            a.href = zipUrl;
+            a.download = "ko2_processed_audio.zip";
+            a.click();
+            
+            // Статистика
+            fileInfo.innerHTML = `
+              <div><b>Processed ${files.length} files</b></div>
+              <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
+              <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
+              <div>Fidelity: ${getSelectedValue('fidelity')}</div>
+              <div>Channels: ${getSelectedValue('channels')}</div>
+              <div>Pitch: ${document.getElementById('pitch-slider').value}</div>
+              <div>Release: ${document.getElementById('release-slider').value}</div>
+              <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
+            `;
+          } catch (error) {
+            console.error('ZIP creation failed:', error);
+          }
+
+          // Закрытие оверлея после рендеринга
+          waitForRenderCompletion().then(function() {
+            overlay.style.display = 'none';
+            loader.style.display = 'none';
+            if (activeAudioContext) {
+              activeAudioContext.close().catch(console.error);
+              activeAudioContext = null;
+            }
+          });
+        });
     }
 
     // Аудио обработка
     function getSelectedValue(name) {
-      const group = document.querySelector(`.win95-list[data-group="${name}"]`);
-      return group?.querySelector('.list-item.selected')?.dataset.value || 'cd';
+      const group = document.querySelector('.win95-list[data-group="' + name + '"]');
+      return group ? group.querySelector('.list-item.selected').dataset.value : 'cd';
     }
 
     function getDownsampleRate(fidelity, originalRate) {
@@ -1391,46 +543,57 @@
       }
     }
 
-    async function convertChannels(buffer, channels) {
-      const ctx = new OfflineAudioContext(
-        channels === 'mono' ? 1 : 2, 
-        buffer.length, 
-        buffer.sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
+    function convertChannels(buffer, channels) {
+      return new Promise(function(resolve) {
+        const ctx = new OfflineAudioContext(
+          channels === 'mono' ? 1 : 2, 
+          buffer.length, 
+          buffer.sampleRate
+        );
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
 
-      if (channels === 'mono' && buffer.numberOfChannels > 1) {
-        const merger = ctx.createChannelMerger(1);
-        const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-        source.connect(splitter);
-        for (let i = 0; i < buffer.numberOfChannels; i++) {
-          splitter.connect(merger, i, 0);
+        if (channels === 'mono' && buffer.numberOfChannels > 1) {
+          const merger = ctx.createChannelMerger(1);
+          const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
+          source.connect(splitter);
+          for (let i = 0; i < buffer.numberOfChannels; i++) {
+            splitter.connect(merger, i, 0);
+          }
+          merger.connect(ctx.destination);
+        } else {
+          source.connect(ctx.destination);
         }
-        merger.connect(ctx.destination);
-      } else {
-        source.connect(ctx.destination);
-      }
 
-      source.start();
-      return await ctx.startRendering();
+        source.start();
+        ctx.oncomplete = function(event) {
+          resolve(event.renderedBuffer);
+        };
+        ctx.startRendering();
+      });
     }
 
-    async function applySpeedAndFidelity(buffer, speed, sampleRate) {
-      const duration = buffer.duration / speed;
-      const ctx = new OfflineAudioContext(
-        buffer.numberOfChannels,
-        Math.ceil(duration * sampleRate),
-        sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.playbackRate.value = speed;
-      source.connect(ctx.destination);
-      source.start();
-      return await ctx.startRendering();
+    function applySpeedAndFidelity(buffer, speed, sampleRate) {
+      return new Promise(function(resolve) {
+        const duration = buffer.duration / speed;
+        const ctx = new OfflineAudioContext(
+          buffer.numberOfChannels,
+          Math.ceil(duration * sampleRate),
+          sampleRate
+        );
+        
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.value = speed;
+        source.connect(ctx.destination);
+        source.start();
+        
+        ctx.oncomplete = function(event) {
+          resolve(event.renderedBuffer);
+        };
+        ctx.startRendering();
+      });
     }
 
     function getKO2Buffer() {
@@ -1485,13 +648,11 @@
       view.setUint32(40, length * blockAlign, true);
       
       // Сборка аудиоданных
-      const data = new Uint16Array(length * numChannels);
-      let offset = 0;
+      const data = new Int16Array(length * numChannels);
       for (let i = 0; i < length; i++) {
         for (let ch = 0; ch < numChannels; ch++) {
           const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-          data[offset] = sample < 0 ? sample * 32768 : sample * 32767;
-          offset++;
+          data[i * numChannels + ch] = sample < 0 ? sample * 32768 : sample * 32767;
         }
       }
       
@@ -1519,34 +680,44 @@
 
     // Визуализация волны
     function renderWaveform(blob, filename) {
-      return new Promise((resolve) => {
+      return new Promise(function(resolve) {
         // Проверка валидности данных
         if (!blob || blob.size < 500) {
           console.warn('Skipping invalid blob:', filename);
-          return;
+          return resolve();
         }
 
         // Создание контейнера
         const container = document.createElement('div');
-        container.className = 'wave-container';
+        container.style.marginBottom = '20px';
+        container.style.border = '2px inset #808080';
+        container.style.padding = '10px';
+        container.style.background = '#e0e0e0';
+        container.style.overflowX = 'auto';
         
         // Заголовок
         const title = document.createElement('div');
-        title.className = 'wave-title';
         try {
           title.textContent = decodeURIComponent(filename);
         } catch {
           title.textContent = filename;
         }
+        title.style.fontFamily = "'Courier New', monospace";
+        title.style.fontSize = '14px';
+        title.style.marginBottom = '6px';
+        title.style.wordBreak = 'break-word';
         
         // Контейнер волны
         const wave = document.createElement('div');
-        wave.className = 'wave-element';
+        wave.style.width = '100%';
+        wave.style.minHeight = '64px';
+        wave.style.height = '64px';
         
         // Кнопка воспроизведения
         const button = document.createElement('button');
-        button.className = 'wave-button';
-        button.innerHTML = '<i class="fas fa-play"></i> Play';
+        button.textContent = '▶️ Play';
+        button.style.marginTop = '6px';
+        button.style.fontFamily = "'Courier New', monospace";
         
         // Добавление элементов
         container.appendChild(title);
@@ -1566,32 +737,39 @@
             cursorColor: '#ff0000'
           });
 
+          // Сохраняем экземпляр
+          wavesurferInstances.push(wavesurfer);
+
           // Обработка готовности
-          wavesurfer.on('ready', () => {
-            button.addEventListener('click', () => {
+          wavesurfer.on('ready', function() {
+            button.onclick = function() {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
-                button.innerHTML = '<i class="fas fa-play"></i> Play';
+                button.textContent = '▶️ Play';
               } else {
                 wavesurfer.play();
-                button.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                button.textContent = '⏸ Pause';
               }
-            });
+            };
             resolve();
           });
 
           // Обработка ошибок
-          wavesurfer.on('error', (err) => {
+          wavesurfer.on('error', function(err) {
             console.error('Wavesurfer error:', err);
-            wave.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
+            wave.innerHTML = '<div class="render-error">Render failed</div>';
             resolve();
           });
 
           // Загрузка
-          wavesurfer.loadBlob(blob);
+          wavesurfer.loadBlob(blob).catch(function(err) {
+            console.error('Load blob error:', err);
+            wave.innerHTML = '<div class="render-error">Load failed</div>';
+            resolve();
+          });
         } catch (err) {
           console.error('Wavesurfer init error:', err);
-          wave.innerHTML = '<div class="render-error">Init failed: ' + err.message + '</div>';
+          wave.innerHTML = '<div class="render-error">Init failed</div>';
           resolve();
         }
       });
@@ -1605,7 +783,7 @@
       }
     }
 
-    async function processNextWaveform() {
+    function processNextWaveform() {
       if (waveformQueue.length === 0) {
         waveformBusy = false;
         return;
@@ -1614,25 +792,26 @@
       waveformBusy = true;
       const { blob, filename } = waveformQueue.shift();
       
-      try {
-        // Добавляем задержку между рендерингом
-        await new Promise(resolve => setTimeout(resolve, 200));
-        await renderWaveform(blob, filename);
-      } catch (err) {
-        console.error('Waveform render error:', err);
-      }
-      
-      // Обработка следующего элемента
-      setTimeout(processNextWaveform, 0);
+      // Добавляем задержку между рендерингом
+      setTimeout(async function() {
+        try {
+          await renderWaveform(blob, filename);
+        } catch (err) {
+          console.error('Waveform render error:', err);
+        }
+        
+        // Обработка следующего элемента
+        setTimeout(processNextWaveform, 0);
+      }, 300);
     }
 
     // Вспомогательные функции
     function animateProgress(progress) {
-      return new Promise(resolve => {
+      return new Promise(function(resolve) {
         const segments = document.querySelectorAll('.progress-segment');
         const segmentsToActivate = Math.floor(progress * segments.length);
         
-        segments.forEach((seg, i) => {
+        segments.forEach(function(seg, i) {
           if (i <= segmentsToActivate) {
             seg.classList.add('active');
           }
@@ -1643,8 +822,8 @@
     }
 
     function waitForRenderCompletion() {
-      return new Promise(resolve => {
-        const check = () => {
+      return new Promise(function(resolve) {
+        const check = function() {
           if (!waveformBusy && waveformQueue.length === 0) {
             resolve();
           } else {
@@ -1656,10 +835,19 @@
     }
 
     // Очистка при закрытии
-    window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+    window.addEventListener('beforeunload', function() {
+      createdObjectURLs.forEach(function(url) {
+        URL.revokeObjectURL(url);
+      });
+      wavesurferInstances.forEach(function(ws) {
+        try {
+          if (ws) ws.destroy();
+        } catch (e) {
+          console.error("Error destroying wavesurfer:", e);
+        }
+      });
       if (activeAudioContext) {
-        activeAudioContext.close();
+        activeAudioContext.close().catch(console.error);
       }
     });
   </script>
