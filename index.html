@@ -1,13 +1,445 @@
 <!DOCTYPE html>
-
 <html lang="ru">
 <head>
+<script src="https://unpkg.com/wavesurfer.js">
 
 
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>KO II Audio Tool v2.0.2</title>
-<style>
+
+function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
+
+  const container = document.createElement('div');
+  container.style.marginBottom = '20px';
+  container.style.border = '2px inset #808080';
+  container.style.padding = '10px';
+  container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
+
+  const title = document.createElement('div');
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
+  title.style.fontFamily = "'Courier New', monospace";
+  title.style.fontSize = '14px';
+  title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
+
+  const wave = document.createElement('div');
+  wave.style.width = '100%';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
+
+  const button = document.createElement('button');
+  button.textContent = '▶️ Play';
+  button.style.marginTop = '6px';
+  button.style.fontFamily = "'Courier New', monospace";
+
+  
+requestAnimationFrame(() => {
+  setTimeout(() => {
+    const wavesurfer = WaveSurfer.create({
+      container: wave,
+      waveColor: '#000',
+      progressColor: '#000080',
+      height: 64,
+      barWidth: 1.4,
+      minPxPerSec: 100,
+      responsive: true,
+      cursorColor: '#ff0000',
+      splitChannels: false
+    });
+
+    let didRender = false;
+    const fallbackTimeout = setTimeout(() => {
+      if (!didRender) {
+        const failNote = document.createElement('div');
+        failNote.textContent = '⚠️ Failed to render waveform';
+        failNote.style.color = 'red';
+        failNote.style.fontSize = '13px';
+        container.appendChild(title);
+        container.appendChild(failNote);
+        document.getElementById('waveform-list').appendChild(container);
+      }
+    }, 4000);
+
+    wavesurfer.on('ready', () => {
+      clearTimeout(fallbackTimeout);
+      didRender = true;
+      container.appendChild(title);
+      container.appendChild(wave);
+      container.appendChild(button);
+      document.getElementById('waveform-list').appendChild(container);
+    });
+
+    wavesurfer.on('error', (e) => {
+      console.warn('WaveSurfer error, recreating instance...');
+
+      wavesurfer.destroy();
+      wave.innerHTML = "";
+
+      const newWavesurfer = WaveSurfer.create({
+        container: wave,
+        waveColor: '#000',
+        progressColor: '#000080',
+        height: 64,
+        barWidth: 1.4,
+        minPxPerSec: 100,
+        responsive: true,
+        cursorColor: '#ff0000',
+        splitChannels: false
+      });
+
+      newWavesurfer.on('ready', () => {
+        clearTimeout(fallbackTimeout);
+        didRender = true;
+        container.appendChild(title);
+        container.appendChild(wave);
+        container.appendChild(button);
+        document.getElementById('waveform-list').appendChild(container);
+      });
+
+      newWavesurfer.on('error', () => {
+        console.warn('Second attempt failed to render:', filename);
+        const failNote = document.createElement('div');
+        failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+        failNote.style.color = 'red';
+        failNote.style.fontSize = '13px';
+        container.innerHTML = '';
+        container.appendChild(title);
+        container.appendChild(failNote);
+        document.getElementById('waveform-list').appendChild(container);
+      });
+
+      try {
+        newWavesurfer.loadBlob(blob);
+      } catch (err2) {
+        console.error('Retry loading failed:', err2);
+      }
+    });
+
+    try {
+      wavesurfer.loadBlob(blob);
+    } catch (err) {
+      console.error('WaveSurfer loadBlob failed:', err);
+    }
+
+    button.onclick = () => {
+      if (wavesurfer.isPlaying()) {
+        wavesurfer.pause();
+        button.textContent = '▶️ Play';
+      } else {
+        wavesurfer.play();
+        button.textContent = '⏸ Pause';
+      }
+    };
+  }, 50);
+});
+
+
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
+
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+
+wavesurfer.on('error', (e) => {
+  console.warn('WaveSurfer error, recreating instance...');
+
+  // Очистка старого экземпляра
+  wavesurfer.destroy();
+  wave.innerHTML = "";
+
+  const newWavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
+
+  newWavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
+
+  try {
+    newWavesurfer.loadBlob(blob);
+  } catch (err2) {
+    console.error('Retry loading failed:', err2);
+  }
+});
+
+
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+
+  const { blob, filename } = waveformQueue.shift();
+
+  setTimeout(() => {
+    try {
+      renderWaveform(blob, filename);
+    } catch (err) {
+      console.error('Waveform render error:', err);
+    } finally {
+      waveformBusy = false;
+      processNextWaveform();
+    }
+  }, 50); // слегка задержим для стабильности в Safari
+}
+
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+
+
+
+function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
+
+  const container = document.createElement('div');
+  container.style.marginBottom = '20px';
+  container.style.border = '2px inset #808080';
+  container.style.padding = '10px';
+  container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
+
+  const title = document.createElement('div');
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
+  title.style.fontFamily = "'Courier New', monospace";
+  title.style.fontSize = '14px';
+  title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
+
+  const wave = document.createElement('div');
+  wave.style.width = '100%';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
+
+  const button = document.createElement('button');
+  button.textContent = '▶️ Play';
+  button.style.marginTop = '6px';
+  button.style.fontFamily = "'Courier New', monospace";
+
+  const wavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
+
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
+
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+
+wavesurfer.on('error', (e) => {
+  console.warn('WaveSurfer error, recreating instance...');
+
+  // Очистка старого экземпляра
+  wavesurfer.destroy();
+  wave.innerHTML = "";
+
+  const newWavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
+
+  newWavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
+
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
+
+  try {
+    newWavesurfer.loadBlob(blob);
+  } catch (err2) {
+    console.error('Retry loading failed:', err2);
+  }
+});
+
+
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
+}
+
+
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+
+  const { blob, filename } = waveformQueue.shift();
+
+  setTimeout(() => {
+    try {
+      renderWaveform(blob, filename);
+    } catch (err) {
+      console.error('Waveform render error:', err);
+    } finally {
+      waveformBusy = false;
+      processNextWaveform();
+    }
+  }, 50); // слегка задержим для стабильности в Safari
+}
+
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KO II Audio Tool v2.0.3</title>
+  <style>
     body {
       background: #fff;
       font-family: 'Courier New', monospace;
@@ -227,65 +659,74 @@
   color: white;
 }
 </style>
+
 </head>
 <body>
-<div class="window">
-<div class="title-bar">
-<span>KO II Audio Tool — v2.0.2</span>
-<div>
-<button class="minimize">-</button>
-<button class="close">X</button>
-</div>
-</div>
-<div class="content">
+  <div class="window">
+    <div class="title-bar">
+      <span>KO II Audio Tool — v2.0.3</span>
+      <div>
+        <button class="minimize">-</button>
+        <button class="close">X</button>
+      </div>
+    </div>
+    <div class="content">
+      
+
 <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-<div class="win95-inset" style="flex: 1;">
-<label>FIDELITY</label><br/>
-<div class="win95-list" data-group="fidelity">
-<div class="list-item selected" data-value="cd">CD (16/46)</div>
-<div class="list-item" data-value="sp8">SP-1200 8 Bit</div>
-<div class="list-item" data-value="sp16">SP-1200 16 Bit</div>
-<div class="list-item" data-value="sk">SK-1 (8/9)</div>
-</div>
-</div>
-<div class="win95-inset" style="flex: 1;">
-<label>CHANNELS</label><br/>
-<div class="win95-list" data-group="channels">
-<div class="list-item selected" data-value="stereo">Stereo</div>
-<div class="list-item" data-value="mono">Mono</div>
-</div>
-</div>
-</div>
-</div>
-<div class="settings win95-inset">
-<label>EP-133 KO II SETTINGS</label>
-<div class="slider-wrapper">
-<label>Pitch</label>
-<input class="slider" id="pitch-slider" max="127" min="0" oninput="updateSliderValue('pitch')" type="range" value="64"/>
-<span class="slider-value" id="pitch-value">64</span>
-</div>
-<div class="slider-wrapper">
-<label>Release</label>
-<input class="slider" id="release-slider" max="255" min="0" oninput="updateSliderValue('release')" type="range" value="128"/>
-<span class="slider-value" id="release-value">128</span>
-</div>
-</div>
-<div class="drop-zone" id="drop-zone">
-<input accept=".mp3,.wav,.ogg,audio/*" id="audio-upload" multiple="" type="file">
-<span>DRAG AND DROP OR SELECT AUDIO FILES</span>
-<div id="file-info"></div>
-</input></div>
-<div id="waveform-list" style="margin-top: 10px;"></div>
-<button id="select-file-button">Select Audio Files</button>
+  <div class="win95-inset" style="flex: 1;">
+    <label>FIDELITY</label><br>
+    <div class="win95-list" data-group="fidelity">
+      <div data-value="cd" class="list-item selected">CD (16/46)</div>
+      <div data-value="sp8" class="list-item">SP-1200 8 Bit</div>
+      <div data-value="sp16" class="list-item">SP-1200 16 Bit</div>
+      <div data-value="sk" class="list-item">SK-1 (8/9)</div>
+    </div>
+  </div>
+  <div class="win95-inset" style="flex: 1;">
+    <label>CHANNELS</label><br>
+    <div class="win95-list" data-group="channels">
+      <div data-value="stereo" class="list-item selected">Stereo</div>
+      <div data-value="mono" class="list-item">Mono</div>
+    </div>
+  </div>
 </div>
 
-<div id="overlay">
-<div id="win95-loader">
-<div>Copying...</div>
-<div>From KO Tool to Player</div>
-<div class="progress-bar-container" id="segment-container"></div>
-</div>
-</div>
+  </div>
+
+      <div class="settings win95-inset">
+        <label>EP-133 KO II SETTINGS</label>
+        
+    <div class="slider-wrapper">
+      <label>Pitch</label>
+      <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64" oninput="updateSliderValue('pitch')">
+      <span class="slider-value" id="pitch-value">64</span>
+    </div>
+    <div class="slider-wrapper">
+      <label>Release</label>
+      <input type="range" class="slider" id="release-slider" min="0" max="255" value="128" oninput="updateSliderValue('release')">
+      <span class="slider-value" id="release-value">128</span>
+    </div>
+    
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="audio-upload" accept=".mp3,.wav,.ogg,audio/*" multiple />
+        <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
+        <div id="file-info"></div>
+      </div>
+      <div id="waveform-list" style="margin-top: 10px;"></div>
+<button id="select-file-button">Select Audio Files</button>
+          </div>
+  </div>
+
+  <div id="overlay">
+    <div id="win95-loader">
+      <div>Copying...</div>
+      <div>From KO Tool to Player</div>
+      <div class="progress-bar-container" id="segment-container"></div>
+    </div>
+  </div>
+
 <script>
 function updateSliderValue(type) {
   const slider = document.getElementById(`${type}-slider`);
