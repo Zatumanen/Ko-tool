@@ -5,13 +5,11 @@
 
 
 
-
-
-
-
 function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform skipped:', filename);
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
+    console.warn('Skipping empty or invalid blob:', filename);
     return;
   }
 
@@ -55,7 +53,22 @@ function renderWaveform(blob, filename) {
     splitChannels: false
   });
 
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
+
   wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -63,19 +76,13 @@ function renderWaveform(blob, filename) {
   });
 
   wavesurfer.on('error', (e) => {
-    const failNote = document.createElement('div');
-    failNote.textContent = '⚠️ Failed to render waveform';
-    failNote.style.color = 'red';
-    failNote.style.fontSize = '13px';
-    container.appendChild(title);
-    container.appendChild(failNote);
-    document.getElementById('waveform-list').appendChild(container);
+    console.error('WaveSurfer error:', e);
   });
 
   try {
     wavesurfer.loadBlob(blob);
   } catch (err) {
-    console.error('loadBlob failed:', err);
+    console.error('WaveSurfer loadBlob failed:', err);
   }
 
   button.onclick = () => {
@@ -89,104 +96,107 @@ function renderWaveform(blob, filename) {
   };
 }
 
-
-function showCopyingDialog() {
-  const dialog = document.createElement('div');
-  dialog.id = 'copying-dialog';
-  dialog.style.position = 'fixed';
-  dialog.style.top = '50%';
-  dialog.style.left = '50%';
-  dialog.style.transform = 'translate(-50%, -50%)';
-  dialog.style.background = '#f0f0f0';
-  dialog.style.border = '2px solid #000080';
-  dialog.style.padding = '20px';
-  dialog.style.zIndex = 9999;
-  dialog.style.fontFamily = "'Courier New', monospace";
-  dialog.style.boxShadow = '4px 4px #888';
-
-  const text = document.createElement('div');
-  text.textContent = 'Copying...
-From KO Tool to Player';
-  text.style.whiteSpace = 'pre';
-  text.style.marginBottom = '12px';
-  dialog.appendChild(text);
-
-  const bar = document.createElement('div');
-  bar.style.width = '100%';
-  bar.style.height = '24px';
-  bar.style.border = '1px solid #000080';
-  bar.style.background = '#ffffff';
-
-  const fill = document.createElement('div');
-  fill.style.height = '100%';
-  fill.style.width = '100%';
-  fill.style.background = '#000080';
-  bar.appendChild(fill);
-
-  dialog.appendChild(bar);
-  document.body.appendChild(dialog);
-}
-
-function hideCopyingDialog() {
-  const dialog = document.getElementById('copying-dialog');
-  if (dialog) dialog.remove();
-}
-
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
 
 
 
+function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
 
+  const container = document.createElement('div');
+  container.style.marginBottom = '20px';
+  container.style.border = '2px inset #808080';
+  container.style.padding = '10px';
+  container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
+  const title = document.createElement('div');
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
+  title.style.fontFamily = "'Courier New', monospace";
+  title.style.fontSize = '14px';
+  title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
-function showCopyingDialog() {
-  const dialog = document.createElement('div');
-  dialog.id = 'copying-dialog';
-  dialog.style.position = 'fixed';
-  dialog.style.top = '50%';
-  dialog.style.left = '50%';
-  dialog.style.transform = 'translate(-50%, -50%)';
-  dialog.style.background = '#f0f0f0';
-  dialog.style.border = '2px solid #000080';
-  dialog.style.padding = '20px';
-  dialog.style.zIndex = 9999;
-  dialog.style.fontFamily = "'Courier New', monospace";
-  dialog.style.boxShadow = '4px 4px #888';
+  const wave = document.createElement('div');
+  wave.style.width = '100%';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
-  const text = document.createElement('div');
-  text.textContent = 'Copying...
-From KO Tool to Player';
-  text.style.whiteSpace = 'pre';
-  text.style.marginBottom = '12px';
-  dialog.appendChild(text);
+  const button = document.createElement('button');
+  button.textContent = '▶️ Play';
+  button.style.marginTop = '6px';
+  button.style.fontFamily = "'Courier New', monospace";
 
-  const bar = document.createElement('div');
-  bar.style.width = '100%';
-  bar.style.height = '24px';
-  bar.style.border = '1px solid #000080';
-  bar.style.background = '#ffffff';
+  const wavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
 
-  const fill = document.createElement('div');
-  fill.style.height = '100%';
-  fill.style.width = '100%';
-  fill.style.background = '#000080';
-  bar.appendChild(fill);
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
 
-  dialog.appendChild(bar);
-  document.body.appendChild(dialog);
-}
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
 
-function hideCopyingDialog() {
-  const dialog = document.getElementById('copying-dialog');
-  if (dialog) dialog.remove();
+  wavesurfer.on('error', (e) => {
+    console.error('WaveSurfer error:', e);
+  });
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
 }
 
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.50</title>
+  <title>KO II Audio Tool v1.41</title>
   <style>
     body {
       background: #fff;
@@ -412,7 +422,7 @@ function hideCopyingDialog() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.50</span>
+      <span>KO II Audio Tool — v1.51</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -748,49 +758,95 @@ async function processFiles(files) {
 
 
 
+function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
+  if (!blob || blob.size === 0 || blob.size < 500) {
+    console.warn('Waveform render skipped due to empty or too small blob:', filename);
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
 
+  const container = document.createElement('div');
+  container.style.marginBottom = '20px';
+  container.style.border = '2px inset #808080';
+  container.style.padding = '10px';
+  container.style.background = '#e0e0e0';
+  container.style.overflowX = 'auto';
 
+  const title = document.createElement('div');
+  try {
+    title.textContent = decodeURIComponent(filename);
+  } catch {
+    title.textContent = filename;
+  }
+  title.style.fontFamily = "'Courier New', monospace";
+  title.style.fontSize = '14px';
+  title.style.marginBottom = '6px';
+  title.style.wordBreak = 'break-word';
 
-function showCopyingDialog() {
-  const dialog = document.createElement('div');
-  dialog.id = 'copying-dialog';
-  dialog.style.position = 'fixed';
-  dialog.style.top = '50%';
-  dialog.style.left = '50%';
-  dialog.style.transform = 'translate(-50%, -50%)';
-  dialog.style.background = '#f0f0f0';
-  dialog.style.border = '2px solid #000080';
-  dialog.style.padding = '20px';
-  dialog.style.zIndex = 9999;
-  dialog.style.fontFamily = "'Courier New', monospace";
-  dialog.style.boxShadow = '4px 4px #888';
+  const wave = document.createElement('div');
+  wave.style.width = '100%';
+  wave.style.minHeight = '64px';
+  wave.style.height = '64px';
 
-  const text = document.createElement('div');
-  text.textContent = 'Copying...
-From KO Tool to Player';
-  text.style.whiteSpace = 'pre';
-  text.style.marginBottom = '12px';
-  dialog.appendChild(text);
+  const button = document.createElement('button');
+  button.textContent = '▶️ Play';
+  button.style.marginTop = '6px';
+  button.style.fontFamily = "'Courier New', monospace";
 
-  const bar = document.createElement('div');
-  bar.style.width = '100%';
-  bar.style.height = '24px';
-  bar.style.border = '1px solid #000080';
-  bar.style.background = '#ffffff';
+  const wavesurfer = WaveSurfer.create({
+    container: wave,
+    waveColor: '#000',
+    progressColor: '#000080',
+    height: 64,
+    barWidth: 1.4,
+    minPxPerSec: 100,
+    responsive: true,
+    cursorColor: '#ff0000',
+    splitChannels: false
+  });
 
-  const fill = document.createElement('div');
-  fill.style.height = '100%';
-  fill.style.width = '100%';
-  fill.style.background = '#000080';
-  bar.appendChild(fill);
+  let didRender = false;
+  const fallbackTimeout = setTimeout(() => {
+    if (!didRender) {
+      const failNote = document.createElement('div');
+      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.style.color = 'red';
+      failNote.style.fontSize = '13px';
+      container.appendChild(title);
+      container.appendChild(failNote);
+      document.getElementById('waveform-list').appendChild(container);
+    }
+  }, 4000);
 
-  dialog.appendChild(bar);
-  document.body.appendChild(dialog);
-}
+  wavesurfer.on('ready', () => {
+    clearTimeout(fallbackTimeout);
+    didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
+  });
 
-function hideCopyingDialog() {
-  const dialog = document.getElementById('copying-dialog');
-  if (dialog) dialog.remove();
+  wavesurfer.on('error', (e) => {
+    console.error('WaveSurfer error:', e);
+  });
+
+  try {
+    wavesurfer.loadBlob(blob);
+  } catch (err) {
+    console.error('WaveSurfer loadBlob failed:', err);
+  }
+
+  button.onclick = () => {
+    if (wavesurfer.isPlaying()) {
+      wavesurfer.pause();
+      button.textContent = '▶️ Play';
+    } else {
+      wavesurfer.play();
+      button.textContent = '⏸ Pause';
+    }
+  };
 }
 
 </script>
