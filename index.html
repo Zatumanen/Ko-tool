@@ -89,6 +89,49 @@ function renderWaveform(blob, filename) {
   };
 }
 
+
+function showCopyingDialog() {
+  const dialog = document.createElement('div');
+  dialog.id = 'copying-dialog';
+  dialog.style.position = 'fixed';
+  dialog.style.top = '50%';
+  dialog.style.left = '50%';
+  dialog.style.transform = 'translate(-50%, -50%)';
+  dialog.style.background = '#f0f0f0';
+  dialog.style.border = '2px solid #000080';
+  dialog.style.padding = '20px';
+  dialog.style.zIndex = 9999;
+  dialog.style.fontFamily = "'Courier New', monospace";
+  dialog.style.boxShadow = '4px 4px #888';
+
+  const text = document.createElement('div');
+  text.textContent = 'Copying...
+From KO Tool to Player';
+  text.style.whiteSpace = 'pre';
+  text.style.marginBottom = '12px';
+  dialog.appendChild(text);
+
+  const bar = document.createElement('div');
+  bar.style.width = '100%';
+  bar.style.height = '24px';
+  bar.style.border = '1px solid #000080';
+  bar.style.background = '#ffffff';
+
+  const fill = document.createElement('div');
+  fill.style.height = '100%';
+  fill.style.width = '100%';
+  fill.style.background = '#000080';
+  bar.appendChild(fill);
+
+  dialog.appendChild(bar);
+  document.body.appendChild(dialog);
+}
+
+function hideCopyingDialog() {
+  const dialog = document.getElementById('copying-dialog');
+  if (dialog) dialog.remove();
+}
+
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
@@ -97,10 +140,53 @@ function renderWaveform(blob, filename) {
 
 
 
+
+function showCopyingDialog() {
+  const dialog = document.createElement('div');
+  dialog.id = 'copying-dialog';
+  dialog.style.position = 'fixed';
+  dialog.style.top = '50%';
+  dialog.style.left = '50%';
+  dialog.style.transform = 'translate(-50%, -50%)';
+  dialog.style.background = '#f0f0f0';
+  dialog.style.border = '2px solid #000080';
+  dialog.style.padding = '20px';
+  dialog.style.zIndex = 9999;
+  dialog.style.fontFamily = "'Courier New', monospace";
+  dialog.style.boxShadow = '4px 4px #888';
+
+  const text = document.createElement('div');
+  text.textContent = 'Copying...
+From KO Tool to Player';
+  text.style.whiteSpace = 'pre';
+  text.style.marginBottom = '12px';
+  dialog.appendChild(text);
+
+  const bar = document.createElement('div');
+  bar.style.width = '100%';
+  bar.style.height = '24px';
+  bar.style.border = '1px solid #000080';
+  bar.style.background = '#ffffff';
+
+  const fill = document.createElement('div');
+  fill.style.height = '100%';
+  fill.style.width = '100%';
+  fill.style.background = '#000080';
+  bar.appendChild(fill);
+
+  dialog.appendChild(bar);
+  document.body.appendChild(dialog);
+}
+
+function hideCopyingDialog() {
+  const dialog = document.getElementById('copying-dialog');
+  if (dialog) dialog.remove();
+}
+
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.49</title>
+  <title>KO II Audio Tool v1.50</title>
   <style>
     body {
       background: #fff;
@@ -326,7 +412,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.49</span>
+      <span>KO II Audio Tool — v1.50</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -663,6 +749,49 @@ async function processFiles(files) {
 
 
 
+
+
+function showCopyingDialog() {
+  const dialog = document.createElement('div');
+  dialog.id = 'copying-dialog';
+  dialog.style.position = 'fixed';
+  dialog.style.top = '50%';
+  dialog.style.left = '50%';
+  dialog.style.transform = 'translate(-50%, -50%)';
+  dialog.style.background = '#f0f0f0';
+  dialog.style.border = '2px solid #000080';
+  dialog.style.padding = '20px';
+  dialog.style.zIndex = 9999;
+  dialog.style.fontFamily = "'Courier New', monospace";
+  dialog.style.boxShadow = '4px 4px #888';
+
+  const text = document.createElement('div');
+  text.textContent = 'Copying...
+From KO Tool to Player';
+  text.style.whiteSpace = 'pre';
+  text.style.marginBottom = '12px';
+  dialog.appendChild(text);
+
+  const bar = document.createElement('div');
+  bar.style.width = '100%';
+  bar.style.height = '24px';
+  bar.style.border = '1px solid #000080';
+  bar.style.background = '#ffffff';
+
+  const fill = document.createElement('div');
+  fill.style.height = '100%';
+  fill.style.width = '100%';
+  fill.style.background = '#000080';
+  bar.appendChild(fill);
+
+  dialog.appendChild(bar);
+  document.body.appendChild(dialog);
+}
+
+function hideCopyingDialog() {
+  const dialog = document.getElementById('copying-dialog');
+  if (dialog) dialog.remove();
+}
 
 </script>
 </body>
