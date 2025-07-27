@@ -328,9 +328,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function animateSegmentsFullBar(durationMs) {
   
-
-
-
 fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
   <div>Fidelity: ${getSelectedValue('fidelity')}</div>
@@ -394,10 +391,8 @@ async function processFiles(files) {
   const startTime = performance.now();
   const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
   const durationMs = performance.now() - startTime;
-
-  await animateSegmentsFullBar(durationMs);
-
-  const ko2Buffer = getKO2Buffer();
+animateSegmentsFullBar(durationMs);
+const ko2Buffer = getKO2Buffer();
   const wavBlob = audioBufferToWav(processed, ko2Buffer);
 
   const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
@@ -407,9 +402,6 @@ async function processFiles(files) {
 }
 
   
-
-
-
 fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
   <div>Fidelity: ${getSelectedValue('fidelity')}</div>
