@@ -350,6 +350,26 @@ function getKO2Buffer() {
 }
 
 
+
+async function analyzeChannels(files) {
+  const results = await Promise.all(
+    Array.from(files).map(async (file) => {
+      try {
+        const buffer = await file.arrayBuffer();
+        const audioBuffer = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(buffer.slice(0));
+        return audioBuffer.numberOfChannels;
+      } catch (e) {
+        console.warn("Decode error", file.name, e);
+        return 0;
+      }
+    })
+  );
+  return {
+    stereoCount: results.filter(ch => ch === 2).length,
+    monoCount: results.filter(ch => ch === 1).length
+  };
+}
+
 async function processFiles(files) {
   let stereoOriginal = 0;
   let monoOriginal = 0;
@@ -413,7 +433,8 @@ let stereoCount = 0;
     const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
-fileInfo.innerHTML = `
+const { stereoCount, monoCount } = await analyzeChannels(files);
+  fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
   <div>Original: ${originalSize} MB</div>
   <div>Processed: ${processedSize} MB</div>
