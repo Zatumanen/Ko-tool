@@ -348,7 +348,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.57</title>
+  <title>KO II Audio Tool v1.58</title>
   <style>
     body {
       background: #fff;
@@ -574,7 +574,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.57</span>
+      <span>KO II Audio Tool — v1.58</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -878,10 +878,15 @@ async function processFiles(files) {
     <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
   `;
 
-  setTimeout(() => {
+  
+const checkRenderDone = setInterval(() => {
+  if (!waveformBusy && waveformQueue.length === 0) {
+    clearInterval(checkRenderDone);
     overlay.style.display = 'none';
     loader.style.display = 'none';
-  }, 500);
+  }
+}, 200);
+
 }
 
 
