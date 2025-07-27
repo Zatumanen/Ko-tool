@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="ru">
 <head>
 <script src="https://unpkg.com/wavesurfer.js">
@@ -74,6 +74,10 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -254,6 +258,10 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -586,7 +594,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.59</span>
+      <span>KO II Audio Tool — v1.60</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -991,6 +999,10 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
+    container.appendChild(button);
+    document.getElementById('waveform-list').appendChild(container);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
