@@ -105,15 +105,19 @@ wavesurfer.on('error', (e) => {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  newWavesurfer.on('error', () => {
-    const failNote = document.createElement('div');
-    failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
-    failNote.style.color = 'red';
-    failNote.style.fontSize = '13px';
-    container.appendChild(title);
-    container.appendChild(failNote);
-    document.getElementById('waveform-list').appendChild(container);
-  });
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     newWavesurfer.loadBlob(blob);
@@ -274,15 +278,19 @@ wavesurfer.on('error', (e) => {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  newWavesurfer.on('error', () => {
-    const failNote = document.createElement('div');
-    failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
-    failNote.style.color = 'red';
-    failNote.style.fontSize = '13px';
-    container.appendChild(title);
-    container.appendChild(failNote);
-    document.getElementById('waveform-list').appendChild(container);
-  });
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     newWavesurfer.loadBlob(blob);
@@ -566,7 +574,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.55</span>
+      <span>KO II Audio Tool — v1.56</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -1002,15 +1010,19 @@ wavesurfer.on('error', (e) => {
     document.getElementById('waveform-list').appendChild(container);
   });
 
-  newWavesurfer.on('error', () => {
-    const failNote = document.createElement('div');
-    failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
-    failNote.style.color = 'red';
-    failNote.style.fontSize = '13px';
-    container.appendChild(title);
-    container.appendChild(failNote);
-    document.getElementById('waveform-list').appendChild(container);
-  });
+  
+newWavesurfer.on('error', () => {
+  console.warn('Second attempt failed to render:', filename);
+  const failNote = document.createElement('div');
+  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.style.color = 'red';
+  failNote.style.fontSize = '13px';
+  container.innerHTML = '';
+  container.appendChild(title);
+  container.appendChild(failNote);
+  document.getElementById('waveform-list').appendChild(container);
+});
+
 
   try {
     newWavesurfer.loadBlob(blob);
