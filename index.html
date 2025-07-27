@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.16</span>
+      <span>KO II Audio Tool — v1.10</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -358,8 +358,6 @@ async function processFiles(files) {
   loader.style.display = 'block';
 
   const context = initAudioContext();
-let totalOriginalSize = 0;
-let totalProcessedSize = 0;
   let monoCount = 0;
 let stereoCount = 0;
   const totalSegments = 50;
@@ -394,13 +392,9 @@ let stereoCount = 0;
 
   const startTime = performance.now();
   const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
-  totalOriginalSize += file.size;
-  totalProcessedSize += processed.length * 2 * processed.numberOfChannels;
   const durationMs = performance.now() - startTime;
 
   await animateSegmentsFullBar(durationMs);
-  overlay.style.display = "none";
-  loader.style.display = "none";
 
   const ko2Buffer = getKO2Buffer();
   const wavBlob = audioBufferToWav(processed, ko2Buffer);
@@ -419,18 +413,16 @@ let stereoCount = 0;
     const pitch = parseInt(document.getElementById('pitch-slider')?.value || '64');
 const release = parseInt(document.getElementById('release-slider')?.value || '128');
 
-
-
 fileInfo.innerHTML = `
   <div><b>Files: ${files.length}</b></div>
-  <div>Original: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-  <div>Processed: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
+  <div>Original: ${originalSize} MB</div>
+  <div>Processed: ${processedSize} MB</div>
   <div>Fidelity: ${fidelity}</div>
   <div>Channels (convert to): ${channels}</div>
-  <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
+  <div>Pitch: ${pitch}</div>
+  <div>Release: ${release}</div>
+  <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
 `;
-
-
   }
 }
 
