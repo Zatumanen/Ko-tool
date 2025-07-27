@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
   return await ctx.startRendering();
 };
 
-  const audioBufferToWav = (buffer, ko2Buffer) => {
+  const audioBufferToWav = (buffer, ko2Buffer, embedTag = true) => {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     
-    if (ko2Buffer) {
+    if (ko2Buffer && embedTag) {
       const newBuffer = new Uint8Array(view.byteLength + 8 + ko2Buffer.length);
       newBuffer.set(new Uint8Array(view.buffer), 0);
       const dv = new DataView(newBuffer.buffer);
@@ -446,7 +446,7 @@ async function processFiles(files) {
     totalProcessedSize += wavBlob.size;
 
     if (!firstProcessed) {
-      firstProcessed = wavBlob;
+      firstProcessed = audioBufferToWav(processed, ko2Buffer, false);
       player.src = URL.createObjectURL(firstProcessed);
       player.style.display = 'block';
       player.load();
