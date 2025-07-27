@@ -76,6 +76,8 @@ function renderWaveform(blob, filename) {
     didRender = true;
     container.appendChild(title);
     container.appendChild(wave);
+    container.appendChild(title);
+    container.appendChild(wave);
     container.appendChild(button);
     document.getElementById('waveform-list').appendChild(container);
   });
@@ -255,6 +257,8 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -587,7 +591,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.57</span>
+      <span>KO II Audio Tool — v1.58</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -992,6 +996,8 @@ function renderWaveform(blob, filename) {
   wavesurfer.on('ready', () => {
     clearTimeout(fallbackTimeout);
     didRender = true;
+    container.appendChild(title);
+    container.appendChild(wave);
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
