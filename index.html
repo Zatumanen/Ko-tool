@@ -446,23 +446,17 @@ async function processFiles(files) {
     totalProcessedSize += wavBlob.size;
 
     if (!firstProcessed) {
-  firstProcessed = audioBufferToWav(processed, ko2Buffer, false);
+  firstProcessed = wavBlob;
   const audioURL = URL.createObjectURL(firstProcessed);
   player.style.display = 'block';
 
-  player.pause();
-  player.removeAttribute('src');
-
+  // Устанавливаем src и ждём события "canplay"
   player.src = audioURL;
-  player.load();
-
-  player.addEventListener('canplaythrough', function onReady() {
-    player.removeEventListener('canplaythrough', onReady);
-    try {
-      player.play().catch(() => {});
-    } catch (e) {
-      console.warn('Cannot autoplay:', e);
-    }
+  player.onloadeddata = () => {
+    player.load();
+    player.play().catch(e => console.warn('Autoplay failed:', e));
+  };
+}
   });
 }
   }
