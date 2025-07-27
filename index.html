@@ -160,7 +160,7 @@ function renderWaveform(blob, filename) {
 
     const wave = document.createElement('div');
     container.appendChild(wave);
-    document.getElementById('waveform-list').appendChild(container); // Ensure added to DOM early
+    document.getElementById('waveform-list').appendChild(container);
 
     const wavesurfer = WaveSurfer.create({
       container: wave,
@@ -291,7 +291,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.5</title>
+  <title>KO II Audio Tool v2.0.6</title>
   <style>
     body {
       background: #fff;
@@ -517,7 +517,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.5</span>
+      <span>KO II Audio Tool — v2.0.6</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
