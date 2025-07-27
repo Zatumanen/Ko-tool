@@ -4,7 +4,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.17</title>
+  <title>KO II Audio Tool v1.18</title>
   <style>
     body {
       background: #fff;
@@ -200,7 +200,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.17</span>
+      <span>KO II Audio Tool — v1.18</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -243,6 +243,9 @@
       </div>
       <button id="select-file-button">Select Audio Files</button>
       <audio id="player" controls></audio>
+<button id="preview-button" style="display:none; width: 100%; margin-top: 10px; background: #c0c0c0; border: 2px solid #000; font-family: 'Courier New', monospace; font-size: 16px; cursor: pointer;">
+▶️ Play Preview
+</button>
     </div>
   </div>
 
@@ -450,9 +453,11 @@ async function processFiles(files) {
       const audioURL = URL.createObjectURL(firstProcessed);
       player.style.display = 'block';
       player.src = audioURL;
-      player.onloadeddata = () => {
-        player.load();
-        player.play().catch(e => console.warn('Autoplay failed:', e));
+
+      const previewBtn = document.getElementById('preview-button');
+      previewBtn.style.display = 'block';
+      previewBtn.onclick = () => {
+        player.play().catch(e => console.warn('Manual play failed:', e));
       };
     }
   }
