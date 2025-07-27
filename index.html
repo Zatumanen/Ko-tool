@@ -447,9 +447,13 @@ async function processFiles(files) {
 
     if (!firstProcessed) {
       firstProcessed = wavBlob;
-      player.src = URL.createObjectURL(firstProcessed);
+      const audioURL = URL.createObjectURL(firstProcessed);
       player.style.display = 'block';
-      player.load();
+      player.src = audioURL;
+      player.onloadeddata = () => {
+        player.load();
+        player.play().catch(e => console.warn('Autoplay failed:', e));
+      };
     }
   }
 
