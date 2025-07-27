@@ -378,11 +378,11 @@ let stereoCount = 0;
   const file = files[i];
   const arrayBuffer = await file.arrayBuffer();
   const decoded = await context.decodeAudioData(arrayBuffer);
-  if (decoded.numberOfChannels === 1) {
-    monoCount++;
-  } else {
-    stereoCount++;
-  }
+    if (decoded.numberOfChannels === 1) {
+      monoCount++;
+    } else {
+      stereoCount++;
+    }
 
   const fidelity = getSelectedValue('fidelity');
   const channels = getSelectedValue('channels');
@@ -420,7 +420,6 @@ fileInfo.innerHTML = `
   <div>Channels (convert to): ${channels}</div>
   <div>Pitch: ${pitch}</div>
   <div>Release: ${release}</div>
-
   <div>Original Channels: ${stereoCount} Stereo / ${monoCount} Mono</div>
 `;
   }
