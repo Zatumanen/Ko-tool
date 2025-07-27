@@ -369,31 +369,46 @@ async function processFiles(files) {
   let firstProcessed = null;
 
   for (let i = 0; i < files.length; i++) {
-    segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
-    await animateSegmentsFullBar();
+  segmentContainer.querySelectorAll('.progress-segment').forEach(seg => seg.classList.remove('active'));
 
-    
+  const file = files[i];
+  const arrayBuffer = await file.arrayBuffer();
+  const decoded = await context.decodeAudioData(arrayBuffer);
 
-    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-    zip.file(fileName, wavBlob);
+  const fidelity = getSelectedValue('fidelity');
+  const channels = getSelectedValue('channels');
+  const converted = await convertChannels(decoded, channels);
+  const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
 
-    if (!firstProcessed) {
-      firstProcessed = wavBlob;
-      player.src = URL.createObjectURL(firstProcessed);
-      player.style.display = 'block';
-      player.load();
+  const startTime = performance.now();
+  const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
+  const durationMs = performance.now() - startTime;
 
-      const originalSize = (file.size / 1024 / 1024).toFixed(2);
-      const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
-      fileInfo.innerHTML = `
-        <div><b>${file.name}</b></div>
-        <div>Original: ${originalSize} MB</div>
-        <div>Processed: ${processedSize} MB</div>
-        <div>Fidelity: ${fidelity}</div>
-        <div>Channels: ${channels}</div>
-      `;
-    }
+  await animateSegmentsFullBar(durationMs);
+
+  const ko2Buffer = getKO2Buffer();
+  const wavBlob = audioBufferToWav(processed, ko2Buffer);
+
+  const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+  zip.file(fileName, wavBlob);
+
+  if (!firstProcessed) {
+    firstProcessed = wavBlob;
+    player.src = URL.createObjectURL(firstProcessed);
+    player.style.display = 'block';
+    player.load();
+
+    const originalSize = (file.size / 1024 / 1024).toFixed(2);
+    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
+    fileInfo.innerHTML = `
+      <div><b>${file.name}</b></div>
+      <div>Original: ${originalSize} MB</div>
+      <div>Processed: ${processedSize} MB</div>
+      <div>Fidelity: ${fidelity}</div>
+      <div>Channels: ${channels}</div>
+    `;
   }
+}
 
   const segments = document.querySelectorAll('.progress-segment');
   segments.forEach(seg => seg.classList.add('active'));
