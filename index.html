@@ -181,7 +181,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.8-debug</span>
+      <span>KO II Audio Tool — v1.9</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -351,6 +351,8 @@ function getKO2Buffer() {
 
 
 async function processFiles(files) {
+  let stereoOriginal = 0;
+  let monoOriginal = 0;
   console.log('Process started:', files);
   overlay.style.display = 'block';
   loader.style.display = 'block';
@@ -377,6 +379,11 @@ let stereoCount = 0;
   const file = files[i];
   const arrayBuffer = await file.arrayBuffer();
   const decoded = await context.decodeAudioData(arrayBuffer);
+    if (decoded.numberOfChannels === 1) {
+      monoOriginal++;
+    } else if (decoded.numberOfChannels === 2) {
+      stereoOriginal++;
+    }
 
   const fidelity = getSelectedValue('fidelity');
   const channels = getSelectedValue('channels');
@@ -414,6 +421,7 @@ fileInfo.innerHTML = `
   <div>Channels (convert to): ${channels}</div>
   <div>Pitch: ${pitch}</div>
   <div>Release: ${release}</div>
+  <div>Original Channels: ${stereoOriginal} Stereo, ${monoOriginal} Mono</div>
 `;
   }
 }
