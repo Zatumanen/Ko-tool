@@ -118,39 +118,38 @@
     document.querySelectorAll('.setting-group button').forEach(button => {
       button.addEventListener('click', () => {
         const group = button.parentElement;
-        group.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        localStorage.setItem(group.querySelector('h2').textContent, button.textContent);
-        console.log(`Выбран режим ${group.querySelector('h2').textContent}: ${button.textContent}`);
+        const groupName = group.querySelector('h2').textContent;
+        const selectedValue = button.textContent;
+        localStorage.setItem(groupName, selectedValue);
+        console.log(`Выбран режим ${groupName}: ${selectedValue}`);
       });
     });
 
     // Восстановление сохранённых настроек
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.setting-group button').forEach(button => {
-        if (localStorage.getItem(button.parentElement.querySelector('h2').textContent) === button.textContent) {
-          button.classList.add('active');
+        const groupName = button.parentElement.querySelector('h2').textContent;
+        if (localStorage.getItem(groupName) === button.textContent) {
+          console.log(`Восстановлен режим ${groupName}: ${button.textContent}`);
         }
       });
       document.querySelectorAll('input[type="range"]').forEach(slider => {
-        const savedValue = localStorage.getItem(slider.previousElementSibling.textContent);
+        const label = slider.previousElementSibling.textContent;
+        const savedValue = localStorage.getItem(label);
         if (savedValue) {
           slider.value = savedValue;
-          if (slider.nextElementSibling) {
-            slider.nextElementSibling.textContent = savedValue;
-          }
+          console.log(`Восстановлено ${label}: ${savedValue}`);
         }
       });
     });
 
     // Обработка слайдеров Pitch и Release
     document.querySelectorAll('input[type="range"]').forEach(slider => {
-      slider.insertAdjacentHTML('afterend', `<span>${slider.value}</span>`);
       slider.addEventListener('input', () => {
-        slider.nextElementSibling.textContent = slider.value;
         const label = slider.previousElementSibling.textContent;
-        localStorage.setItem(label, slider.value);
-        console.log(`${label}: ${slider.value}`);
+        const value = slider.value;
+        localStorage.setItem(label, value);
+        console.log(`${label}: ${value}`);
       });
     });
 
@@ -163,16 +162,9 @@
       const validFormats = ['audio/wav', 'audio/mp3'];
       const invalidFiles = files.filter(f => !validFormats.includes(f.type));
       if (invalidFiles.length > 0) {
-        alert('Неподдерживаемые файлы: ' + invalidFiles.map(f => f.name).join(', '));
+        console.log('Неподдерживаемые файлы:', invalidFiles.map(f => f.name));
         return;
       }
-      const fileList = document.createElement('ul');
-      files.forEach(file => {
-        const li = document.createElement('li');
-        li.textContent = file.name;
-        fileList.appendChild(li);
-      });
-      dropZone.appendChild(fileList);
       console.log('Загруженные файлы:', files.map(f => f.name));
     });
 
@@ -183,16 +175,9 @@
       const validFormats = ['audio/wav', 'audio/mp3'];
       const invalidFiles = files.filter(f => !validFormats.includes(f.type));
       if (invalidFiles.length > 0) {
-        alert('Неподдерживаемые файлы: ' + invalidFiles.map(f => f.name).join(', '));
+        console.log('Неподдерживаемые файлы:', invalidFiles.map(f => f.name));
         return;
       }
-      const fileList = document.createElement('ul');
-      files.forEach(file => {
-        const li = document.createElement('li');
-        li.textContent = file.name;
-        fileList.appendChild(li);
-      });
-      dropZone.appendChild(fileList);
       console.log('Перетащенные файлы:', files.map(f => f.name));
     });
 
@@ -202,7 +187,7 @@
       copyingDiv.style.display = 'block';
       setTimeout(() => {
         copyingDiv.style.display = 'none';
-        alert('Копирование завершено!');
+        console.log('Копирование завершено');
       }, 2000);
     });
   </script>
