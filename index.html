@@ -355,6 +355,8 @@ async function processFiles(files) {
   loader.style.display = 'block';
 
   const context = initAudioContext();
+  let monoCount = 0;
+let stereoCount = 0;
   const totalSegments = 50;
   const segmentsPerFile = files.length === 1 ? totalSegments : Math.floor(totalSegments / files.length);
   segmentContainer.innerHTML = '';
@@ -374,6 +376,12 @@ async function processFiles(files) {
   const file = files[i];
   const arrayBuffer = await file.arrayBuffer();
   const decoded = await context.decodeAudioData(arrayBuffer);
+
+if (decoded.numberOfChannels === 1) {
+  monoCount++;
+} else {
+  stereoCount++;
+}
 
   const fidelity = getSelectedValue('fidelity');
   const channels = getSelectedValue('channels');
@@ -406,6 +414,7 @@ async function processFiles(files) {
   <div>Processed: ${processedSize} MB</div>
   <div>Fidelity: ${fidelity}</div>
   <div>Channels: ${channels}</div>
+  <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
 `;
   }
 }
