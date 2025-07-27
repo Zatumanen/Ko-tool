@@ -285,7 +285,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.2</title>
+  <title>KO II Audio Tool v2.0.3</title>
   <style>
     body {
       background: #fff;
@@ -511,7 +511,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.2</span>
+      <span>KO II Audio Tool — v2.0.3</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -787,7 +787,7 @@ async function processFiles(files) {
     const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
 
     const startTime = performance.now();
-    const processed = await applySpeedAndFidelity(converted, v2.0.2.1, downsampleRate);
+    const processed = await applySpeedAndFidelity(converted, v2.0.3.1, downsampleRate);
     const durationMs = performance.now() - startTime;
 
     await animateSegmentsFullBar(durationMs);
@@ -932,3 +932,56 @@ function processNextWaveform() {
 </script>
 </body>
 </html>
+<script>
+// Файл и drag'n'drop обработка
+const fileInput = document.getElementById("fileInput");
+const dropZone = document.getElementById("dropZone");
+
+fileInput.addEventListener("change", handleFileSelect);
+dropZone.addEventListener("drop", handleFileDrop);
+dropZone.addEventListener("dragover", (e) => e.preventDefault());
+
+function handleFileSelect(event) {
+  track('handleFileSelect');
+  const files = event.target.files;
+  processFiles(files);
+}
+
+function handleFileDrop(event) {
+  track('handleFileDrop');
+  event.preventDefault();
+  const files = event.dataTransfer.files;
+  processFiles(files);
+}
+
+function processFiles(files) {
+  track('processFiles');
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.onload = function () {
+      const blob = new Blob([reader.result], { type: file.type });
+      enqueueWaveformRender(blob, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+// Очередь рендера
+const waveformQueue = [];
+let waveformBusy = false;
+
+function enqueueWaveformRender(blob, filename) {
+  track('enqueueWaveformRender');
+  waveformQueue.push({ blob, filename });
+  processNextWaveform();
+}
+
+function processNextWaveform() {
+  track('processNextWaveform');
+  if (waveformBusy || waveformQueue.length === 0) return;
+  waveformBusy = true;
+  const { blob, filename } = waveformQueue.shift();
+  console.log(`➡️ Processing: ${filename}`);
+  renderWaveform(blob, filename);
+}
+</script>
