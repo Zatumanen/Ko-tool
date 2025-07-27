@@ -6,6 +6,7 @@
 
 
 function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
     return;
@@ -97,6 +98,7 @@ function renderWaveform(blob, filename) {
 
 
 function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
     return;
@@ -512,7 +514,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const segmentContainer = document.getElementById('segment-container');
   const fileInfo = document.getElementById('file-info');
 
-  const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+  const getSelectedValue = (name) => {
+  const group = document.querySelector(`.win95-list[data-group="${name}"]`);
+  return group?.querySelector('.list-item.selected')?.dataset.value || null;
+};
   const initAudioContext = () => new (window.AudioContext || window.webkitAudioContext)();
 
   const getDownsampleRate = (fidelity, originalRate) => {
@@ -749,6 +754,7 @@ async function processFiles(files) {
 
 
 function renderWaveform(blob, filename) {
+  console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0) {
     console.warn('Skipping empty or invalid blob:', filename);
     return;
