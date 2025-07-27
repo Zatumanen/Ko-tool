@@ -387,27 +387,29 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.41</span>
+      <span>KO II Audio Tool — v1.46</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
       </div>
     </div>
     <div class="content">
-      <div class="options win95-inset">
-        <div>
-          <label>FIDELITY</label><br>
-          <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
-          <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
-          <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
-          <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
-        </div>
-        <div>
-          <label>CHANNELS</label><br>
-          <input type="radio" name="channels" value="stereo" checked> Stereo<br>
-          <input type="radio" name="channels" value="mono"> Mono
-        </div>
-      </div>
+      
+<div style="display: flex; gap: 8px; margin-bottom: 10px;">
+  <div class="win95-inset" style="flex: 1;">
+    <label>FIDELITY</label><br>
+    <input type="radio" name="fidelity" value="cd" checked> CD (16/46)<br>
+    <input type="radio" name="fidelity" value="sp8"> SP-1200 8 Bit<br>
+    <input type="radio" name="fidelity" value="sp16"> SP-1200 16 Bit<br>
+    <input type="radio" name="fidelity" value="sk"> SK-1 (8/9)
+  </div>
+  <div class="win95-inset" style="flex: 1;">
+    <label>CHANNELS</label><br>
+    <input type="radio" name="channels" value="stereo" checked> Stereo<br>
+    <input type="radio" name="channels" value="mono"> Mono
+  </div>
+</div>
+
       <div class="settings win95-inset">
         <label>EP-133 KO II SETTINGS</label>
         
