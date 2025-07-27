@@ -60,7 +60,7 @@ requestAnimationFrame(() => {
     const fallbackTimeout = setTimeout(() => {
       if (!didRender) {
         const failNote = document.createElement('div');
-        failNote.textContent = '⚠️ Failed to render waveform';
+        failNote.textContent = '';
         failNote.style.color = 'red';
         failNote.style.fontSize = '13px';
         container.appendChild(title);
@@ -108,7 +108,7 @@ requestAnimationFrame(() => {
       newWavesurfer.on('error', () => {
         console.warn('Second attempt failed to render:', filename);
         const failNote = document.createElement('div');
-        failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+        failNote.textContent = '';
         failNote.style.color = 'red';
         failNote.style.fontSize = '13px';
         container.innerHTML = '';
@@ -147,7 +147,7 @@ requestAnimationFrame(() => {
   const fallbackTimeout = setTimeout(() => {
     if (!didRender) {
       const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.textContent = '';
       failNote.style.color = 'red';
       failNote.style.fontSize = '13px';
       container.appendChild(title);
@@ -199,7 +199,7 @@ wavesurfer.on('error', (e) => {
 newWavesurfer.on('error', () => {
   console.warn('Second attempt failed to render:', filename);
   const failNote = document.createElement('div');
-  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.textContent = '';
   failNote.style.color = 'red';
   failNote.style.fontSize = '13px';
   container.innerHTML = '';
@@ -320,7 +320,7 @@ function renderWaveform(blob, filename) {
   const fallbackTimeout = setTimeout(() => {
     if (!didRender) {
       const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.textContent = '';
       failNote.style.color = 'red';
       failNote.style.fontSize = '13px';
       container.appendChild(title);
@@ -372,7 +372,7 @@ wavesurfer.on('error', (e) => {
 newWavesurfer.on('error', () => {
   console.warn('Second attempt failed to render:', filename);
   const failNote = document.createElement('div');
-  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.textContent = '';
   failNote.style.color = 'red';
   failNote.style.fontSize = '13px';
   container.innerHTML = '';
@@ -438,7 +438,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.0.4</title>
+  <title>KO II Audio Tool v2.0.5</title>
   <style>
     body {
       background: #fff;
@@ -664,7 +664,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.4</span>
+      <span>KO II Audio Tool — v2.0.5</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -728,7 +728,7 @@ function processNextWaveform() {
   </div>
 
 <script>
-const appVersion = 'v2.0.4';
+const appVersion = 'v2.0.5';
 function updateSliderValue(type) {
   const slider = document.getElementById(`${type}-slider`);
   const valueSpan = document.getElementById(`${type}-value`);
@@ -1058,7 +1058,7 @@ function renderWaveform(blob, filename) {
   const fallbackTimeout = setTimeout(() => {
     if (!didRender) {
       const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
+      failNote.textContent = '';
       failNote.style.color = 'red';
       failNote.style.fontSize = '13px';
       container.appendChild(title);
@@ -1110,7 +1110,7 @@ wavesurfer.on('error', (e) => {
 newWavesurfer.on('error', () => {
   console.warn('Second attempt failed to render:', filename);
   const failNote = document.createElement('div');
-  failNote.textContent = '⚠️ Failed to render waveform (2nd attempt)';
+  failNote.textContent = '';
   failNote.style.color = 'red';
   failNote.style.fontSize = '13px';
   container.innerHTML = '';
