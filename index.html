@@ -4,7 +4,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.19</title>
+  <title>KO II Audio Tool v1.20</title>
   <style>
     body {
       background: #fff;
@@ -129,7 +129,6 @@
     audio#player {
       width: 100%;
       margin-top: 12px;
-      display: none;
     }
 
     #overlay {
@@ -200,7 +199,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.19</span>
+      <span>KO II Audio Tool — v1.20</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -456,14 +455,12 @@ async function processFiles(files) {
 
   
   if (firstProcessed) {
-    const audioURL = URL.createObjectURL(firstProcessed);
-    player.style.display = 'block';
-    player.src = audioURL;
-    player.load();
-
     const previewBtn = document.getElementById('preview-button');
     previewBtn.style.display = 'block';
     previewBtn.onclick = () => {
+      const audioURL = URL.createObjectURL(firstProcessed);
+      player.src = audioURL;
+      player.load();
       player.play().catch(e => console.warn('Manual play failed:', e));
     };
   }
