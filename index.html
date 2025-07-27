@@ -260,7 +260,9 @@ function processNextWaveform() {
       waveformBusy = false;
       processNextWaveform();
     }
-  }, 50); // слегка задержим для стабильности в Safari
+  
+}, navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 100 : 30); // адаптивная задержка для Safari
+
 }
 
 </script>
@@ -432,13 +434,15 @@ function processNextWaveform() {
       waveformBusy = false;
       processNextWaveform();
     }
-  }, 50); // слегка задержим для стабильности в Safari
+  
+}, navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 100 : 30); // адаптивная задержка для Safari
+
 }
 
 </script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>KO II Audio Tool v2.0.2</title>
+<title>KO II Audio Tool v2.0.3</title>
 <style>
     body {
       background: #fff;
@@ -663,7 +667,7 @@ function processNextWaveform() {
 <body>
 <div class="window">
 <div class="title-bar">
-<span>KO II Audio Tool — v2.0.2</span>
+<span>KO II Audio Tool — v2.0.3</span>
 <div>
 <button class="minimize">-</button>
 <button class="close">X</button>
@@ -719,7 +723,7 @@ function processNextWaveform() {
 </div>
 </div>
 <script>
-const appVersion = 'v2.0.2';
+const appVersion = 'v2.0.3';
 
 let waveformQueue = [];
 let waveformBusy = false;
@@ -1197,7 +1201,9 @@ function processNextWaveform() {
       waveformBusy = false;
       processNextWaveform();
     }
-  }, 50); // слегка задержим для стабильности в Safari
+  
+}, navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome') ? 100 : 30); // адаптивная задержка для Safari
+
 }
 
 </script>
