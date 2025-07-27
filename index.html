@@ -196,7 +196,7 @@ function renderWaveform(blob, filename) {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.41</title>
+  <title>KO II Audio Tool v1.50</title>
   <style>
     body {
       background: #fff;
@@ -422,7 +422,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.47</span>
+      <span>KO II Audio Tool — v1.50</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -682,17 +682,19 @@ async function processFiles(files) {
 
     await animateSegmentsFullBar(durationMs);
 
-    const ko2Buffer = getKO2Buffer();
     const cleanWavBlob = audioBufferToWav(processed, null);
-    const fileName = file.name.replace;
+    const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+
+    renderWaveform(cleanWavBlob, fileName);
+
+    const ko2Buffer = getKO2Buffer();
 
     renderWaveform(cleanWavBlob, fileName);
 
     const ko2Buffer = getKO2Buffer();
     const wavBlob = audioBufferToWav(processed, ko2Buffer);(/\.[^/.]+$/, '') + '_ko2.wav';
     
-    renderWaveform(wavBlob, fileName);
-    zip.file(fileName, wavBlob);
+        zip.file(fileName, wavBlob);
 
     totalOriginalSize += file.size;
     totalProcessedSize += wavBlob.size;
