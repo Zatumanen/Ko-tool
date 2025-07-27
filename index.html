@@ -327,15 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
 
 async function animateSegmentsFullBar(durationMs) {
-  
-fileInfo.innerHTML = `
-  <div><b>Files: ${files.length}</b></div>
-  <div>Fidelity: ${getSelectedValue('fidelity')}</div>
-  <div>Channels: ${getSelectedValue('channels')}</div>
-  <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
-`;
-
-const segments = document.querySelectorAll('.progress-segment');
+  const segments = document.querySelectorAll('.progress-segment');
   const delay = durationMs / segments.length;
 
   for (let i = 0; i < segments.length; i++) {
@@ -363,6 +355,8 @@ async function processFiles(files) {
   loader.style.display = 'block';
 
   const context = initAudioContext();
+  let monoCount = 0;
+let stereoCount = 0;
   const totalSegments = 50;
   const segmentsPerFile = files.length === 1 ? totalSegments : Math.floor(totalSegments / files.length);
   segmentContainer.innerHTML = '';
@@ -391,25 +385,34 @@ async function processFiles(files) {
   const startTime = performance.now();
   const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
   const durationMs = performance.now() - startTime;
-animateSegmentsFullBar(durationMs);
-const ko2Buffer = getKO2Buffer();
+
+  await animateSegmentsFullBar(durationMs);
+
+  const ko2Buffer = getKO2Buffer();
   const wavBlob = audioBufferToWav(processed, ko2Buffer);
 
   const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
   zip.file(fileName, wavBlob);
 
-  
+  if (!firstProcessed) {
+    firstProcessed = wavBlob;
+    player.src = URL.createObjectURL(firstProcessed);
+    player.style.display = 'block';
+    player.load();
+
+    const originalSize = (file.size / 1024 / 1024).toFixed(2);
+    const processedSize = (wavBlob.size / 1024 / 1024).toFixed(2);
+    fileInfo.innerHTML = `
+  <div><b>Files: ${files.length}</b></div>
+  <div>Original: ${originalSize} MB</div>
+  <div>Processed: ${processedSize} MB</div>
+  <div>Fidelity: ${fidelity}</div>
+  <div>Channels: ${channels}</div>
+`;
+  }
 }
 
-  
-fileInfo.innerHTML = `
-  <div><b>Files: ${files.length}</b></div>
-  <div>Fidelity: ${getSelectedValue('fidelity')}</div>
-  <div>Channels: ${getSelectedValue('channels')}</div>
-  <div>Original Channels: ${stereoCount} Stereo, ${monoCount} Mono</div>
-`;
-
-const segments = document.querySelectorAll('.progress-segment');
+  const segments = document.querySelectorAll('.progress-segment');
   segments.forEach(seg => seg.classList.add('active'));
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
