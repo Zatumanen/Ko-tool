@@ -1,10 +1,28 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="ru">
 <head>
 <script src="https://unpkg.com/wavesurfer.js">
 
 
+
+
+
 function renderWaveform(blob, filename) {
+  if (!blob || blob.size === 0) {
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
+
+  // Dynamically create #waveform-list if missing
+  let waveformList = document.getElementById('waveform-list');
+  if (!waveformList) {
+    waveformList = document.createElement('div');
+    waveformList.id = 'waveform-list';
+    waveformList.style.marginTop = '8px';
+    document.querySelector('body').insertBefore(waveformList, document.querySelector('button, input[type=file], .drop-zone, .export-area, #info-block, .footer, .ko-logo'));
+    console.log('Created #waveform-list');
+  }
+
   const container = document.createElement('div');
   container.className = 'winamp-container';
 
@@ -16,17 +34,21 @@ function renderWaveform(blob, filename) {
   }
   title.className = 'winamp-title';
 
-  const wave = document.createElement('div');
-  wave.className = 'winamp-wave';
-
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.className = 'winamp-btn';
 
   container.appendChild(title);
-  container.appendChild(wave);
   container.appendChild(button);
-  document.getElementById('waveform-list').appendChild(container);
+  waveformList.appendChild(container);
+
+  const wave = document.createElement('div');
+  wave.className = 'winamp-wave';
+  wave.style.height = '64px';
+  wave.style.width = '100%';
+  wave.style.border = '1px solid #333';
+  wave.style.backgroundColor = '#000';
+  wave.style.marginTop = '6px';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
@@ -40,7 +62,13 @@ function renderWaveform(blob, filename) {
     splitChannels: false
   });
 
-  setTimeout(() => wavesurfer.loadBlob(blob), 100);
+  setTimeout(() => {
+    wavesurfer.loadBlob(blob);
+    wavesurfer.on('ready', () => {
+      console.log('Waveform ready for:', filename);
+      container.insertBefore(wave, button);
+    });
+  }, 100);
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
@@ -58,7 +86,25 @@ function renderWaveform(blob, filename) {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
 
 
+
+
+
 function renderWaveform(blob, filename) {
+  if (!blob || blob.size === 0) {
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
+
+  // Dynamically create #waveform-list if missing
+  let waveformList = document.getElementById('waveform-list');
+  if (!waveformList) {
+    waveformList = document.createElement('div');
+    waveformList.id = 'waveform-list';
+    waveformList.style.marginTop = '8px';
+    document.querySelector('body').insertBefore(waveformList, document.querySelector('button, input[type=file], .drop-zone, .export-area, #info-block, .footer, .ko-logo'));
+    console.log('Created #waveform-list');
+  }
+
   const container = document.createElement('div');
   container.className = 'winamp-container';
 
@@ -70,17 +116,21 @@ function renderWaveform(blob, filename) {
   }
   title.className = 'winamp-title';
 
-  const wave = document.createElement('div');
-  wave.className = 'winamp-wave';
-
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.className = 'winamp-btn';
 
   container.appendChild(title);
-  container.appendChild(wave);
   container.appendChild(button);
-  document.getElementById('waveform-list').appendChild(container);
+  waveformList.appendChild(container);
+
+  const wave = document.createElement('div');
+  wave.className = 'winamp-wave';
+  wave.style.height = '64px';
+  wave.style.width = '100%';
+  wave.style.border = '1px solid #333';
+  wave.style.backgroundColor = '#000';
+  wave.style.marginTop = '6px';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
@@ -94,7 +144,13 @@ function renderWaveform(blob, filename) {
     splitChannels: false
   });
 
-  setTimeout(() => wavesurfer.loadBlob(blob), 100);
+  setTimeout(() => {
+    wavesurfer.loadBlob(blob);
+    wavesurfer.on('ready', () => {
+      console.log('Waveform ready for:', filename);
+      container.insertBefore(wave, button);
+    });
+  }, 100);
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
@@ -110,7 +166,7 @@ function renderWaveform(blob, filename) {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.25</title>
+  <title>KO II Audio Tool v1.31</title>
   <style>
     body {
       background: #fff;
@@ -327,33 +383,17 @@ function renderWaveform(blob, filename) {
   word-break: break-word;
 }
 
-.winamp-wave {
-  height: 64px;
-  width: 100%;
-  border: 1px solid #333;
-  background-color: #000;
-}
 
-.winamp-btn {
-  background-color: #1e1e1e;
-  color: #00ff00;
-  border: 2px outset #444;
-  font-family: 'Lucida Console', Monaco, monospace;
-  font-size: 12px;
-  padding: 4px 12px;
-  margin-top: 4px;
-  cursor: pointer;
-}
-.winamp-btn:hover {
-  background-color: #333;
-  border-color: #00ff00;
-}
+
+
+
+
 </style>
 </head>
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.25</span>
+      <span>KO II Audio Tool — v1.31</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -394,7 +434,7 @@ function renderWaveform(blob, filename) {
         <span>DRAG AND DROP OR SELECT AUDIO FILES</span>
         <div id="file-info"></div>
       </div>
-      <div id="waveform-list" style="margin-top: 10px;"></div>
+      
 <button id="select-file-button">Select Audio Files</button>
           </div>
   </div>
@@ -673,7 +713,25 @@ async function processFiles(files) {
 
 
 
+
+
+
 function renderWaveform(blob, filename) {
+  if (!blob || blob.size === 0) {
+    console.warn('Skipping empty or invalid blob:', filename);
+    return;
+  }
+
+  // Dynamically create #waveform-list if missing
+  let waveformList = document.getElementById('waveform-list');
+  if (!waveformList) {
+    waveformList = document.createElement('div');
+    waveformList.id = 'waveform-list';
+    waveformList.style.marginTop = '8px';
+    document.querySelector('body').insertBefore(waveformList, document.querySelector('button, input[type=file], .drop-zone, .export-area, #info-block, .footer, .ko-logo'));
+    console.log('Created #waveform-list');
+  }
+
   const container = document.createElement('div');
   container.className = 'winamp-container';
 
@@ -685,17 +743,21 @@ function renderWaveform(blob, filename) {
   }
   title.className = 'winamp-title';
 
-  const wave = document.createElement('div');
-  wave.className = 'winamp-wave';
-
   const button = document.createElement('button');
   button.textContent = '▶️ Play';
   button.className = 'winamp-btn';
 
   container.appendChild(title);
-  container.appendChild(wave);
   container.appendChild(button);
-  document.getElementById('waveform-list').appendChild(container);
+  waveformList.appendChild(container);
+
+  const wave = document.createElement('div');
+  wave.className = 'winamp-wave';
+  wave.style.height = '64px';
+  wave.style.width = '100%';
+  wave.style.border = '1px solid #333';
+  wave.style.backgroundColor = '#000';
+  wave.style.marginTop = '6px';
 
   const wavesurfer = WaveSurfer.create({
     container: wave,
@@ -709,7 +771,13 @@ function renderWaveform(blob, filename) {
     splitChannels: false
   });
 
-  setTimeout(() => wavesurfer.loadBlob(blob), 100);
+  setTimeout(() => {
+    wavesurfer.loadBlob(blob);
+    wavesurfer.on('ready', () => {
+      console.log('Waveform ready for:', filename);
+      container.insertBefore(wave, button);
+    });
+  }, 100);
 
   button.onclick = () => {
     if (wavesurfer.isPlaying()) {
