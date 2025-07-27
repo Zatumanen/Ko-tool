@@ -5,11 +5,13 @@
 
 
 
+
+
+
+
 function renderWaveform(blob, filename) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
   if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform render skipped due to empty or too small blob:', filename);
-    console.warn('Skipping empty or invalid blob:', filename);
+    console.warn('Waveform skipped:', filename);
     return;
   }
 
@@ -53,22 +55,7 @@ function renderWaveform(blob, filename) {
     splitChannels: false
   });
 
-  let didRender = false;
-  const fallbackTimeout = setTimeout(() => {
-    if (!didRender) {
-      const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
-      failNote.style.color = 'red';
-      failNote.style.fontSize = '13px';
-      container.appendChild(title);
-      container.appendChild(failNote);
-      document.getElementById('waveform-list').appendChild(container);
-    }
-  }, 4000);
-
   wavesurfer.on('ready', () => {
-    clearTimeout(fallbackTimeout);
-    didRender = true;
     container.appendChild(title);
     container.appendChild(wave);
     container.appendChild(button);
@@ -76,13 +63,19 @@ function renderWaveform(blob, filename) {
   });
 
   wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
+    const failNote = document.createElement('div');
+    failNote.textContent = '⚠️ Failed to render waveform';
+    failNote.style.color = 'red';
+    failNote.style.fontSize = '13px';
+    container.appendChild(title);
+    container.appendChild(failNote);
+    document.getElementById('waveform-list').appendChild(container);
   });
 
   try {
     wavesurfer.loadBlob(blob);
   } catch (err) {
-    console.error('WaveSurfer loadBlob failed:', err);
+    console.error('loadBlob failed:', err);
   }
 
   button.onclick = () => {
@@ -102,101 +95,12 @@ function renderWaveform(blob, filename) {
 
 
 
-function renderWaveform(blob, filename) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform render skipped due to empty or too small blob:', filename);
-    console.warn('Skipping empty or invalid blob:', filename);
-    return;
-  }
 
-  const container = document.createElement('div');
-  container.style.marginBottom = '20px';
-  container.style.border = '2px inset #808080';
-  container.style.padding = '10px';
-  container.style.background = '#e0e0e0';
-  container.style.overflowX = 'auto';
-
-  const title = document.createElement('div');
-  try {
-    title.textContent = decodeURIComponent(filename);
-  } catch {
-    title.textContent = filename;
-  }
-  title.style.fontFamily = "'Courier New', monospace";
-  title.style.fontSize = '14px';
-  title.style.marginBottom = '6px';
-  title.style.wordBreak = 'break-word';
-
-  const wave = document.createElement('div');
-  wave.style.width = '100%';
-  wave.style.minHeight = '64px';
-  wave.style.height = '64px';
-
-  const button = document.createElement('button');
-  button.textContent = '▶️ Play';
-  button.style.marginTop = '6px';
-  button.style.fontFamily = "'Courier New', monospace";
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#000',
-    progressColor: '#000080',
-    height: 64,
-    barWidth: 1.4,
-    minPxPerSec: 100,
-    responsive: true,
-    cursorColor: '#ff0000',
-    splitChannels: false
-  });
-
-  let didRender = false;
-  const fallbackTimeout = setTimeout(() => {
-    if (!didRender) {
-      const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
-      failNote.style.color = 'red';
-      failNote.style.fontSize = '13px';
-      container.appendChild(title);
-      container.appendChild(failNote);
-      document.getElementById('waveform-list').appendChild(container);
-    }
-  }, 4000);
-
-  wavesurfer.on('ready', () => {
-    clearTimeout(fallbackTimeout);
-    didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
-    container.appendChild(button);
-    document.getElementById('waveform-list').appendChild(container);
-  });
-
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
-
-  try {
-    wavesurfer.loadBlob(blob);
-  } catch (err) {
-    console.error('WaveSurfer loadBlob failed:', err);
-  }
-
-  button.onclick = () => {
-    if (wavesurfer.isPlaying()) {
-      wavesurfer.pause();
-      button.textContent = '▶️ Play';
-    } else {
-      wavesurfer.play();
-      button.textContent = '⏸ Pause';
-    }
-  };
-}
 
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.50</title>
+  <title>KO II Audio Tool v1.49</title>
   <style>
     body {
       background: #fff;
@@ -422,7 +326,7 @@ function renderWaveform(blob, filename) {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.50</span>
+      <span>KO II Audio Tool — v1.49</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -682,19 +586,13 @@ async function processFiles(files) {
 
     await animateSegmentsFullBar(durationMs);
 
-    const cleanWavBlob = audioBufferToWav(processed, null);
+    const ko2Buffer = getKO2Buffer();
+    const wavBlob = audioBufferToWav(processed, ko2Buffer);
+
     const fileName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-
-    renderWaveform(cleanWavBlob, fileName);
-
-    const ko2Buffer = getKO2Buffer();
-
-    renderWaveform(cleanWavBlob, fileName);
-
-    const ko2Buffer = getKO2Buffer();
-    const wavBlob = audioBufferToWav(processed, ko2Buffer);(/\.[^/.]+$/, '') + '_ko2.wav';
     
-        zip.file(fileName, wavBlob);
+    renderWaveform(wavBlob, fileName);
+    zip.file(fileName, wavBlob);
 
     totalOriginalSize += file.size;
     totalProcessedSize += wavBlob.size;
@@ -764,96 +662,7 @@ async function processFiles(files) {
 
 
 
-function renderWaveform(blob, filename) {
-  console.log('Rendering file:', filename, 'Size:', blob?.size);
-  if (!blob || blob.size === 0 || blob.size < 500) {
-    console.warn('Waveform render skipped due to empty or too small blob:', filename);
-    console.warn('Skipping empty or invalid blob:', filename);
-    return;
-  }
 
-  const container = document.createElement('div');
-  container.style.marginBottom = '20px';
-  container.style.border = '2px inset #808080';
-  container.style.padding = '10px';
-  container.style.background = '#e0e0e0';
-  container.style.overflowX = 'auto';
-
-  const title = document.createElement('div');
-  try {
-    title.textContent = decodeURIComponent(filename);
-  } catch {
-    title.textContent = filename;
-  }
-  title.style.fontFamily = "'Courier New', monospace";
-  title.style.fontSize = '14px';
-  title.style.marginBottom = '6px';
-  title.style.wordBreak = 'break-word';
-
-  const wave = document.createElement('div');
-  wave.style.width = '100%';
-  wave.style.minHeight = '64px';
-  wave.style.height = '64px';
-
-  const button = document.createElement('button');
-  button.textContent = '▶️ Play';
-  button.style.marginTop = '6px';
-  button.style.fontFamily = "'Courier New', monospace";
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#000',
-    progressColor: '#000080',
-    height: 64,
-    barWidth: 1.4,
-    minPxPerSec: 100,
-    responsive: true,
-    cursorColor: '#ff0000',
-    splitChannels: false
-  });
-
-  let didRender = false;
-  const fallbackTimeout = setTimeout(() => {
-    if (!didRender) {
-      const failNote = document.createElement('div');
-      failNote.textContent = '⚠️ Failed to render waveform';
-      failNote.style.color = 'red';
-      failNote.style.fontSize = '13px';
-      container.appendChild(title);
-      container.appendChild(failNote);
-      document.getElementById('waveform-list').appendChild(container);
-    }
-  }, 4000);
-
-  wavesurfer.on('ready', () => {
-    clearTimeout(fallbackTimeout);
-    didRender = true;
-    container.appendChild(title);
-    container.appendChild(wave);
-    container.appendChild(button);
-    document.getElementById('waveform-list').appendChild(container);
-  });
-
-  wavesurfer.on('error', (e) => {
-    console.error('WaveSurfer error:', e);
-  });
-
-  try {
-    wavesurfer.loadBlob(blob);
-  } catch (err) {
-    console.error('WaveSurfer loadBlob failed:', err);
-  }
-
-  button.onclick = () => {
-    if (wavesurfer.isPlaying()) {
-      wavesurfer.pause();
-      button.textContent = '▶️ Play';
-    } else {
-      wavesurfer.play();
-      button.textContent = '⏸ Pause';
-    }
-  };
-}
 
 </script>
 </body>
