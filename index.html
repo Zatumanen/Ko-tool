@@ -6,98 +6,7 @@
 
 
 
-function renderWaveform(blob, filename) {
-  track('renderWaveform');
-  console.log(`📥 START renderWaveform: ${filename}, size=${blob.size}, type=${blob.type}`);
 
-  const container = document.createElement('div');
-  container.style.margin = '10px 0';
-  container.style.border = '1px dashed #888';
-  container.style.padding = '6px';
-  container.style.fontFamily = 'monospace';
-
-  const title = document.createElement('div');
-  title.textContent = filename;
-  container.appendChild(title);
-
-  // ⚠️ Проверка валидности blob
-  if (!blob || blob.size < 1000) {
-    const fail = document.createElement('div');
-    fail.style.color = 'red';
-    fail.textContent = `⚠️ Failed to render: empty or corrupt file`;
-    container.appendChild(fail);
-    document.getElementById('waveform-list').appendChild(container);
-    waveformBusy = false;
-    processNextWaveform();
-    return;
-  }
-
-  const wave = document.createElement('div');
-  container.appendChild(wave);
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#111',
-    progressColor: '#333',
-    height: 64,
-    responsive: true,
-    barWidth: 1.5
-  });
-
-  let attempt = 1;
-
-  function tryLoad() {
-    console.log(`🌀 Attempt #${attempt} for ${filename}`);
-    try {
-      wavesurfer.loadBlob(blob);
-    } catch (e) {
-      failRender(`loadBlob failed`, e);
-    }
-  }
-
-  function failRender(reason, error = null) {
-    const fail = document.createElement('div');
-    fail.style.color = 'red';
-    fail.textContent = `⚠️ Failed to render waveform${attempt > 1 ? ' (2nd attempt)' : ''} — ${filename}`;
-    if (reason) fail.textContent += ` (${reason})`;
-    container.appendChild(fail);
-    document.getElementById('waveform-list').appendChild(container);
-    if (error) console.error(`❌ renderWaveform error: ${filename}`, error);
-    waveformBusy = false;
-    processNextWaveform();
-  }
-
-  wavesurfer.on('ready', () => {
-    console.log(`✅ Success renderWaveform: ${filename}`);
-    const playBtn = document.createElement('button');
-    playBtn.textContent = '▶️ Play';
-    playBtn.onclick = () => {
-      if (wavesurfer.isPlaying()) {
-        wavesurfer.pause();
-        playBtn.textContent = '▶️ Play';
-      } else {
-        wavesurfer.play();
-        playBtn.textContent = '⏸ Pause';
-      }
-    };
-    container.appendChild(playBtn);
-    document.getElementById('waveform-list').appendChild(container);
-    waveformBusy = false;
-    processNextWaveform();
-  });
-
-  wavesurfer.on('error', (e) => {
-    console.warn(`❗ renderWaveform failed attempt #${attempt}: ${filename}`, e);
-    if (attempt === 1) {
-      attempt++;
-      tryLoad();
-    } else {
-      failRender('WaveSurfer error', e);
-    }
-  });
-
-  tryLoad();
-}
 );
 
 
@@ -206,12 +115,9 @@ function processNextWaveform() {
   track('processNextWaveform');
   if (waveformBusy || waveformQueue.length === 0) return;
   waveformBusy = true;
-
   const { blob, filename } = waveformQueue.shift();
-
-  setTimeout(() => {
-    try {
-      renderWaveform(blob, filename);
+  console.log(`➡️ Processing: ${filename}`);
+  renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
@@ -220,12 +126,6 @@ function processNextWaveform() {
     }
   }, 50); // слегка задержим для стабильности в Safari
 }
-
-</script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
-
-
 
 
 function renderWaveform(blob, filename) {
@@ -242,7 +142,6 @@ function renderWaveform(blob, filename) {
   title.textContent = filename;
   container.appendChild(title);
 
-  // ⚠️ Проверка валидности blob
   if (!blob || blob.size < 1000) {
     const fail = document.createElement('div');
     fail.style.color = 'red';
@@ -320,6 +219,15 @@ function renderWaveform(blob, filename) {
 
   tryLoad();
 }
+
+</script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+
+
+
+
+
 );
 
 
@@ -362,12 +270,9 @@ function processNextWaveform() {
   track('processNextWaveform');
   if (waveformBusy || waveformQueue.length === 0) return;
   waveformBusy = true;
-
   const { blob, filename } = waveformQueue.shift();
-
-  setTimeout(() => {
-    try {
-      renderWaveform(blob, filename);
+  console.log(`➡️ Processing: ${filename}`);
+  renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
@@ -380,7 +285,7 @@ function processNextWaveform() {
 </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v1.59</title>
+  <title>KO II Audio Tool v2.0.2</title>
   <style>
     body {
       background: #fff;
@@ -606,7 +511,7 @@ function processNextWaveform() {
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v1.59</span>
+      <span>KO II Audio Tool — v2.0.2</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -882,7 +787,7 @@ async function processFiles(files) {
     const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
 
     const startTime = performance.now();
-    const processed = await applySpeedAndFidelity(converted, 2.0.1, downsampleRate);
+    const processed = await applySpeedAndFidelity(converted, v2.0.2.1, downsampleRate);
     const durationMs = performance.now() - startTime;
 
     await animateSegmentsFullBar(durationMs);
@@ -969,98 +874,7 @@ const checkRenderDone = setInterval(() => {
 
 
 
-function renderWaveform(blob, filename) {
-  track('renderWaveform');
-  console.log(`📥 START renderWaveform: ${filename}, size=${blob.size}, type=${blob.type}`);
 
-  const container = document.createElement('div');
-  container.style.margin = '10px 0';
-  container.style.border = '1px dashed #888';
-  container.style.padding = '6px';
-  container.style.fontFamily = 'monospace';
-
-  const title = document.createElement('div');
-  title.textContent = filename;
-  container.appendChild(title);
-
-  // ⚠️ Проверка валидности blob
-  if (!blob || blob.size < 1000) {
-    const fail = document.createElement('div');
-    fail.style.color = 'red';
-    fail.textContent = `⚠️ Failed to render: empty or corrupt file`;
-    container.appendChild(fail);
-    document.getElementById('waveform-list').appendChild(container);
-    waveformBusy = false;
-    processNextWaveform();
-    return;
-  }
-
-  const wave = document.createElement('div');
-  container.appendChild(wave);
-
-  const wavesurfer = WaveSurfer.create({
-    container: wave,
-    waveColor: '#111',
-    progressColor: '#333',
-    height: 64,
-    responsive: true,
-    barWidth: 1.5
-  });
-
-  let attempt = 1;
-
-  function tryLoad() {
-    console.log(`🌀 Attempt #${attempt} for ${filename}`);
-    try {
-      wavesurfer.loadBlob(blob);
-    } catch (e) {
-      failRender(`loadBlob failed`, e);
-    }
-  }
-
-  function failRender(reason, error = null) {
-    const fail = document.createElement('div');
-    fail.style.color = 'red';
-    fail.textContent = `⚠️ Failed to render waveform${attempt > 1 ? ' (2nd attempt)' : ''} — ${filename}`;
-    if (reason) fail.textContent += ` (${reason})`;
-    container.appendChild(fail);
-    document.getElementById('waveform-list').appendChild(container);
-    if (error) console.error(`❌ renderWaveform error: ${filename}`, error);
-    waveformBusy = false;
-    processNextWaveform();
-  }
-
-  wavesurfer.on('ready', () => {
-    console.log(`✅ Success renderWaveform: ${filename}`);
-    const playBtn = document.createElement('button');
-    playBtn.textContent = '▶️ Play';
-    playBtn.onclick = () => {
-      if (wavesurfer.isPlaying()) {
-        wavesurfer.pause();
-        playBtn.textContent = '▶️ Play';
-      } else {
-        wavesurfer.play();
-        playBtn.textContent = '⏸ Pause';
-      }
-    };
-    container.appendChild(playBtn);
-    document.getElementById('waveform-list').appendChild(container);
-    waveformBusy = false;
-    processNextWaveform();
-  });
-
-  wavesurfer.on('error', (e) => {
-    console.warn(`❗ renderWaveform failed attempt #${attempt}: ${filename}`, e);
-    if (attempt === 1) {
-      attempt++;
-      tryLoad();
-    } else {
-      failRender('WaveSurfer error', e);
-    }
-  });
-
-  tryLoad();
-}
 );
 
 
@@ -1103,12 +917,9 @@ function processNextWaveform() {
   track('processNextWaveform');
   if (waveformBusy || waveformQueue.length === 0) return;
   waveformBusy = true;
-
   const { blob, filename } = waveformQueue.shift();
-
-  setTimeout(() => {
-    try {
-      renderWaveform(blob, filename);
+  console.log(`➡️ Processing: ${filename}`);
+  renderWaveform(blob, filename);
     } catch (err) {
       console.error('Waveform render error:', err);
     } finally {
