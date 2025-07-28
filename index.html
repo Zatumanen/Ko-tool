@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.1</title>
+  <title>KO II Audio Tool v2.0</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.1</span>
+      <span>KO II Audio Tool — v2.0</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -660,6 +660,11 @@
       waitForRenderCompletion().then(() => {
         overlay.style.display = 'none';
         loader.style.display = 'none';
+        
+        // Очищаем временные URL
+        createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+        createdObjectURLs = [];
+        
         if (activeAudioContext) {
           activeAudioContext.close();
           activeAudioContext = null;
@@ -798,7 +803,7 @@
       }
     }
 
-    // Визуализация волны
+    // Визуализация волны (ИСПРАВЛЕННАЯ ВЕРСИЯ)
     function renderWaveform(audioBuffer, filename) {
       return new Promise((resolve) => {
         // Создание контейнера
@@ -838,8 +843,7 @@
             height: 100,
             barWidth: 2,
             minPxPerSec: 100,
-            cursorColor: '#f00',
-            sampleRate: audioBuffer.sampleRate
+            cursorColor: '#f00'
           });
 
           // Обработка готовности
@@ -865,8 +869,11 @@
             resolve();
           });
 
-          // Загрузка обработанного буфера
-          wavesurfer.loadDecodedAudio(audioBuffer);
+          // ИСПРАВЛЕНИЕ: Создаем WAV-файл и загружаем его
+          const wavBlob = audioBufferToWav(audioBuffer);
+          const url = URL.createObjectURL(wavBlob);
+          createdObjectURLs.push(url);
+          wavesurfer.load(url);
         } catch (err) {
           console.error('Wavesurfer init error:', err);
           wave.innerHTML = '<div class="render-error">Init failed: ' + err.message + '</div>';
