@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.7</span>
+      <span>KO II Audio Tool — v2.0.8</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -477,20 +477,21 @@
           // Генерация WAV
           const ko2Buffer = getKO2Buffer();
           const bitDepth = getSelectedBitDepth();
-
           let outputBuffer = processed;
+
           if (bitDepth === 8) {
-            const speedUpFactor = 2;
+            const speed = 2;
+            const newLength = Math.floor(processed.length / speed);
             const shortened = audioCtx.createBuffer(
               processed.numberOfChannels,
-              Math.floor(processed.length / speedUpFactor),
+              newLength,
               processed.sampleRate
             );
             for (let ch = 0; ch < processed.numberOfChannels; ch++) {
               const src = processed.getChannelData(ch);
               const dst = shortened.getChannelData(ch);
-              for (let i = 0; i < dst.length; i++) {
-                dst[i] = src[i * speedUpFactor];
+              for (let i = 0; i < newLength; i++) {
+                dst[i] = src[i * speed];
               }
             }
             outputBuffer = shortened;
