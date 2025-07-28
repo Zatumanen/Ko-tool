@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.13</title>
+  <title>KO II SpeedUpperCut v0.0.14</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.13</span>
+      <span>KO II SpeedUpperCut v0.0.14</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -429,7 +429,18 @@
 
   <script>
 
-    // Возвращает параметры fidelity по выбору пользователя
+    // Возвращает значение pitch из слайдера (например, C3 = 48)
+function getPitchValue() {
+  const pitch = parseInt(document.getElementById('pitch-slider').value, 10);
+  return pitch; // MIDI note (e.g., 36 = C2)
+}
+
+// Возвращает значение release из слайдера (0.0 - 1.0)
+function getReleaseValue() {
+  const release = parseFloat(document.getElementById('release-slider').value);
+  return release;
+}
+// Возвращает параметры fidelity по выбору пользователя
 function getFidelitySettings(fidelity) {
   switch (fidelity) {
     case "sp1200-8bit": return { sampleRate: 22050, bitDepth: 8 };
@@ -1109,6 +1120,7 @@ if (dropzone) {
     }
   });
 }
+
 
 
 
