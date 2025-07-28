@@ -384,12 +384,12 @@
         <label>EP-133 KO II SETTINGS</label>
         <div class="slider-wrapper">
           <label>Pitch:</label>
-          <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="64">
+          <input type="range" class="slider" id="pitch-slider" min="0" max="127" value="0">
           <span class="slider-value" id="pitch-value">64</span>
         </div>
         <div class="slider-wrapper">
           <label>Release:</label>
-          <input type="range" class="slider" id="release-slider" min="0" max="255" value="128">
+          <input type="range" class="slider" id="release-slider" min="0" max="255" value="255">
           <span class="slider-value" id="release-value">128</span>
         </div>
       </div>
@@ -717,6 +717,9 @@ function getSampleRate(fidelity) {
           // Декодирование аудио
           const arrayBuffer = await file.arrayBuffer();
           const decoded = await activeAudioContext.decodeAudioData(arrayBuffer);
+          const isMP3 = file.name.toLowerCase().endsWith('.mp3');
+          const exportExtension = isMP3 ? '.mp3' : '.wav';
+          const exportMime = isMP3 ? 'audio/mpeg' : 'audio/wav';
           
           // Статистика каналов
           if (decoded.numberOfChannels === 1) monoOriginal++;
@@ -938,16 +941,18 @@ function getSampleRate(fidelity) {
     }
 
     
-    function writeKO2Chunk(pitch, release) {
-      const buffer = new ArrayBuffer(12); // 4 byte ID + 4 byte length + 4 byte data
-      const view = new DataView(buffer);
-      writeString(view, 0, 'ko2 ');
-      view.setUint32(4, 4, true); // chunk size = 4 bytes
-      view.setUint8(8, pitch); // 1 byte pitch
-      view.setUint16(9, release, true); // 2 bytes release
-      view.setUint8(11, 1); // 1 byte playmode (1 = one-shot)
-      return buffer;
-    }
+    
+function writeKO2Chunk(pitch, release) {
+  const buffer = new ArrayBuffer(12);
+  const view = new DataView(buffer);
+  writeString(view, 0, 'ko2 ');
+  view.setUint32(4, 4, true);
+  view.setUint8(8, 0);         // pitch fixed to 0
+  view.setUint16(9, 255, true); // release fixed to 255
+  view.setUint8(11, 1);        // playmode = one-shot
+  return buffer;
+}
+
 
 function writeString(view, offset, str) {
       for (let i = 0; i < str.length; i++) {
