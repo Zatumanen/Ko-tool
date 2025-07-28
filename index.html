@@ -6,12 +6,7 @@
   <title>KO II Audio Tool v2.0</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* Стили без изменений */
-  </style>
-</head>
-<body>
-  <!-- HTML без изменений -->
-body {
+    body {
       background: #008080;
       font-family: 'Courier New', monospace;
       margin: 0;
@@ -870,14 +865,8 @@ body {
             resolve();
           });
 
-          // ИСПРАВЛЕНИЕ: Создаем WAV-файл из буфера и загружаем его
-          const wavBlob = audioBufferToWav(audioBuffer);
-          const url = URL.createObjectURL(wavBlob);
-          
-          wavesurfer.load(url);
-          
-          // Сохраняем URL для последующей очистки
-          createdObjectURLs.push(url);
+          // Загрузка обработанного буфера
+          wavesurfer.loadDecodedAudio(audioBuffer);
         } catch (err) {
           console.error('Wavesurfer init error:', err);
           wave.innerHTML = '<div class="render-error">Init failed: ' + err.message + '</div>';
@@ -886,7 +875,69 @@ body {
       });
     }
 
-    // ... остальной код без изменений ...
+    // Управление очередью рендеринга
+    function enqueueWaveformRender(audioBuffer, filename) {
+      waveformQueue.push({ audioBuffer, filename });
+      if (!waveformBusy) {
+        processNextWaveform();
+      }
+    }
+
+    async function processNextWaveform() {
+      if (waveformQueue.length === 0) {
+        waveformBusy = false;
+        return;
+      }
+
+      waveformBusy = true;
+      const { audioBuffer, filename } = waveformQueue.shift();
+      
+      try {
+        await renderWaveform(audioBuffer, filename);
+      } catch (err) {
+        console.error('Waveform render error:', err);
+      }
+      
+      // Обработка следующего элемента
+      setTimeout(processNextWaveform, 0);
+    }
+
+    // Вспомогательные функции
+    function animateProgress(progress) {
+      return new Promise(resolve => {
+        const segments = document.querySelectorAll('.progress-segment');
+        const segmentsToActivate = Math.floor(progress * segments.length);
+        
+        segments.forEach((seg, i) => {
+          if (i <= segmentsToActivate) {
+            setTimeout(() => seg.classList.add('active'), i * 20);
+          }
+        });
+        
+        setTimeout(resolve, segments.length * 20);
+      });
+    }
+
+    function waitForRenderCompletion() {
+      return new Promise(resolve => {
+        const check = () => {
+          if (!waveformBusy && waveformQueue.length === 0) {
+            resolve();
+          } else {
+            setTimeout(check, 100);
+          }
+        };
+        check();
+      });
+    }
+
+    // Очистка при закрытии
+    window.addEventListener('beforeunload', () => {
+      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+      if (activeAudioContext) {
+        activeAudioContext.close();
+      }
+    });
   </script>
 </body>
 </html>
