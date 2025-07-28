@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.15</title>
+  <title>KO II SpeedUpperCut v0.0.16</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.15</span>
+      <span>KO II SpeedUpperCut v0.0.16</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -824,6 +824,23 @@ function getSampleRate(fidelity) {
     }
 
     async function processAudio(buffer, fidelity, channels) {
+      
+      const pitch = 24;
+      const release = 1.0;
+      const playmode = "one-shot";
+
+      const filenameBase = file.name.replace(/\.[^/.]+$/, "") + "_ko2" + exportExtension;
+
+      const metadata = {
+        filename: filenameBase,
+        pitch,
+        release,
+        playmode
+      };
+
+      const jsonBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: "application/json" });
+      zip.file(filenameBase.replace(exportExtension, ".json"), jsonBlob);
+    
       const fidelitySettings = getFidelitySettings(fidelity);
       
       // Ускоряем в 2 раза
@@ -1120,6 +1137,7 @@ if (dropzone) {
     }
   });
 }
+
 
 
 
