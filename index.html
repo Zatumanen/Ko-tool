@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.2</title>
+  <title>KO II SpeedUpperCut v0.0.3</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.2</span>
+      <span>KO II SpeedUpperCut v0.0.3</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -428,6 +428,24 @@
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
 
   <script>
+
+    function getSampleRate(fidelity) {
+      switch (fidelity) {
+        case 'SP-1200 (8-bit, 22kHz)': return 22050;
+        case 'SP-1200 (16-bit, 22kHz)': return 22050;
+        case 'SK-1 (8-bit, 9kHz)': return 9000;
+        default: return 44100;
+      }
+    }
+
+    function getBitDepth(fidelity) {
+      switch (fidelity) {
+        case 'SP-1200 (8-bit, 22kHz)': return 8;
+        case 'SK-1 (8-bit, 9kHz)': return 8;
+        default: return 16;
+      }
+    }
+
     // Глобальные переменные
     const waveformQueue = [];
     let waveformBusy = false;
@@ -882,7 +900,7 @@ function writeString(view, offset, str) {
           });
 
           // Загрузка обработанного буфера
-          wavesurfer.loadDecodedAudio(audioBuffer);
+          wavesurfer.load(audioBuffer);
         } catch (err) {
           console.error('Wavesurfer init error:', err);
           wave.innerHTML = '<div class="render-error">Init failed: ' + err.message + '</div>';
