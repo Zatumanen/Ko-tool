@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.1.2-safe</title>
+  <title>KO II Audio Tool v2.1.3-diag</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.1.2-safe</span>
+      <span>KO II Audio Tool — v2.1.3-diag</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -479,7 +479,7 @@
           // Генерация WAV
           const ko2Buffer = getKO2Buffer();
           const wavBlob = audioBufferToWav(processed, ko2Buffer, bitDepth);
-        if (!wavBlob) { alert('Audio file could not be processed.'); return; }
+        if (!wavBlob) { alert('WAV generation failed.'); return; }
           totalProcessedSize += wavBlob.size;
           
           // Добавление в ZIP
