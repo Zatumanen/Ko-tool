@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II Audio Tool v2.1.3-diag</title>
+  <title>KO II Audio Tool v2.1.4-fixui</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.1.3-diag</span>
+      <span>KO II Audio Tool — v2.1.4-fixui</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -402,21 +402,7 @@
       if (this.files.length) processFiles(this.files);
     }
 
-    
-      function getBitDepth(fidelity) {
-        switch (fidelity) {
-          case 'sp8':
-          case 'sk':
-            return 8;
-          case 'sp16':
-          case 'cd':
-          default:
-            return 16;
-        }
-      }
-
-
-      // Обработка файлов
+    // Обработка файлов
     async function processFiles(files) {
       const overlay = document.getElementById('overlay');
       const loader = document.getElementById('win95-loader');
@@ -478,8 +464,7 @@
           
           // Генерация WAV
           const ko2Buffer = getKO2Buffer();
-          const wavBlob = audioBufferToWav(processed, ko2Buffer, bitDepth);
-        if (!wavBlob) { alert('WAV generation failed.'); return; }
+          const wavBlob = audioBufferToWav(processed, ko2Buffer);
           totalProcessedSize += wavBlob.size;
           
           // Добавление в ZIP
@@ -642,7 +627,7 @@
       // Block align (channel count * bytes per sample)
       view.setUint16(32, blockAlign, true);
       // Bits per sample
-      view.setUint16(34, bitDepth, true);
+      view.setUint16(34, 16, true);
       // Data chunk identifier
       writeString(view, 36, 'data');
       // Data chunk length
@@ -672,7 +657,7 @@
         );
       }
       
-      return new Blob([header, sampleArray.buffer], { type: 'audio/wav' });
+      return new Blob([header, data.buffer], { type: 'audio/wav' });
     }
 
     function writeString(view, offset, str) {
