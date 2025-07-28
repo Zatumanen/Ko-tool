@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.10</title>
+  <title>KO II SpeedUpperCut v0.0.11</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.10</span>
+      <span>KO II SpeedUpperCut v0.0.11</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -429,7 +429,31 @@
 
   <script>
 
-    function getSampleRate(fidelity) {
+    // 👇 Patch: Apply fidelity + channel conversion before exporting
+function applyAudioSettings(audioBuffer, fidelity, isMono) {
+  let sampleRate = 44100;
+  let bitDepth = 16;
+  if (fidelity === "sp1200-8bit") {
+    sampleRate = 22050;
+    bitDepth = 8;
+  } else if (fidelity === "sp1200-16bit") {
+    sampleRate = 22050;
+    bitDepth = 16;
+  } else if (fidelity === "sk1") {
+    sampleRate = 9000;
+    bitDepth = 8;
+  }
+
+  const channels = isMono ? 1 : 2;
+  return {
+    sampleRate,
+    bitDepth,
+    channels
+  };
+}
+
+// И применим внутри экспортирующей функции (замените старые значения на эту структуру при экспорте)
+function getSampleRate(fidelity) {
       switch (fidelity) {
         case 'SP-1200 (8-bit, 22kHz)': return 22050;
         case 'SP-1200 (16-bit, 22kHz)': return 22050;
@@ -997,6 +1021,7 @@ if (dropzone) {
     }
   });
 }
+
 
 
   </script>
