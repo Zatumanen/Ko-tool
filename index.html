@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.5</span>
+      <span>KO II Audio Tool — v2.0.7</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -477,7 +477,26 @@
           // Генерация WAV
           const ko2Buffer = getKO2Buffer();
           const bitDepth = getSelectedBitDepth();
-          const wavBlob = audioBufferToWav(processed, ko2Buffer, bitDepth);
+
+          let outputBuffer = processed;
+          if (bitDepth === 8) {
+            const speedUpFactor = 2;
+            const shortened = audioCtx.createBuffer(
+              processed.numberOfChannels,
+              Math.floor(processed.length / speedUpFactor),
+              processed.sampleRate
+            );
+            for (let ch = 0; ch < processed.numberOfChannels; ch++) {
+              const src = processed.getChannelData(ch);
+              const dst = shortened.getChannelData(ch);
+              for (let i = 0; i < dst.length; i++) {
+                dst[i] = src[i * speedUpFactor];
+              }
+            }
+            outputBuffer = shortened;
+          }
+
+          const wavBlob = audioBufferToWav(outputBuffer, ko2Buffer, bitDepth);
           totalProcessedSize += wavBlob.size;
           
           // Добавление в ZIP
