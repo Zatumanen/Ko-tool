@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.12</title>
+  <title>KO II SpeedUpperCut v0.0.13</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.12</span>
+      <span>KO II SpeedUpperCut v0.0.13</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -429,7 +429,65 @@
 
   <script>
 
-    // Re-encode AudioBuffer to WAV with given settings (sample rate, bit depth, channels)
+    // Возвращает параметры fidelity по выбору пользователя
+function getFidelitySettings(fidelity) {
+  switch (fidelity) {
+    case "sp1200-8bit": return { sampleRate: 22050, bitDepth: 8 };
+    case "sp1200-16bit": return { sampleRate: 22050, bitDepth: 16 };
+    case "sk1": return { sampleRate: 9000, bitDepth: 8 };
+    default: return { sampleRate: 44100, bitDepth: 16 }; // CD
+  }
+}
+
+// Конвертация каналов (стерео <-> моно)
+async function convertChannels(buffer, targetChannels) {
+  if (buffer.numberOfChannels === targetChannels) return buffer;
+
+  const ctx = new OfflineAudioContext({
+    numberOfChannels: targetChannels,
+    length: buffer.length,
+    sampleRate: buffer.sampleRate,
+  });
+
+  const src = ctx.createBufferSource();
+  const tmp = ctx.createBuffer(targetChannels, buffer.length, buffer.sampleRate);
+
+  for (let ch = 0; ch < targetChannels; ch++) {
+    const input = buffer.getChannelData(Math.min(ch, buffer.numberOfChannels - 1));
+    tmp.copyToChannel(input, ch);
+  }
+
+  src.buffer = tmp;
+  src.connect(ctx.destination);
+  src.start();
+  return await ctx.startRendering();
+}
+
+// Применение скорости и ресемплинга
+async function applySpeedAndFidelity(buffer, speedFactor, sampleRate) {
+  const length = Math.floor(buffer.length / speedFactor);
+  const ctx = new OfflineAudioContext({
+    numberOfChannels: buffer.numberOfChannels,
+    length,
+    sampleRate
+  });
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = speedFactor;
+  src.connect(ctx.destination);
+  src.start();
+  return await ctx.startRendering();
+}
+
+// Обработка аудио с учетом всех параметров
+async function processAudio(buffer, fidelity, channels) {
+  const { sampleRate, bitDepth } = getFidelitySettings(fidelity);
+  const channelCount = (channels === "mono") ? 1 : 2;
+  const converted = await convertChannels(buffer, channelCount);
+  return await applySpeedAndFidelity(converted, 2.0, sampleRate);
+}
+// Re-encode AudioBuffer to WAV with given settings (sample rate, bit depth, channels)
 async function encodeToWavBuffer(audioBuffer, sampleRate, bitDepth, channels) {
   const duration = audioBuffer.duration;
   const offlineCtx = new OfflineAudioContext({
@@ -1051,6 +1109,7 @@ if (dropzone) {
     }
   });
 }
+
 
 
 
