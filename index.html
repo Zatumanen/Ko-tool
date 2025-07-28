@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.5</span>
+      <span>KO II Audio Tool — v2.0.6</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -251,6 +251,11 @@
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
         <div class="win95-inset" style="flex: 1;">
           <label>FIDELITY</label><br>
+          <div style="margin-top: 6px; font-size: 13px; font-family: 'Courier New', monospace;">
+            <div id="bit-depth-display">Bit Depth: 16</div>
+            <div id="bitrate-display">Bitrate: 1411 kbps</div>
+          </div>
+
           <div class="win95-list" data-group="fidelity">
             <div data-value="cd" class="list-item selected">CD (16/46)</div>
             <div data-value="sp8" class="list-item">SP-1200 8 Bit</div>
@@ -369,6 +374,29 @@
       dropZone.addEventListener('drop', handleDrop);
       selectButton.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', handleFileSelect);
+
+      // Обновление Bit Depth и Bitrate при выборе Fidelity
+      const fidelityMap = {
+        cd: { depth: 16, bitrate: 1411 },
+        sp8: { depth: 8, bitrate: 800 },
+        sp16: { depth: 16, bitrate: 1600 },
+        sk: { depth: 8, bitrate: 705 }
+      };
+
+      function updateFidelityInfo() {
+        const val = getSelectedValue('fidelity');
+        const { depth, bitrate } = fidelityMap[val] || { depth: 16, bitrate: 1411 };
+        document.getElementById('bit-depth-display').textContent = `Bit Depth: ${depth}`;
+        document.getElementById('bitrate-display').textContent = `Bitrate: ${bitrate} kbps`;
+      }
+
+      // Назначим при клике по Fidelity
+      document.querySelectorAll('.win95-list[data-group="fidelity"] .list-item').forEach(item => {
+        item.addEventListener('click', updateFidelityInfo);
+      });
+
+      updateFidelityInfo();
+
     }
 
     // Функции обновления интерфейса
