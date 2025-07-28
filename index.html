@@ -241,7 +241,7 @@
 <body>
   <div class="window">
     <div class="title-bar">
-      <span>KO II Audio Tool — v2.0.7</span>
+      <span>KO II Audio Tool — v2.0.8</span>
       <div>
         <button class="minimize">-</button>
         <button class="close">X</button>
@@ -374,6 +374,7 @@
       dropZone.addEventListener('drop', handleDrop);
       selectButton.addEventListener('click', () => fileInput.click());
       fileInput.addEventListener('change', handleFileSelect);
+        updateFidelityInfo();
 
       // Обновление Bit Depth и Bitrate при выборе Fidelity
       const fidelityMap = {
@@ -395,7 +396,7 @@
         item.addEventListener('click', updateFidelityInfo);
       });
 
-      updateFidelityInfo();
+      
 
     }
 
@@ -520,6 +521,7 @@
           const converted = await convertChannels(decoded, channels);
           const downsampleRate = getDownsampleRate(fidelity, converted.sampleRate);
           
+    const fidelity = getSelectedValue('fidelity');
     const fidelity = getSelectedValue('fidelity');
     const bitDepth = getBitDepth(fidelity);
     const processed = await applySpeedAndFidelity(converted, 2.0, downsampleRate);
