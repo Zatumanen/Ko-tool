@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.11</title>
+  <title>KO II SpeedUpperCut v0.0.12</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -354,7 +354,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.11</span>
+      <span>KO II SpeedUpperCut v0.0.12</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -429,7 +429,37 @@
 
   <script>
 
-    // 👇 Patch: Apply fidelity + channel conversion before exporting
+    // Re-encode AudioBuffer to WAV with given settings (sample rate, bit depth, channels)
+async function encodeToWavBuffer(audioBuffer, sampleRate, bitDepth, channels) {
+  const duration = audioBuffer.duration;
+  const offlineCtx = new OfflineAudioContext({
+    numberOfChannels: channels,
+    length: sampleRate * duration,
+    sampleRate
+  });
+
+  const bufferSource = offlineCtx.createBufferSource();
+  let sourceBuffer = audioBuffer;
+
+  // If channel count doesn't match, convert
+  if (audioBuffer.numberOfChannels !== channels) {
+    const tmp = offlineCtx.createBuffer(channels, audioBuffer.length, audioBuffer.sampleRate);
+    for (let ch = 0; ch < channels; ch++) {
+      const input = audioBuffer.getChannelData(Math.min(ch, audioBuffer.numberOfChannels - 1));
+      tmp.copyToChannel(input, ch);
+    }
+    sourceBuffer = tmp;
+  }
+
+  bufferSource.buffer = sourceBuffer;
+  bufferSource.connect(offlineCtx.destination);
+  bufferSource.start();
+  const renderedBuffer = await offlineCtx.startRendering();
+
+  // Convert to WAV
+  return audioBufferToWav(renderedBuffer, { float32: false, bitDepth });
+}
+// 👇 Patch: Apply fidelity + channel conversion before exporting
 function applyAudioSettings(audioBuffer, fidelity, isMono) {
   let sampleRate = 44100;
   let bitDepth = 16;
@@ -1021,6 +1051,7 @@ if (dropzone) {
     }
   });
 }
+
 
 
 
