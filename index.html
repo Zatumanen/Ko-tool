@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.21</title>
+  <title>KO II SpeedUpperCut v0.0.22</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
+    :root {
+      --glow-color: #ff3333;
+    }
+    
     body {
       background: #008080;
       font-family: 'Courier New', monospace;
@@ -31,9 +35,11 @@
       cursor: pointer;
       padding: 4px;
       user-select: none;
+      transition: transform 0.2s;
     }
     .desktop-icon:hover {
       background: rgba(255,255,255,0.2);
+      transform: scale(1.05);
     }
     .window {
       width: 100%;
@@ -363,17 +369,40 @@
     .button-group button {
       flex: 1;
     }
+    .glowing-icon {
+      animation: glow-animation 1.5s infinite alternate;
+      filter: drop-shadow(0 0 5px var(--glow-color));
+    }
+    @keyframes glow-animation {
+      0% { filter: drop-shadow(0 0 5px var(--glow-color)); }
+      100% { filter: drop-shadow(0 0 15px var(--glow-color)); }
+    }
+    #cancel-button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      color: #000;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #cancel-button:active {
+      border-style: inset;
+    }
   </style>
 </head>
 <body>
   <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="document.querySelector('.window').style.display = 'block'">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwMDAwODAiLz48cGF0aCBkPSJNMTQgNkgxOHYyMEgxNHoiIGZpbGw9IiNGRkYiLz48cGF0aCBkPSJNOCAxMEgyNHYxMkg4eiIgZmlsbD0iI0ZGMDAwMCIvPjxwYXRoIGQ9Ik0xMCAxMkgxNHY2SDEweiIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik0xOCAxMkgyMnY2SDE4eiIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik0xMiA4SDE0djRIMTJ6IiBmaWxsPSIjRkYwMDAwIi8+PHBhdGggZD0iTTE4IDhIMjB2NEgxOHoiIGZpbGw9IiNGRjAwMDAiLz48cGF0aCBkPSJNMTQgMTBIMTh2MkgxNHoiIGZpbGw9IiMwMDAiLz48Y2lyY2xlIGN4PSIxNiIgY3k9IjQiIHI9IjIiIGZpbGw9IiNGRjAwMDAiLz48L3N2Zz4=" width="48" height="48">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSI4IiB5PSI4IiB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwMDAwODAiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE2IDE2djE2aDE2VjE2SDE2em00IDRoOHY4aC04VjIweiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik0yMCAyMGg4djhoLTh6IiBmaWxsPSIjZmYzMzMzIi8+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIxNiIgcj0iNCIgZmlsbD0iI2ZmMzMzMyIvPgogIDxwYXRoIGQ9Ik0zMCAyOGwtNiA0LTYtNHYtNGgxMnY0eiIgZmlsbD0iI2ZmMzMzMyIvPgo8L3N2Zz4=" 
+         width="48" height="48" class="glowing-icon">
     <div>KO II Tool</div>
   </div>
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.21</span>
+      <span>KO II SpeedUpperCut v0.0.22</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -426,6 +455,7 @@
     <div id="win95-loader">
       <div>Processing Audio Files...</div>
       <div class="progress-bar-container" id="segment-container"></div>
+      <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
 
@@ -446,6 +476,8 @@
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
+    let processingCancelled = false;
+    let currentProcessing = null;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -472,6 +504,7 @@
       const folderInput = document.getElementById('folder-upload');
       const selectFileButton = document.getElementById('select-file-button');
       const selectFolderButton = document.getElementById('select-folder-button');
+      const cancelButton = document.getElementById('cancel-button');
 
       // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
@@ -494,6 +527,16 @@
         document.querySelector('.window').style.display = 'none';
       });
       
+      // Кнопка отмены
+      cancelButton.addEventListener('click', () => {
+        processingCancelled = true;
+        if (currentProcessing) {
+          currentProcessing.cancel();
+        }
+        hideOverlay();
+        updateStatus("Processing cancelled");
+      });
+      
       // Стартовый статус
       updateStatus("Ready to process files");
     }
@@ -501,6 +544,17 @@
     // Функции обновления интерфейса
     function updateStatus(message) {
       document.getElementById('status-bar').textContent = message;
+    }
+
+    function showOverlay() {
+      document.getElementById('overlay').style.display = 'block';
+      document.getElementById('win95-loader').style.display = 'block';
+      processingCancelled = false;
+    }
+
+    function hideOverlay() {
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('win95-loader').style.display = 'none';
     }
 
     // Drag and drop обработчики
@@ -521,7 +575,49 @@
       e.preventDefault();
       dragCounter = 0;
       document.getElementById('drop-zone').classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
+      
+      if (e.dataTransfer.items) {
+        // Обработка папок через items API
+        const items = [];
+        const traverseFileTree = (item, path = '') => {
+          return new Promise(resolve => {
+            if (item.isFile) {
+              item.file(file => {
+                items.push({ file, path: path + file.name });
+                resolve();
+              });
+            } else if (item.isDirectory) {
+              const dirReader = item.createReader();
+              dirReader.readEntries(entries => {
+                const dirPromises = [];
+                for (const entry of entries) {
+                  dirPromises.push(traverseFileTree(entry, path + item.name + '/'));
+                }
+                Promise.all(dirPromises).then(resolve);
+              });
+            }
+          });
+        };
+
+        const processPromises = [];
+        for (const item of e.dataTransfer.items) {
+          if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+              processPromises.push(traverseFileTree(entry));
+            }
+          }
+        }
+
+        if (processPromises.length > 0) {
+          Promise.all(processPromises).then(() => {
+            if (items.length > 0) {
+              processItems(items);
+            }
+          });
+        }
+      } else if (e.dataTransfer.files.length > 0) {
+        // Обработка отдельных файлов
         processFiles(e.dataTransfer.files);
       }
     }
@@ -550,17 +646,20 @@
 
     // Основная функция обработки
     async function processItems(items) {
+      if (items.length === 0) return;
+      
       const overlay = document.getElementById('overlay');
       const loader = document.getElementById('win95-loader');
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
+      const cancelButton = document.getElementById('cancel-button');
 
       // Подготовка интерфейса
-      overlay.style.display = 'block';
-      loader.style.display = 'block';
+      showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       segmentContainer.innerHTML = '';
       document.getElementById('waveform-list').innerHTML = '';
+      cancelButton.disabled = false;
       
       updateStatus(`Processing ${items.length} item(s)`);
 
@@ -584,7 +683,21 @@
       }
 
       // Обработка каждого элемента
+      currentProcessing = {
+        cancel: () => {
+          processingCancelled = true;
+          if (activeAudioContext) {
+            activeAudioContext.close();
+            activeAudioContext = null;
+          }
+          cancelButton.disabled = true;
+          updateStatus("Processing cancelled");
+        }
+      };
+
       for (let i = 0; i < items.length; i++) {
+        if (processingCancelled) break;
+        
         try {
           const item = items[i];
           const file = item.file;
@@ -657,20 +770,24 @@
           await animateProgress(i / items.length);
           
         } catch (error) {
-          console.error('Error processing file:', error);
-          fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
-          updateStatus(`Error processing file: ${error.message}`);
+          if (!processingCancelled) {
+            console.error('Error processing file:', error);
+            fileInfo.innerHTML += `<div style="color:red">Error: ${error.message}</div>`;
+            updateStatus(`Error processing file: ${error.message}`);
+          }
         }
       }
 
       // Завершение прогресс бара
-      segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-        seg.classList.add('active');
-      });
+      if (!processingCancelled) {
+        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
+          seg.classList.add('active');
+        });
+      }
 
       // Скачивание ZIP
       try {
-        if (processedFiles > 0) {
+        if (processedFiles > 0 && !processingCancelled) {
           const zipBlob = await zip.generateAsync({ type: "blob" });
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
@@ -697,20 +814,27 @@
           updateStatus(`Processed ${processedFiles} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
         }
       } catch (error) {
-        console.error('ZIP creation failed:', error);
-        fileInfo.innerHTML += `<div style="color:red">ZIP creation failed: ${error.message}</div>`;
-        updateStatus(`ZIP creation failed: ${error.message}`);
+        if (!processingCancelled) {
+          console.error('ZIP creation failed:', error);
+          fileInfo.innerHTML += `<div style="color:red">ZIP creation failed: ${error.message}</div>`;
+          updateStatus(`ZIP creation failed: ${error.message}`);
+        }
       }
 
       // Закрытие оверлея после рендеринга
-      waitForRenderCompletion().then(() => {
-        overlay.style.display = 'none';
-        loader.style.display = 'none';
-        if (activeAudioContext) {
-          activeAudioContext.close();
-          activeAudioContext = null;
-        }
-      });
+      if (!processingCancelled) {
+        waitForRenderCompletion().then(() => {
+          hideOverlay();
+          if (activeAudioContext) {
+            activeAudioContext.close();
+            activeAudioContext = null;
+          }
+        });
+      } else {
+        hideOverlay();
+      }
+      
+      currentProcessing = null;
     }
 
     // Аудио обработка
@@ -880,7 +1004,8 @@
         for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
             const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-            audioData[offset] = sample < 0 ? sample * 32768 : sample * 32767;
+            const val = sample < 0 ? sample * 32768 : sample * 32767;
+            audioData[offset] = Math.max(-32768, Math.min(32767, val));
             offset++;
           }
         }
@@ -991,7 +1116,7 @@
     }
 
     async function processNextWaveform() {
-      if (waveformQueue.length === 0) {
+      if (waveformQueue.length === 0 || processingCancelled) {
         waveformBusy = false;
         return;
       }
