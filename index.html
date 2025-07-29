@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.24</title>
+  <title>KO II SpeedUpperCut v0.0.25</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.flame{transform-origin:center;animation:flicker 0.3s infinite alternate;}@keyframes flicker{0%{transform:scale(1) translateY(0);opacity:1;}100%{transform:scale(1.1) translateY(-1px);opacity:0.85;}}</style><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon class="flame" points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -365,6 +365,35 @@
       border-radius: 2px;
       font-size: 13px;
     }
+    .file-item {
+      margin-bottom: 10px;
+      border: 1px solid #808080;
+      padding: 8px;
+      background: #fff;
+    }
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+    .file-progress-container {
+      height: 16px;
+      background: #c0c0c0;
+      border: 1px inset #808080;
+      position: relative;
+    }
+    .file-progress-bar {
+      height: 100%;
+      background: #000080;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .file-thumbnail {
+      height: 30px;
+      margin-top: 6px;
+      background: #000;
+    }
   </style>
 </head>
 <body>
@@ -376,7 +405,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.24</span>
+      <span>KO II SpeedUpperCut v0.0.25</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -408,10 +437,11 @@
         <input type="file" id="folder-upload" webkitdirectory directory multiple style="display: none;" />
         <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
         <div class="supported-formats">
-          Supported: WAV, MP3, AAC, OGG, FLAC
+          Supported: WAV, MP3, AAC, OGG, FLAC (max 50MB/file)
         </div>
       </div>
       
+      <div id="file-list" style="margin-top: 10px;"></div>
       <div id="waveform-list" style="margin-top: 10px;"></div>
       
       <div class="button-group">
@@ -430,8 +460,9 @@
 
   <div id="overlay">
     <div id="win95-loader">
-      <div>Processing Audio Files...</div>
+      <div id="processing-title">Processing Audio Files...</div>
       <div class="progress-bar-container" id="segment-container"></div>
+      <div id="current-file">Preparing...</div>
       <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
@@ -455,6 +486,7 @@
     let dragCounter = 0;
     let processingCancelled = false;
     let currentProcessing = null;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -654,15 +686,29 @@
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
+      const fileList = document.getElementById('file-list');
+      const currentFileElement = document.getElementById('current-file');
 
       // Подготовка интерфейса
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
+      fileList.innerHTML = '';
       segmentContainer.innerHTML = '';
       document.getElementById('waveform-list').innerHTML = '';
       cancelButton.disabled = false;
       
       updateStatus(`Processing ${items.length} item(s)`);
+
+      // Проверка размера файлов
+      for (const item of items) {
+        if (item.file.size > MAX_FILE_SIZE) {
+          handleProcessingError(
+            new Error(`File too large (${formatBytes(item.file.size)}). Max: ${formatBytes(MAX_FILE_SIZE)}`), 
+            item
+          );
+          return;
+        }
+      }
 
       // Создание контекста
       activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -699,8 +745,12 @@
       for (let i = 0; i < items.length; i++) {
         if (processingCancelled) break;
         
+        const item = items[i];
         try {
-          const item = items[i];
+          // Обновление UI
+          currentFileElement.textContent = `Processing: ${item.path} (${i+1}/${items.length})`;
+          createFileItem(item.file, i, items.length);
+          
           const file = item.file;
           totalOriginalSize += file.size;
           
@@ -753,6 +803,7 @@
           
           // Визуализация
           enqueueWaveformRender(processed, fileName);
+          updateFileProgress(item.file.name, 100);
           
           // Обновление информации
           const originalSizeKB = (file.size / 1024).toFixed(1);
@@ -777,14 +828,7 @@
           
         } catch (error) {
           if (!processingCancelled) {
-            console.error('Error processing file:', error);
-            fileInfo.innerHTML += `
-              <div class="file-error">
-                <strong>Error processing file:</strong> ${item.file.name}<br>
-                ${error.message}
-              </div>
-            `;
-            updateStatus(`Error: ${error.message}`);
+            handleProcessingError(error, item);
           }
         }
       }
@@ -814,8 +858,8 @@
           
           fileInfo.innerHTML += `
             <div><b>Processed ${processedFiles} files</b></div>
-            <div>Original size: ${(totalOriginalSize / 1024 / 1024).toFixed(2)} MB</div>
-            <div>Processed size: ${(totalProcessedSize / 1024 / 1024).toFixed(2)} MB</div>
+            <div>Original size: ${formatBytes(totalOriginalSize)}</div>
+            <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
             <div>Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%</div>
             <div>Fidelity: ${fidelity.toUpperCase()}</div>
             <div>Channels: ${channels}</div>
@@ -826,9 +870,7 @@
         }
       } catch (error) {
         if (!processingCancelled) {
-          console.error('ZIP creation failed:', error);
-          fileInfo.innerHTML += `<div class="file-error">ZIP creation failed: ${error.message}</div>`;
-          updateStatus(`ZIP creation failed: ${error.message}`);
+          handleProcessingError(error);
         }
       }
 
@@ -846,6 +888,34 @@
       }
       
       currentProcessing = null;
+    }
+
+    // Форматирование размера файла
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    // Обработка ошибок
+    function handleProcessingError(error, item) {
+      console.error('Processing error:', error);
+      
+      const errorMessage = error.message || 'Unknown error';
+      const fileName = item?.file?.name || 'unknown file';
+      
+      document.getElementById('file-info').innerHTML += `
+        <div class="file-error">
+          <strong>Error processing:</strong> ${fileName}<br>
+          ${errorMessage}
+        </div>
+      `;
+      
+      updateStatus(`Error: ${errorMessage} (${fileName})`);
+      
+      if (item) {
+        updateFileProgress(item.file.name, 0, true);
+      }
     }
 
     // Проверка поддерживаемых форматов
@@ -950,7 +1020,13 @@
       }
       
       source.start();
-      return await ctx.startRendering();
+      const result = await ctx.startRendering();
+      
+      // Освобождение ресурсов
+      source.disconnect();
+      if (ctx.destination) ctx.destination.disconnect();
+      
+      return result;
     }
 
     async function applySpeedAndFidelity(buffer, speed, sampleRate) {
@@ -966,7 +1042,13 @@
       source.playbackRate.value = speed;
       source.connect(ctx.destination);
       source.start();
-      return await ctx.startRendering();
+      const result = await ctx.startRendering();
+      
+      // Освобождение ресурсов
+      source.disconnect();
+      if (ctx.destination) ctx.destination.disconnect();
+      
+      return result;
     }
 
     function audioBufferToWav(buffer) {
@@ -1070,6 +1152,38 @@
       }
     }
 
+    // Визуализация прогресса
+    function createFileItem(file, index, total) {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.dataset.file = file.name;
+      item.innerHTML = `
+        <div class="file-header">
+          <span>${index + 1}/${total}: ${file.name}</span>
+          <span class="file-size">${formatBytes(file.size)}</span>
+        </div>
+        <div class="file-progress-container">
+          <div class="file-progress-bar"></div>
+        </div>
+        <div class="file-thumbnail"></div>
+      `;
+      document.getElementById('file-list').appendChild(item);
+      return item;
+    }
+
+    function updateFileProgress(fileName, progress, isError = false) {
+      const item = document.querySelector(`.file-item[data-file="${fileName}"]`);
+      if (item) {
+        const progressBar = item.querySelector('.file-progress-bar');
+        if (isError) {
+          progressBar.style.backgroundColor = '#f44336';
+          progressBar.style.width = '100%';
+        } else {
+          progressBar.style.width = `${progress}%`;
+        }
+      }
+    }
+
     // Визуализация волны
     function renderWaveform(audioBuffer, filename) {
       return new Promise((resolve) => {
@@ -1112,6 +1226,19 @@
 
           // Обработка готовности
           wavesurfer.on('ready', () => {
+            // Создание миниатюры
+            const thumbnail = document.querySelector(`.file-item[data-file="${filename.replace('_ko2.wav', '')}"] .file-thumbnail`);
+            if (thumbnail) {
+              const canvas = wave.querySelector('canvas');
+              if (canvas) {
+                thumbnail.innerHTML = '';
+                const clone = canvas.cloneNode(true);
+                clone.style.width = '100%';
+                clone.style.height = '100%';
+                thumbnail.appendChild(clone);
+              }
+            }
+            
             button.addEventListener('click', () => {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
