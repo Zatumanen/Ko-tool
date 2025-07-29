@@ -143,31 +143,6 @@
       max-height: 200px;
       overflow-y: auto;
     }
-    button#select-file-button {
-      width: 100%;
-      margin-top: 10px;
-      background: #c0c0c0;
-      border: 2px outset #c0c0c0;
-      color: #000;
-      font-family: 'Courier New', monospace;
-      padding: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button#select-folder-button {
-      width: 100%;
-      margin-top: 10px;
-      background: #c0c0c0;
-      border: 2px outset #c0c0c0;
-      color: #000;
-      font-family: 'Courier New', monospace;
-      padding: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button#select-file-button:active, button#select-folder-button:active {
-      border-style: inset;
-    }
     #overlay {
       display: none;
       position: fixed;
@@ -321,14 +296,6 @@
       max-height: 150px;
       overflow-y: auto;
     }
-    .button-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .button-group button {
-      flex: 1;
-    }
     .glowing-icon {
       animation: glow-animation 1.5s infinite alternate;
       filter: drop-shadow(0 0 5px var(--glow-color));
@@ -364,6 +331,14 @@
       margin: 8px 0;
       border-radius: 2px;
       font-size: 13px;
+    }
+    .folder-selector {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      cursor: pointer;
+      color: #000080;
+      font-size: 20px;
     }
   </style>
 </head>
@@ -406,21 +381,19 @@
         <i class="fas fa-cloud-upload-alt" style="font-size: 36px;"></i>
         <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple />
         <input type="file" id="folder-upload" webkitdirectory directory multiple style="display: none;" />
-        <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+        <span>DRAG AND DROP OR CLICK TO SELECT AUDIO FILES</span>
         <div class="supported-formats">
           Supported: WAV, MP3, AAC, OGG, FLAC
+        </div>
+        <div class="folder-selector" title="Select folder">
+          <i class="fas fa-folder"></i> Select Folder
         </div>
       </div>
       
       <div id="waveform-list" style="margin-top: 10px;"></div>
       
-      <div class="button-group">
-        <button id="select-file-button">Select Files</button>
-        <button id="select-folder-button">Select Folder</button>
-      </div>
-      
       <div class="info-panel" id="file-info">
-        <div>Drop or select audio files/folders to process</div>
+        <div>Drop or click to select audio files/folders</div>
         <div>Files will be sped up 2x to save space</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
@@ -479,21 +452,27 @@
       const dropZone = document.getElementById('drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const folderInput = document.getElementById('folder-upload');
-      const selectFileButton = document.getElementById('select-file-button');
-      const selectFolderButton = document.getElementById('select-folder-button');
       const cancelButton = document.getElementById('cancel-button');
+      const folderSelector = document.querySelector('.folder-selector');
 
+      // Обработка клика по дроп-зоне
+      dropZone.addEventListener('click', (e) => {
+        // Игнорируем клики по иконке папки
+        if (!e.target.closest('.folder-selector')) {
+          fileInput.click();
+        }
+      });
+
+      // Обработка выбора папки
+      folderSelector.addEventListener('click', (e) => {
+        e.stopPropagation();
+        folderInput.click();
+      });
+      
       // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
       dropZone.addEventListener('drop', handleDrop);
-      
-      // Кнопки выбора
-      selectFileButton.addEventListener('click', () => fileInput.click());
-      selectFolderButton.addEventListener('click', () => folderInput.click());
-      
-      fileInput.addEventListener('change', () => processFiles(fileInput.files));
-      folderInput.addEventListener('change', () => processFolder(folderInput.files));
       
       // Обработка кнопок окна
       document.querySelector('.title-bar .minimize').addEventListener('click', () => {
@@ -513,6 +492,10 @@
         hideOverlay();
         updateStatus("Processing cancelled");
       });
+      
+      // Обработка выбора файлов
+      fileInput.addEventListener('change', () => processFiles(fileInput.files));
+      folderInput.addEventListener('change', () => processFolder(folderInput.files));
       
       // Стартовый статус
       updateStatus("Ready to process files");
