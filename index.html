@@ -383,7 +383,7 @@
       <div class="settings">
         <label>EP-133 KO II SETTINGS</label>
         <div style="margin-top: 15px; text-align: center;">
-          <b>Fixed parameters:</b> Pitch = 0, Release = 255
+          <b>Fixed parameters:</b> Pitch = 0, Release = 255, Playmode = One Shot
         </div>
       </div>
       
@@ -399,7 +399,8 @@
       <div class="info-panel" id="file-info">
         <div>Drop or select audio files to process</div>
         <div>Files will be sped up 2x to save space</div>
-        <div>KO II parameters fixed: Pitch=0, Release=255</div>
+        <div>KO II parameters fixed: Pitch=0, Release=255, Playmode=One Shot</div>
+        <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
       </div>
     </div>
   </div>
@@ -577,9 +578,23 @@
           // Визуализация
           enqueueWaveformRender(processed, fileName);
           
-          // Обновление информации
-          const compressionRatio = (file.size / wavBlob.size).toFixed(2);
-          fileInfo.innerHTML += `<div>Processed: ${file.name} (${(wavBlob.size/1024).toFixed(1)}KB, ${compressionRatio}x)</div>`;
+          // Обновление информации с понятным сравнением размеров
+          const originalSizeKB = (file.size / 1024).toFixed(1);
+          const processedSizeKB = (wavBlob.size / 1024).toFixed(1);
+          const sizeDifference = wavBlob.size - file.size;
+          let sizeInfo;
+          
+          if (sizeDifference > 0) {
+            sizeInfo = `INCREASED by ${(sizeDifference/1024).toFixed(1)}KB (WAV is uncompressed)`;
+          } else {
+            sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
+          }
+          
+          fileInfo.innerHTML += `
+            <div>Processed: ${file.name}</div>
+            <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
+            <div>${sizeInfo}</div>
+          `;
           
           // Анимация прогресса
           await animateProgress(i / files.length);
@@ -691,8 +706,14 @@
         const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
         source.connect(splitter);
         
+        // Усредняем все каналы в моно
+        const gainNodes = [];
         for (let i = 0; i < buffer.numberOfChannels; i++) {
-          splitter.connect(merger, i, 0);
+          const gain = ctx.createGain();
+          gain.gain.value = 1 / buffer.numberOfChannels;
+          splitter.connect(gain, i);
+          gain.connect(merger, 0, 0);
+          gainNodes.push(gain);
         }
         
         merger.connect(ctx.destination);
@@ -733,7 +754,8 @@
       // Фиксированные параметры для KO II
       const pitch = 0;     // Фиксированное значение
       const release = 255; // Фиксированное значение
-      const ko2Chunk = writeKO2Chunk(pitch, release);
+      const playmode = 1;  // One Shot
+      const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
       
       // Получение параметров фиделити
       const fidelity = getSelectedValue('fidelity');
@@ -811,14 +833,14 @@
       return new Blob([header, audioData.buffer, ko2Chunk], { type: 'audio/wav' });
     }
 
-    function writeKO2Chunk(pitch, release) {
+    function writeKO2Chunk(pitch, release, playmode) {
       const buffer = new ArrayBuffer(12);
       const view = new DataView(buffer);
       writeString(view, 0, 'ko2 ');
       view.setUint32(4, 4, true); // Размер данных
       view.setUint8(8, pitch);    // Фиксированное значение pitch
       view.setUint16(9, release, true); // Фиксированное значение release
-      view.setUint8(11, 1);       // Playmode = one-shot
+      view.setUint8(11, playmode); // Playmode = one-shot
       return buffer;
     }
 
