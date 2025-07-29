@@ -108,7 +108,7 @@
     }
     .drop-zone {
       border: 2px dashed #000;
-      padding: 40px 20px;
+      padding: 20px;
       text-align: center;
       background: rgba(255, 255, 255, 0.3);
       margin-top: 12px;
@@ -116,12 +116,9 @@
       cursor: pointer;
       border-style: dotted;
       border-color: #808080;
-      transition: all 0.3s;
     }
     .drop-zone.dragover {
       background: rgba(0, 128, 0, 0.3);
-      transform: scale(1.02);
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
     }
     .drop-zone input[type="file"] {
       position: absolute;
@@ -145,6 +142,31 @@
       padding: 10px;
       max-height: 200px;
       overflow-y: auto;
+    }
+    button#select-file-button {
+      width: 100%;
+      margin-top: 10px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      color: #000;
+      font-family: 'Courier New', monospace;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button#select-folder-button {
+      width: 100%;
+      margin-top: 10px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      color: #000;
+      font-family: 'Courier New', monospace;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button#select-file-button:active, button#select-folder-button:active {
+      border-style: inset;
     }
     #overlay {
       display: none;
@@ -299,6 +321,14 @@
       max-height: 150px;
       overflow-y: auto;
     }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .button-group button {
+      flex: 1;
+    }
     .glowing-icon {
       animation: glow-animation 1.5s infinite alternate;
       filter: drop-shadow(0 0 5px var(--glow-color));
@@ -334,18 +364,6 @@
       margin: 8px 0;
       border-radius: 2px;
       font-size: 13px;
-    }
-    .instructions {
-      margin-top: 15px;
-      padding: 10px;
-      background: #e3f2fd;
-      border: 2px inset #90caf9;
-      font-size: 13px;
-    }
-    .file-count {
-      font-weight: bold;
-      margin-top: 10px;
-      display: block;
     }
   </style>
 </head>
@@ -385,21 +403,24 @@
       </div>
       
       <div class="drop-zone" id="drop-zone">
-        <i class="fas fa-cloud-upload-alt" style="font-size: 48px;"></i>
-        <span>DRAG AND DROP AUDIO FILES OR FOLDERS</span>
+        <i class="fas fa-cloud-upload-alt" style="font-size: 36px;"></i>
+        <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple />
+        <input type="file" id="folder-upload" webkitdirectory directory multiple style="display: none;" />
+        <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
         <div class="supported-formats">
           Supported: WAV, MP3, AAC, OGG, FLAC
-        </div>
-        <div class="file-count" id="file-count">No files selected</div>
-        <div class="instructions">
-          <i class="fas fa-info-circle"></i> Drop files or folders here. Folder structure will be preserved.
         </div>
       </div>
       
       <div id="waveform-list" style="margin-top: 10px;"></div>
       
+      <div class="button-group">
+        <button id="select-file-button">Select Files</button>
+        <button id="select-folder-button">Select Folder</button>
+      </div>
+      
       <div class="info-panel" id="file-info">
-        <div>Drop audio files/folders to process</div>
+        <div>Drop or select audio files/folders to process</div>
         <div>Files will be sped up 2x to save space</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
@@ -411,7 +432,6 @@
     <div id="win95-loader">
       <div>Processing Audio Files...</div>
       <div class="progress-bar-container" id="segment-container"></div>
-      <div id="processing-status" style="margin-top: 8px; font-size: 13px;">Initializing...</div>
       <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
@@ -435,8 +455,6 @@
     let dragCounter = 0;
     let processingCancelled = false;
     let currentProcessing = null;
-    let totalFilesToProcess = 0;
-    let processedFilesCount = 0;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -459,12 +477,23 @@
 
       // Элементы интерфейса
       const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('audio-upload');
+      const folderInput = document.getElementById('folder-upload');
+      const selectFileButton = document.getElementById('select-file-button');
+      const selectFolderButton = document.getElementById('select-folder-button');
       const cancelButton = document.getElementById('cancel-button');
 
       // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
       dropZone.addEventListener('drop', handleDrop);
+      
+      // Кнопки выбора
+      selectFileButton.addEventListener('click', () => fileInput.click());
+      selectFolderButton.addEventListener('click', () => folderInput.click());
+      
+      fileInput.addEventListener('change', () => processFiles(fileInput.files));
+      folderInput.addEventListener('change', () => processFolder(folderInput.files));
       
       // Обработка кнопок окна
       document.querySelector('.title-bar .minimize').addEventListener('click', () => {
@@ -503,21 +532,6 @@
     function hideOverlay() {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('win95-loader').style.display = 'none';
-    }
-    
-    function updateProcessingStatus(message) {
-      document.getElementById('processing-status').textContent = message;
-    }
-    
-    function updateFileCount(count) {
-      const fileCountEl = document.getElementById('file-count');
-      if (count > 0) {
-        fileCountEl.textContent = `${count} file${count > 1 ? 's' : ''} ready to process`;
-        fileCountEl.style.color = '#388e3c';
-      } else {
-        fileCountEl.textContent = "No files selected";
-        fileCountEl.style.color = '#000';
-      }
     }
 
     // Drag and drop обработчики
@@ -570,7 +584,6 @@
           file,
           path: file.name
         }));
-        updateFileCount(items.length);
         processItems(items);
       }
     }
@@ -578,7 +591,6 @@
     // Обработка очереди файлов/папок
     function processQueue(queue, items) {
       if (queue.length === 0) {
-        updateFileCount(items.length);
         processItems(items);
         return;
       }
@@ -589,7 +601,6 @@
         // Обработка файла
         entry.file(file => {
           items.push({ file, path: path + file.name });
-          updateFileCount(items.length);
           processQueue(queue, items);
         });
       } else if (entry.isDirectory) {
@@ -607,6 +618,28 @@
       } else {
         processQueue(queue, items);
       }
+    }
+
+    // Обработка отдельных файлов
+    async function processFiles(files) {
+      const items = Array.from(files).map(file => ({
+        file,
+        path: file.name
+      }));
+      await processItems(items);
+    }
+
+    // Обработка папки
+    async function processFolder(files) {
+      const items = [];
+      
+      for (const file of files) {
+        // Используем относительный путь, если он доступен
+        const path = file.webkitRelativePath || file.name;
+        items.push({ file, path });
+      }
+      
+      await processItems(items);
     }
 
     // Основная функция обработки
@@ -629,11 +662,7 @@
       document.getElementById('waveform-list').innerHTML = '';
       cancelButton.disabled = false;
       
-      totalFilesToProcess = items.length;
-      processedFilesCount = 0;
-      
       updateStatus(`Processing ${items.length} item(s)`);
-      updateProcessingStatus(`Preparing to process ${items.length} files...`);
 
       // Создание контекста
       activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -674,10 +703,10 @@
           const item = items[i];
           const file = item.file;
           totalOriginalSize += file.size;
-          processedFilesCount++;
           
           // Обновление информации
-          updateProcessingStatus(`Processing file ${i+1} of ${items.length}: ${file.name}`);
+          fileInfo.innerHTML += `<div>Processing: ${item.path}</div>`;
+          updateStatus(`Processing: ${item.path} (${i+1}/${items.length})`);
           
           // Проверка типа файла
           if (!isSupportedAudioType(file.type, file.name)) {
@@ -770,7 +799,6 @@
       // Скачивание ZIP
       try {
         if (processedFiles > 0 && !processingCancelled) {
-          updateProcessingStatus("Creating ZIP archive...");
           const zipBlob = await zip.generateAsync({ type: "blob" });
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
