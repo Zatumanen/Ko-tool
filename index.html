@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.25</title>
+  <title>KO II SpeedUpperCut v0.0.28</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.flame{transform-origin:center;animation:flicker 0.3s infinite alternate;}@keyframes flicker{0%{transform:scale(1) translateY(0);opacity:1;}100%{transform:scale(1.1) translateY(-1px);opacity:0.85;}}</style><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon class="flame" points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.glove{transform-origin:center;animation:punch 0.8s infinite alternate;}@keyframes punch{0%{transform:translateX(0) translateY(0);}100%{transform:translateX(5px) translateY(-3px);}}.flash{animation:flash 0.5s infinite alternate;}@keyframes flash{0%{opacity:1;}100%{opacity:0.7;}}</style><path class="glove" d="M35,25c-2,0-4-1-5-3l-3-5c-1-2,0-5,2-6c2-1,5,0,6,2l3,5C38,23,37,25,35,25z M45,30c-1,0-2-0-3-1l-5-3c-2-1-3-4-2-6c1-2,4-3,6-2l5,3c2,1,3,4,2,6C48,29,46,30,45,30z" fill="#d32f2f"/><circle cx="32" cy="32" r="10" fill="#ff3333" class="flash"/></svg>'>
   <style>
     :root {
       --glow-color: #ff3333;
@@ -21,12 +21,8 @@
       align-items: flex-start;
       min-height: 100vh;
       overflow-x: hidden;
-      background-image: 
-        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0),
-        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0);
-      background-size: 4px 4px;
-      background-position: 0 0, 2px 2px;
     }
+    
     .desktop-icon {
       position: absolute;
       width: 80px;
@@ -312,15 +308,6 @@
     .window-controls {
       display: flex;
     }
-    .info-panel {
-      background: #fff;
-      border: 2px inset #808080;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 13px;
-      max-height: 150px;
-      overflow-y: auto;
-    }
     .button-group {
       display: flex;
       gap: 10px;
@@ -394,24 +381,52 @@
       margin-top: 6px;
       background: #000;
     }
+    .memory-warning {
+      color: #ff6f00;
+      background-color: #fff3e0;
+      border: 1px solid #ff9800;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+      display: none;
+    }
+    @keyframes punch {
+      0% { transform: translateX(0) translateY(0); }
+      100% { transform: translateX(5px) translateY(-3px); }
+    }
+    .info-panel {
+      background: #fff;
+      border: 2px inset #808080;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
   <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="document.querySelector('.window').style.display = 'block'">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSI4IiB5PSI4IiB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9IiMwMDAwODAiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE2IDE2djE2aDE2VjE2SDE2em00IDRoOHY4aC04VjIweiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik0yMCAyMGg4djhoLTh6IiBmaWxsPSIjZmYzMzMzIi8+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIxNiIgcj0iNCIgZmlsbD0iI2ZmMzMzMyIvPgogIDxwYXRoIGQ9Ik0zMCAyOGwtNiA0LTYtNHYtNGgxMnY0eiIgZmlsbD0iI2ZmMzMzMyIvPgo8L3N2Zz4=" 
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmdsb3ZlIHsKICAgICAgICB0cmFuc2Zvcm0tb3JpZ2luOiBjZW50ZXI7CiAgICAgICAgYW5pbWF0aW9uOiBwdW5jaCAwLjhzIGluZmluaXRlIGFsdGVybmF0ZTsKICAgICAgfQogICAgICBAa2V5ZnJhbWVzIHB1bmNoIHsKICAgICAgICAwJSB7IHRyYW5zZm9ybTogdHJhbnNsYXRlWCgwKSB0cmFuc2xhdGVZKDApOyB9CiAgICAgICAgMTAwJSB7IHRyYW5zZm9ybTogdHJhbnNsYXRlWCg1cHgpIHRyYW5zbGF0ZVkoLTNweCk7IH0KICAgICAgfQogICAgICAuZmxhc2ggewogICAgICAgIGFuaW1hdGlvbjogZmxhc2ggMC41cyBpbmZpbml0ZSBhbHRlcm5hdGU7CiAgICAgIH0KICAgICAgQGtleWZyYW1lcyBmbGFzaCB7CiAgICAgICAgMCUgeyBvcGFjaXR5OiAxOyB9CiAgICAgICAgMTAwJSB7IG9wYWNpdHk6IDAuNzsgfQogICAgICA8L3N0eWxlPgogIDwvZGVmcz4KICA8cGF0aCBjbGFzcz0iZ2xvdmUiIGQ9Ik0zNSwyNWMtMiwwLTQtMS01LTNsLTMtNWMtMS0yLDAtNSwyLTZjMi0xLDUsMCw2LDJsMyw1QzM4LDIzLDM3LDI1LDM1LDI1eiBNNDUsMzBjLTEsMC0yLTAtMy0xbC01LTNjLTItMS0zLTQtMi02YzEtMiw0LTMsNi0ybDUsM2MyLDEsMyw0LDIsNkM0OCwyOSw0NiwzMCw0NSwzMHoiIGZpbGw9IiNkMzJmMmYiLz4KICA8Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIxMCIgZmlsbD0iI2ZmMzMzMyIgY2xhc3M9ImZsYXNoIi8+Cjwvc3ZnPg==" 
          width="48" height="48" class="glowing-icon">
     <div>KO II Tool</div>
   </div>
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.25</span>
+      <span>KO II SpeedUpperCut v0.0.28</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
       </div>
     </div>
     <div class="content">
+      <div class="memory-warning" id="memory-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        Processing large files may use significant memory. Close other tabs for best performance.
+      </div>
+      
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
         <div class="win95-inset" style="flex: 1;">
           <label>FIDELITY</label><br>
@@ -437,7 +452,7 @@
         <input type="file" id="folder-upload" webkitdirectory directory multiple style="display: none;" />
         <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
         <div class="supported-formats">
-          Supported: WAV, MP3, AAC, OGG, FLAC (max 50MB/file)
+          Supported: WAV, MP3, AAC, OGG, FLAC
         </div>
       </div>
       
@@ -486,7 +501,6 @@
     let dragCounter = 0;
     let processingCancelled = false;
     let currentProcessing = null;
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -548,6 +562,22 @@
       
       // Стартовый статус
       updateStatus("Ready to process files");
+      
+      // Проверка памяти
+      checkMemoryAndWarn();
+    }
+    
+    // Проверка доступной памяти
+    function checkMemoryAndWarn() {
+      if (performance && performance.memory) {
+        const totalJSHeapSize = performance.memory.totalJSHeapSize;
+        const jsHeapSizeLimit = performance.memory.jsHeapSizeLimit;
+        if (totalJSHeapSize > jsHeapSizeLimit * 0.7) {
+          document.getElementById('memory-warning').style.display = 'block';
+        }
+      } else if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+        document.getElementById('memory-warning').style.display = 'block';
+      }
     }
 
     // Функции обновления интерфейса
@@ -681,8 +711,6 @@
         return;
       }
       
-      const overlay = document.getElementById('overlay');
-      const loader = document.getElementById('win95-loader');
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
@@ -693,22 +721,10 @@
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       fileList.innerHTML = '';
-      segmentContainer.innerHTML = '';
       document.getElementById('waveform-list').innerHTML = '';
       cancelButton.disabled = false;
       
       updateStatus(`Processing ${items.length} item(s)`);
-
-      // Проверка размера файлов
-      for (const item of items) {
-        if (item.file.size > MAX_FILE_SIZE) {
-          handleProcessingError(
-            new Error(`File too large (${formatBytes(item.file.size)}). Max: ${formatBytes(MAX_FILE_SIZE)}`), 
-            item
-          );
-          return;
-        }
-      }
 
       // Создание контекста
       activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -722,6 +738,7 @@
       let processedFiles = 0;
 
       // Прогресс бар
+      segmentContainer.innerHTML = '';
       const totalSegments = 50;
       for (let i = 0; i < totalSegments; i++) {
         const seg = document.createElement('div');
@@ -746,6 +763,7 @@
         if (processingCancelled) break;
         
         const item = items[i];
+        let decoded, processed;
         try {
           // Обновление UI
           currentFileElement.textContent = `Processing: ${item.path} (${i+1}/${items.length})`;
@@ -765,7 +783,7 @@
           
           // Декодирование аудио
           const arrayBuffer = await file.arrayBuffer();
-          const decoded = await decodeAudioSafe(arrayBuffer);
+          decoded = await decodeAudioSafe(arrayBuffer);
           
           // Статистика каналов
           if (decoded.numberOfChannels === 1) monoOriginal++;
@@ -776,7 +794,7 @@
           const channels = getSelectedValue('channels');
           
           // Обработка аудио - ускорение 2x
-          const processed = await processAudio(decoded, fidelity, channels);
+          processed = await processAudio(decoded, fidelity, channels);
           
           // Генерация WAV
           const wavBlob = audioBufferToWav(processed);
@@ -830,6 +848,10 @@
           if (!processingCancelled) {
             handleProcessingError(error, item);
           }
+        } finally {
+          // Освобождение памяти
+          decoded = null;
+          processed = null;
         }
       }
 
@@ -843,7 +865,9 @@
       // Скачивание ZIP
       try {
         if (processedFiles > 0 && !processingCancelled) {
-          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const zipBlob = await zip.generateAsync({ type: "blob" }, metadata => {
+            updateStatus(`Compressing: ${metadata.percent.toFixed(1)}%`);
+          });
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
           
@@ -874,17 +898,14 @@
         }
       }
 
-      // Закрытие оверлея после рендеринга
+      // Закрытие оверлея
       if (!processingCancelled) {
-        waitForRenderCompletion().then(() => {
-          hideOverlay();
-          if (activeAudioContext) {
-            activeAudioContext.close();
-            activeAudioContext = null;
-          }
-        });
-      } else {
         hideOverlay();
+      }
+      
+      if (activeAudioContext) {
+        activeAudioContext.close();
+        activeAudioContext = null;
       }
       
       currentProcessing = null;
@@ -903,6 +924,7 @@
       
       const errorMessage = error.message || 'Unknown error';
       const fileName = item?.file?.name || 'unknown file';
+      const errorDetails = `Error: ${errorMessage} (${fileName})`;
       
       document.getElementById('file-info').innerHTML += `
         <div class="file-error">
@@ -911,10 +933,19 @@
         </div>
       `;
       
-      updateStatus(`Error: ${errorMessage} (${fileName})`);
+      updateStatus(errorDetails);
       
       if (item) {
         updateFileProgress(item.file.name, 0, true);
+      }
+      
+      // Освобождаем ресурсы при критических ошибках
+      if (error.message.includes('memory') || error.message.includes('allocation')) {
+        if (activeAudioContext) {
+          activeAudioContext.close();
+          activeAudioContext = null;
+        }
+        document.getElementById('memory-warning').style.display = 'block';
       }
     }
 
@@ -1312,19 +1343,6 @@
         });
         
         setTimeout(resolve, segments.length * 20);
-      });
-    }
-
-    function waitForRenderCompletion() {
-      return new Promise(resolve => {
-        const check = () => {
-          if (!waveformBusy && waveformQueue.length === 0) {
-            resolve();
-          } else {
-            setTimeout(check, 100);
-          }
-        };
-        check();
       });
     }
 
