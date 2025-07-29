@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.30</title>
+  <title>KO II SpeedUpperCut v0.0.31</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -396,7 +396,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.30</span>
+      <span>KO II SpeedUpperCut v0.0.31</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -445,6 +445,7 @@
       <div class="button-group">
         <button id="select-file-button">Select Files</button>
         <button id="select-folder-button">Select Folder</button>
+        <button id="clear-button">Clear List</button>
       </div>
       
       <div class="info-panel" id="file-info">
@@ -539,6 +540,7 @@
       const folderInput = document.getElementById('folder-upload');
       const selectFileButton = document.getElementById('select-file-button');
       const selectFolderButton = document.getElementById('select-folder-button');
+      const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
 
       // Drag and drop
@@ -558,6 +560,14 @@
       // Кнопки выбора
       selectFileButton.addEventListener('click', () => fileInput.click());
       selectFolderButton.addEventListener('click', () => folderInput.click());
+      clearButton.addEventListener('click', () => {
+        document.getElementById('file-info').innerHTML = 
+          '<div>Drop or select audio files/folders to process</div>' +
+          '<div>Files will be sped up 2x to save space</div>' +
+          '<div>Folder structure will be preserved in output</div>' +
+          '<div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>';
+        updateStatus("File list cleared");
+      });
       
       fileInput.addEventListener('change', () => processFiles(fileInput.files));
       folderInput.addEventListener('change', () => processFolder(folderInput.files));
@@ -574,9 +584,12 @@
       // Кнопка отмены
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
+        waveformQueue.length = 0; // Очищаем очередь визуализации
+        
         if (currentProcessing) {
           currentProcessing.cancel();
         }
+        
         hideOverlay();
         updateStatus("Processing cancelled");
       });
@@ -778,6 +791,12 @@
       for (let i = 0; i < items.length; i++) {
         if (processingCancelled) break;
         
+        // Освобождаем ресурсы каждые 5 файлов
+        if (i > 0 && i % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        
         const item = items[i];
         let decoded, processed;
         try {
@@ -873,6 +892,7 @@
           decoded = null;
           processed = null;
           await new Promise(resolve => setTimeout(resolve, 0)); // Дать время на GC
+          if (window.gc) window.gc(); // Принудительный сборщик мусора в Chrome
         }
       }
 
@@ -886,11 +906,16 @@
       // Скачивание ZIP
       try {
         if (processedFiles > 0 && !processingCancelled) {
-          const zipBlob = await zip.generateAsync({ type: "blob" }, metadata => {
+          const zipBlob = await zip.generateAsync({ 
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: { level: 6 }
+          }, metadata => {
             const progress = metadata.percent / 100;
             updateStatus(`Compressing: ${metadata.percent.toFixed(1)}%`);
             updateProgressBar(0.8 + progress * 0.2); // Последние 20% для компрессии
           });
+          
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
           
@@ -1024,9 +1049,7 @@
       
       // Применяем фиделити
       const downsampleRate = fidelitySettings.sampleRate;
-      const processed = await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
-      
-      return processed;
+      return await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
     }
 
     async function convertChannels(buffer, targetChannels) {
@@ -1176,7 +1199,7 @@
         for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
             const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-            const val = sample < 0 ? sample * 32768 : sample * 32767;
+            const val = Math.floor(sample * (sample < 0 ? 32768 : 32767));
             audioData[offset] = Math.max(-32768, Math.min(32767, val));
             offset++;
           }
@@ -1304,63 +1327,64 @@
 
     // Визуализация волны в отдельном окне
     async function renderWaveform(audioBuffer, filename) {
-      // Загружаем Wavesurfer только при необходимости
-      await loadWavesurfer();
-      
-      return new Promise((resolve) => {
-        try {
-          // Создаем новое окно
-          const { waveContainer, playButton } = createWaveWindow(filename);
-          
-          // Проверяем, загрузился ли Wavesurfer
-          if (typeof WaveSurfer === 'undefined') {
-            throw new Error('Wavesurfer failed to load');
-          }
-          
-          // Инициализация Wavesurfer
-          const wavesurfer = WaveSurfer.create({
-            container: waveContainer,
-            waveColor: '#0f0',
-            progressColor: '#ff0',
-            height: 100,
-            barWidth: 2,
-            minPxPerSec: 100,
-            cursorColor: '#f00',
-            sampleRate: audioBuffer.sampleRate
-          });
-
-          // Обработка готовности
-          wavesurfer.on('ready', () => {
-            playButton.addEventListener('click', () => {
-              if (wavesurfer.isPlaying()) {
-                wavesurfer.pause();
-                playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
-                updateStatus("Playback paused");
-              } else {
-                wavesurfer.play();
-                playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
-                updateStatus("Playing processed audio");
-              }
-            });
-            resolve();
-          });
-
-          // Обработка ошибок
-          wavesurfer.on('error', (err) => {
-            console.error('Wavesurfer error:', err);
-            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
-            resolve();
-          });
-
-          // Загрузка обработанного буфера
-          const wavBlob = audioBufferToWav(audioBuffer);
-          wavesurfer.loadBlob(wavBlob);
-          
-        } catch (err) {
-          console.error('Waveform render error:', err);
-          resolve();
+      try {
+        // Загружаем Wavesurfer только при необходимости
+        await loadWavesurfer();
+        
+        // Проверяем, загрузился ли Wavesurfer
+        if (typeof WaveSurfer === 'undefined') {
+          throw new Error('Wavesurfer failed to load');
         }
-      });
+        
+        // Ограничиваем количество открытых окон
+        if (waveWindows.length >= 5) {
+          const oldest = waveWindows.shift();
+          oldest.element.remove();
+        }
+        
+        // Создаем новое окно
+        const { waveContainer, playButton } = createWaveWindow(filename);
+        
+        // Инициализация Wavesurfer
+        const wavesurfer = WaveSurfer.create({
+          container: waveContainer,
+          waveColor: '#0f0',
+          progressColor: '#ff0',
+          height: 100,
+          barWidth: 2,
+          minPxPerSec: 100,
+          cursorColor: '#f00',
+          sampleRate: audioBuffer.sampleRate
+        });
+
+        // Обработка готовности
+        wavesurfer.on('ready', () => {
+          playButton.addEventListener('click', () => {
+            if (wavesurfer.isPlaying()) {
+              wavesurfer.pause();
+              playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
+              updateStatus("Playback paused");
+            } else {
+              wavesurfer.play();
+              playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+              updateStatus("Playing processed audio");
+            }
+          });
+        });
+
+        // Обработка ошибок
+        wavesurfer.on('error', (err) => {
+          console.error('Wavesurfer error:', err);
+          waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
+        });
+
+        // Загрузка обработанного буфера
+        const wavBlob = audioBufferToWav(audioBuffer);
+        wavesurfer.loadBlob(wavBlob);
+        
+      } catch (err) {
+        console.error('Waveform render error:', err);
+      }
     }
 
     // Управление очередью рендеринга
