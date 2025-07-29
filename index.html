@@ -352,35 +352,6 @@
       border-radius: 2px;
       font-size: 13px;
     }
-    .file-item {
-      margin-bottom: 10px;
-      border: 1px solid #808080;
-      padding: 8px;
-      background: #fff;
-    }
-    .file-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 6px;
-      font-weight: bold;
-    }
-    .file-progress-container {
-      height: 16px;
-      background: #c0c0c0;
-      border: 1px inset #808080;
-      position: relative;
-    }
-    .file-progress-bar {
-      height: 100%;
-      background: #000080;
-      width: 0%;
-      transition: width 0.3s;
-    }
-    .file-thumbnail {
-      height: 30px;
-      margin-top: 6px;
-      background: #000;
-    }
     .memory-warning {
       color: #ff6f00;
       background-color: #fff3e0;
@@ -456,7 +427,6 @@
         </div>
       </div>
       
-      <div id="file-list" style="margin-top: 10px;"></div>
       <div id="waveform-list" style="margin-top: 10px;"></div>
       
       <div class="button-group">
@@ -767,7 +737,6 @@
         try {
           // Обновление UI
           currentFileElement.textContent = `Processing: ${item.path} (${i+1}/${items.length})`;
-          createFileItem(item.file, i, items.length);
           
           const file = item.file;
           totalOriginalSize += file.size;
@@ -821,7 +790,6 @@
           
           // Визуализация
           enqueueWaveformRender(processed, fileName);
-          updateFileProgress(item.file.name, 100);
           
           // Обновление информации
           const originalSizeKB = (file.size / 1024).toFixed(1);
@@ -1183,38 +1151,6 @@
       }
     }
 
-    // Визуализация прогресса
-    function createFileItem(file, index, total) {
-      const item = document.createElement('div');
-      item.className = 'file-item';
-      item.dataset.file = file.name;
-      item.innerHTML = `
-        <div class="file-header">
-          <span>${index + 1}/${total}: ${file.name}</span>
-          <span class="file-size">${formatBytes(file.size)}</span>
-        </div>
-        <div class="file-progress-container">
-          <div class="file-progress-bar"></div>
-        </div>
-        <div class="file-thumbnail"></div>
-      `;
-      document.getElementById('file-list').appendChild(item);
-      return item;
-    }
-
-    function updateFileProgress(fileName, progress, isError = false) {
-      const item = document.querySelector(`.file-item[data-file="${fileName}"]`);
-      if (item) {
-        const progressBar = item.querySelector('.file-progress-bar');
-        if (isError) {
-          progressBar.style.backgroundColor = '#f44336';
-          progressBar.style.width = '100%';
-        } else {
-          progressBar.style.width = `${progress}%`;
-        }
-      }
-    }
-
     // Визуализация волны
     function renderWaveform(audioBuffer, filename) {
       return new Promise((resolve) => {
@@ -1257,18 +1193,6 @@
 
           // Обработка готовности
           wavesurfer.on('ready', () => {
-            // Создание миниатюры
-            const thumbnail = document.querySelector(`.file-item[data-file="${filename.replace('_ko2.wav', '')}"] .file-thumbnail`);
-            if (thumbnail) {
-              const canvas = wave.querySelector('canvas');
-              if (canvas) {
-                thumbnail.innerHTML = '';
-                const clone = canvas.cloneNode(true);
-                clone.style.width = '100%';
-                clone.style.height = '100%';
-                thumbnail.appendChild(clone);
-              }
-            }
             
             button.addEventListener('click', () => {
               if (wavesurfer.isPlaying()) {
