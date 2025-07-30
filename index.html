@@ -7,11 +7,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Стили без изменений */
-    :root {
-      --glow-color: #ff3333;
-    }
-    
+    /* Все стили остаются без изменений */
+    :root { --glow-color: #ff3333; }
     body {
       background: #008080;
       font-family: 'Courier New', monospace;
@@ -28,7 +25,6 @@
       background-size: 4px 4px;
       background-position: 0 0, 2px 2px;
     }
-    
     .desktop-icon {
       position: absolute;
       width: 80px;
@@ -368,8 +364,6 @@
       max-height: 150px;
       overflow-y: auto;
     }
-    
-    /* Стили для окон с волнами */
     .wave-window {
       position: absolute;
       width: 400px;
@@ -1299,6 +1293,9 @@
       windowElement.appendChild(content);
       document.body.appendChild(windowElement);
       
+      // Находим кнопку воспроизведения
+      const playButton = content.querySelector('.wave-button');
+      
       // Обработка кнопок окна
       const closeBtn = titleBar.querySelector('.close');
       closeBtn.addEventListener('click', () => {
@@ -1353,6 +1350,7 @@
         id: windowId,
         element: windowElement,
         waveContainer: content.querySelector('.wave-element'),
+        playButton: playButton, // Ключевое исправление: сохраняем кнопку
         wavesurfer: null
       };
       
@@ -1383,7 +1381,7 @@
         
         // Создаем новое окно
         const windowObj = createWaveWindow(filename);
-        const { waveContainer, playButton } = windowObj;
+        const { waveContainer, playButton } = windowObj; // Теперь playButton определен
         
         // Инициализация Wavesurfer
         const wavesurfer = WaveSurfer.create({
@@ -1402,17 +1400,19 @@
 
         // Обработка готовности
         wavesurfer.on('ready', () => {
-          playButton.addEventListener('click', () => {
-            if (wavesurfer.isPlaying()) {
-              wavesurfer.pause();
-              playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
-              updateStatus("Playback paused");
-            } else {
-              wavesurfer.play();
-              playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
-              updateStatus("Playing processed audio");
-            }
-          });
+          if (playButton) {
+            playButton.addEventListener('click', () => {
+              if (wavesurfer.isPlaying()) {
+                wavesurfer.pause();
+                playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
+                updateStatus("Playback paused");
+              } else {
+                wavesurfer.play();
+                playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                updateStatus("Playing processed audio");
+              }
+            });
+          }
         });
 
         // Обработка ошибок
