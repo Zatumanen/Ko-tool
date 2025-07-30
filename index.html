@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
+    /* Стили без изменений */
     :root {
       --glow-color: #ff3333;
     }
@@ -906,6 +907,32 @@
       // Скачивание ZIP
       try {
         if (processedFiles > 0 && !processingCancelled) {
+          // Функция для дросселирования обновления прогресс-бара
+          const throttle = (func, limit) => {
+            let lastFunc;
+            let lastRan;
+            return function() {
+              const context = this;
+              const args = arguments;
+              if (!lastRan) {
+                func.apply(context, args);
+                lastRan = Date.now();
+              } else {
+                clearTimeout(lastFunc);
+                lastFunc = setTimeout(function() {
+                  if ((Date.now() - lastRan) >= limit) {
+                    func.apply(context, args);
+                    lastRan = Date.now();
+                  }
+                }, limit - (Date.now() - lastRan));
+              }
+            }
+          };
+          
+          const throttledProgress = throttle(progress => {
+            updateProgressBar(0.8 + progress * 0.2);
+          }, 100);
+          
           const zipBlob = await zip.generateAsync({ 
             type: "blob",
             compression: "DEFLATE",
@@ -913,8 +940,11 @@
           }, metadata => {
             const progress = metadata.percent / 100;
             updateStatus(`Compressing: ${metadata.percent.toFixed(1)}%`);
-            updateProgressBar(0.8 + progress * 0.2); // Последние 20% для компрессии
+            throttledProgress(progress);
           });
+          
+          // Финализация прогресс-бара
+          await updateProgressBar(1);
           
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
@@ -1145,8 +1175,8 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = length * blockAlign;
       
-      // Размер RIFF чанка
-      const riffSize = 36 + dataLength + 12; 
+      // Размер RIFF чанка (исправлен расчет)
+      const riffSize = 36 + dataLength + ko2Chunk.byteLength; 
       
       // Создание WAV-заголовка
       const header = new ArrayBuffer(44);
@@ -1182,13 +1212,14 @@
       // Сборка аудиоданных
       let audioData;
       if (bitDepth === 8) {
-        // 8-битное беззнаковое аудио
+        // 8-битное беззнаковое аудио (исправлено преобразование)
         audioData = new Uint8Array(length * numChannels);
         let offset = 0;
         for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-            audioData[offset] = Math.floor(((sample + 1) / 2) * 255);
+            const sample = buffer.getChannelData(ch)[i];
+            // Корректное преобразование в 8-битное беззнаковое
+            audioData[offset] = Math.floor((sample + 1.0) * 127.5 + 0.5);
             offset++;
           }
         }
@@ -1271,6 +1302,12 @@
       // Обработка кнопок окна
       const closeBtn = titleBar.querySelector('.close');
       closeBtn.addEventListener('click', () => {
+        // Уничтожение Wavesurfer при закрытии окна
+        const windowObj = waveWindows.find(w => w.id === windowId);
+        if (windowObj && windowObj.wavesurfer) {
+          windowObj.wavesurfer.destroy();
+        }
+        
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
@@ -1312,17 +1349,16 @@
       }
       
       // Сохраняем ссылку на окно
-      waveWindows.push({
+      const windowObj = {
         id: windowId,
         element: windowElement,
-        waveContainer: content.querySelector('.wave-element')
-      });
-      
-      return {
-        windowId,
         waveContainer: content.querySelector('.wave-element'),
-        playButton: content.querySelector('.wave-button')
+        wavesurfer: null
       };
+      
+      waveWindows.push(windowObj);
+      
+      return windowObj;
     }
 
     // Визуализация волны в отдельном окне
@@ -1339,11 +1375,15 @@
         // Ограничиваем количество открытых окон
         if (waveWindows.length >= 5) {
           const oldest = waveWindows.shift();
+          if (oldest.wavesurfer) {
+            oldest.wavesurfer.destroy();
+          }
           oldest.element.remove();
         }
         
         // Создаем новое окно
-        const { waveContainer, playButton } = createWaveWindow(filename);
+        const windowObj = createWaveWindow(filename);
+        const { waveContainer, playButton } = windowObj;
         
         // Инициализация Wavesurfer
         const wavesurfer = WaveSurfer.create({
@@ -1356,6 +1396,9 @@
           cursorColor: '#f00',
           sampleRate: audioBuffer.sampleRate
         });
+
+        // Сохраняем ссылку на Wavesurfer в объекте окна
+        windowObj.wavesurfer = wavesurfer;
 
         // Обработка готовности
         wavesurfer.on('ready', () => {
@@ -1380,7 +1423,9 @@
 
         // Загрузка обработанного буфера
         const wavBlob = audioBufferToWav(audioBuffer);
-        wavesurfer.loadBlob(wavBlob);
+        const url = URL.createObjectURL(wavBlob);
+        createdObjectURLs.push(url);
+        wavesurfer.load(url);
         
       } catch (err) {
         console.error('Waveform render error:', err);
