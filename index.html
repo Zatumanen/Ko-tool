@@ -616,6 +616,9 @@
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
+      // Очистка предыдущих URL
+      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+      createdObjectURLs = [];
     }
 
     function hideOverlay() {
@@ -950,6 +953,12 @@
           a.click();
           document.body.removeChild(a);
           
+          // Освобождаем URL после скачивания
+          setTimeout(() => {
+            URL.revokeObjectURL(zipUrl);
+            createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
+          }, 1000);
+          
           // Статистика
           const fidelity = getSelectedValue('fidelity');
           const channels = getSelectedValue('channels');
@@ -1169,8 +1178,9 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = length * blockAlign;
       
-      // Размер RIFF чанка (исправлен расчет)
-      const riffSize = 36 + dataLength + ko2Chunk.byteLength; 
+      // Исправленный расчет размера RIFF чанка
+      const fileSize = 44 + dataLength + ko2Chunk.byteLength;
+      const riffSize = fileSize - 8;
       
       // Создание WAV-заголовка
       const header = new ArrayBuffer(44);
@@ -1206,13 +1216,12 @@
       // Сборка аудиоданных
       let audioData;
       if (bitDepth === 8) {
-        // 8-битное беззнаковое аудио (исправлено преобразование)
+        // 8-битное беззнаковое аудио
         audioData = new Uint8Array(length * numChannels);
         let offset = 0;
         for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
             const sample = buffer.getChannelData(ch)[i];
-            // Корректное преобразование в 8-битное беззнаковое
             audioData[offset] = Math.floor((sample + 1.0) * 127.5 + 0.5);
             offset++;
           }
@@ -1350,7 +1359,7 @@
         id: windowId,
         element: windowElement,
         waveContainer: content.querySelector('.wave-element'),
-        playButton: playButton, // Ключевое исправление: сохраняем кнопку
+        playButton: playButton,
         wavesurfer: null
       };
       
@@ -1381,7 +1390,7 @@
         
         // Создаем новое окно
         const windowObj = createWaveWindow(filename);
-        const { waveContainer, playButton } = windowObj; // Теперь playButton определен
+        const { waveContainer, playButton } = windowObj;
         
         // Инициализация Wavesurfer
         const wavesurfer = WaveSurfer.create({
@@ -1401,9 +1410,7 @@
         // Обработка готовности
         wavesurfer.on('ready', () => {
           if (playButton) {
-            if (!playButton.dataset.bound) {
-  playButton.dataset.bound = 'true';
-  playButton.addEventListener('click', () => {
+            playButton.addEventListener('click', () => {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
                 playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
@@ -1412,8 +1419,6 @@
                 wavesurfer.play();
                 playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
                 updateStatus("Playing processed audio");
-  });
-}
               }
             });
           }
@@ -1425,15 +1430,19 @@
           waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
         });
 
+        // Освобождаем ресурсы при уничтожении
+        wavesurfer.on('destroy', () => {
+          const url = wavesurfer.getMediaElement()?.src;
+          if (url) {
+            URL.revokeObjectURL(url);
+          }
+        });
+        
         // Загрузка обработанного буфера
         const wavBlob = audioBufferToWav(audioBuffer);
         const url = URL.createObjectURL(wavBlob);
         createdObjectURLs.push(url);
-        if (!document.body.contains(waveContainer)) return;
-wavesurfer.load(url).catch(err => {
-  console.error('WaveSurfer load failed:', err);
-  waveContainer.innerHTML = '<div class="render-error">Render failed: ' + (err?.message || 'Unknown') + '</div>';
-});
+        wavesurfer.load(url);
         
       } catch (err) {
         console.error('Waveform render error:', err);
@@ -1442,6 +1451,8 @@ wavesurfer.load(url).catch(err => {
 
     // Управление очередью рендеринга
     function enqueueWaveformRender(audioBuffer, filename) {
+      if (processingCancelled) return;
+      
       waveformQueue.push({ audioBuffer, filename });
       if (!waveformBusy) {
         processNextWaveform();
@@ -1464,7 +1475,7 @@ wavesurfer.load(url).catch(err => {
       }
       
       // Обработка следующего элемента
-      setTimeout(() => processNextWaveform(), 100);
+      setTimeout(processNextWaveform, 0);
     }
 
     // Вспомогательные функции
