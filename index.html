@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.31</title>
+  <title>KO II SpeedUpperCut v0.0.32</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -391,7 +391,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.31</span>
+      <span>KO II SpeedUpperCut v0.0.32</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -1401,7 +1401,9 @@
         // Обработка готовности
         wavesurfer.on('ready', () => {
           if (playButton) {
-            playButton.addEventListener('click', () => {
+            if (!playButton.dataset.bound) {
+  playButton.dataset.bound = 'true';
+  playButton.addEventListener('click', () => {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
                 playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
@@ -1410,6 +1412,8 @@
                 wavesurfer.play();
                 playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
                 updateStatus("Playing processed audio");
+  });
+}
               }
             });
           }
@@ -1425,7 +1429,11 @@
         const wavBlob = audioBufferToWav(audioBuffer);
         const url = URL.createObjectURL(wavBlob);
         createdObjectURLs.push(url);
-        wavesurfer.load(url);
+        if (!document.body.contains(waveContainer)) return;
+wavesurfer.load(url).catch(err => {
+  console.error('WaveSurfer load failed:', err);
+  waveContainer.innerHTML = '<div class="render-error">Render failed: ' + (err?.message || 'Unknown') + '</div>';
+});
         
       } catch (err) {
         console.error('Waveform render error:', err);
@@ -1456,7 +1464,7 @@
       }
       
       // Обработка следующего элемента
-      setTimeout(processNextWaveform, 0);
+      setTimeout(() => processNextWaveform(), 100);
     }
 
     // Вспомогательные функции
