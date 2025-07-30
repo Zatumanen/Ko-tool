@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.38</title>
+  <title>KO II SpeedUpperCut v0.0.39</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -397,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.38</span>
+      <span>KO II SpeedUpperCut v0.0.39</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -495,6 +495,7 @@
     let windowZIndex = 100;
     let waveWindows = [];
     let audioContextInitialized = false;
+    let memoryWarningShown = false;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -598,20 +599,38 @@
     
     // Проверка доступной памяти
     function checkMemoryAndWarn() {
+      if (memoryWarningShown) return;
+      
       if (performance && performance.memory) {
         const totalJSHeapSize = performance.memory.totalJSHeapSize;
         const jsHeapSizeLimit = performance.memory.jsHeapSizeLimit;
         if (totalJSHeapSize > jsHeapSizeLimit * 0.7) {
           document.getElementById('memory-warning').style.display = 'block';
+          memoryWarningShown = true;
         }
       } else if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         document.getElementById('memory-warning').style.display = 'block';
+        memoryWarningShown = true;
       }
     }
 
     // Функции обновления интерфейса
     function updateStatus(message) {
       document.getElementById('status-bar').textContent = message;
+    }
+
+    function updateCurrentFile(message) {
+      const currentFileElement = document.getElementById('current-file');
+      if (currentFileElement) {
+        currentFileElement.textContent = message;
+      }
+    }
+
+    function updateFileInfo(message) {
+      const fileInfo = document.getElementById('file-info');
+      if (fileInfo) {
+        fileInfo.innerHTML += message;
+      }
     }
 
     function showOverlay() {
@@ -757,7 +776,6 @@
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
-      const currentFileElement = document.getElementById('current-file');
       const autoTrim = document.getElementById('auto-trim').checked;
 
       // Подготовка интерфейса
@@ -798,128 +816,62 @@
         }
       };
 
-      for (let i = 0; i < items.length; i++) {
+      // Оптимизация: батчинг и ограничение одновременных операций
+      const BATCH_SIZE = 5;
+      const MAX_CONCURRENT = 3;
+      
+      for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
         if (processingCancelled) break;
         
-        // Освобождаем ресурсы каждые 5 файлов
-        if (i > 0 && i % 5 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 0));
-          await new Promise(resolve => requestAnimationFrame(resolve));
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
+        const batchItems = items.slice(batchStart, batchEnd);
+        
+        // Обрабатываем батч
+        const results = [];
+        let running = 0;
+        let indexInBatch = 0;
+        
+        while (indexInBatch < batchItems.length) {
+          if (running < MAX_CONCURRENT) {
+            const item = batchItems[indexInBatch];
+            const globalIndex = batchStart + indexInBatch;
+            indexInBatch++;
+            running++;
+            
+            (async () => {
+              try {
+                const result = await processSingleItem(item, globalIndex, items.length, zip);
+                if (result) {
+                  results.push(result);
+                }
+              } catch (error) {
+                handleProcessingError(error, item);
+              } finally {
+                running--;
+              }
+            })();
+          } else {
+            // Ждем, пока освободится место
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
         }
         
-        const item = items[i];
-        let decoded, processed;
-        try {
-          // Обновление UI
-          currentFileElement.textContent = `Processing: ${item.path} (${i+1}/${items.length})`;
+        // Ждем завершения всех операций в батче
+        while (running > 0) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        // Обновляем статистику
+        for (const result of results) {
+          if (!result) continue;
           
-          const file = item.file;
-          totalOriginalSize += file.size;
-          
-          // Обновление информации
-          fileInfo.innerHTML += `<div>Processing: ${item.path}</div>`;
-          updateStatus(`Processing: ${item.path} (${i+1}/${items.length})`);
-          
-          // Проверка типа файла
-          if (!isSupportedAudioType(file.type, file.name)) {
-            throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
-          }
-          
-          // Проверка размера файла
-          if (file.size > 50 * 1024 * 1024) {
-            throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
-          }
-          
-          // Инициализация AudioContext при необходимости
-          if (!audioContextInitialized) {
-            initAudioContext();
-          }
-          
-          // Декодирование аудио
-          const arrayBuffer = await file.arrayBuffer();
-          decoded = await decodeAudioSafe(arrayBuffer);
-          
-          // Статистика каналов
-          if (decoded.numberOfChannels === 1) monoOriginal++;
-          else if (decoded.numberOfChannels === 2) stereoOriginal++;
-          
-          // Получение настроек
-          const fidelity = getSelectedValue('fidelity');
-          const channels = getSelectedValue('channels');
-          
-          // Обработка аудио - ускорение 2x
-          processed = await processAudio(decoded, fidelity, channels);
-          
-          // Автоматическая обрезка тишины
-          if (autoTrim) {
-            const beforeLength = processed.length;
-            processed = trimSilence(processed);
-            const afterLength = processed.length;
-            const trimmed = beforeLength - afterLength;
-            totalTrimmed += trimmed;
-            
-            fileInfo.innerHTML += `<div>Trimmed: ${(trimmed/processed.sampleRate).toFixed(2)}s silence</div>`;
-          }
-          
-          // Генерация WAV
-          const wavBlob = audioBufferToWav(processed);
-          totalProcessedSize += wavBlob.size;
           processedFiles++;
-          
-          // Определение пути в ZIP
-          let fileName = item.path;
-          if (fileName.includes('/')) {
-            // Для файлов в папках: заменяем расширение
-            const lastDot = fileName.lastIndexOf('.');
-            if (lastDot !== -1) {
-              fileName = fileName.substring(0, lastDot) + '_ko2.wav';
-            } else {
-              fileName += '_ko2.wav';
-            }
-          } else {
-            // Для одиночных файлов
-            fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-          }
-          
-          // Добавление в ZIP с сохранением структуры папок
-          zip.file(fileName, wavBlob);
+          totalOriginalSize += result.originalSize;
+          totalProcessedSize += result.processedSize;
+          totalTrimmed += result.trimmedSamples || 0;
           
           // Визуализация в отдельном окне
-          enqueueWaveformRender(processed, fileName);
-          
-          // Обновление информации
-          const originalSizeKB = (file.size / 1024).toFixed(1);
-          const processedSizeKB = (wavBlob.size / 1024).toFixed(1);
-          const sizeDifference = wavBlob.size - file.size;
-          let sizeInfo;
-          
-          if (sizeDifference > 0) {
-            sizeInfo = `INCREASED by ${(sizeDifference/1024).toFixed(1)}KB`;
-          } else {
-            sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
-          }
-          
-          fileInfo.innerHTML += `
-            <div>Processed: ${fileName}</div>
-            <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
-            <div>${sizeInfo}</div>
-          `;
-          
-          // Анимация прогресса
-          const progress = (i + 1) / items.length;
-          await updateProgressBar(progress);
-          
-        } catch (error) {
-          console.error('Error processing file:', error);
-          if (!processingCancelled) {
-            handleProcessingError(error, item);
-          }
-        } finally {
-          // Освобождение памяти
-          decoded = null;
-          processed = null;
-          await new Promise(resolve => setTimeout(resolve, 0)); // Дать время на GC
-          if (window.gc) window.gc(); // Принудительный сборщик мусора в Chrome
+          enqueueWaveformRender(result.buffer, result.fileName);
         }
       }
 
@@ -1032,54 +984,178 @@
       currentProcessing = null;
     }
 
-    // Функция обрезки тишины
+    async function processSingleItem(item, index, total, zip) {
+      const file = item.file;
+      let decoded, processed;
+      let originalSize = file.size;
+      let processedSize = 0;
+      let trimmedSamples = 0;
+      let fileName = '';
+      
+      try {
+        // Обновление UI
+        updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
+        updateFileInfo(`<div>Processing: ${item.path}</div>`);
+        
+        // Проверка типа файла
+        if (!isSupportedAudioType(file.type, file.name)) {
+          throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
+        }
+        
+        // Проверка размера файла
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
+        }
+        
+        // Инициализация AudioContext при необходимости
+        if (!audioContextInitialized) {
+          initAudioContext();
+        }
+        
+        // Декодирование аудио
+        const arrayBuffer = await file.arrayBuffer();
+        if (processingCancelled) return null;
+        
+        decoded = await decodeAudioSafe(arrayBuffer);
+        if (processingCancelled) return null;
+        
+        // Статистика каналов
+        if (decoded.numberOfChannels === 1) monoOriginal++;
+        else if (decoded.numberOfChannels === 2) stereoOriginal++;
+        
+        // Получение настроек
+        const fidelity = getSelectedValue('fidelity');
+        const channels = getSelectedValue('channels');
+        const autoTrim = document.getElementById('auto-trim').checked;
+        
+        // Обработка аудио - ускорение 2x
+        processed = await processAudio(decoded, fidelity, channels);
+        if (processingCancelled) return null;
+        
+        // Автоматическая обрезка тишины
+        if (autoTrim) {
+          const beforeLength = processed.length;
+          processed = trimSilence(processed);
+          const afterLength = processed.length;
+          trimmedSamples = beforeLength - afterLength;
+          
+          updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
+        }
+        
+        // Генерация WAV
+        const wavBlob = audioBufferToWav(processed);
+        processedSize = wavBlob.size;
+        
+        // Определение пути в ZIP
+        fileName = item.path;
+        if (fileName.includes('/')) {
+          // Для файлов в папках: заменяем расширение
+          const lastDot = fileName.lastIndexOf('.');
+          if (lastDot !== -1) {
+            fileName = fileName.substring(0, lastDot) + '_ko2.wav';
+          } else {
+            fileName += '_ko2.wav';
+          }
+        } else {
+          // Для одиночных файлов
+          fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+        }
+        
+        // Добавление в ZIP с сохранением структуры папок
+        zip.file(fileName, wavBlob);
+        
+        // Обновление информации
+        const originalSizeKB = (originalSize / 1024).toFixed(1);
+        const processedSizeKB = (processedSize / 1024).toFixed(1);
+        const sizeDifference = processedSize - originalSize;
+        let sizeInfo;
+        
+        if (sizeDifference > 0) {
+          sizeInfo = `INCREASED by ${(sizeDifference/1024).toFixed(1)}KB`;
+        } else {
+          sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
+        }
+        
+        updateFileInfo(`
+          <div>Processed: ${fileName}</div>
+          <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
+          <div>${sizeInfo}</div>
+        `);
+        
+        // Обновление прогресса
+        await updateProgressBar((index + 1) / total);
+        
+        return {
+          buffer: processed,
+          fileName: fileName,
+          originalSize: originalSize,
+          processedSize: processedSize,
+          trimmedSamples: trimmedSamples
+        };
+        
+      } catch (error) {
+        console.error('Error processing file:', error);
+        if (!processingCancelled) {
+          handleProcessingError(error, item);
+        }
+        return null;
+      } finally {
+        // Освобождение памяти
+        decoded = null;
+        processed = null;
+        await new Promise(resolve => setTimeout(resolve, 0)); // Дать время на GC
+        if (window.gc) window.gc(); // Принудительный сборщик мусора в Chrome
+      }
+    }
+
+    // Оптимизированная функция обрезки тишины
     function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20); // Преобразование dB в линейное значение
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      
-      // Для многоканального аудио используем первый канал для детекции тишины
       const channelData = audioBuffer.getChannelData(0);
       const length = channelData.length;
       
+      // Быстрая проверка по максимумам в блоках
+      const blockSize = 1024;
       let startIndex = 0;
       let endIndex = length - 1;
       
       // Находим начало звука
-      let silenceStart = 0;
-      let inSilence = true;
-      
-      for (let i = 0; i < length; i++) {
-        if (Math.abs(channelData[i]) > threshold) {
-          if (inSilence && (i - silenceStart) > minSilenceSamples) {
-            startIndex = i;
-            inSilence = false;
-          }
-        } else {
-          if (!inSilence) {
-            silenceStart = i;
-            inSilence = true;
+      for (let i = 0; i < length; i += blockSize) {
+        let hasSound = false;
+        const blockEnd = Math.min(i + blockSize, length);
+        
+        for (let j = i; j < blockEnd; j++) {
+          if (Math.abs(channelData[j]) > threshold) {
+            startIndex = Math.max(0, j - blockSize);
+            hasSound = true;
+            break;
           }
         }
+        
+        if (hasSound) break;
       }
       
       // Находим конец звука
-      let silenceEnd = length - 1;
-      inSilence = true;
-      
-      for (let i = length - 1; i >= 0; i--) {
-        if (Math.abs(channelData[i]) > threshold) {
-          if (inSilence && (silenceEnd - i) > minSilenceSamples) {
-            endIndex = i;
-            inSilence = false;
-          }
-        } else {
-          if (!inSilence) {
-            silenceEnd = i;
-            inSilence = true;
+      for (let i = length - 1; i >= 0; i -= blockSize) {
+        let hasSound = false;
+        const blockStart = Math.max(0, i - blockSize);
+        
+        for (let j = i; j >= blockStart; j--) {
+          if (Math.abs(channelData[j]) > threshold) {
+            endIndex = Math.min(length - 1, j + blockSize);
+            hasSound = true;
+            break;
           }
         }
+        
+        if (hasSound) break;
       }
+      
+      // Уточнение границ
+      startIndex = findExactStart(channelData, startIndex, threshold);
+      endIndex = findExactEnd(channelData, endIndex, threshold);
       
       // Добавляем небольшую паузу в начале и конце
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
@@ -1101,12 +1177,31 @@
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
         const targetData = newBuffer.getChannelData(ch);
-        for (let i = 0; i < newLength; i++) {
-          targetData[i] = sourceData[i + startIndex];
-        }
+        // Используем set для быстрого копирования
+        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
       }
       
       return newBuffer;
+    }
+
+    function findExactStart(data, roughStart, threshold) {
+      // Ищем точное начало от грубой позиции
+      for (let i = roughStart; i >= 0; i--) {
+        if (Math.abs(data[i]) > threshold) {
+          return i;
+        }
+      }
+      return roughStart;
+    }
+
+    function findExactEnd(data, roughEnd, threshold) {
+      // Ищем точный конец от грубой позиции
+      for (let i = roughEnd; i < data.length; i++) {
+        if (Math.abs(data[i]) > threshold) {
+          return i;
+        }
+      }
+      return roughEnd;
     }
 
     // Форматирование размера файла
@@ -1140,6 +1235,7 @@
           activeAudioContext = null;
         }
         document.getElementById('memory-warning').style.display = 'block';
+        memoryWarningShown = true;
       }
     }
 
@@ -1224,15 +1320,14 @@
         source.connect(splitter);
         
         // Усредняем все каналы в моно
-        const gainNodes = [];
+        const gain = ctx.createGain();
+        gain.gain.value = 1 / buffer.numberOfChannels;
+        
         for (let i = 0; i < buffer.numberOfChannels; i++) {
-          const gain = ctx.createGain();
-          gain.gain.value = 1 / buffer.numberOfChannels;
           splitter.connect(gain, i);
-          gain.connect(merger, 0, 0);
-          gainNodes.push(gain);
         }
         
+        gain.connect(merger, 0, 0);
         merger.connect(ctx.destination);
       } 
       // Для преобразования в стерео
@@ -1253,6 +1348,7 @@
       // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
+      ctx.close();
       
       return result;
     }
@@ -1275,6 +1371,7 @@
       // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
+      ctx.close();
       
       return result;
     }
