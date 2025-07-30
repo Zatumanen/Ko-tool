@@ -386,6 +386,15 @@
       margin-top: 10px;
       margin-bottom: 10px;
     }
+    .file-warning {
+      color: #ff6f00;
+      background-color: #fff3e0;
+      border: 1px solid #ff9800;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -997,8 +1006,9 @@
       let processedSize = 0;
       let trimmedSamples = 0;
       let fileName = '';
-      let channels = 0; // ИСПРАВЛЕНИЕ: Локальная переменная для каналов
+      let channels = 0;
       let originalExtension = file.name.split('.').pop().toLowerCase();
+      let useWavFallback = false;
       
       try {
         // Обновление UI
@@ -1027,7 +1037,7 @@
         decoded = await decodeAudioSafe(arrayBuffer);
         if (processingCancelled) return null;
         
-        // ИСПРАВЛЕНИЕ: Сохраняем количество каналов для возврата
+        // Сохраняем количество каналов
         channels = decoded.numberOfChannels;
         
         // Получение настроек
@@ -1062,10 +1072,25 @@
           fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.' + originalExtension;
         }
         
+        // Проверяем, поддерживается ли формат браузером
+        let outputExtension = originalExtension;
+        let mimeType = getMimeType(originalExtension);
+        
+        // Для форматов, отличных от WAV, проверяем поддержку
+        if (originalExtension !== 'wav') {
+          // Если MediaRecorder не поддерживает тип, используем WAV
+          if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
+            useWavFallback = true;
+            outputExtension = 'wav';
+            // Обновляем имя файла
+            fileName = fileName.replace(/\.[^/.]+$/, '') + '.wav';
+            // Добавляем предупреждение
+            updateFileInfo(`<div class="file-warning">Browser does not support ${originalExtension} encoding. Using WAV format instead.</div>`);
+          }
+        }
+        
         // Создание Blob с оригинальным типом
-        const outputBlob = new Blob([await audioBufferToBlob(processed, originalExtension)], { 
-          type: getMimeType(originalExtension) 
-        });
+        const outputBlob = await audioBufferToBlob(processed, outputExtension);
         processedSize = outputBlob.size;
         
         // Добавление в ZIP с сохранением структуры папок
@@ -1098,7 +1123,7 @@
           originalSize: originalSize,
           processedSize: processedSize,
           trimmedSamples: trimmedSamples,
-          channels: channels // ИСПРАВЛЕНИЕ: Возвращаем информацию о каналах
+          channels: channels
         };
         
       } catch (error) {
@@ -1144,14 +1169,15 @@
             source.connect(dest);
             source.start();
             
+            const mimeType = getMimeType(extension);
             const recorder = new MediaRecorder(dest.stream, {
-              mimeType: getMimeType(extension)
+              mimeType: mimeType
             });
             
             const chunks = [];
             recorder.ondataavailable = e => chunks.push(e.data);
             recorder.onstop = () => {
-              const blob = new Blob(chunks, { type: getMimeType(extension) });
+              const blob = new Blob(chunks, { type: mimeType });
               resolve(blob);
               audioContext.close();
             };
@@ -1410,7 +1436,7 @@
       source.start();
       const result = await ctx.startRendering();
       
-      // Освобождение ресурсов (без вызова close)
+      // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
       
@@ -1432,7 +1458,7 @@
       source.start();
       const result = await ctx.startRendering();
       
-      // Освобождение ресурсов (без вызова close)
+      // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
       
