@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.33</title>
+  <title>KO II SpeedUpperCut v0.0.31</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -385,35 +385,18 @@
       top: 100px;
       left: 100px;
     }
-    
-    /* Новые стили для перетаскивания окон */
-    .window {
-      position: absolute;
-      top: 100px;
-      left: calc(50% - 240px);
-    }
-    
-    .wave-selector {
-      width: 100%;
-      padding: 6px;
-      margin-bottom: 10px;
-      font-family: 'Courier New', monospace;
-      background: #fff;
-      border: 2px inset #808080;
-    }
   </style>
 </head>
 <body>
-  <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="openMainWindow()">
+  <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="document.querySelector('.window').style.display = 'block'">
     <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" 
          width="48" height="48">
     <div>KO II Tool</div>
   </div>
   
-  <!-- Главное окно -->
-  <div class="window" id="main-window" style="display: block;">
-    <div class="title-bar" id="main-title-bar">
-      <span>KO II SpeedUpperCut v0.0.33</span>
+  <div class="window">
+    <div class="title-bar">
+      <span>KO II SpeedUpperCut v0.0.31</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -474,29 +457,6 @@
     </div>
   </div>
 
-  <!-- Окно волн (одно на все файлы) -->
-  <div class="window" id="wave-window" style="display: none; top: 150px; left: 100px;">
-    <div class="title-bar" id="wave-title-bar">
-      <span>Processed Samples</span>
-      <div class="window-controls">
-        <button class="minimize" title="Minimize">_</button>
-        <button class="close" title="Close">×</button>
-      </div>
-    </div>
-    <div class="content">
-      <select class="wave-selector" id="wave-selector">
-        <option value="">Select a sample...</option>
-      </select>
-      
-      <div class="wave-container">
-        <div class="wave-element" id="wave-container"></div>
-        <button class="wave-button" id="play-button">
-          <i class="fas fa-play"></i> Play Sample
-        </button>
-      </div>
-    </div>
-  </div>
-
   <div id="overlay">
     <div id="win95-loader">
       <div id="processing-title">Processing Audio Files...</div>
@@ -546,70 +506,11 @@
     let lastProgress = 0;
     let windowZIndex = 100;
     let waveWindows = [];
-    let wavesurfer = null;
-    let processedSamples = {};
-    let currentPlayingSample = null;
-    let windowZIndex = 100;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
-      initWindowDrag();
     });
-    
-    function openMainWindow() {
-      document.getElementById('main-window').style.display = 'block';
-    }
-    
-    function openWaveWindow() {
-      document.getElementById('wave-window').style.display = 'block';
-    }
-
-    // Инициализация перетаскивания окон
-    function initWindowDrag() {
-      const windows = [
-        { id: 'main-window', titleBar: 'main-title-bar' },
-        { id: 'wave-window', titleBar: 'wave-title-bar' }
-      ];
-      
-      windows.forEach(win => {
-        const windowElement = document.getElementById(win.id);
-        const titleBar = document.getElementById(win.titleBar);
-        
-        if (!windowElement || !titleBar) return;
-        
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        
-        titleBar.addEventListener('mousedown', dragMouseDown);
-        
-        function dragMouseDown(e) {
-          e.preventDefault();
-          // Поднимаем окно на верхний план
-          windowZIndex += 1;
-          windowElement.style.zIndex = windowZIndex;
-          
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          document.addEventListener('mouseup', closeDragElement);
-          document.addEventListener('mousemove', elementDrag);
-        }
-        
-        function elementDrag(e) {
-          e.preventDefault();
-          pos1 = pos3 - e.clientX;
-          pos2 = pos4 - e.clientY;
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
-          windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
-        }
-        
-        function closeDragElement() {
-          document.removeEventListener('mouseup', closeDragElement);
-          document.removeEventListener('mousemove', elementDrag);
-        }
-      });
-    }
 
     function initApp() {
       // Проверка мобильного устройства
@@ -672,21 +573,12 @@
       folderInput.addEventListener('change', () => processFolder(folderInput.files));
       
       // Обработка кнопок окна
-      document.querySelector('#main-window .minimize').addEventListener('click', () => {
-        document.getElementById('main-window').style.display = 'none';
+      document.querySelector('.title-bar .minimize').addEventListener('click', () => {
+        document.querySelector('.window').style.display = 'none';
       });
       
-      document.querySelector('#main-window .close').addEventListener('click', () => {
-        document.getElementById('main-window').style.display = 'none';
-      });
-      
-      document.querySelector('#wave-window .minimize').addEventListener('click', () => {
-        const content = document.querySelector('#wave-window .content');
-        content.style.display = content.style.display === 'none' ? 'block' : 'none';
-      });
-      
-      document.querySelector('#wave-window .close').addEventListener('click', () => {
-        document.getElementById('wave-window').style.display = 'none';
+      document.querySelector('.title-bar .close').addEventListener('click', () => {
+        document.querySelector('.window').style.display = 'none';
       });
       
       // Кнопка отмены
@@ -966,17 +858,8 @@
           // Добавление в ZIP с сохранением структуры папок
           zip.file(fileName, wavBlob);
           
-          // Сохраняем для визуализации
-          processedSamples[fileName] = {
-            buffer: processed,
-            blob: wavBlob
-          };
-          
-          // Добавляем в выпадающий список
-          const option = document.createElement('option');
-          option.value = fileName;
-          option.textContent = fileName;
-          document.getElementById('wave-selector').appendChild(option);
+          // Визуализация в отдельном окне
+          enqueueWaveformRender(processed, fileName);
           
           // Обновление информации
           const originalSizeKB = (file.size / 1024).toFixed(1);
@@ -1058,10 +941,6 @@
           `;
           
           updateStatus(`Processed ${processedFiles} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
-          
-          // Показываем окно волн
-          openWaveWindow();
-          initWavesurfer();
         }
       } catch (error) {
         if (!processingCancelled) {
@@ -1248,18 +1127,11 @@
     }
 
     function audioBufferToWav(buffer) {
-      // Фиксированные метаданные для KO II
-      const ko2Settings = {
-        pitch: -12,    // Фиксированное значение -12
-        release: 255,  // Фиксированное значение 255
-        playmode: 0    // Фиксированный режим One-shot
-      };
-      
-      const ko2Chunk = writeKO2Chunk(
-        ko2Settings.pitch,
-        ko2Settings.release,
-        ko2Settings.playmode
-      );
+      // Фиксированные параметры для KO II
+      const pitch = 0;
+      const release = 255;
+      const playmode = 1;
+      const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
       
       // Получение параметров фиделити
       const fidelity = getSelectedValue('fidelity');
@@ -1341,18 +1213,11 @@
     function writeKO2Chunk(pitch, release, playmode) {
       const buffer = new ArrayBuffer(12);
       const view = new DataView(buffer);
-      
-      // Идентификатор чанка "ko2 "
-      view.setUint32(0, 0x6B6F3220);  // 'ko2 ' в big-endian
-      
-      // Размер данных
-      view.setUint32(4, 4, true);     // Всегда 4 в little-endian
-      
-      // Параметры
-      view.setInt8(8, pitch);          // Pitch = -12
-      view.setUint16(9, release, true); // Release = 255
-      view.setUint8(11, playmode);     // Playmode = 0
-      
+      writeString(view, 0, 'ko2 ');
+      view.setUint32(4, 4, true);
+      view.setUint8(8, pitch);
+      view.setUint16(9, release, true);
+      view.setUint8(11, playmode);
       return buffer;
     }
 
@@ -1362,81 +1227,191 @@
       }
     }
 
-    // Инициализация Wavesurfer
-    async function initWavesurfer() {
-      await loadWavesurfer();
+    // Создание нового окна
+    function createWaveWindow(title) {
+      windowZIndex += 2;
+      const windowId = 'wave-window-' + Date.now();
       
-      if (typeof WaveSurfer === 'undefined') {
-        console.error('Wavesurfer failed to load');
-        return;
-      }
+      // Позиционируем окна каскадом
+      const top = 80 + (waveWindows.length * 30);
+      const left = 100 + (waveWindows.length * 30);
       
-      if (wavesurfer) {
-        wavesurfer.destroy();
-      }
+      const windowElement = document.createElement('div');
+      windowElement.className = 'wave-window window';
+      windowElement.id = windowId;
+      windowElement.style.zIndex = windowZIndex;
+      windowElement.style.top = top + 'px';
+      windowElement.style.left = left + 'px';
       
-      wavesurfer = WaveSurfer.create({
-        container: '#wave-container',
-        waveColor: '#0f0',
-        progressColor: '#ff0',
-        height: 100,
-        barWidth: 2,
-        cursorColor: '#f00'
+      const titleBar = document.createElement('div');
+      titleBar.className = 'title-bar';
+      titleBar.innerHTML = `
+        <span>${title}</span>
+        <div class="window-controls">
+          <button class="minimize" title="Minimize">_</button>
+          <button class="close" title="Close">×</button>
+        </div>
+      `;
+      
+      const content = document.createElement('div');
+      content.className = 'content';
+      content.innerHTML = `
+        <div class="wave-container">
+          <div class="wave-element"></div>
+          <button class="wave-button">
+            <i class="fas fa-play"></i> Play Processed Audio
+          </button>
+        </div>
+      `;
+      
+      windowElement.appendChild(titleBar);
+      windowElement.appendChild(content);
+      document.body.appendChild(windowElement);
+      
+      // Обработка кнопок окна
+      const closeBtn = titleBar.querySelector('.close');
+      closeBtn.addEventListener('click', () => {
+        document.body.removeChild(windowElement);
+        waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
-      // Обработчик для кнопки воспроизведения
-      document.getElementById('play-button').addEventListener('click', () => {
-        if (wavesurfer.isPlaying()) {
-          wavesurfer.pause();
-          document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i> Play Sample';
-          updateStatus("Playback paused");
-        } else {
-          const fileName = document.getElementById('wave-selector').value;
-          if (fileName) {
-            playSample(fileName);
-          }
-        }
+      const minimizeBtn = titleBar.querySelector('.minimize');
+      minimizeBtn.addEventListener('click', () => {
+        content.style.display = content.style.display === 'none' ? 'block' : 'none';
       });
       
-      // Обработчик переключения сэмплов
-      document.getElementById('wave-selector').addEventListener('change', function() {
-        if (wavesurfer && wavesurfer.isPlaying()) {
-          wavesurfer.stop();
-          document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i> Play Sample';
-          updateStatus("Playback stopped");
+      // Добавляем функционал перемещения
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      titleBar.addEventListener('mousedown', dragMouseDown);
+      
+      function dragMouseDown(e) {
+        e.preventDefault();
+        // Поднимаем окно на верхний план
+        windowZIndex += 2;
+        windowElement.style.zIndex = windowZIndex;
+        
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.addEventListener('mouseup', closeDragElement);
+        document.addEventListener('mousemove', elementDrag);
+      }
+      
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
+        windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
+      }
+      
+      function closeDragElement() {
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('mousemove', elementDrag);
+      }
+      
+      // Сохраняем ссылку на окно
+      waveWindows.push({
+        id: windowId,
+        element: windowElement,
+        waveContainer: content.querySelector('.wave-element')
+      });
+      
+      return {
+        windowId,
+        waveContainer: content.querySelector('.wave-element'),
+        playButton: content.querySelector('.wave-button')
+      };
+    }
+
+    // Визуализация волны в отдельном окне
+    async function renderWaveform(audioBuffer, filename) {
+      try {
+        // Загружаем Wavesurfer только при необходимости
+        await loadWavesurfer();
+        
+        // Проверяем, загрузился ли Wavesurfer
+        if (typeof WaveSurfer === 'undefined') {
+          throw new Error('Wavesurfer failed to load');
         }
         
-        const fileName = this.value;
-        if (fileName && processedSamples[fileName]) {
-          loadSample(fileName);
+        // Ограничиваем количество открытых окон
+        if (waveWindows.length >= 5) {
+          const oldest = waveWindows.shift();
+          oldest.element.remove();
         }
-      });
+        
+        // Создаем новое окно
+        const { waveContainer, playButton } = createWaveWindow(filename);
+        
+        // Инициализация Wavesurfer
+        const wavesurfer = WaveSurfer.create({
+          container: waveContainer,
+          waveColor: '#0f0',
+          progressColor: '#ff0',
+          height: 100,
+          barWidth: 2,
+          minPxPerSec: 100,
+          cursorColor: '#f00',
+          sampleRate: audioBuffer.sampleRate
+        });
+
+        // Обработка готовности
+        wavesurfer.on('ready', () => {
+          playButton.addEventListener('click', () => {
+            if (wavesurfer.isPlaying()) {
+              wavesurfer.pause();
+              playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
+              updateStatus("Playback paused");
+            } else {
+              wavesurfer.play();
+              playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+              updateStatus("Playing processed audio");
+            }
+          });
+        });
+
+        // Обработка ошибок
+        wavesurfer.on('error', (err) => {
+          console.error('Wavesurfer error:', err);
+          waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
+        });
+
+        // Загрузка обработанного буфера
+        const wavBlob = audioBufferToWav(audioBuffer);
+        wavesurfer.loadBlob(wavBlob);
+        
+      } catch (err) {
+        console.error('Waveform render error:', err);
+      }
     }
 
-    // Загрузка сэмпла в Wavesurfer
-    function loadSample(fileName) {
-      if (!wavesurfer) return;
-      
-      const sample = processedSamples[fileName];
-      if (!sample) return;
-      
-      wavesurfer.loadBlob(sample.blob);
-      updateStatus(`Loaded: ${fileName}`);
+    // Управление очередью рендеринга
+    function enqueueWaveformRender(audioBuffer, filename) {
+      waveformQueue.push({ audioBuffer, filename });
+      if (!waveformBusy) {
+        processNextWaveform();
+      }
     }
 
-    // Воспроизведение сэмпла
-    function playSample(fileName) {
-      if (!wavesurfer) return;
+    async function processNextWaveform() {
+      if (waveformQueue.length === 0 || processingCancelled) {
+        waveformBusy = false;
+        return;
+      }
+
+      waveformBusy = true;
+      const { audioBuffer, filename } = waveformQueue.shift();
       
-      // Если пытаемся играть другой сэмпл - сначала загружаем
-      if (currentPlayingSample !== fileName) {
-        loadSample(fileName);
+      try {
+        await renderWaveform(audioBuffer, filename);
+      } catch (err) {
+        console.error('Waveform render error:', err);
       }
       
-      wavesurfer.play();
-      document.getElementById('play-button').innerHTML = '<i class="fas fa-pause"></i> Pause';
-      updateStatus(`Playing: ${fileName}`);
-      currentPlayingSample = fileName;
+      // Обработка следующего элемента
+      setTimeout(processNextWaveform, 0);
     }
 
     // Вспомогательные функции
@@ -1474,9 +1449,6 @@
       createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
       if (activeAudioContext) {
         activeAudioContext.close();
-      }
-      if (wavesurfer) {
-        wavesurfer.destroy();
       }
     });
   </script>
