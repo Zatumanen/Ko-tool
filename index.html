@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.35</title>
+  <title>KO II SpeedUpperCut v0.0.37</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -397,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.35</span>
+      <span>KO II SpeedUpperCut v0.0.37</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -494,6 +494,7 @@
     let lastProgress = 0;
     let windowZIndex = 100;
     let waveWindows = [];
+    let audioContextInitialized = false;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -559,8 +560,15 @@
         updateStatus("File list cleared");
       });
       
-      fileInput.addEventListener('change', () => processFiles(fileInput.files));
-      folderInput.addEventListener('change', () => processFolder(folderInput.files));
+      fileInput.addEventListener('change', (e) => {
+        processFiles(e.target.files);
+        e.target.value = null; // Сброс значения для повторной загрузки тех же файлов
+      });
+      
+      folderInput.addEventListener('change', (e) => {
+        processFolder(e.target.files);
+        e.target.value = null; // Сброс значения
+      });
       
       // Обработка кнопок окна
       document.querySelector('.title-bar .minimize').addEventListener('click', () => {
@@ -729,6 +737,16 @@
       await processItems(items);
     }
 
+    // Инициализация AudioContext
+    function initAudioContext() {
+      if (!activeAudioContext) {
+        activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log("AudioContext created");
+        audioContextInitialized = true;
+      }
+      return activeAudioContext;
+    }
+
     // Основная функция обработки
     async function processItems(items) {
       if (items.length === 0) {
@@ -749,9 +767,6 @@
       
       updateStatus(`Processing ${items.length} item(s)`);
 
-      // Создание контекста
-      activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
       // Подготовка ZIP
       const zip = new JSZip();
       let stereoOriginal = 0;
@@ -815,6 +830,11 @@
             throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
           }
           
+          // Инициализация AudioContext при необходимости
+          if (!audioContextInitialized) {
+            initAudioContext();
+          }
+          
           // Декодирование аудио
           const arrayBuffer = await file.arrayBuffer();
           decoded = await decodeAudioSafe(arrayBuffer);
@@ -861,7 +881,7 @@
             fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.wav';
           }
           
-          // Добавление в ZIP
+          // Добавление в ZIP с сохранением структуры папок
           zip.file(fileName, wavBlob);
           
           // Визуализация в отдельном окне
@@ -890,6 +910,7 @@
           await updateProgressBar(progress);
           
         } catch (error) {
+          console.error('Error processing file:', error);
           if (!processingCancelled) {
             handleProcessingError(error, item);
           }
@@ -991,6 +1012,7 @@
           updateStatus(`Processed ${processedFiles} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
         }
       } catch (error) {
+        console.error('Error generating ZIP:', error);
         if (!processingCancelled) {
           handleProcessingError(error);
         }
@@ -1004,6 +1026,7 @@
       if (activeAudioContext) {
         activeAudioContext.close();
         activeAudioContext = null;
+        audioContextInitialized = false;
       }
       
       currentProcessing = null;
@@ -1139,9 +1162,14 @@
     // Безопасное декодирование аудио
     async function decodeAudioSafe(arrayBuffer) {
       return new Promise((resolve, reject) => {
+        if (!activeAudioContext) {
+          reject(new Error("AudioContext is not available"));
+          return;
+        }
+        
         activeAudioContext.decodeAudioData(
           arrayBuffer,
-          resolve,
+          buffer => resolve(buffer),
           error => reject(new Error(`Audio decoding failed: ${error.message}`))
         );
       });
@@ -1202,7 +1230,7 @@
           gain.gain.value = 1 / buffer.numberOfChannels;
           splitter.connect(gain, i);
           gain.connect(merger, 0, 0);
-          gainNodes.push(g gain);
+          gainNodes.push(gain);
         }
         
         merger.connect(ctx.destination);
@@ -1270,7 +1298,7 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = length * blockAlign;
       
-      // ИСПРАВЛЕННЫЙ РАСЧЕТ РАЗМЕРА ФАЙЛА
+      // Исправленный расчет размера файла
       const chunkSize = 36 + dataLength; // Размер "fmt " + "data" чанков
       const fileSize = 8 + chunkSize + ko2Chunk.byteLength; // RIFF заголовок + данные
       const riffSize = fileSize - 8;
@@ -1461,7 +1489,7 @@
       return windowObj;
     }
 
-    // Визуализация волны в отдельном окне (ИСПРАВЛЕННАЯ)
+    // Визуализация волны в отдельном окне
     async function renderWaveform(audioBuffer, filename) {
       try {
         // Проверяем, загрузился ли Wavesurfer
