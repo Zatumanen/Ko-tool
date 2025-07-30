@@ -818,7 +818,7 @@
           
           // Обновление информации
           fileInfo.innerHTML += `<div>Processing: ${item.path}</div>`;
-          updateStatus(`Processing: ${item.path} (${i+1}/${items.length})`);
+          updateStatus(`Processing: ${item.path} (${i+1}/${items.length})`;
           
           // Проверка типа файла
           if (!isSupportedAudioType(file.type, file.name)) {
@@ -1280,11 +1280,18 @@
     }
 
     function audioBufferToWav(buffer) {
-      // Фиксированные параметры для KO II
-      const pitch = 0;
-      const release = 255;
-      const playmode = 1;
-      const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
+      // ФИКСИРОВАННЫЕ МЕТАДАННЫЕ ДЛЯ KO II
+      const pitch = -12;      // -12 полутонов (октава вниз)
+      const release = 255;    // Максимальное время затухания
+      const playmode = 1;     // 1 = one shot
+      const volume = 100;     // Громкость 100%
+      const pan = 0;          // Панорамирование по центру
+      const start = 0;        // Начало семпла
+      const end = 100;        // Конец семпла
+      const loop = 0;         // Без зацикливания
+      
+      // Создаем чанк ko2 с фиксированными параметрами
+      const ko2Chunk = writeKO2Chunk(pitch, release, playmode, volume, pan, start, end, loop);
       
       // Получение параметров фиделити
       const fidelity = getSelectedValue('fidelity');
@@ -1365,14 +1372,27 @@
       return new Blob([header, audioData.buffer, ko2Chunk], { type: 'audio/wav' });
     }
 
-    function writeKO2Chunk(pitch, release, playmode) {
-      const buffer = new ArrayBuffer(12);
+    function writeKO2Chunk(pitch, release, playmode, volume, pan, start, end, loop) {
+      // Размер данных: 11 байт (1+2+1+1+1+1+1+1+2)
+      const buffer = new ArrayBuffer(16); // 4 (сигнатура) + 4 (размер) + 11 (данные) = 19 -> выравнивание до 20 байт?
       const view = new DataView(buffer);
+      
+      // Заголовок чанка "ko2 "
       writeString(view, 0, 'ko2 ');
-      view.setUint32(4, 4, true);
-      view.setUint8(8, pitch);
-      view.setUint16(9, release, true);
-      view.setUint8(11, playmode);
+      
+      // Размер данных (11 байт)
+      view.setUint32(4, 11, true);
+      
+      // Данные параметров
+      view.setInt8(8, pitch);      // pitch (-24...+24)
+      view.setUint16(9, release, true); // release (0-255)
+      view.setUint8(11, playmode); // playmode (0 = poly, 1 = one shot)
+      view.setUint8(12, volume);   // volume (0-100)
+      view.setInt8(13, pan);       // pan (-50...+50)
+      view.setUint8(14, start);    // start (0-100)
+      view.setUint8(15, end);      // end (0-100)
+      view.setUint8(16, loop);     // loop (0 = off, 1 = on)
+      
       return buffer;
     }
 
