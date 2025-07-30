@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.33</title>
+  <title>KO II SpeedUpperCut v0.0.34</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Все стили остаются без изменений */
     :root { --glow-color: #ff3333; }
     body {
       background: #008080;
@@ -385,6 +384,7 @@
       align-items: center;
       gap: 8px;
       margin-top: 10px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -397,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.33</span>
+      <span>KO II SpeedUpperCut v0.0.34</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -881,7 +881,7 @@
           }
           
           // Добавление в ZIP с сохранением структуры папок
-          zip.file(fileName, wavBlob);
+          zip.file(fileName, wawBlob);
           
           // Визуализация в отдельном окне
           enqueueWaveformRender(processed, fileName);
@@ -1479,7 +1479,7 @@
       return windowObj;
     }
 
-    // Визуализация волны в отдельном окне
+    // Визуализация волны в отдельном окне (ИСПРАВЛЕННАЯ ВЕРСИЯ)
     async function renderWaveform(audioBuffer, filename) {
       try {
         // Загружаем Wavesurfer только при необходимости
@@ -1502,6 +1502,9 @@
         // Создаем новое окно
         const windowObj = createWaveWindow(filename);
         const { waveContainer, playButton } = windowObj;
+        
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавляем небольшую задержку для инициализации Wavesurfer
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         // Инициализация Wavesurfer
         const wavesurfer = WaveSurfer.create({
@@ -1553,10 +1556,18 @@
         const wavBlob = audioBufferToWav(audioBuffer);
         const url = URL.createObjectURL(wavBlob);
         createdObjectURLs.push(url);
+        
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Загружаем данные после полной инициализации
         wavesurfer.load(url);
         
       } catch (err) {
         console.error('Waveform render error:', err);
+        console.error('AudioBuffer details:', {
+          sampleRate: audioBuffer.sampleRate,
+          length: audioBuffer.length,
+          duration: audioBuffer.duration,
+          numberOfChannels: audioBuffer.numberOfChannels
+        });
       }
     }
 
