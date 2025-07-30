@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.34</title>
+  <title>KO II SpeedUpperCut v0.0.35</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Все стили остаются без изменений */
     :root { --glow-color: #ff3333; }
     body {
       background: #008080;
@@ -398,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.34</span>
+      <span>KO II SpeedUpperCut v0.0.35</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -482,7 +481,6 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- Загружаем Wavesurfer заранее -->
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
     // Глобальные переменные
@@ -1204,7 +1202,7 @@
           gain.gain.value = 1 / buffer.numberOfChannels;
           splitter.connect(gain, i);
           gain.connect(merger, 0, 0);
-          gainNodes.push(gain);
+          gainNodes.push(g gain);
         }
         
         merger.connect(ctx.destination);
@@ -1485,7 +1483,12 @@
         const { waveContainer, playButton } = windowObj;
         
         // Даем время на рендеринг DOM
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Проверяем существование контейнера
+        if (!waveContainer) {
+          throw new Error('Wave container not found');
+        }
         
         // Инициализация Wavesurfer
         const wavesurfer = WaveSurfer.create({
@@ -1497,7 +1500,6 @@
           minPxPerSec: 100,
           cursorColor: '#f00',
           sampleRate: audioBuffer.sampleRate,
-          // Критически важные параметры для корректного отображения:
           normalize: true,
           fillParent: true,
           partialRender: true,
@@ -1556,6 +1558,14 @@
           duration: audioBuffer.duration,
           numberOfChannels: audioBuffer.numberOfChannels
         });
+        
+        // Добавляем информацию об ошибке в окно
+        if (windowObj && windowObj.element) {
+          const errorContainer = document.createElement('div');
+          errorContainer.className = 'render-error';
+          errorContainer.textContent = `Render failed: ${err.message}`;
+          windowObj.element.querySelector('.content').appendChild(errorContainer);
+        }
       }
     }
 
