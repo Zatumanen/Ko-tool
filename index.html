@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.39</title>
+  <title>KO II SpeedUpperCut</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -397,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.39</span>
+      <span>KO II SpeedUpperCut</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -787,6 +787,8 @@
 
       // Подготовка ZIP
       const zip = new JSZip();
+      
+      // ИСПРАВЛЕНИЕ: Объявляем счетчики каналов здесь
       let stereoOriginal = 0;
       let monoOriginal = 0;
       let totalOriginalSize = 0;
@@ -869,6 +871,10 @@
           totalOriginalSize += result.originalSize;
           totalProcessedSize += result.processedSize;
           totalTrimmed += result.trimmedSamples || 0;
+          
+          // ИСПРАВЛЕНИЕ: Обновляем счетчики каналов
+          if (result.channels === 1) monoOriginal++;
+          else if (result.channels === 2) stereoOriginal++;
           
           // Визуализация в отдельном окне
           enqueueWaveformRender(result.buffer, result.fileName);
@@ -991,6 +997,7 @@
       let processedSize = 0;
       let trimmedSamples = 0;
       let fileName = '';
+      let channels = 0; // ИСПРАВЛЕНИЕ: Локальная переменная для каналов
       
       try {
         // Обновление UI
@@ -1019,17 +1026,16 @@
         decoded = await decodeAudioSafe(arrayBuffer);
         if (processingCancelled) return null;
         
-        // Статистика каналов
-        if (decoded.numberOfChannels === 1) monoOriginal++;
-        else if (decoded.numberOfChannels === 2) stereoOriginal++;
+        // ИСПРАВЛЕНИЕ: Сохраняем количество каналов для возврата
+        channels = decoded.numberOfChannels;
         
         // Получение настроек
         const fidelity = getSelectedValue('fidelity');
-        const channels = getSelectedValue('channels');
+        const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
         
         // Обработка аудио - ускорение 2x
-        processed = await processAudio(decoded, fidelity, channels);
+        processed = await processAudio(decoded, fidelity, channelsSetting);
         if (processingCancelled) return null;
         
         // Автоматическая обрезка тишины
@@ -1090,7 +1096,8 @@
           fileName: fileName,
           originalSize: originalSize,
           processedSize: processedSize,
-          trimmedSamples: trimmedSamples
+          trimmedSamples: trimmedSamples,
+          channels: channels // ИСПРАВЛЕНИЕ: Возвращаем информацию о каналах
         };
         
       } catch (error) {
