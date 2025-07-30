@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut v0.0.32</title>
+  <title>KO II SpeedUpperCut v0.0.33</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -380,6 +380,12 @@
       top: 100px;
       left: 100px;
     }
+    .trim-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -391,7 +397,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut v0.0.32</span>
+      <span>KO II SpeedUpperCut v0.0.33</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -427,6 +433,11 @@
         </div>
       </div>
       
+      <div class="trim-control">
+        <input type="checkbox" id="auto-trim" checked style="width: 16px; height: 16px;">
+        <label for="auto-trim">Auto-trim silence at start/end</label>
+      </div>
+      
       <div class="drop-zone" id="drop-zone">
         <i class="fas fa-cloud-upload-alt" style="font-size: 36px;"></i>
         <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple />
@@ -446,6 +457,7 @@
       <div class="info-panel" id="file-info">
         <div>Drop or select audio files/folders to process</div>
         <div>Files will be sped up 2x to save space</div>
+        <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
       </div>
@@ -537,6 +549,7 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
+      const autoTrimCheckbox = document.getElementById('auto-trim');
 
       // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
@@ -559,6 +572,7 @@
         document.getElementById('file-info').innerHTML = 
           '<div>Drop or select audio files/folders to process</div>' +
           '<div>Files will be sped up 2x to save space</div>' +
+          '<div>Auto-trim removes silence at start and end</div>' +
           '<div>Folder structure will be preserved in output</div>' +
           '<div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>';
         updateStatus("File list cleared");
@@ -745,6 +759,7 @@
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
       const currentFileElement = document.getElementById('current-file');
+      const autoTrim = document.getElementById('auto-trim').checked;
 
       // Подготовка интерфейса
       showOverlay();
@@ -763,6 +778,7 @@
       let totalOriginalSize = 0;
       let totalProcessedSize = 0;
       let processedFiles = 0;
+      let totalTrimmed = 0;
 
       // Прогресс бар
       segmentContainer.innerHTML = '';
@@ -832,6 +848,17 @@
           
           // Обработка аудио - ускорение 2x
           processed = await processAudio(decoded, fidelity, channels);
+          
+          // Автоматическая обрезка тишины
+          if (autoTrim) {
+            const beforeLength = processed.length;
+            processed = trimSilence(processed);
+            const afterLength = processed.length;
+            const trimmed = beforeLength - afterLength;
+            totalTrimmed += trimmed;
+            
+            fileInfo.innerHTML += `<div>Trimmed: ${(trimmed/processed.sampleRate).toFixed(2)}s silence</div>`;
+          }
           
           // Генерация WAV
           const wavBlob = audioBufferToWav(processed);
@@ -968,6 +995,13 @@
             <div>Original size: ${formatBytes(totalOriginalSize)}</div>
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
             <div>Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%</div>
+          `;
+          
+          if (autoTrim && totalTrimmed > 0) {
+            fileInfo.innerHTML += `<div>Total silence trimmed: ${(totalTrimmed/44100).toFixed(2)}s</div>`;
+          }
+          
+          fileInfo.innerHTML += `
             <div>Fidelity: ${fidelity.toUpperCase()}</div>
             <div>Channels: ${channels}</div>
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
@@ -992,6 +1026,83 @@
       }
       
       currentProcessing = null;
+    }
+
+    // Функция обрезки тишины
+    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
+      const threshold = Math.pow(10, thresholdDb / 20); // Преобразование dB в линейное значение
+      const sampleRate = audioBuffer.sampleRate;
+      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
+      
+      // Для многоканального аудио используем первый канал для детекции тишины
+      const channelData = audioBuffer.getChannelData(0);
+      const length = channelData.length;
+      
+      let startIndex = 0;
+      let endIndex = length - 1;
+      
+      // Находим начало звука
+      let silenceStart = 0;
+      let inSilence = true;
+      
+      for (let i = 0; i < length; i++) {
+        if (Math.abs(channelData[i]) > threshold) {
+          if (inSilence && (i - silenceStart) > minSilenceSamples) {
+            startIndex = i;
+            inSilence = false;
+          }
+        } else {
+          if (!inSilence) {
+            silenceStart = i;
+            inSilence = true;
+          }
+        }
+      }
+      
+      // Находим конец звука
+      let silenceEnd = length - 1;
+      inSilence = true;
+      
+      for (let i = length - 1; i >= 0; i--) {
+        if (Math.abs(channelData[i]) > threshold) {
+          if (inSilence && (silenceEnd - i) > minSilenceSamples) {
+            endIndex = i;
+            inSilence = false;
+          }
+        } else {
+          if (!inSilence) {
+            silenceEnd = i;
+            inSilence = true;
+          }
+        }
+      }
+      
+      // Добавляем небольшую паузу в начале и конце
+      startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
+      endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
+      
+      // Если весь буфер - тишина, возвращаем исходный
+      if (startIndex >= endIndex) {
+        return audioBuffer;
+      }
+      
+      // Создаем новый буфер с обрезанными данными
+      const newLength = endIndex - startIndex + 1;
+      const newBuffer = new AudioBuffer({
+        length: newLength,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels
+      });
+      
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+        const sourceData = audioBuffer.getChannelData(ch);
+        const targetData = newBuffer.getChannelData(ch);
+        for (let i = 0; i < newLength; i++) {
+          targetData[i] = sourceData[i + startIndex];
+        }
+      }
+      
+      return newBuffer;
     }
 
     // Форматирование размера файла
