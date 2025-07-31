@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KO II SpeedUpperCut</title>
+  <title>SpeedUpperCut</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -406,7 +406,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>KO II SpeedUpperCut</span>
+      <span>SpeedUpperCut</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -1724,7 +1724,7 @@
           barWidth: 2,
           minPxPerSec: 100,
           cursorColor: '#f00',
-          sampleRate: audioBuffer.sampleRate,
+          // УДАЛЕНО: sampleRate - Wavesurfer сам определит из аудио
           normalize: true,
           fillParent: true,
           partialRender: true,
@@ -1788,7 +1788,7 @@
         if (windowObj && windowObj.element) {
           const errorContainer = document.createElement('div');
           errorContainer.className = 'render-error';
-          errorContainer.textContent = `Render failed: ${err.message}`;
+          errorContainer.textContent = `Render failed: ${err.message} (Sample rate: ${audioBuffer.sampleRate} Hz)`;
           windowObj.element.querySelector('.content').appendChild(errorContainer);
         }
       }
