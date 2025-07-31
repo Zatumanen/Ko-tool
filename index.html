@@ -365,7 +365,7 @@
     }
     .wave-window {
       position: absolute;
-      width: 400px;
+      width: 500px;
       background: #c0c0c0;
       border: 2px solid;
       border-top-color: #ffffff;
@@ -378,7 +378,7 @@
       z-index: 101;
       top: 100px;
       left: 100px;
-      display: none; /* Скрываем по умолчанию */
+      display: none;
     }
     .trim-control {
       display: flex;
@@ -396,139 +396,18 @@
       border-radius: 2px;
       font-size: 13px;
     }
-    
-    /* Стили Winamp-плеера */
-    .winamp-player {
-      background: linear-gradient(to bottom, #333, #000);
-      color: white;
-      border: 2px solid #666;
-      width: 400px;
-      font-family: 'Arial', sans-serif;
-      font-size: 12px;
-      box-shadow: 3px 3px 5px rgba(0,0,0,0.5);
-    }
-    .winamp-title-bar {
-      background: linear-gradient(to bottom, #000066, #000033);
-      color: white;
-      padding: 4px;
-      text-align: center;
-      font-weight: bold;
-      border-bottom: 1px solid #444;
-      cursor: move;
-    }
-    .winamp-display {
-      background: #0a0a0a;
-      color: #0f0;
-      font-family: 'Courier New', monospace;
-      padding: 8px;
-      margin: 8px;
-      border: 1px solid #333;
-      height: 60px;
-      overflow: hidden;
-      position: relative;
-    }
-    .winamp-visualizer {
-      height: 40px;
-      background: #000;
-      margin: 8px;
-      border: 1px solid #333;
-      position: relative;
-      overflow: hidden;
-    }
-    .winamp-controls {
-      display: flex;
-      justify-content: center;
-      padding: 8px;
-      gap: 10px;
-    }
-    .winamp-button {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: #444;
-      border: 2px outset #666;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .winamp-button:active {
-      border-style: inset;
-    }
-    .winamp-playlist {
-      max-height: 150px;
-      overflow-y: auto;
-      background: #222;
-      margin: 8px;
-      border: 1px solid #333;
-    }
-    .winamp-playlist-item {
-      padding: 4px 8px;
-      cursor: pointer;
-      border-bottom: 1px solid #333;
-    }
-    .winamp-playlist-item:hover {
-      background: #444;
-    }
-    .winamp-playlist-item.active {
-      background: #000066;
-      color: white;
-    }
-    .winamp-eq {
-      display: flex;
-      justify-content: space-around;
-      padding: 8px;
-      background: #111;
-    }
-    .winamp-eq-slider {
-      width: 20px;
-      height: 80px;
-      background: #333;
-      position: relative;
-    }
-    .winamp-eq-handle {
+    .file-selector {
+      margin-bottom: 10px;
       width: 100%;
-      height: 10px;
-      background: #00f;
-      position: absolute;
-      bottom: 30%;
-      cursor: pointer;
+      padding: 6px;
+      font-family: 'Courier New', monospace;
+      border: 2px inset #808080;
+      background: #fff;
     }
-    .winamp-time {
-      text-align: center;
-      padding: 4px;
-      color: #888;
-      font-size: 11px;
-    }
-    .winamp-volume {
+    .wave-controls {
       display: flex;
-      align-items: center;
-      padding: 0 8px 8px;
-    }
-    .winamp-volume-slider {
-      flex: 1;
-      height: 10px;
-      background: #333;
-      margin: 0 8px;
-      position: relative;
-    }
-    .winamp-volume-handle {
-      width: 12px;
-      height: 16px;
-      background: #00f;
-      position: absolute;
-      top: -3px;
-      left: 70%;
-      cursor: pointer;
-    }
-    .winamp-stats {
-      padding: 4px 8px;
-      font-size: 10px;
-      color: #888;
-      background: #111;
-      border-top: 1px solid #333;
+      gap: 8px;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -596,7 +475,7 @@
         <button id="select-file-button">Select Files</button>
         <button id="select-folder-button">Select Folder</button>
         <button id="clear-button">Clear List</button>
-        <button id="view-results-button" style="display:none;">View Results</button>
+        <button id="wave-window-button">Show Results</button>
       </div>
       
       <div class="info-panel" id="file-info">
@@ -605,53 +484,6 @@
         <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Новое окно Winamp-плеера -->
-  <div class="wave-window" id="winamp-player">
-    <div class="winamp-player">
-      <div class="winamp-title-bar">
-        Winamp Player
-        <div style="position:absolute; top:2px; right:2px;">
-          <button class="winamp-button" id="winamp-close">×</button>
-        </div>
-      </div>
-      <div class="winamp-display" id="winamp-display">
-        KO II Processed Audio<br>
-        Ready to play
-      </div>
-      <div class="winamp-visualizer" id="winamp-visualizer">
-        <canvas id="winamp-visualizer-canvas" width="380" height="40"></canvas>
-      </div>
-      <div class="winamp-controls">
-        <button class="winamp-button" id="winamp-prev"><i class="fas fa-step-backward"></i></button>
-        <button class="winamp-button" id="winamp-play"><i class="fas fa-play"></i></button>
-        <button class="winamp-button" id="winamp-pause"><i class="fas fa-pause"></i></button>
-        <button class="winamp-button" id="winamp-stop"><i class="fas fa-stop"></i></button>
-        <button class="winamp-button" id="winamp-next"><i class="fas fa-step-forward"></i></button>
-      </div>
-      <div class="winamp-playlist" id="winamp-playlist">
-        <!-- Список файлов будет добавлен здесь -->
-      </div>
-      <div class="winamp-eq">
-        <div class="winamp-eq-slider"><div class="winamp-eq-handle"></div></div>
-        <div class="winamp-eq-slider"><div class="winamp-eq-handle"></div></div>
-        <div class="winamp-eq-slider"><div class="winamp-eq-handle"></div></div>
-        <div class="winamp-eq-slider"><div class="winamp-eq-handle"></div></div>
-        <div class="winamp-eq-slider"><div class="winamp-eq-handle"></div></div>
-      </div>
-      <div class="winamp-time" id="winamp-time">00:00 / 00:00</div>
-      <div class="winamp-volume">
-        <i class="fas fa-volume-down"></i>
-        <div class="winamp-volume-slider">
-          <div class="winamp-volume-handle"></div>
-        </div>
-        <i class="fas fa-volume-up"></i>
-      </div>
-      <div class="winamp-stats">
-        Bitrate: 320kbps | Sample Rate: 44.1kHz
       </div>
     </div>
   </div>
@@ -672,12 +504,46 @@
     <div class="status-bar" id="status-bar">Ready</div>
   </div>
 
+  <div class="wave-window window" id="wave-window">
+    <div class="title-bar">
+      <span>Processed Results</span>
+      <div class="window-controls">
+        <button class="minimize" title="Minimize">_</button>
+        <button class="close" title="Close">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <select class="file-selector" id="file-selector">
+        <option value="">Select a file to preview</option>
+      </select>
+      
+      <div class="wave-container">
+        <div class="wave-title" id="wave-title">No file selected</div>
+        <div class="wave-element" id="wave-element"></div>
+      </div>
+      
+      <div class="wave-controls">
+        <button class="wave-button" id="play-button" disabled>
+          <i class="fas fa-play"></i> Play
+        </button>
+        <button class="wave-button" id="stop-button" disabled>
+          <i class="fas fa-stop"></i> Stop
+        </button>
+        <button class="wave-button" id="close-wave-button">
+          <i class="fas fa-times"></i> Close
+        </button>
+      </div>
+      
+      <div class="info-panel" id="wave-info">
+        Select a file from dropdown to preview processed audio
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
     // Глобальные переменные
-    const waveformQueue = [];
-    let waveformBusy = false;
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
@@ -685,17 +551,14 @@
     let currentProcessing = null;
     let lastProgress = 0;
     let windowZIndex = 100;
-    let waveWindows = [];
     let audioContextInitialized = false;
     let memoryWarningShown = false;
     let processedFiles = [];
     let wavesurfer = null;
-    let currentPlayingIndex = -1;
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
-      initWinampPlayer();
     });
 
     function initApp() {
@@ -728,8 +591,12 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
+      const waveWindowButton = document.getElementById('wave-window-button');
+      const closeWaveButton = document.getElementById('close-wave-button');
+      const playButton = document.getElementById('play-button');
+      const stopButton = document.getElementById('stop-button');
+      const fileSelector = document.getElementById('file-selector');
       const autoTrimCheckbox = document.getElementById('auto-trim');
-      const viewResultsButton = document.getElementById('view-results-button');
 
       // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
@@ -748,6 +615,18 @@
       // Кнопки выбора
       selectFileButton.addEventListener('click', () => fileInput.click());
       selectFolderButton.addEventListener('click', () => folderInput.click());
+      waveWindowButton.addEventListener('click', () => {
+        document.getElementById('wave-window').style.display = 'block';
+        windowZIndex += 2;
+        document.getElementById('wave-window').style.zIndex = windowZIndex;
+      });
+      closeWaveButton.addEventListener('click', () => {
+        document.getElementById('wave-window').style.display = 'none';
+        if (wavesurfer && wavesurfer.isPlaying()) {
+          wavesurfer.stop();
+        }
+      });
+      
       clearButton.addEventListener('click', () => {
         document.getElementById('file-info').innerHTML = 
           '<div>Drop or select audio files/folders to process</div>' +
@@ -756,14 +635,6 @@
           '<div>Folder structure will be preserved in output</div>' +
           '<div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>';
         updateStatus("File list cleared");
-        viewResultsButton.style.display = 'none';
-      });
-      
-      viewResultsButton.addEventListener('click', () => {
-        document.getElementById('winamp-player').style.display = 'block';
-        document.getElementById('winamp-player').style.zIndex = windowZIndex + 2;
-        windowZIndex += 2;
-        updateWinampPlaylist();
       });
       
       fileInput.addEventListener('change', (e) => {
@@ -788,7 +659,6 @@
       // Кнопка отмены
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
-        waveformQueue.length = 0; // Очищаем очередь визуализации
         
         if (currentProcessing) {
           currentProcessing.cancel();
@@ -798,176 +668,98 @@
         updateStatus("Processing cancelled");
       });
       
-      // Стартовый статус
-      updateStatus("Ready to process files");
-    }
-    
-    // Инициализация Winamp-плеера
-    function initWinampPlayer() {
-      const player = document.getElementById('winamp-player');
-      const closeBtn = document.getElementById('winamp-close');
-      const playBtn = document.getElementById('winamp-play');
-      const pauseBtn = document.getElementById('winamp-pause');
-      const stopBtn = document.getElementById('winamp-stop');
-      const prevBtn = document.getElementById('winamp-prev');
-      const nextBtn = document.getElementById('winamp-next');
+      // Обработка кнопок окна визуализации
+      document.querySelector('#wave-window .minimize').addEventListener('click', () => {
+        const content = document.querySelector('#wave-window .content');
+        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+      });
       
-      // Обработка кнопок
-      closeBtn.addEventListener('click', () => {
+      document.querySelector('#wave-window .close').addEventListener('click', () => {
+        document.getElementById('wave-window').style.display = 'none';
         if (wavesurfer && wavesurfer.isPlaying()) {
           wavesurfer.stop();
         }
-        player.style.display = 'none';
       });
       
-      playBtn.addEventListener('click', () => {
-        if (wavesurfer && !wavesurfer.isPlaying()) {
-          if (currentPlayingIndex >= 0) {
+      // Функциональность перемещения окна визуализации
+      const waveTitleBar = document.querySelector('#wave-window .title-bar');
+      waveTitleBar.addEventListener('mousedown', dragMouseDown);
+      
+      // Воспроизведение/остановка
+      playButton.addEventListener('click', () => {
+        if (wavesurfer) {
+          if (wavesurfer.isPlaying()) {
+            wavesurfer.pause();
+            playButton.innerHTML = '<i class="fas fa-play"></i> Play';
+          } else {
             wavesurfer.play();
-          } else if (processedFiles.length > 0) {
-            playFile(0);
+            playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
           }
         }
       });
       
-      pauseBtn.addEventListener('click', () => {
-        if (wavesurfer && wavesurfer.isPlaying()) {
-          wavesurfer.pause();
-        }
-      });
-      
-      stopBtn.addEventListener('click', () => {
+      stopButton.addEventListener('click', () => {
         if (wavesurfer) {
           wavesurfer.stop();
-          currentPlayingIndex = -1;
-          updatePlaylistSelection();
-          document.getElementById('winamp-time').textContent = '00:00 / 00:00';
+          playButton.innerHTML = '<i class="fas fa-play"></i> Play';
         }
       });
       
-      prevBtn.addEventListener('click', () => {
-        if (processedFiles.length > 0) {
-          const newIndex = (currentPlayingIndex - 1 + processedFiles.length) % processedFiles.length;
-          playFile(newIndex);
-        }
-      });
-      
-      nextBtn.addEventListener('click', () => {
-        if (processedFiles.length > 0) {
-          const newIndex = (currentPlayingIndex + 1) % processedFiles.length;
-          playFile(newIndex);
+      // Обработка выбора файла
+      fileSelector.addEventListener('change', (e) => {
+        const fileName = e.target.value;
+        if (!fileName) return;
+        
+        const file = processedFiles.find(f => f.fileName === fileName);
+        if (file) {
+          loadWaveform(file);
         }
       });
       
       // Инициализация Wavesurfer
-      initWavesurfer();
+      initWaveSurfer();
+      
+      // Стартовый статус
+      updateStatus("Ready to process files");
     }
     
-    function initWavesurfer() {
-      try {
-        wavesurfer = WaveSurfer.create({
-          container: '#winamp-visualizer',
-          waveColor: '#00ff00',
-          progressColor: '#ffff00',
-          height: 40,
-          barWidth: 2,
-          cursorColor: '#ff0000',
-          normalize: true,
-          fillParent: true,
-          partialRender: true,
-          pixelRatio: 1
-        });
-        
-        wavesurfer.on('ready', () => {
-          document.getElementById('winamp-display').textContent = 
-            `Playing: ${processedFiles[currentPlayingIndex]?.fileName || 'Unknown'}`;
-        });
-        
-        wavesurfer.on('play', () => {
-          document.getElementById('winamp-play').innerHTML = '<i class="fas fa-pause"></i>';
-          document.getElementById('winamp-display').textContent = 
-            `Playing: ${processedFiles[currentPlayingIndex]?.fileName || 'Unknown'}`;
-        });
-        
-        wavesurfer.on('pause', () => {
-          document.getElementById('winamp-play').innerHTML = '<i class="fas fa-play"></i>';
-          document.getElementById('winamp-display').textContent = 
-            `Paused: ${processedFiles[currentPlayingIndex]?.fileName || 'Unknown'}`;
-        });
-        
-        wavesurfer.on('finish', () => {
-          document.getElementById('winamp-play').innerHTML = '<i class="fas fa-play"></i>';
-          document.getElementById('winamp-display').textContent = 
-            `Finished: ${processedFiles[currentPlayingIndex]?.fileName || 'Unknown'}`;
-          currentPlayingIndex = -1;
-          updatePlaylistSelection();
-        });
-        
-        wavesurfer.on('audioprocess', (time) => {
-          const duration = wavesurfer.getDuration();
-          const currentTime = Math.min(time, duration);
-          document.getElementById('winamp-time').textContent = 
-            `${formatTime(currentTime)} / ${formatTime(duration)}`;
-        });
-        
-      } catch (error) {
-        console.error('Wavesurfer initialization error:', error);
-        document.getElementById('winamp-visualizer').innerHTML = 
-          '<div class="render-error">Visualizer failed to initialize</div>';
+    // Инициализация Wavesurfer
+    function initWaveSurfer() {
+      if (typeof WaveSurfer === 'undefined') {
+        console.error('Wavesurfer failed to load');
+        return;
       }
-    }
-    
-    function playFile(index) {
-      if (index < 0 || index >= processedFiles.length) return;
       
-      const file = processedFiles[index];
-      if (!file || !file.blobUrl) return;
+      wavesurfer = WaveSurfer.create({
+        container: '#wave-element',
+        waveColor: '#0f0',
+        progressColor: '#ff0',
+        height: 100,
+        barWidth: 2,
+        cursorColor: '#f00',
+        normalize: true,
+        fillParent: true,
+        partialRender: true,
+        pixelRatio: 1
+      });
       
-      currentPlayingIndex = index;
-      updatePlaylistSelection();
+      wavesurfer.on('ready', () => {
+        playButton.disabled = false;
+        stopButton.disabled = false;
+        updateStatus("Waveform ready for playback");
+      });
       
-      if (wavesurfer) {
-        wavesurfer.load(file.blobUrl);
-        wavesurfer.once('ready', () => {
-          wavesurfer.play();
-        });
-      }
-    }
-    
-    function updatePlaylistSelection() {
-      const playlist = document.getElementById('winamp-playlist');
-      const items = playlist.querySelectorAll('.winamp-playlist-item');
+      wavesurfer.on('finish', () => {
+        playButton.innerHTML = '<i class="fas fa-play"></i> Play';
+      });
       
-      items.forEach((item, index) => {
-        if (index === currentPlayingIndex) {
-          item.classList.add('active');
-        } else {
-          item.classList.remove('active');
-        }
+      wavesurfer.on('error', (err) => {
+        console.error('Wavesurfer error:', err);
+        document.getElementById('wave-info').innerHTML = 
+          `<div class="render-error">Playback error: ${err.message}</div>`;
       });
     }
     
-    function updateWinampPlaylist() {
-      const playlist = document.getElementById('winamp-playlist');
-      playlist.innerHTML = '';
-      
-      processedFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'winamp-playlist-item';
-        item.textContent = file.fileName;
-        item.addEventListener('click', () => {
-          playFile(index);
-        });
-        playlist.appendChild(item);
-      });
-    }
-    
-    function formatTime(seconds) {
-      const min = Math.floor(seconds / 60);
-      const sec = Math.floor(seconds % 60);
-      return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-    }
-
     // Проверка доступной памяти
     function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
@@ -1148,25 +940,23 @@
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
-      const viewResultsButton = document.getElementById('view-results-button');
 
       // Подготовка интерфейса
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
-      viewResultsButton.style.display = 'none';
       
       updateStatus(`Processing ${items.length} item(s)`);
 
       // Подготовка ZIP
       const zip = new JSZip();
       
-      // ИСПРАВЛЕНИЕ: Объявляем счетчики каналов здесь
+      // Объявляем счетчики каналов здесь
       let stereoOriginal = 0;
       let monoOriginal = 0;
       let totalOriginalSize = 0;
       let totalProcessedSize = 0;
-      let processedFilesCount = 0;
+      let processedCount = 0;
       let totalTrimmed = 0;
 
       // Прогресс бар
@@ -1240,20 +1030,21 @@
         for (const result of results) {
           if (!result) continue;
           
-          processedFilesCount++;
+          processedCount++;
           totalOriginalSize += result.originalSize;
           totalProcessedSize += result.processedSize;
           totalTrimmed += result.trimmedSamples || 0;
           
-          // ИСПРАВЛЕНИЕ: Обновляем счетчики каналов
+          // Обновляем счетчики каналов
           if (result.channels === 1) monoOriginal++;
           else if (result.channels === 2) stereoOriginal++;
           
-          // Сохраняем для прослушивания
+          // Сохраняем для визуализации
           processedFiles.push({
             fileName: result.fileName,
-            blobUrl: result.blobUrl,
-            audioBuffer: result.audioBuffer
+            buffer: result.buffer,
+            originalSize: result.originalSize,
+            processedSize: result.processedSize
           });
         }
       }
@@ -1267,7 +1058,7 @@
 
       // Скачивание ZIP
       try {
-        if (processedFilesCount > 0 && !processingCancelled) {
+        if (processedCount > 0 && !processingCancelled) {
           // Функция для дросселирования обновления прогресс-бара
           const throttle = (func, limit) => {
             let lastFunc;
@@ -1328,7 +1119,7 @@
           const channels = getSelectedValue('channels');
           
           fileInfo.innerHTML += `
-            <div><b>Processed ${processedFilesCount} files</b></div>
+            <div><b>Processed ${processedCount} files</b></div>
             <div>Original size: ${formatBytes(totalOriginalSize)}</div>
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
             <div>Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%</div>
@@ -1344,10 +1135,10 @@
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
           `;
           
-          updateStatus(`Processed ${processedFilesCount} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
+          updateStatus(`Processed ${processedCount} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
           
-          // Показываем кнопку для просмотра результатов
-          viewResultsButton.style.display = 'block';
+          // Обновляем список файлов в окне визуализации
+          updateFileSelector();
         }
       } catch (error) {
         console.error('Error generating ZIP:', error);
@@ -1380,7 +1171,6 @@
       let channels = 0;
       let originalExtension = file.name.split('.').pop().toLowerCase();
       let useWavFallback = false;
-      let blobUrl = null;
       
       try {
         // Обновление UI
@@ -1393,8 +1183,8 @@
         }
         
         // Проверка размера файла
-        if (file.size > 50 * 1024 * 1024) {
-          throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
+        if (file.size > 100 * 1024 * 1024) {
+          throw new Error(`File size exceeds 100MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
         // Инициализация AudioContext при необходимости
@@ -1468,10 +1258,6 @@
         // Добавление в ZIP с сохранением структуры папок
         zip.file(fileName, outputBlob);
         
-        // Создаем URL для прослушивания
-        blobUrl = URL.createObjectURL(outputBlob);
-        createdObjectURLs.push(blobUrl);
-        
         // Обновление информации
         const originalSizeKB = (originalSize / 1024).toFixed(1);
         const processedSizeKB = (processedSize / 1024).toFixed(1);
@@ -1499,8 +1285,7 @@
           originalSize: originalSize,
           processedSize: processedSize,
           trimmedSamples: trimmedSamples,
-          channels: channels,
-          blobUrl: blobUrl
+          channels: channels
         };
         
       } catch (error) {
@@ -1864,9 +1649,9 @@
       const dataLength = length * blockAlign;
       
       // Исправленный расчет размера файла
-      const chunkSize = 36 + dataLength; // Размер "fmt " + "data" чанков
-      const fileSize = 8 + chunkSize + ko2Chunk.byteLength; // RIFF заголовок + данные
-      const riffSize = fileSize - 8;
+      const chunkSize = 36 + dataLength + ko2Chunk.byteLength;
+      const riffSize = chunkSize;
+      const fileSize = 8 + riffSize;
       
       // Создание WAV-заголовка
       const header = new ArrayBuffer(44);
@@ -1955,6 +1740,107 @@
       }
     }
 
+    // Обновление списка файлов в выпадающем меню
+    function updateFileSelector() {
+      const selector = document.getElementById('file-selector');
+      // Сохраняем текущее значение
+      const currentValue = selector.value;
+      
+      // Очищаем все опции кроме первой
+      while (selector.options.length > 1) {
+        selector.remove(1);
+      }
+      
+      // Добавляем новые опции
+      processedFiles.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.fileName;
+        option.textContent = file.fileName;
+        selector.appendChild(option);
+      });
+      
+      // Восстанавливаем предыдущее значение
+      if (currentValue && processedFiles.some(f => f.fileName === currentValue)) {
+        selector.value = currentValue;
+      }
+    }
+
+    // Загрузка волны в окно визуализации
+    function loadWaveform(file) {
+      if (!wavesurfer) {
+        console.error("Wavesurfer not initialized");
+        return;
+      }
+      
+      // Останавливаем воспроизведение
+      if (wavesurfer.isPlaying()) {
+        wavesurfer.stop();
+        document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i> Play';
+      }
+      
+      try {
+        // Обновляем заголовок
+        document.getElementById('wave-title').textContent = file.fileName;
+        
+        // Создаем WAV blob
+        const wavBlob = audioBufferToWav(file.buffer);
+        const url = URL.createObjectURL(wavBlob);
+        createdObjectURLs.push(url);
+        
+        // Загружаем в Wavesurfer
+        wavesurfer.load(url);
+        
+        // Обновляем информацию
+        document.getElementById('wave-info').innerHTML = `
+          <div>File: ${file.fileName}</div>
+          <div>Original size: ${formatBytes(file.originalSize)}</div>
+          <div>Processed size: ${formatBytes(file.processedSize)}</div>
+          <div>Duration: ${file.buffer.duration.toFixed(2)}s</div>
+        `;
+        
+      } catch (err) {
+        console.error('Error loading waveform:', err);
+        document.getElementById('wave-info').innerHTML = 
+          `<div class="render-error">Error loading waveform: ${err.message}</div>`;
+      }
+    }
+
+    // Функции перемещения окна
+    function dragMouseDown(e) {
+      e.preventDefault();
+      const windowElement = document.getElementById('wave-window');
+      // Поднимаем окно на верхний план
+      windowZIndex += 2;
+      windowElement.style.zIndex = windowZIndex;
+      
+      // Получаем позиции курсора
+      pos3 = e.clientX;
+      pos4 = e.clientY;
+      document.addEventListener('mouseup', closeDragElement);
+      document.addEventListener('mousemove', elementDrag);
+    }
+    
+    function elementDrag(e) {
+      e.preventDefault();
+      const windowElement = document.getElementById('wave-window');
+      // Вычисляем новую позицию
+      const newX = windowElement.offsetLeft - (pos3 - e.clientX);
+      const newY = windowElement.offsetTop - (pos4 - e.clientY);
+      
+      // Обновляем позицию
+      windowElement.style.left = newX + "px";
+      windowElement.style.top = newY + "px";
+      
+      // Обновляем позиции курсора
+      pos3 = e.clientX;
+      pos4 = e.clientY;
+    }
+    
+    function closeDragElement() {
+      document.removeEventListener('mouseup', closeDragElement);
+      document.removeEventListener('mousemove', elementDrag);
+    }
+
     // Вспомогательные функции
     function updateProgressBar(progress) {
       return new Promise(resolve => {
@@ -1990,6 +1876,9 @@
       createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
       if (activeAudioContext) {
         activeAudioContext.close();
+      }
+      if (wavesurfer) {
+        wavesurfer.destroy();
       }
     });
   </script>
