@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
+    /* Все стили остаются без изменений */
     :root { --glow-color: #ff3333; }
     body {
       background: #008080;
@@ -631,7 +632,7 @@
     let memoryWarningShown = false;
     let processedFiles = [];
     let vocalSeparatedStems = {};
-    let vocalSelectedFile = null; // Для хранения выбранного файла в Vocal Remover
+    let vocalSelectedFile = null;
     let pos3 = 0, pos4 = 0;
     let currentPreviewUrl = null;
 
@@ -726,12 +727,12 @@
       
       fileInput.addEventListener('change', (e) => {
         processFiles(e.target.files);
-        e.target.value = null; // Сброс значения для повторной загрузки тех же файлов
+        e.target.value = null;
       });
       
       folderInput.addEventListener('change', (e) => {
         processFolder(e.target.files);
-        e.target.value = null; // Сброс значения
+        e.target.value = null;
       });
       
       // Обработка кнопок окна
@@ -842,7 +843,7 @@
         return;
       }
       
-      if (file.size > 100 * 1024 * 1024) { // 100MB limit
+      if (file.size > 100 * 1024 * 1024) {
         alert(`File size exceeds 100MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         return;
       }
@@ -859,6 +860,7 @@
       // Сохраняем файл для обработки
       vocalSelectedFile = file;
       document.getElementById('process-button').disabled = false;
+      updateStatus(`File selected: ${file.name}`);
     }
     
     async function processVocalSeparation() {
@@ -870,7 +872,6 @@
       const model = document.getElementById('model-select').value;
       const quality = document.getElementById('quality-select').value;
       
-      // Получаем элемент кнопки
       const processButton = document.getElementById('process-button');
       
       // Показываем индикатор загрузки
@@ -886,10 +887,12 @@
         
         // Показываем результаты
         showSeparationResults(model);
+        updateStatus("Vocal separation completed");
         
       } catch (error) {
         console.error("Separation error:", error);
         alert(`Error during processing: ${error.message}`);
+        updateStatus(`Error: ${error.message}`);
       } finally {
         processButton.innerHTML = '<i class="fas fa-cogs"></i> Separate Tracks';
         processButton.disabled = false;
@@ -897,9 +900,7 @@
     }
     
     async function simulateSeparationProcess(file, model, processButton) {
-      // Имитация длительного процесса
       return new Promise((resolve) => {
-        // Создаем фейковые дорожки для демонстрации
         const stems = {};
         const stemNames = {
           '2stems': ['Vocals', 'Accompaniment'],
@@ -911,13 +912,11 @@
         const progressInterval = setInterval(() => {
           progress = Math.min(100, progress + Math.random() * 10);
           
-          // Используем переданный элемент кнопки
           processButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing... ${Math.round(progress)}%`;
           
           if (progress >= 100) {
             clearInterval(progressInterval);
             
-            // Генерируем фейковые дорожки
             stemNames[model].forEach(stem => {
               stems[stem] = {
                 name: `${stem}.mp3`,
@@ -939,11 +938,9 @@
       canvas.height = 50;
       const ctx = canvas.getContext('2d');
       
-      // Рисуем фон
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Рисуем случайную волновую форму
       ctx.fillStyle = '#0f0';
       const centerY = canvas.height / 2;
       
@@ -977,7 +974,6 @@
         stemContainer.appendChild(stemItem);
       });
       
-      // Обработчики для кнопок скачивания
       document.querySelectorAll('.download-stem').forEach(button => {
         button.addEventListener('click', (e) => {
           const stemName = e.target.closest('.download-stem').dataset.stem;
@@ -985,7 +981,6 @@
         });
       });
       
-      // Показываем результаты
       document.getElementById('vocal-results').style.display = 'block';
     }
     
@@ -1001,8 +996,8 @@
       a.click();
       document.body.removeChild(a);
       
-      // Освобождаем ресурсы
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      updateStatus(`Downloaded: ${stem.name}`);
     }
     
     function downloadAllStems() {
@@ -1022,19 +1017,17 @@
         a.click();
         document.body.removeChild(a);
         
-        // Освобождаем ресурсы
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+        updateStatus("Downloaded all stems as ZIP");
       });
     }
     
     // Функция для перемещения окна
     function dragMouseDown(e, windowElement) {
       e.preventDefault();
-      // Поднимаем окно на верхний план
       windowZIndex += 2;
       windowElement.style.zIndex = windowZIndex;
       
-      // Получаем позиции курсора
       pos3 = e.clientX;
       pos4 = e.clientY;
       document.addEventListener('mouseup', closeDragElement);
@@ -1042,15 +1035,12 @@
       
       function elementDrag(e) {
         e.preventDefault();
-        // Вычисляем новую позицию
         const newX = windowElement.offsetLeft - (pos3 - e.clientX);
         const newY = windowElement.offsetTop - (pos4 - e.clientY);
         
-        // Обновляем позицию
         windowElement.style.left = newX + "px";
         windowElement.style.top = newY + "px";
         
-        // Обновляем позиции курсора
         pos3 = e.clientX;
         pos4 = e.clientY;
       }
@@ -1102,7 +1092,6 @@
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
-      // Очистка предыдущих URL
       createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
       createdObjectURLs = [];
     }
@@ -1132,12 +1121,10 @@
       document.getElementById('drop-zone').classList.remove('dragover');
       
       if (e.dataTransfer.items) {
-        // Обработка папок через items API
         const items = [];
         const queue = [];
         const entries = [];
 
-        // Собираем все entries
         for (const item of e.dataTransfer.items) {
           if (item.kind === 'file') {
             const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
@@ -1149,15 +1136,12 @@
 
         if (entries.length === 0) return;
         
-        // Добавляем все элементы в очередь
         for (const entry of entries) {
           queue.push({ entry, path: '' });
         }
         
-        // Начинаем обработку очереди
         processQueue(queue, items);
       } else if (e.dataTransfer.files.length > 0) {
-        // Обработка отдельных файлов
         const items = Array.from(e.dataTransfer.files).map(file => ({
           file,
           path: file.name
@@ -1176,13 +1160,11 @@
       const { entry, path } = queue.shift();
       
       if (entry.isFile) {
-        // Обработка файла
         entry.file(file => {
           items.push({ file, path: path + file.name });
           processQueue(queue, items);
         });
       } else if (entry.isDirectory) {
-        // Обработка директории
         const dirReader = entry.createReader();
         dirReader.readEntries(entries => {
           for (const childEntry of entries) {
@@ -1212,7 +1194,6 @@
       const items = [];
       
       for (const file of files) {
-        // Используем относительный путь, если он доступен
         const path = file.webkitRelativePath || file.name;
         items.push({ file, path });
       }
@@ -1224,7 +1205,6 @@
     function initAudioContext() {
       if (!activeAudioContext) {
         activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log("AudioContext created");
         audioContextInitialized = true;
       }
       return activeAudioContext;
@@ -1242,17 +1222,14 @@
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
 
-      // Подготовка интерфейса
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
       
       updateStatus(`Processing ${items.length} item(s)`);
 
-      // Подготовка ZIP
       const zip = new JSZip();
       
-      // Объявляем счетчики каналов здесь
       let stereoOriginal = 0;
       let monoOriginal = 0;
       let totalOriginalSize = 0;
@@ -1260,7 +1237,6 @@
       let processedCount = 0;
       let totalTrimmed = 0;
 
-      // Прогресс бар
       segmentContainer.innerHTML = '';
       const totalSegments = 50;
       for (let i = 0; i < totalSegments; i++) {
@@ -1269,7 +1245,6 @@
         segmentContainer.appendChild(seg);
       }
 
-      // Обработка каждого элемента
       currentProcessing = {
         cancel: () => {
           processingCancelled = true;
@@ -1282,7 +1257,6 @@
         }
       };
 
-      // Оптимизация: батчинг и ограничение одновременных операций
       const BATCH_SIZE = 5;
       const MAX_CONCURRENT = 3;
       
@@ -1292,7 +1266,6 @@
         const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
         const batchItems = items.slice(batchStart, batchEnd);
         
-        // Обрабатываем батч
         const results = [];
         let running = 0;
         let indexInBatch = 0;
@@ -1317,17 +1290,14 @@
               }
             })();
           } else {
-            // Ждем, пока освободится место
             await new Promise(resolve => setTimeout(resolve, 50));
           }
         }
         
-        // Ждем завершения всех операций в батче
         while (running > 0) {
           await new Promise(resolve => setTimeout(resolve, 50));
         }
         
-        // Обновляем статистику
         for (const result of results) {
           if (!result) continue;
           
@@ -1336,11 +1306,9 @@
           totalProcessedSize += result.processedSize;
           totalTrimmed += result.trimmedSamples || 0;
           
-          // Обновляем счетчики каналов
           if (result.channels === 1) monoOriginal++;
           else if (result.channels === 2) stereoOriginal++;
           
-          // Сохраняем для визуализации
           processedFiles.push({
             fileName: result.fileName,
             buffer: result.buffer,
@@ -1350,17 +1318,14 @@
         }
       }
 
-      // Завершение прогресс бара
       if (!processingCancelled) {
         segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
           seg.classList.add('active');
         });
       }
 
-      // Скачивание ZIP
       try {
         if (processedCount > 0 && !processingCancelled) {
-          // Функция для дросселирования обновления прогресс-бара
           const throttle = (func, limit) => {
             let lastFunc;
             let lastRan;
@@ -1396,7 +1361,6 @@
             throttledProgress(progress);
           });
           
-          // Финализация прогресс-бара
           await updateProgressBar(1);
           
           const zipUrl = URL.createObjectURL(zipBlob);
@@ -1409,13 +1373,11 @@
           a.click();
           document.body.removeChild(a);
           
-          // Освобождаем URL после скачивания
           setTimeout(() => {
             URL.revokeObjectURL(zipUrl);
             createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
           }, 1000);
           
-          // Статистика
           const fidelity = getSelectedValue('fidelity');
           const channels = getSelectedValue('channels');
           
@@ -1445,7 +1407,6 @@
         }
       }
 
-      // Закрытие оверлея
       if (!processingCancelled) {
         hideOverlay();
       }
@@ -1470,31 +1431,25 @@
       let originalExtension = file.name.split('.').pop().toLowerCase();
       
       try {
-        // Обновление UI
         updateCurrentFile(`Processing: ${escapeHTML(item.path)} (${index+1}/${total})`);
         updateFileInfo(`<div>Processing: ${escapeHTML(item.path)}</div>`);
         
-        // Проверка типа файла
         if (!isSupportedAudioType(file.type, file.name)) {
           throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
         }
         
-        // Проверка размера файла
         if (file.size > 100 * 1024 * 1024) {
           throw new Error(`File size exceeds 100MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
-        // Показать предпрослушивание для первого файла
         if (index === 0) {
           showPreview(file);
         }
         
-        // Инициализация AudioContext при необходимости
         if (!audioContextInitialized) {
           initAudioContext();
         }
         
-        // Декодирование аудио
         const arrayBuffer = await file.arrayBuffer();
         if (processingCancelled) return null;
         
@@ -1502,19 +1457,15 @@
         decoded = await audioContext.decodeAudioData(arrayBuffer);
         if (processingCancelled) return null;
         
-        // Сохраняем количество каналов
         channels = decoded.numberOfChannels;
         
-        // Получение настроек
         const fidelity = getSelectedValue('fidelity');
         const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
         
-        // Обработка аудио - ускорение 2x
         processed = await processAudio(decoded, fidelity, channelsSetting);
         if (processingCancelled) return null;
         
-        // Автоматическая обрезка тишины
         if (autoTrim) {
           const beforeLength = processed.length;
           processed = trimSilence(processed);
@@ -1524,7 +1475,6 @@
           updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
         }
         
-        // Определение пути в ZIP с сохранением оригинального расширения
         fileName = item.path;
         if (fileName.includes('/')) {
           const parts = fileName.split('/');
@@ -1544,30 +1494,22 @@
           }
         }
         
-        // Проверяем, поддерживается ли формат браузером
         let outputExtension = originalExtension;
         let mimeType = getMimeType(originalExtension);
         
-        // Для форматов, отличных от WAV, проверяем поддержку
         if (originalExtension !== 'wav') {
-          // Если MediaRecorder не поддерживает тип, используем WAV
           if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
             outputExtension = 'wav';
-            // Обновляем имя файла
             fileName = fileName.replace(/\.[^/.]+$/, '') + '.wav';
-            // Добавляем предупреждение
             updateFileInfo(`<div class="file-warning">Browser does not support ${originalExtension} encoding. Using WAV format instead.</div>`);
           }
         }
         
-        // Создание Blob с оригинальным типом
         const outputBlob = await audioBufferToBlob(processed, outputExtension);
         processedSize = outputBlob.size;
         
-        // Добавление в ZIP с сохранением структуры папок
         zip.file(fileName, outputBlob);
         
-        // Обновление информации
         const originalSizeKB = (originalSize / 1024).toFixed(1);
         const processedSizeKB = (processedSize / 1024).toFixed(1);
         const sizeDifference = processedSize - originalSize;
@@ -1585,7 +1527,6 @@
           <div>${sizeInfo}</div>
         `);
         
-        // Обновление прогресса
         await updateProgressBar((index + 1) / total);
         
         return {
@@ -1604,11 +1545,10 @@
         }
         return null;
       } finally {
-        // Освобождение памяти
         decoded = null;
         processed = null;
-        await new Promise(resolve => setTimeout(resolve, 0)); // Дать время на GC
-        if (window.gc) window.gc(); // Принудительный сборщик мусора в Chrome
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (window.gc) window.gc();
       }
     }
 
@@ -1617,19 +1557,15 @@
       const previewContainer = document.getElementById('preview-container');
       const previewAudio = document.getElementById('preview-audio');
       
-      // Освободить предыдущий URL
       if (currentPreviewUrl) {
         URL.revokeObjectURL(currentPreviewUrl);
       }
       
-      // Создать новый URL для предпрослушивания
       currentPreviewUrl = URL.createObjectURL(file);
       previewAudio.src = currentPreviewUrl;
       
-      // Показать контейнер
       previewContainer.style.display = 'block';
       
-      // Сгенерировать waveform
       generateWaveformPreview(file);
     }
     
@@ -1638,25 +1574,21 @@
       const canvas = document.getElementById('preview-waveform');
       const ctx = canvas.getContext('2d');
       
-      // Установим правильные размеры canvas
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
       
       const width = canvas.width;
       const height = canvas.height;
       
-      // Очистить canvas
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, width, height);
       
       try {
-        // Загрузить аудио
         const arrayBuffer = await file.arrayBuffer();
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
-        // Получить данные канала
         const channelData = audioBuffer.getChannelData(0);
         const step = Math.ceil(channelData.length / width);
         
@@ -1681,7 +1613,6 @@
           ctx.fillRect(i, y, 1, h);
         }
         
-        // Закрыть контекст
         audioContext.close();
       } catch (error) {
         console.error('Waveform generation error:', error);
@@ -1709,7 +1640,6 @@
       if (extension === 'wav') {
         return audioBufferToWav(audioBuffer);
       } else {
-        // Для других форматов конвертируем через медиа-рекордер
         return new Promise((resolve, reject) => {
           try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1751,18 +1681,16 @@
 
     // Оптимизированная функция обрезки тишины
     function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
-      const threshold = Math.pow(10, thresholdDb / 20); // Преобразование dB в линейное значение
+      const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
       const channelData = audioBuffer.getChannelData(0);
       const length = channelData.length;
       
-      // Быстрая проверка по максимумам в блоках
       const blockSize = 1024;
       let startIndex = 0;
       let endIndex = length - 1;
       
-      // Находим начало звука
       for (let i = 0; i < length; i += blockSize) {
         let hasSound = false;
         const blockEnd = Math.min(i + blockSize, length);
@@ -1778,7 +1706,6 @@
         if (hasSound) break;
       }
       
-      // Находим конец звука
       for (let i = length - 1; i >= 0; i -= blockSize) {
         let hasSound = false;
         const blockStart = Math.max(0, i - blockSize);
@@ -1794,20 +1721,16 @@
         if (hasSound) break;
       }
       
-      // Уточнение границ
       startIndex = findExactStart(channelData, startIndex, threshold);
       endIndex = findExactEnd(channelData, endIndex, threshold);
       
-      // Если весь буфер - тишина, возвращаем буфер длительностью 1 сэмпл
       if (startIndex >= endIndex) {
         return createEmptyBuffer(audioBuffer);
       }
       
-      // Добавляем небольшую паузу в начале и конце
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
       endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
       
-      // Создаем новый буфер с обрезанными данными
       const newLength = endIndex - startIndex + 1;
       const newBuffer = new AudioBuffer({
         length: newLength,
@@ -1818,7 +1741,6 @@
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
         const targetData = newBuffer.getChannelData(ch);
-        // Используем set для быстрого копирования
         targetData.set(sourceData.subarray(startIndex, endIndex + 1));
       }
       
@@ -1834,7 +1756,6 @@
     }
 
     function findExactStart(data, roughStart, threshold) {
-      // Ищем точное начало от грубой позиции
       for (let i = roughStart; i >= 0; i--) {
         if (Math.abs(data[i]) > threshold) {
           return i;
@@ -1844,7 +1765,6 @@
     }
 
     function findExactEnd(data, roughEnd, threshold) {
-      // Ищем точный конец от грубой позиции
       for (let i = roughEnd; i < data.length; i++) {
         if (Math.abs(data[i]) > threshold) {
           return i;
@@ -1877,7 +1797,6 @@
       
       updateStatus(errorDetails);
       
-      // Освобождаем ресурсы при критических ошибках
       if (error.message.includes('memory') || error.message.includes('allocation')) {
         if (activeAudioContext) {
           activeAudioContext.close();
@@ -1945,13 +1864,10 @@
       const fidelitySettings = getFidelitySettings(fidelity);
       const targetChannels = channels === 'mono' ? 1 : 2;
       
-      // Ускоряем в 2 раза
       const speedFactor = 2.0;
       
-      // Применяем каналы
       const converted = await convertChannels(buffer, targetChannels);
       
-      // Применяем фиделити
       const downsampleRate = fidelitySettings.sampleRate;
       return await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
     }
@@ -1969,13 +1885,11 @@
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       
-      // Для преобразования в моно
       if (targetChannels === 1 && buffer.numberOfChannels > 1) {
         const merger = ctx.createChannelMerger(1);
         const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
         source.connect(splitter);
         
-        // Усредняем все каналы в моно
         const gain = ctx.createGain();
         gain.gain.value = 1 / buffer.numberOfChannels;
         
@@ -1986,14 +1900,12 @@
         gain.connect(merger, 0, 0);
         merger.connect(ctx.destination);
       } 
-      // Для преобразования в стерео
       else if (targetChannels === 2 && buffer.numberOfChannels === 1) {
         const merger = ctx.createChannelMerger(2);
         source.connect(merger, 0, 0);
         source.connect(merger, 0, 1);
         merger.connect(ctx.destination);
       } 
-      // Для других случаев
       else {
         source.connect(ctx.destination);
       }
@@ -2001,7 +1913,6 @@
       source.start();
       const result = await ctx.startRendering();
       
-      // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
       
@@ -2025,7 +1936,6 @@
       source.start();
       const result = await ctx.startRendering();
       
-      // Освобождение ресурсов
       source.disconnect();
       if (ctx.destination) ctx.destination.disconnect();
       
@@ -2033,15 +1943,12 @@
     }
 
     function audioBufferToWav(buffer) {
-      // ФИКСИРОВАННЫЕ МЕТАДАННЫЕ ДЛЯ KO II
-      const pitch = -12;      // -12 полутонов (октава вниз)
-      const release = 255;    // Максимальное время затухания
-      const playmode = 1;     // 1 = one shot
+      const pitch = -12;
+      const release = 255;
+      const playmode = 1;
       
-      // Создаем чанк ko2 с фиксированными параметрами (оригинальный формат)
       const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
       
-      // Получение параметров фиделити
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
       const bitDepth = fidelitySettings.bitDepth;
@@ -2053,46 +1960,28 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = length * blockAlign;
       
-      // Исправленный расчет размера файла
       const chunkSize = 36 + dataLength + ko2Chunk.byteLength;
       const riffSize = chunkSize;
-      const fileSize = 8 + riffSize;
       
-      // Создание WAV-заголовка
       const header = new ArrayBuffer(44);
       const view = new DataView(header);
       
-      // RIFF identifier
       writeString(view, 0, 'RIFF');
-      // RIFF chunk length
       view.setUint32(4, riffSize, true);
-      // RIFF type
       writeString(view, 8, 'WAVE');
-      // Format chunk identifier
       writeString(view, 12, 'fmt ');
-      // Format chunk length
       view.setUint32(16, 16, true);
-      // Sample format (raw)
       view.setUint16(20, 1, true);
-      // Channel count
       view.setUint16(22, numChannels, true);
-      // Sample rate
       view.setUint32(24, sampleRate, true);
-      // Byte rate (sample rate * block align)
       view.setUint32(28, sampleRate * blockAlign, true);
-      // Block align (channel count * bytes per sample)
       view.setUint16(32, blockAlign, true);
-      // Bits per sample
       view.setUint16(34, bitDepth, true);
-      // Data chunk identifier
       writeString(view, 36, 'data');
-      // Data chunk length
       view.setUint32(40, dataLength, true);
       
-      // Сборка аудиоданных
       let audioData;
       if (bitDepth === 8) {
-        // 8-битное беззнаковое аудио
         audioData = new Uint8Array(length * numChannels);
         let offset = 0;
         for (let i = 0; i < length; i++) {
@@ -2103,7 +1992,6 @@
           }
         }
       } else {
-        // 16-битное знаковое аудио
         audioData = new Int16Array(length * numChannels);
         let offset = 0;
         for (let i = 0; i < length; i++) {
@@ -2116,25 +2004,18 @@
         }
       }
       
-      // Создание итогового WAV файла
       return new Blob([header, audioData.buffer, ko2Chunk], { type: 'audio/wav' });
     }
 
     function writeKO2Chunk(pitch, release, playmode) {
-      // Оригинальный формат как в repitch: 12 байт
       const buffer = new ArrayBuffer(12);
       const view = new DataView(buffer);
       
-      // Заголовок чанка "ko2 "
       writeString(view, 0, 'ko2 ');
-      
-      // Размер данных (4 байта)
       view.setUint32(4, 4, true);
-      
-      // Данные параметров (как в оригинальном приложении)
-      view.setInt8(8, pitch);      // pitch (-24...+24)
-      view.setUint16(9, release, true); // release (0-255)
-      view.setUint8(11, playmode); // playmode (0 = poly, 1 = one shot)
+      view.setInt8(8, pitch);
+      view.setUint16(9, release, true);
+      view.setUint8(11, playmode);
       
       return buffer;
     }
@@ -2160,14 +2041,11 @@
     // Вспомогательные функции
     function updateProgressBar(progress) {
       return new Promise(resolve => {
-        // Ограничиваем прогресс от 0 до 1
         progress = Math.max(0, Math.min(1, progress));
         
-        // Рассчитываем сколько сегментов должно быть активными
         const segments = document.querySelectorAll('.progress-segment');
         const segmentsToActivate = Math.floor(progress * segments.length);
         
-        // Обновляем только изменившиеся сегменты
         for (let i = 0; i < segments.length; i++) {
           const shouldBeActive = i < segmentsToActivate;
           const isActive = segments[i].classList.contains('active');
@@ -2179,10 +2057,7 @@
           }
         }
         
-        // Сохраняем текущий прогресс
         lastProgress = progress;
-        
-        // Даем время на рендеринг
         setTimeout(resolve, 20);
       });
     }
