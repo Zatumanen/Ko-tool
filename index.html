@@ -631,9 +631,9 @@
     let memoryWarningShown = false;
     let processedFiles = [];
     let vocalSeparatedStems = {};
+    let vocalSelectedFile = null; // Для хранения выбранного файла в Vocal Remover
     let pos3 = 0, pos4 = 0;
     let currentPreviewUrl = null;
-    let currentWindowPosition = { x: 100, y: 100 };
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -857,13 +857,12 @@
       `;
       
       // Сохраняем файл для обработки
-      vocalDropZone.file = file;
+      vocalSelectedFile = file;
       document.getElementById('process-button').disabled = false;
     }
     
     async function processVocalSeparation() {
-      const file = document.getElementById('vocal-drop-zone').file;
-      if (!file) {
+      if (!vocalSelectedFile) {
         alert("Please select an audio file first");
         return;
       }
@@ -883,7 +882,7 @@
       
       try {
         // Имитация процесса разделения
-        await simulateSeparationProcess(file, model, processButton);
+        await simulateSeparationProcess(vocalSelectedFile, model, processButton);
         
         // Показываем результаты
         showSeparationResults(model);
@@ -1630,7 +1629,7 @@
       // Показать контейнер
       previewContainer.style.display = 'block';
       
-      // Сгенерировать waveform (упрощенная версия)
+      // Сгенерировать waveform
       generateWaveformPreview(file);
     }
     
@@ -1638,6 +1637,11 @@
     async function generateWaveformPreview(file) {
       const canvas = document.getElementById('preview-waveform');
       const ctx = canvas.getContext('2d');
+      
+      // Установим правильные размеры canvas
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      
       const width = canvas.width;
       const height = canvas.height;
       
@@ -1671,7 +1675,7 @@
             if (value > max) max = value;
           }
           
-          const h = (max - min) * height / 2;
+          const h = (max - min) * height;
           const y = (1 - max) * height / 2;
           
           ctx.fillRect(i, y, 1, h);
