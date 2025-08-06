@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Audio Tools Suite</title>
+  <title>KO II Audio Tools Suite</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
@@ -633,6 +633,7 @@
     let vocalSeparatedStems = {};
     let pos3 = 0, pos4 = 0;
     let currentPreviewUrl = null;
+    let currentWindowPosition = { x: 100, y: 100 };
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -642,8 +643,10 @@
     function openWindow(type) {
       if (type === 'main') {
         document.getElementById('main-window').style.display = 'block';
-      } else {
+        document.getElementById('main-window').style.zIndex = windowZIndex++;
+      } else if (type === 'vocal') {
         document.getElementById('vocal-window').style.display = 'block';
+        document.getElementById('vocal-window').style.zIndex = windowZIndex++;
       }
     }
 
@@ -652,11 +655,10 @@
       document.querySelectorAll('.desktop-icon').forEach((icon, index) => {
         icon.onclick = function() {
           if (index === 0) {
-            document.getElementById('main-window').style.display = 'block';
+            openWindow('main');
           } else {
-            document.getElementById('vocal-window').style.display = 'block';
+            openWindow('vocal');
           }
-          windowZIndex += 2;
         };
       });
 
@@ -860,7 +862,7 @@
     }
     
     async function processVocalSeparation() {
-      const file = vocalDropZone.file;
+      const file = document.getElementById('vocal-drop-zone').file;
       if (!file) {
         alert("Please select an audio file first");
         return;
@@ -1036,28 +1038,28 @@
       // Получаем позиции курсора
       pos3 = e.clientX;
       pos4 = e.clientY;
-      document.addEventListener('mouseup', () => closeDragElement(windowElement));
-      document.addEventListener('mousemove', (e) => elementDrag(e, windowElement));
-    }
-    
-    function elementDrag(e, windowElement) {
-      e.preventDefault();
-      // Вычисляем новую позицию
-      const newX = windowElement.offsetLeft - (pos3 - e.clientX);
-      const newY = windowElement.offsetTop - (pos4 - e.clientY);
+      document.addEventListener('mouseup', closeDragElement);
+      document.addEventListener('mousemove', elementDrag);
       
-      // Обновляем позицию
-      windowElement.style.left = newX + "px";
-      windowElement.style.top = newY + "px";
+      function elementDrag(e) {
+        e.preventDefault();
+        // Вычисляем новую позицию
+        const newX = windowElement.offsetLeft - (pos3 - e.clientX);
+        const newY = windowElement.offsetTop - (pos4 - e.clientY);
+        
+        // Обновляем позицию
+        windowElement.style.left = newX + "px";
+        windowElement.style.top = newY + "px";
+        
+        // Обновляем позиции курсора
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+      }
       
-      // Обновляем позиции курсора
-      pos3 = e.clientX;
-      pos4 = e.clientY;
-    }
-    
-    function closeDragElement(windowElement) {
-      document.removeEventListener('mouseup', closeDragElement);
-      document.removeEventListener('mousemove', elementDrag);
+      function closeDragElement() {
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('mousemove', elementDrag);
+      }
     }
 
     // Проверка доступной памяти
@@ -1497,7 +1499,8 @@
         const arrayBuffer = await file.arrayBuffer();
         if (processingCancelled) return null;
         
-        decoded = await decodeAudioSafe(arrayBuffer);
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        decoded = await audioContext.decodeAudioData(arrayBuffer);
         if (processingCancelled) return null;
         
         // Сохраняем количество каналов
@@ -1643,38 +1646,45 @@
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, width, height);
       
-      // Загрузить аудио
-      const arrayBuffer = await file.arrayBuffer();
-      const audioContext = new AudioContext();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
-      // Получить данные канала
-      const channelData = audioBuffer.getChannelData(0);
-      const step = Math.ceil(channelData.length / width);
-      
-      ctx.fillStyle = '#0f0';
-      
-      for (let i = 0; i < width; i++) {
-        const start = Math.floor(i * step);
-        const end = Math.min(Math.floor((i + 1) * step), channelData.length);
+      try {
+        // Загрузить аудио
+        const arrayBuffer = await file.arrayBuffer();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
-        let min = 0;
-        let max = 0;
+        // Получить данные канала
+        const channelData = audioBuffer.getChannelData(0);
+        const step = Math.ceil(channelData.length / width);
         
-        for (let j = start; j < end; j++) {
-          const value = channelData[j];
-          if (value < min) min = value;
-          if (value > max) max = value;
+        ctx.fillStyle = '#0f0';
+        
+        for (let i = 0; i < width; i++) {
+          const start = Math.floor(i * step);
+          const end = Math.min(Math.floor((i + 1) * step), channelData.length);
+          
+          let min = 0;
+          let max = 0;
+          
+          for (let j = start; j < end; j++) {
+            const value = channelData[j];
+            if (value < min) min = value;
+            if (value > max) max = value;
+          }
+          
+          const h = (max - min) * height / 2;
+          const y = (1 - max) * height / 2;
+          
+          ctx.fillRect(i, y, 1, h);
         }
         
-        const h = (max - min) * height / 2;
-        const y = (1 - max) * height / 2;
-        
-        ctx.fillRect(i, y, 1, h);
+        // Закрыть контекст
+        audioContext.close();
+      } catch (error) {
+        console.error('Waveform generation error:', error);
+        ctx.fillStyle = '#f00';
+        ctx.font = '12px Arial';
+        ctx.fillText('Waveform preview unavailable', 10, 20);
       }
-      
-      // Закрыть контекст
-      audioContext.close();
     }
 
     // Функция для получения MIME-типа по расширению
