@@ -522,6 +522,7 @@
         <div class="preview-controls">
           <button id="play-button"><i class="fas fa-play"></i> Play</button>
           <button id="stop-button"><i class="fas fa-stop"></i> Stop</button>
+          <button id="play-processed-button" style="display: none;"><i class="fas fa-headphones"></i> Play Processed</button>
         </div>
       </div>
       
@@ -635,6 +636,12 @@
     let vocalSelectedFile = null;
     let pos3 = 0, pos4 = 0;
     let currentPreviewUrl = null;
+    let processedPreviewUrl = null; // Для предпрослушивания обработанного файла
+    let currentProcessedBuffer = null; // Для хранения обработанного буфера
+    let windowPositions = { // Для сохранения позиций окон
+      'main': { x: 100, y: 100 },
+      'vocal': { x: 150, y: 150 }
+    };
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
@@ -643,11 +650,19 @@
 
     function openWindow(type) {
       if (type === 'main') {
-        document.getElementById('main-window').style.display = 'block';
-        document.getElementById('main-window').style.zIndex = windowZIndex++;
+        const win = document.getElementById('main-window');
+        win.style.display = 'block';
+        win.style.zIndex = windowZIndex++;
+        // Восстанавливаем позицию окна
+        win.style.left = windowPositions.main.x + 'px';
+        win.style.top = windowPositions.main.y + 'px';
       } else if (type === 'vocal') {
-        document.getElementById('vocal-window').style.display = 'block';
-        document.getElementById('vocal-window').style.zIndex = windowZIndex++;
+        const win = document.getElementById('vocal-window');
+        win.style.display = 'block';
+        win.style.zIndex = windowZIndex++;
+        // Восстанавливаем позицию окна
+        win.style.left = windowPositions.vocal.x + 'px';
+        win.style.top = windowPositions.vocal.y + 'px';
       }
     }
 
@@ -694,6 +709,7 @@
       const cancelButton = document.getElementById('cancel-button');
       const playButton = document.getElementById('play-button');
       const stopButton = document.getElementById('stop-button');
+      const playProcessedButton = document.getElementById('play-processed-button');
       const previewAudio = document.getElementById('preview-audio');
 
       // Drag and drop
@@ -758,7 +774,7 @@
       
       // Перемещение основного окна
       document.querySelector('#main-window .title-bar').addEventListener('mousedown', function(e) {
-        dragMouseDown(e, document.getElementById('main-window'));
+        dragMouseDown(e, document.getElementById('main-window'), 'main');
       });
       
       // Play/stop preview
@@ -769,6 +785,13 @@
       stopButton.addEventListener('click', () => {
         previewAudio.pause();
         previewAudio.currentTime = 0;
+      });
+      
+      playProcessedButton.addEventListener('click', () => {
+        if (processedPreviewUrl) {
+          const audio = new Audio(processedPreviewUrl);
+          audio.play();
+        }
       });
       
       // Инициализация Vocal Remover
@@ -815,7 +838,7 @@
       
       // Перемещение окна
       vocalWindow.querySelector('.title-bar').addEventListener('mousedown', function(e) {
-        dragMouseDown(e, vocalWindow);
+        dragMouseDown(e, vocalWindow, 'vocal');
       });
     }
     
@@ -966,9 +989,14 @@
           <div class="stem-preview">
             <img src="${stem.waveform}" alt="${escapeHTML(stemName)} waveform" style="width: 100%; height: 100%;">
           </div>
-          <button class="stem-button download-stem" data-stem="${escapeHTML(stemName)}">
-            <i class="fas fa-download"></i> Download
-          </button>
+          <div style="display: flex; gap: 5px; margin-top: 5px;">
+            <button class="stem-button preview-stem" data-stem="${escapeHTML(stemName)}">
+              <i class="fas fa-play"></i> Preview
+            </button>
+            <button class="stem-button download-stem" data-stem="${escapeHTML(stemName)}">
+              <i class="fas fa-download"></i> Download
+            </button>
+          </div>
         `;
         
         stemContainer.appendChild(stemItem);
@@ -981,7 +1009,27 @@
         });
       });
       
+      document.querySelectorAll('.preview-stem').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const stemName = e.target.closest('.preview-stem').dataset.stem;
+          previewStem(stemName);
+        });
+      });
+      
       document.getElementById('vocal-results').style.display = 'block';
+    }
+    
+    function previewStem(stemName) {
+      const stem = vocalSeparatedStems[stemName];
+      if (!stem) return;
+      
+      const url = URL.createObjectURL(stem.data);
+      const audio = new Audio(url);
+      audio.play().catch(e => console.error('Playback failed:', e));
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+      };
     }
     
     function downloadStem(stemName) {
@@ -1022,30 +1070,40 @@
       });
     }
     
-    // Функция для перемещения окна
-    function dragMouseDown(e, windowElement) {
+    // Функция для перемещения окна с ограничениями
+    function dragMouseDown(e, windowElement, windowId) {
       e.preventDefault();
       windowZIndex += 2;
       windowElement.style.zIndex = windowZIndex;
       
       pos3 = e.clientX;
       pos4 = e.clientY;
+      
+      // Сохраняем текущую позицию
+      const rect = windowElement.getBoundingClientRect();
+      windowPositions[windowId] = { x: rect.left, y: rect.top };
+      
       document.addEventListener('mouseup', closeDragElement);
       document.addEventListener('mousemove', elementDrag);
       
       function elementDrag(e) {
         e.preventDefault();
-        const newX = windowElement.offsetLeft - (pos3 - e.clientX);
-        const newY = windowElement.offsetTop - (pos4 - e.clientY);
+        const newX = windowPositions[windowId].x + (e.clientX - pos3);
+        const newY = windowPositions[windowId].y + (e.clientY - pos4);
         
-        windowElement.style.left = newX + "px";
-        windowElement.style.top = newY + "px";
+        // Ограничиваем перемещение в пределах окна
+        const maxX = window.innerWidth - windowElement.offsetWidth;
+        const maxY = window.innerHeight - windowElement.offsetHeight;
         
-        pos3 = e.clientX;
-        pos4 = e.clientY;
+        windowElement.style.left = Math.max(0, Math.min(newX, maxX)) + "px";
+        windowElement.style.top = Math.max(0, Math.min(newY, maxY)) + "px";
       }
       
       function closeDragElement() {
+        // Сохраняем новую позицию
+        const rect = windowElement.getBoundingClientRect();
+        windowPositions[windowId] = { x: rect.left, y: rect.top };
+        
         document.removeEventListener('mouseup', closeDragElement);
         document.removeEventListener('mousemove', elementDrag);
       }
@@ -1475,6 +1533,12 @@
           updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
         }
         
+        // Сохраняем обработанный буфер для предпрослушивания
+        if (index === 0) {
+          currentProcessedBuffer = processed;
+          updateProcessedPreview(processed);
+        }
+        
         fileName = item.path;
         if (fileName.includes('/')) {
           const parts = fileName.split('/');
@@ -1546,7 +1610,6 @@
         return null;
       } finally {
         decoded = null;
-        processed = null;
         await new Promise(resolve => setTimeout(resolve, 0));
         if (window.gc) window.gc();
       }
@@ -1570,8 +1633,45 @@
       generateWaveformPreview(file);
     }
     
+    // Обновить предпрослушивание обработанного файла
+    function updateProcessedPreview(audioBuffer) {
+      const playProcessedButton = document.getElementById('play-processed-button');
+      playProcessedButton.style.display = 'block';
+      
+      // Освобождаем предыдущий URL
+      if (processedPreviewUrl) {
+        URL.revokeObjectURL(processedPreviewUrl);
+      }
+      
+      // Создаем новый Blob и URL
+      audioBufferToBlob(audioBuffer, 'wav').then(blob => {
+        processedPreviewUrl = URL.createObjectURL(blob);
+      });
+      
+      // Обновляем waveform
+      generateWaveformPreviewFromBuffer(audioBuffer);
+    }
+    
     // Генерация упрощенной waveform
     async function generateWaveformPreview(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        generateWaveformPreviewFromBuffer(audioBuffer);
+        audioContext.close();
+      } catch (error) {
+        console.error('Waveform generation error:', error);
+        const canvas = document.getElementById('preview-waveform');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f00';
+        ctx.font = '12px Arial';
+        ctx.fillText('Waveform preview unavailable', 10, 20);
+      }
+    }
+    
+    // Генерация waveform из AudioBuffer
+    function generateWaveformPreviewFromBuffer(audioBuffer) {
       const canvas = document.getElementById('preview-waveform');
       const ctx = canvas.getContext('2d');
       
@@ -1586,12 +1686,9 @@
       ctx.fillRect(0, 0, width, height);
       
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
         const channelData = audioBuffer.getChannelData(0);
         const step = Math.ceil(channelData.length / width);
+        const centerY = height / 2;
         
         ctx.fillStyle = '#0f0';
         
@@ -1608,13 +1705,12 @@
             if (value > max) max = value;
           }
           
-          const h = (max - min) * height;
-          const y = (1 - max) * height / 2;
-          
-          ctx.fillRect(i, y, 1, h);
+          // Рисуем столбец от min до max
+          const yTop = centerY - (max * centerY);
+          const yBottom = centerY - (min * centerY);
+          const barHeight = Math.max(1, yBottom - yTop);
+          ctx.fillRect(i, yTop, 1, barHeight);
         }
-        
-        audioContext.close();
       } catch (error) {
         console.error('Waveform generation error:', error);
         ctx.fillStyle = '#f00';
@@ -2069,6 +2165,7 @@
     window.addEventListener('beforeunload', () => {
       createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
       if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+      if (processedPreviewUrl) URL.revokeObjectURL(processedPreviewUrl);
       if (activeAudioContext) {
         activeAudioContext.close();
       }
