@@ -1,10 +1,622 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <!-- ... (остальная часть head без изменений) ... -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KO II Audio Tools Suite</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
+  <style>
+    /* Все стили остаются без изменений */
+    :root { --glow-color: #ff3333; }
+    body {
+      background: #008080;
+      font-family: 'Courier New', monospace;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0),
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0);
+      background-size: 4px 4px;
+      background-position: 0 0, 2px 2px;
+    }
+    .desktop-icon {
+      position: absolute;
+      width: 80px;
+      text-align: center;
+      color: white;
+      text-shadow: 1px 1px 1px black;
+      cursor: pointer;
+      padding: 4px;
+      user-select: none;
+      transition: transform 0.2s;
+    }
+    .desktop-icon:hover {
+      background: rgba(255,255,255,0.2);
+      transform: scale(1.05);
+    }
+    .window {
+      width: 100%;
+      max-width: 480px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      padding: 0;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 100;
+    }
+    .title-bar {
+      background: #000080;
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #c0c0c0;
+      cursor: move;
+    }
+    .title-bar button {
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: #c0c0c0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+      margin-left: 4px;
+      border: 1px solid;
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
+    }
+    .title-bar button.minimize { 
+      background: #c0c0c0; 
+      font-size: 18px;
+      line-height: 12px;
+    }
+    .title-bar button.close { 
+      background: #c0c0c0; 
+      font-size: 14px;
+    }
+    .title-bar button:active {
+      border-top-color: #808080;
+      border-left-color: #808080;
+      border-right-color: #ffffff;
+      border-bottom-color: #ffffff;
+    }
+    .content {
+      padding: 12px;
+      font-size: 14px;
+      color: #000;
+    }
+    .drop-zone {
+      border: 2px dashed #000;
+      padding: 20px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.3);
+      margin-top: 12px;
+      position: relative;
+      cursor: pointer;
+      border-style: dotted;
+      border-color: #808080;
+    }
+    .drop-zone.dragover {
+      background: rgba(0, 128, 0, 0.3);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .drop-zone span {
+      pointer-events: none;
+      font-size: 16px;
+      display: block;
+      margin-top: 10px;
+    }
+    #file-info {
+      margin-top: 10px;
+      font-size: 14px;
+      text-align: left;
+      background: #fff;
+      border: 2px inset #808080;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    button {
+      min-height: 44px;
+      padding: 10px;
+      cursor: pointer;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      border: 2px outset #c0c0c0;
+      background: #c0c0c0;
+      color: #000;
+    }
+    button:active {
+      border-style: inset;
+    }
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1000;
+    }
+    #win95-loader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      padding: 12px;
+      background: #c0c0c0;
+      border: 2px solid #000;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #000;
+      z-index: 1001;
+      border: 2px solid;
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
+    }
+    .progress-bar-container {
+      background: #fff;
+      border: 2px inset #808080;
+      height: 24px;
+      margin-top: 8px;
+      display: flex;
+      padding: 2px;
+      gap: 1px;
+      justify-content: flex-start;
+    }
+    .progress-segment {
+      width: 8px;
+      height: 100%;
+      background: #c0c0c0;
+    }
+    .progress-segment.active {
+      background: #000080;
+    }
+    .win95-inset {
+      border: 2px inset #808080;
+      background: #c0c0c0;
+      padding: 6px;
+      margin-bottom: 6px;
+    }
+    .win95-list {
+      border: 2px inset #808080;
+      background: #fff;
+      padding: 4px;
+      font-family: 'Courier New', monospace;
+      height: 100px;
+      overflow-y: auto;
+    }
+    .list-item {
+      padding: 8px 6px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 13px;
+    }
+    .list-item:hover {
+      background: #000080;
+      color: white;
+      transition: background 0.2s ease;
+    }
+    .list-item.selected {
+      background: #000080;
+      color: white;
+    }
+    .memory-warning {
+      color: #ff6f00;
+      background-color: #fff3e0;
+      border: 1px solid #ff9800;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+      display: none;
+    }
+    .mobile-warning {
+      color: #1976d2;
+      background-color: #bbdefb;
+      border: 1px solid #2196f3;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+      display: none;
+    }
+    .info-panel {
+      background: #fff;
+      border: 2px inset #808080;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .trim-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    .file-error {
+      color: #d32f2f;
+      background-color: #ffcdd2;
+      border: 1px solid #f44336;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .button-group button {
+      flex: 1;
+    }
+    #cancel-button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      color: #000;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #cancel-button:active {
+      border-style: inset;
+    }
+    .supported-formats {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .taskbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #c0c0c0;
+      height: 36px;
+      border-top: 2px solid #ffffff;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      z-index: 90;
+    }
+    .start-button {
+      padding: 4px 8px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .start-button:active {
+      border-style: inset;
+    }
+    .status-bar {
+      margin-left: auto;
+      padding: 0 8px;
+      font-size: 14px;
+    }
+    .window-controls {
+      display: flex;
+    }
+    
+    /* Vocal Remover Specific Styles */
+    .vocal-remover-window {
+      position: absolute;
+      width: 600px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      padding: 0;
+      box-sizing: border-box;
+      z-index: 101;
+      top: 100px;
+      left: 150px;
+      display: none;
+    }
+    
+    .stem-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .stem-item {
+      flex: 1;
+      min-width: 120px;
+      background: #e0e0e0;
+      border: 2px inset #808080;
+      padding: 10px;
+      text-align: center;
+    }
+    
+    .stem-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .stem-preview {
+      height: 60px;
+      background: #000;
+      margin-bottom: 5px;
+      position: relative;
+    }
+    
+    .quality-selector {
+      margin-top: 10px;
+      width: 100%;
+      padding: 5px;
+      font-family: 'Courier New', monospace;
+      border: 2px inset #808080;
+    }
+    
+    .progress-text {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    .stem-button {
+      padding: 6px 10px;
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      width: 100%;
+    }
+    
+    .stem-button:active {
+      border-style: inset;
+    }
+    
+    /* Preview styles */
+    .preview-container {
+      margin-top: 15px;
+      border: 2px inset #808080;
+      padding: 10px;
+      background: #e0e0e0;
+    }
+    
+    .preview-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .preview-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .preview-waveform {
+      width: 100%;
+      height: 80px;
+      background: #000;
+    }
+    
+    .preview-audio {
+      width: 100%;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
-  <!-- ... (остальная часть body без изменений) ... -->
+  <!-- Иконка для основного приложения -->
+  <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="openWindow('main')">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" 
+         width="48" height="48">
+    <div>KO II Tool</div>
+  </div>
+  
+  <!-- Иконка для Vocal Remover -->
+  <div class="desktop-icon" style="top: 120px; left: 30px;" onclick="openWindow('vocal')">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8Y2lyY2xlIGN4PSIyNCIgY3k9IjI0IiByPSIxOCIgZmlsbD0iIzMzN2FiNyIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHBhdGggZD0iTTE4IDI0IEMxOCAyOCA3IDMwIDcgMjQgQzcgMTggMTggMjAgMTggMjQiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzIyMiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KICA8cGF0aCBkPSJNMzAgMjQgQzMwIDI4IDQxIDMwIDQxIDI0IEM0MSAxOCAzMCAyMCAzMCAyNCIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMjIyIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxwYXRoIGQ9Ik0xNSAzMCBDMTcgMzQgMTggMzggMjQgMzggQzMwIDM4IDMxIDM0IDMzIDMwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4=" 
+         width="48" height="48">
+    <div>Vocal Remover</div>
+  </div>
+  
+  <!-- Основное окно приложения -->
+  <div class="window" id="main-window" style="display: none;">
+    <div class="title-bar">
+      <span>SpeedUpperCut</span>
+      <div class="window-controls">
+        <button class="minimize" title="Minimize">_</button>
+        <button class="close" title="Close">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="memory-warning" id="memory-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        Processing large files may use significant memory. Close other tabs for best performance.
+      </div>
+      
+      <div class="mobile-warning" id="mobile-warning">
+        <i class="fas fa-mobile-alt"></i>
+        Processing on mobile may be slow. Use small files for best results.
+      </div>
+      
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <div class="win95-inset" style="flex: 1;">
+          <label>FIDELITY</label><br>
+          <div class="win95-list" data-group="fidelity">
+            <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
+            <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
+            <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
+            <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
+          </div>
+        </div>
+        <div class="win95-inset" style="flex: 1;">
+          <label>CHANNELS</label><br>
+          <div class="win95-list" data-group="channels">
+            <div data-value="stereo" class="list-item selected">Stereo</div>
+            <div data-value="mono" class="list-item">Mono</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="trim-control">
+        <input type="checkbox" id="auto-trim" checked style="width: 16px; height: 16px;">
+        <label for="auto-trim">Auto-trim silence at start/end</label>
+      </div>
+      
+      <div class="drop-zone" id="drop-zone">
+        <i class="fas fa-cloud-upload-alt" style="font-size: 36px;"></i>
+        <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple />
+        <input type="file" id="folder-upload" webkitdirectory directory multiple style="display: none;" />
+        <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+        <div class="supported-formats">
+          Supported: WAV, MP3, AAC, OGG, FLAC
+        </div>
+      </div>
+      
+      <div class="button-group">
+        <button id="select-file-button">Select Files</button>
+        <button id="select-folder-button">Select Folder</button>
+        <button id="clear-button">Clear List</button>
+      </div>
+      
+      <!-- Preview container -->
+      <div class="preview-container" id="preview-container" style="display: none;">
+        <div class="preview-title">Preview:</div>
+        <div class="preview-waveform" id="preview-waveform"></div>
+        <audio controls class="preview-audio" id="preview-audio"></audio>
+        <div class="preview-controls">
+          <button id="play-button"><i class="fas fa-play"></i> Play</button>
+          <button id="stop-button"><i class="fas fa-stop"></i> Stop</button>
+        </div>
+      </div>
+      
+      <div class="info-panel" id="file-info">
+        <div>Drop or select audio files/folders to process</div>
+        <div>Files will be sped up 2x to save space</div>
+        <div>Auto-trim removes silence at start and end</div>
+        <div>Folder structure will be preserved in output</div>
+        <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay">
+    <div id="win95-loader">
+      <div id="processing-title">Processing Audio Files...</div>
+      <div class="progress-bar-container" id="segment-container"></div>
+      <div id="current-file">Preparing...</div>
+      <button id="cancel-button">Cancel Processing</button>
+    </div>
+  </div>
+
+  <div class="taskbar">
+    <div class="start-button">
+      <i class="fas fa-bars"></i> Start
+    </div>
+    <div class="status-bar" id="status-bar">Ready</div>
+  </div>
+
+  <!-- Окно Vocal Remover -->
+  <div class="vocal-remover-window window" id="vocal-window">
+    <div class="title-bar">
+      <span>Vocal Remover Pro</span>
+      <div class="window-controls">
+        <button class="minimize" title="Minimize">_</button>
+        <button class="close" title="Close">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="memory-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        Audio separation requires significant processing power. Large files may take several minutes.
+      </div>
+      
+      <div class="drop-zone" id="vocal-drop-zone">
+        <i class="fas fa-music" style="font-size: 36px;"></i>
+        <input type="file" id="vocal-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" />
+        <span>DRAG AND DROP OR SELECT AUDIO FILE</span>
+        <div class="supported-formats">
+          Supported: WAV, MP3, AAC, OGG, FLAC (max 10 minutes)
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="model-select">Separation Model:</label>
+        <select id="model-select" class="quality-selector">
+          <option value="2stems">Vocals + Accompaniment (2 stems)</option>
+          <option value="4stems">Vocals + Drums + Bass + Other (4 stems)</option>
+          <option value="5stems">Vocals + Drums + Bass + Piano + Other (5 stems)</option>
+        </select>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <label for="quality-select">Output Quality:</label>
+        <select id="quality-select" class="quality-selector">
+          <option value="high">High (320kbps MP3)</option>
+          <option value="medium" selected>Medium (192kbps MP3)</option>
+          <option value="low">Low (128kbps MP3)</option>
+        </select>
+      </div>
+      
+      <button id="process-button" style="width: 100%; margin-top: 15px; padding: 12px;">
+        <i class="fas fa-cogs"></i> Separate Tracks
+      </button>
+      
+      <div id="vocal-results" style="display: none; margin-top: 20px;">
+        <h3>Separated Tracks:</h3>
+        <div class="stem-container" id="stem-container">
+          <!-- Preview items will be added here dynamically -->
+        </div>
+        
+        <button id="download-all-button" style="width: 100%; margin-top: 15px; padding: 10px;">
+          <i class="fas fa-download"></i> Download All Stems as ZIP
+        </button>
+      </div>
+      
+      <div class="info-panel" style="margin-top: 15px;">
+        <div><strong>How it works:</strong></div>
+        <div>1. Upload any song with vocals</div>
+        <div>2. AI separates instruments using deep learning</div>
+        <div>3. Download individual tracks or full stems</div>
+        <div>4. Use for remixing, karaoke, or music analysis</div>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
