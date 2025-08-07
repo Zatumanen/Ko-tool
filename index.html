@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Все стили остаются без изменений */
     :root { --glow-color: #ff3333; }
     body {
       background: #008080;
@@ -437,6 +436,16 @@
       width: 100%;
       margin-top: 5px;
     }
+
+    /* Model loading indicator */
+    .model-loading {
+      background: #ffeb3b;
+      color: #333;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -517,7 +526,6 @@
       <!-- Preview container -->
       <div class="preview-container" id="preview-container" style="display: none;">
         <div class="preview-title">Preview:</div>
-        <!-- FIX 1: Исправлен элемент на canvas -->
         <canvas class="preview-waveform" id="preview-waveform"></canvas>
         <audio controls class="preview-audio" id="preview-audio"></audio>
         <div class="preview-controls">
@@ -567,6 +575,10 @@
         Audio separation requires significant processing power. Large files may take several minutes.
       </div>
       
+      <div class="model-loading" id="model-loading">
+        <i class="fas fa-spinner fa-spin"></i> Loading separation models... (This may take a minute)
+      </div>
+      
       <div class="drop-zone" id="vocal-drop-zone">
         <i class="fas fa-music" style="font-size: 36px;"></i>
         <input type="file" id="vocal-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" />
@@ -582,15 +594,6 @@
           <option value="2stems">Vocals + Accompaniment (2 stems)</option>
           <option value="4stems">Vocals + Drums + Bass + Other (4 stems)</option>
           <option value="5stems">Vocals + Drums + Bass + Piano + Other (5 stems)</option>
-        </select>
-      </div>
-      
-      <div style="margin-top: 15px;">
-        <label for="quality-select">Output Quality:</label>
-        <select id="quality-select" class="quality-selector">
-          <option value="high">High (320kbps MP3)</option>
-          <option value="medium" selected>Medium (192kbps MP3)</option>
-          <option value="low">Low (128kbps MP3)</option>
         </select>
       </div>
       
@@ -620,6 +623,9 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- Подключаем TensorFlow.js и Spleeter.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/spleeter.js@0.8.2/dist/spleeter.js"></script>
   <script>
     // Глобальные переменные
     let activeAudioContext = null;
@@ -642,11 +648,44 @@
       'main': { x: 100, y: 100 },
       'vocal': { x: 150, y: 150 }
     };
+    let spleeterInitialized = false;
+    let stemModels = {};
 
     // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
+      // Инициализируем Spleeter.js
+      initializeSpleeter();
     });
+
+    // Инициализация Spleeter.js
+    async function initializeSpleeter() {
+      try {
+        updateStatus("Loading separation models...");
+        
+        // Загружаем модели для разных конфигураций
+        stemModels['2stems'] = new Spleeter('2stems');
+        stemModels['4stems'] = new Spleeter('4stems');
+        stemModels['5stems'] = new Spleeter('5stems');
+        
+        // Параллельная загрузка моделей
+        await Promise.all([
+          stemModels['2stems'].initialize(),
+          stemModels['4stems'].initialize(),
+          stemModels['5stems'].initialize()
+        ]);
+        
+        spleeterInitialized = true;
+        document.getElementById('model-loading').style.display = 'none';
+        updateStatus("Separation models loaded");
+        
+      } catch (error) {
+        console.error("Failed to initialize Spleeter:", error);
+        document.getElementById('model-loading').innerHTML = 
+          `<div class="file-error">Error loading models: ${error.message}</div>`;
+        updateStatus(`Error loading models: ${error.message}`);
+      }
+    }
 
     function openWindow(type) {
       if (type === 'main') {
@@ -884,70 +923,78 @@
         return;
       }
       
-      const model = document.getElementById('model-select').value;
-      const quality = document.getElementById('quality-select').value;
+      if (!spleeterInitialized) {
+        alert("Separation models are still loading. Please wait.");
+        return;
+      }
       
+      const modelType = document.getElementById('model-select').value;
       const processButton = document.getElementById('process-button');
+      const stemContainer = document.getElementById('stem-container');
       
       // Показываем индикатор загрузки
       processButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
       processButton.disabled = true;
+      stemContainer.innerHTML = '<div class="progress-text">Separating tracks...</div>';
       
       // Скрываем предыдущие результаты
-      document.getElementById('vocal-results').style.display = 'none';
+      document.getElementById('vocal-results').style.display = 'block';
       
       try {
-        // Имитация процесса разделения
-        await simulateSeparationProcess(vocalSelectedFile, model, processButton);
+        // Читаем аудиофайл
+        const arrayBuffer = await vocalSelectedFile.arrayBuffer();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Выполняем разделение
+        const separationResult = await stemModels[modelType].separate(audioBuffer);
+        
+        // Обрабатываем результаты
+        vocalSeparatedStems = {};
+        const stemNames = getStemNames(modelType);
+        
+        for (const stemName of stemNames) {
+          const stemBuffer = separationResult[stemName];
+          
+          // Создаем Blob для стема
+          const blob = await audioBufferToBlob(stemBuffer, 'wav');
+          
+          // Генерируем waveform
+          const waveform = await generateWaveformFromBuffer(stemBuffer);
+          
+          vocalSeparatedStems[stemName] = {
+            name: `${stemName}.wav`,
+            data: blob,
+            waveform: waveform
+          };
+        }
         
         // Показываем результаты
-        showSeparationResults(model);
+        showSeparationResults(modelType);
         updateStatus("Vocal separation completed");
         
       } catch (error) {
         console.error("Separation error:", error);
-        alert(`Error during processing: ${error.message}`);
+        stemContainer.innerHTML = `<div class="file-error">Error: ${error.message}</div>`;
         updateStatus(`Error: ${error.message}`);
       } finally {
         processButton.innerHTML = '<i class="fas fa-cogs"></i> Separate Tracks';
         processButton.disabled = false;
       }
     }
-    
-    async function simulateSeparationProcess(file, model, processButton) {
-      return new Promise((resolve) => {
-        const stems = {};
-        const stemNames = {
-          '2stems': ['Vocals', 'Accompaniment'],
-          '4stems': ['Vocals', 'Drums', 'Bass', 'Other'],
-          '5stems': ['Vocals', 'Drums', 'Bass', 'Piano', 'Other']
-        };
-        
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-          progress = Math.min(100, progress + Math.random() * 10);
-          
-          processButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Processing... ${Math.round(progress)}%`;
-          
-          if (progress >= 100) {
-            clearInterval(progressInterval);
-            
-            stemNames[model].forEach(stem => {
-              stems[stem] = {
-                name: `${stem}.mp3`,
-                data: new Blob([`Fake audio data for ${stem}`], { type: 'audio/mpeg' }),
-                waveform: generateRandomWaveform()
-              };
-            });
-            
-            vocalSeparatedStems = stems;
-            resolve();
-          }
-        }, 300);
-      });
+
+    // Функция для получения названий стемов по типу модели
+    function getStemNames(modelType) {
+      switch(modelType) {
+        case '2stems': return ['vocals', 'accompaniment'];
+        case '4stems': return ['vocals', 'drums', 'bass', 'other'];
+        case '5stems': return ['vocals', 'drums', 'bass', 'piano', 'other'];
+        default: return [];
+      }
     }
-    
-    function generateRandomWaveform() {
+
+    // Генерация waveform из AudioBuffer
+    async function generateWaveformFromBuffer(audioBuffer) {
       const canvas = document.createElement('canvas');
       canvas.width = 200;
       canvas.height = 50;
@@ -959,9 +1006,25 @@
       ctx.fillStyle = '#0f0';
       const centerY = canvas.height / 2;
       
-      for (let x = 0; x < canvas.width; x += 2) {
-        const amplitude = Math.random() * (canvas.height / 2 - 5);
-        ctx.fillRect(x, centerY - amplitude, 1, amplitude * 2);
+      const channelData = audioBuffer.getChannelData(0);
+      const step = Math.ceil(channelData.length / canvas.width);
+      
+      for (let x = 0; x < canvas.width; x++) {
+        const start = Math.floor(x * step);
+        const end = Math.min(Math.floor((x + 1) * step), channelData.length);
+        
+        let min = 0;
+        let max = 0;
+        
+        for (let j = start; j < end; j++) {
+          const value = channelData[j];
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+        
+        const amplitude = (max - min) * centerY;
+        const y = centerY - (max * centerY);
+        ctx.fillRect(x, y, 1, amplitude);
       }
       
       return canvas.toDataURL();
@@ -1012,14 +1075,16 @@
     }
     
     function previewStem(stemName) {
-      // FIX 4: Исправлено воспроизведение стемов в Vocal Remover
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-      oscillator.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.5);
+      const stem = vocalSeparatedStems[stemName];
+      if (!stem) return;
+      
+      const url = URL.createObjectURL(stem.data);
+      const audio = new Audio(url);
+      audio.play().catch(e => console.error('Playback failed:', e));
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+      };
     }
     
     function downloadStem(stemName) {
@@ -1625,7 +1690,6 @@
     
     // Обновить предпрослушивание обработанного файла
     function updateProcessedPreview(audioBuffer) {
-      // FIX 3: Заменяем источник в основном плеере на обработанный файл
       const previewAudio = document.getElementById('preview-audio');
       
       // Освобождаем предыдущий URL
@@ -1666,7 +1730,7 @@
     function generateWaveformPreviewFromBuffer(audioBuffer) {
       const canvas = document.getElementById('preview-waveform');
       
-      // FIX 2: Проверяем, что canvas существует
+      // Проверяем, что canvas существует
       if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
         console.error('Canvas element not found or invalid!');
         return;
@@ -1732,16 +1796,16 @@
     }
 
     // Конвертация AudioBuffer в Blob с нужным форматом
-    async function audioBufferToBlob(audioBuffer, extension) {
+    async function audioBufferToBlob(buffer, extension) {
       if (extension === 'wav') {
-        return audioBufferToWav(audioBuffer);
+        return audioBufferToWav(buffer);
       } else {
         return new Promise((resolve, reject) => {
           try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const dest = audioContext.createMediaStreamDestination();
             const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
+            source.buffer = buffer;
             source.connect(dest);
             source.start();
             
@@ -1767,7 +1831,7 @@
             setTimeout(() => {
               recorder.stop();
               source.stop();
-            }, audioBuffer.duration * 1000 + 500);
+            }, buffer.duration * 1000 + 500);
           } catch (error) {
             reject(error);
           }
