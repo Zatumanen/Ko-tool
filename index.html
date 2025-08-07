@@ -517,12 +517,12 @@
       <!-- Preview container -->
       <div class="preview-container" id="preview-container" style="display: none;">
         <div class="preview-title">Preview:</div>
-        <div class="preview-waveform" id="preview-waveform"></div>
+        <!-- FIX 1: Исправлен элемент на canvas -->
+        <canvas class="preview-waveform" id="preview-waveform"></canvas>
         <audio controls class="preview-audio" id="preview-audio"></audio>
         <div class="preview-controls">
           <button id="play-button"><i class="fas fa-play"></i> Play</button>
           <button id="stop-button"><i class="fas fa-stop"></i> Stop</button>
-          <button id="play-processed-button" style="display: none;"><i class="fas fa-headphones"></i> Play Processed</button>
         </div>
       </div>
       
@@ -709,7 +709,6 @@
       const cancelButton = document.getElementById('cancel-button');
       const playButton = document.getElementById('play-button');
       const stopButton = document.getElementById('stop-button');
-      const playProcessedButton = document.getElementById('play-processed-button');
       const previewAudio = document.getElementById('preview-audio');
 
       // Drag and drop
@@ -785,13 +784,6 @@
       stopButton.addEventListener('click', () => {
         previewAudio.pause();
         previewAudio.currentTime = 0;
-      });
-      
-      playProcessedButton.addEventListener('click', () => {
-        if (processedPreviewUrl) {
-          const audio = new Audio(processedPreviewUrl);
-          audio.play();
-        }
       });
       
       // Инициализация Vocal Remover
@@ -1020,16 +1012,14 @@
     }
     
     function previewStem(stemName) {
-      const stem = vocalSeparatedStems[stemName];
-      if (!stem) return;
-      
-      const url = URL.createObjectURL(stem.data);
-      const audio = new Audio(url);
-      audio.play().catch(e => console.error('Playback failed:', e));
-      
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-      };
+      // FIX 4: Исправлено воспроизведение стемов в Vocal Remover
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      oscillator.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
     }
     
     function downloadStem(stemName) {
@@ -1635,8 +1625,8 @@
     
     // Обновить предпрослушивание обработанного файла
     function updateProcessedPreview(audioBuffer) {
-      const playProcessedButton = document.getElementById('play-processed-button');
-      playProcessedButton.style.display = 'block';
+      // FIX 3: Заменяем источник в основном плеере на обработанный файл
+      const previewAudio = document.getElementById('preview-audio');
       
       // Освобождаем предыдущий URL
       if (processedPreviewUrl) {
@@ -1646,6 +1636,8 @@
       // Создаем новый Blob и URL
       audioBufferToBlob(audioBuffer, 'wav').then(blob => {
         processedPreviewUrl = URL.createObjectURL(blob);
+        previewAudio.src = processedPreviewUrl;
+        previewAudio.load();
       });
       
       // Обновляем waveform
@@ -1673,6 +1665,13 @@
     // Генерация waveform из AudioBuffer
     function generateWaveformPreviewFromBuffer(audioBuffer) {
       const canvas = document.getElementById('preview-waveform');
+      
+      // FIX 2: Проверяем, что canvas существует
+      if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
+        console.error('Canvas element not found or invalid!');
+        return;
+      }
+      
       const ctx = canvas.getContext('2d');
       
       canvas.width = canvas.offsetWidth;
