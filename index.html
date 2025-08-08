@@ -621,11 +621,13 @@
       }
     }
 
-    function updateFileInfo(message) {
+    function updateFileInfo(text) {
       const fileInfo = document.getElementById('file-info');
       if (fileInfo) {
-        const escaped = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        fileInfo.innerHTML += escaped;
+        const div = document.createElement('div');
+        div.textContent = text;
+        fileInfo.appendChild(div);
+        fileInfo.scrollTop = fileInfo.scrollHeight;
       }
     }
 
@@ -963,7 +965,7 @@
       
       try {
         updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
-        updateFileInfo(`<div>Processing: ${item.path}</div>`);
+        updateFileInfo(`Processing: ${item.path}`);
         
         if (!isSupportedAudioType(file.type, file.name)) {
           throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
@@ -998,7 +1000,7 @@
           const afterLength = processed.length;
           trimmedSamples = beforeLength - afterLength;
           
-          updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
+          updateFileInfo(`Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence`);
         }
         
         const pathParts = item.path.split('/');
@@ -1022,11 +1024,9 @@
           sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
         }
         
-        updateFileInfo(`
-          <div>Processed: ${fileName}</div>
-          <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
-          <div>${sizeInfo}</div>
-        `);
+        updateFileInfo(`Processed: ${fileName}`);
+        updateFileInfo(`Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB`);
+        updateFileInfo(sizeInfo);
         
         await updateProgressBar((index + 1) / total);
         
@@ -1166,16 +1166,16 @@
       
       const errorMessage = error.message || 'Unknown error';
       const fileName = item?.file?.name || 'unknown file';
-      const errorDetails = `Error: ${errorMessage} (${fileName})`;
       
-      document.getElementById('file-info').innerHTML += `
-        <div class="file-error">
-          <strong>Error processing:</strong> ${fileName}<br>
-          ${errorMessage}
-        </div>
-      `;
+      const fileInfo = document.getElementById('file-info');
+      if (fileInfo) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'file-error';
+        errorDiv.innerHTML = `<strong>Error processing:</strong> ${fileName}<br>${errorMessage}`;
+        fileInfo.appendChild(errorDiv);
+      }
       
-      updateStatus(errorDetails);
+      updateStatus(`Error: ${errorMessage} (${fileName})`);
       
       if (error.message.includes('memory') || error.message.includes('allocation')) {
         if (activeAudioContext) {
