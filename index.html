@@ -797,7 +797,7 @@
       // Подготовка ZIP
       const zip = new JSZip();
       
-      // ИСПРАВЛЕНИЕ: Объявляем счетчики каналов здесь
+      // Объявляем счетчики каналов
       let stereoOriginal = 0;
       let monoOriginal = 0;
       let totalOriginalSize = 0;
@@ -881,7 +881,7 @@
           totalProcessedSize += result.processedSize;
           totalTrimmed += result.trimmedSamples || 0;
           
-          // ИСПРАВЛЕНИЕ: Обновляем счетчики каналов
+          // Обновляем счетчики каналов
           if (result.channels === 1) monoOriginal++;
           else if (result.channels === 2) stereoOriginal++;
           
@@ -1008,7 +1008,6 @@
       let fileName = '';
       let channels = 0;
       let originalExtension = file.name.split('.').pop().toLowerCase();
-      let useWavFallback = false;
       
       try {
         // Обновление UI
@@ -1059,38 +1058,14 @@
           updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
         }
         
-        // Определение пути в ZIP с сохранением оригинального расширения
-        fileName = item.path;
-        if (fileName.includes('/')) {
-          const lastDot = fileName.lastIndexOf('.');
-          if (lastDot !== -1) {
-            fileName = fileName.substring(0, lastDot) + '_ko2.' + originalExtension;
-          } else {
-            fileName += '_ko2.' + originalExtension;
-          }
-        } else {
-          fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.' + originalExtension;
-        }
+        // Формирование пути в ZIP с сохранением структуры папок
+        const pathParts = item.path.split('/');
+        const origFilename = pathParts.pop();
+        const newFilename = origFilename.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+        fileName = [...pathParts, newFilename].join('/');
         
-        // Проверяем, поддерживается ли формат браузером
-        let outputExtension = originalExtension;
-        let mimeType = getMimeType(originalExtension);
-        
-        // Для форматов, отличных от WAV, проверяем поддержку
-        if (originalExtension !== 'wav') {
-          // Если MediaRecorder не поддерживает тип, используем WAV
-          if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
-            useWavFallback = true;
-            outputExtension = 'wav';
-            // Обновляем имя файла
-            fileName = fileName.replace(/\.[^/.]+$/, '') + '.wav';
-            // Добавляем предупреждение
-            updateFileInfo(`<div class="file-warning">Browser does not support ${originalExtension} encoding. Using WAV format instead.</div>`);
-          }
-        }
-        
-        // Создание Blob с оригинальным типом
-        const outputBlob = await audioBufferToBlob(processed, outputExtension);
+        // Создание Blob в формате WAV
+        const outputBlob = await audioBufferToBlob(processed);
         processedSize = outputBlob.size;
         
         // Добавление в ZIP с сохранением структуры папок
@@ -1154,49 +1129,9 @@
       return types[extension] || 'audio/wav';
     }
 
-    // Конвертация AudioBuffer в Blob с нужным форматом
-    async function audioBufferToBlob(audioBuffer, extension) {
-      if (extension === 'wav') {
-        return audioBufferToWav(audioBuffer);
-      } else {
-        // Для других форматов конвертируем через медиа-рекордер
-        return new Promise((resolve, reject) => {
-          try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const dest = audioContext.createMediaStreamDestination();
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(dest);
-            source.start();
-            
-            const mimeType = getMimeType(extension);
-            const recorder = new MediaRecorder(dest.stream, {
-              mimeType: mimeType
-            });
-            
-            const chunks = [];
-            recorder.ondataavailable = e => chunks.push(e.data);
-            recorder.onstop = () => {
-              const blob = new Blob(chunks, { type: mimeType });
-              resolve(blob);
-              audioContext.close();
-            };
-            
-            recorder.onerror = (e) => {
-              reject(e.error || new Error('MediaRecorder error'));
-              audioContext.close();
-            };
-            
-            recorder.start();
-            setTimeout(() => {
-              recorder.stop();
-              source.stop();
-            }, audioBuffer.duration * 1000 + 500);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }
+    // Конвертация AudioBuffer в Blob (всегда в WAV)
+    async function audioBufferToBlob(audioBuffer) {
+      return audioBufferToWav(audioBuffer);
     }
 
     // Оптимизированная функция обрезки тишины
@@ -1204,6 +1139,8 @@
       const threshold = Math.pow(10, thresholdDb / 20); // Преобразование dB в линейное значение
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
+      
+      // Используем первый канал для определения тишины
       const channelData = audioBuffer.getChannelData(0);
       const length = channelData.length;
       
@@ -1724,7 +1661,6 @@
           barWidth: 2,
           minPxPerSec: 100,
           cursorColor: '#f00',
-          // УДАЛЕНО: sampleRate - Wavesurfer сам определит из аудио
           normalize: true,
           fillParent: true,
           partialRender: true,
