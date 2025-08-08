@@ -51,8 +51,11 @@
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
-      position: relative;
+      position: absolute;
       z-index: 100;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
     }
     .title-bar {
       background: #000080;
@@ -347,7 +350,8 @@
       box-sizing: border-box;
       z-index: 101;
       top: 100px;
-      left: 150px;
+      left: 50%;
+      transform: translateX(-50%);
       display: none;
     }
     
@@ -655,7 +659,7 @@
           loadScript("https://cdn.jsdelivr.net/npm/spleeter.js@0.8.2/dist/spleeter.js")
         ]);
         
-        if (!window.tf || !window.Spleeter) {
+        if (!window.tf || !window.spleeter) {
           throw new Error("Failed to load TensorFlow.js or Spleeter.js");
         }
         
@@ -673,9 +677,9 @@
       try {
         updateStatus("Loading separation models...");
         
-        stemModels['2stems'] = new window.Spleeter('2stems');
-        stemModels['4stems'] = new window.Spleeter('4stems');
-        stemModels['5stems'] = new window.Spleeter('5stems');
+        stemModels['2stems'] = new window.spleeter.Spleeter('2stems');
+        stemModels['4stems'] = new window.spleeter.Spleeter('4stems');
+        stemModels['5stems'] = new window.spleeter.Spleeter('5stems');
         
         await Promise.all([
           stemModels['2stems'].initialize(),
