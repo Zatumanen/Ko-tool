@@ -621,12 +621,21 @@
       }
     }
 
+    // Унифицированный апдейт информационной панели.
+    // Если message содержит HTML-тэги, вставляем как HTML, иначе как текст.
     function updateFileInfo(message) {
       const fileInfo = document.getElementById('file-info');
-      if (fileInfo) {
-        const escaped = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        fileInfo.innerHTML += escaped;
+      if (!fileInfo) return;
+      // простая эвристика: если есть '<' или '&lt;', считаем html
+      if (/<[a-z][\s\S]*>/i.test(message)) {
+        fileInfo.insertAdjacentHTML('beforeend', message);
+      } else {
+        const div = document.createElement('div');
+        div.textContent = message;
+        fileInfo.appendChild(div);
       }
+      // авт-скролл к низу
+      fileInfo.scrollTop = fileInfo.scrollHeight;
     }
 
     function showOverlay() {
@@ -634,8 +643,7 @@
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
-      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
-      createdObjectURLs = [];
+      // ВАЖНО: не отзываем existing object URLs здесь — окна могут ещё их использовать.
     }
 
     function hideOverlay() {
@@ -668,8 +676,11 @@
 
         for (const item of e.dataTransfer.items) {
           if (item.kind === 'file') {
-            const entry = item.webkitGetAsEntry();
-            if (entry) {
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (item.getAsFile ? item.getAsFile() : null);
+            if (entry && entry.isFile === undefined) {
+              // if this is a File not a FileSystemEntry fallback
+              entries.push({ isFile: true, file: item.getAsFile(), name: item.getAsFile().name });
+            } else if (entry) {
               entries.push(entry);
             }
           }
@@ -697,25 +708,56 @@
         return;
       }
       
-      const { entry, path } = queue.shift();
-      
+      const queued = queue.shift();
+      const entry = queued.entry;
+      const path = queued.path || '';
+
+      // If entry is a plain File-like object (fallback), handle it
+      if (entry && entry.isFile === true && entry.file) {
+        items.push({ file: entry.file, path: path + entry.name });
+        // continue with queue
+        return processQueue(queue, items);
+      }
+
+      if (!entry) {
+        return processQueue(queue, items);
+      }
+
       if (entry.isFile) {
         entry.file(file => {
           items.push({ file, path: path + file.name });
           processQueue(queue, items);
+        }, err => {
+          console.warn('entry.file failed', err);
+          processQueue(queue, items);
         });
       } else if (entry.isDirectory) {
         const dirReader = entry.createReader();
-        dirReader.readEntries(entries => {
-          for (const childEntry of entries) {
-            queue.push({
-              entry: childEntry,
-              path: path + entry.name + '/'
-            });
-          }
-          processQueue(queue, items);
-        });
+        // readEntries returns partial lists — keep calling until empty array
+        function readAll() {
+          dirReader.readEntries(entries => {
+            if (!entries || entries.length === 0) {
+              // finished this directory
+              processQueue(queue, items);
+              return;
+            }
+            for (const childEntry of entries) {
+              queue.push({
+                entry: childEntry,
+                path: path + entry.name + '/'
+              });
+            }
+            // there might be more entries — keep reading
+            readAll();
+          }, err => {
+            console.warn('readEntries failed for', entry, err);
+            // continue with rest
+            processQueue(queue, items);
+          });
+        }
+        readAll();
       } else {
+        // unknown entry type - skip
         processQueue(queue, items);
       }
     }
@@ -838,8 +880,8 @@
           if (!result) continue;
           
           processedFiles++;
-          totalOriginalSize += result.originalSize;
-          totalProcessedSize += result.processedSize;
+          totalOriginalSize += result.originalSize || 0;
+          totalProcessedSize += result.processedSize || 0;
           totalTrimmed += result.trimmedSamples || 0;
           
           if (result.channels === 1) monoOriginal++;
@@ -857,38 +899,17 @@
 
       try {
         if (processedFiles > 0 && !processingCancelled) {
-          const throttle = (func, limit) => {
-            let lastFunc;
-            let lastRan;
-            return function() {
-              const context = this;
-              const args = arguments;
-              if (!lastRan) {
-                func.apply(context, args);
-                lastRan = Date.now();
-              } else {
-                clearTimeout(lastFunc);
-                lastFunc = setTimeout(function() {
-                  if ((Date.now() - lastRan) >= limit) {
-                    func.apply(context, args);
-                    lastRan = Date.now();
-                  }
-                }, limit - (Date.now() - lastRan));
-              }
-            }
-          };
-          
-          const throttledProgress = throttle(progress => {
+          const throttledProgress = (progress) => {
             updateProgressBar(0.8 + progress * 0.2);
-          }, 100);
+          };
           
           const zipBlob = await zip.generateAsync({ 
             type: "blob",
             compression: "DEFLATE",
             compressionOptions: { level: 6 }
           }, metadata => {
-            const progress = metadata.percent / 100;
-            updateStatus(`Compressing: ${metadata.percent.toFixed(1)}%`);
+            const progress = (metadata && metadata.percent) ? (metadata.percent / 100) : 0;
+            updateStatus(`Compressing: ${metadata.percent ? metadata.percent.toFixed(1) : 0}%`);
             throttledProgress(progress);
           });
           
@@ -905,9 +926,11 @@
           document.body.removeChild(a);
           
           setTimeout(() => {
-            URL.revokeObjectURL(zipUrl);
+            try {
+              URL.revokeObjectURL(zipUrl);
+            } catch (e) {}
             createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
-          }, 1000);
+          }, 2000);
           
           const fidelity = getSelectedValue('fidelity');
           const channels = getSelectedValue('channels');
@@ -916,7 +939,7 @@
             <div><b>Processed ${processedFiles} files</b></div>
             <div>Original size: ${formatBytes(totalOriginalSize)}</div>
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
-            <div>Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%</div>
+            <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%</div>
           `;
           
           if (autoTrim && totalTrimmed > 0) {
@@ -929,7 +952,7 @@
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
           `;
           
-          updateStatus(`Processed ${processedFiles} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
+          updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
         }
       } catch (error) {
         console.error('Error generating ZIP:', error);
@@ -943,7 +966,7 @@
       }
       
       if (activeAudioContext) {
-        activeAudioContext.close();
+        try { activeAudioContext.close(); } catch(e) {}
         activeAudioContext = null;
         audioContextInitialized = false;
       }
@@ -963,7 +986,7 @@
       
       try {
         updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
-        updateFileInfo(`<div>Processing: ${item.path}</div>`);
+        updateFileInfo(`<div>Processing: ${escapeHtml(item.path)}</div>`);
         
         if (!isSupportedAudioType(file.type, file.name)) {
           throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
@@ -996,7 +1019,7 @@
           const beforeLength = processed.length;
           processed = trimSilence(processed);
           const afterLength = processed.length;
-          trimmedSamples = beforeLength - afterLength;
+          trimmedSamples = Math.max(0, beforeLength - afterLength);
           
           updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
         }
@@ -1023,7 +1046,7 @@
         }
         
         updateFileInfo(`
-          <div>Processed: ${fileName}</div>
+          <div>Processed: ${escapeHtml(fileName)}</div>
           <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
           <div>${sizeInfo}</div>
         `);
@@ -1069,6 +1092,7 @@
       return audioBufferToWav(audioBuffer);
     }
 
+    // --- Trim silence helpers (unchanged, just kept robust) ---
     function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
@@ -1156,6 +1180,7 @@
     }
 
     function formatBytes(bytes) {
+      if (!bytes) return '0 B';
       if (bytes < 1024) return bytes + ' B';
       else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
       else return (bytes / 1048576).toFixed(1) + ' MB';
@@ -1164,22 +1189,22 @@
     function handleProcessingError(error, item) {
       console.error('Processing error:', error);
       
-      const errorMessage = error.message || 'Unknown error';
+      const errorMessage = (error && error.message) ? error.message : String(error);
       const fileName = item?.file?.name || 'unknown file';
-      const errorDetails = `Error: ${errorMessage} (${fileName})`;
+      const errorDetails = `Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`;
       
       document.getElementById('file-info').innerHTML += `
         <div class="file-error">
-          <strong>Error processing:</strong> ${fileName}<br>
-          ${errorMessage}
+          <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
+          ${escapeHtml(errorMessage)}
         </div>
       `;
       
       updateStatus(errorDetails);
       
-      if (error.message.includes('memory') || error.message.includes('allocation')) {
+      if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
         if (activeAudioContext) {
-          activeAudioContext.close();
+          try { activeAudioContext.close(); } catch(e) {}
           activeAudioContext = null;
         }
         document.getElementById('memory-warning').style.display = 'block';
@@ -1202,19 +1227,24 @@
       return supportedTypes.includes(mimeType) || supportedExts.includes(ext);
     }
 
+    // Robust decodeAudioData wrapper (handles promise & callback variants)
     async function decodeAudioSafe(arrayBuffer) {
-      return new Promise((resolve, reject) => {
-        if (!activeAudioContext) {
-          reject(new Error("AudioContext is not available"));
-          return;
+      if (!activeAudioContext) throw new Error("AudioContext is not available");
+      try {
+        // modern promise-based decodeAudioData
+        if (activeAudioContext.decodeAudioData.length === 1) {
+          return await activeAudioContext.decodeAudioData(arrayBuffer);
+        } else {
+          // older callback-based
+          return await new Promise((resolve, reject) => {
+            activeAudioContext.decodeAudioData(arrayBuffer, resolve, (err) => {
+              reject(err || new Error('decodeAudioData failed'));
+            });
+          });
         }
-        
-        activeAudioContext.decodeAudioData(
-          arrayBuffer,
-          buffer => resolve(buffer),
-          error => reject(new Error(`Audio decoding failed: ${error.message}`))
-        );
-      });
+      } catch (e) {
+        throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
+      }
     }
 
     function getSelectedValue(name) {
@@ -1256,6 +1286,7 @@
       source.buffer = buffer;
       
       if (targetChannels === 1 && buffer.numberOfChannels > 1) {
+        // mixdown to mono
         const merger = ctx.createChannelMerger(1);
         const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
         source.connect(splitter);
@@ -1283,8 +1314,8 @@
       source.start();
       const result = await ctx.startRendering();
       
-      source.disconnect();
-      if (ctx.destination) ctx.destination.disconnect();
+      try { source.disconnect(); } catch(e) {}
+      try { if (ctx.destination) ctx.destination.disconnect(); } catch(e) {}
       
       return result;
     }
@@ -1304,89 +1335,93 @@
       source.start();
       const result = await ctx.startRendering();
       
-      source.disconnect();
-      if (ctx.destination) ctx.destination.disconnect();
+      try { source.disconnect(); } catch(e) {}
+      try { if (ctx.destination) ctx.destination.disconnect(); } catch(e) {}
       
       return result;
     }
 
+    // --- Correct WAV builder with fmt + ko2 chunk BEFORE data chunk ---
+    function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
+      const dataLen = 4; // pitch(1) + release(2) + playmode(1)
+      const buf = new ArrayBuffer(8 + dataLen); // "ko2 " + size + payload
+      const dv = new DataView(buf);
+      writeString(dv, 0, 'ko2 ');
+      dv.setUint32(4, dataLen, true);
+      dv.setInt8(8, pitch);
+      dv.setUint16(9, release, true);
+      dv.setUint8(11, playmode);
+      return buf;
+    }
+
     function audioBufferToWav(buffer) {
-      const pitch = -12;
-      const release = 255;
-      const playmode = 1;
-      
-      const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
-      
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
       const bitDepth = fidelitySettings.bitDepth;
-      
       const numChannels = buffer.numberOfChannels;
       const sampleRate = buffer.sampleRate;
-      const length = buffer.length;
-      const bytesPerSample = bitDepth === 8 ? 1 : 2;
+      const bytesPerSample = (bitDepth === 8) ? 1 : 2;
       const blockAlign = numChannels * bytesPerSample;
-      const dataLength = length * blockAlign;
-      
-      const chunkSize = 36 + dataLength;
-      const fileSize = 8 + chunkSize + ko2Chunk.byteLength;
-      const riffSize = fileSize - 8;
-      
-      const header = new ArrayBuffer(44);
-      const view = new DataView(header);
-      
-      writeString(view, 0, 'RIFF');
-      view.setUint32(4, riffSize, true);
-      writeString(view, 8, 'WAVE');
-      writeString(view, 12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, numChannels, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * blockAlign, true);
-      view.setUint16(32, blockAlign, true);
-      view.setUint16(34, bitDepth, true);
-      writeString(view, 36, 'data');
-      view.setUint32(40, dataLength, true);
-      
+      const dataLength = buffer.length * blockAlign;
+
+      // fmt chunk (8 + 16)
+      const fmtChunkSize = 16;
+      const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
+      const fmtDv = new DataView(fmtBuf);
+      writeString(fmtDv, 0, 'fmt ');
+      fmtDv.setUint32(4, fmtChunkSize, true);
+      fmtDv.setUint16(8, 1, true); // PCM
+      fmtDv.setUint16(10, numChannels, true);
+      fmtDv.setUint32(12, sampleRate, true);
+      fmtDv.setUint32(16, sampleRate * blockAlign, true);
+      fmtDv.setUint16(20, blockAlign, true);
+      fmtDv.setUint16(22, bitDepth, true);
+
+      // ko2 chunk (optional custom)
+      const ko2Buf = writeKO2ChunkBuf(); // returns full ko2 chunk (header+payload)
+
+      // data header
+      const dataHeader = new ArrayBuffer(8);
+      const dataDv = new DataView(dataHeader);
+      writeString(dataDv, 0, 'data');
+      dataDv.setUint32(4, dataLength, true);
+
+      // RIFF header: size = 4 (WAVE) + fmtChunk + ko2Chunk + dataHeader + dataLength
+      const riffSize = 4 + fmtBuf.byteLength + ko2Buf.byteLength + dataHeader.byteLength + dataLength;
+      const riffHeader = new ArrayBuffer(12);
+      const riffDv = new DataView(riffHeader);
+      writeString(riffDv, 0, 'RIFF');
+      riffDv.setUint32(4, riffSize, true);
+      writeString(riffDv, 8, 'WAVE');
+
+      // build PCM data
       let audioData;
       if (bitDepth === 8) {
-        audioData = new Uint8Array(length * numChannels);
-        let offset = 0;
-        for (let i = 0; i < length; i++) {
+        audioData = new Uint8Array(dataLength);
+        let off = 0;
+        for (let i = 0; i < buffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const sample = buffer.getChannelData(ch)[i];
-            audioData[offset] = Math.floor((sample + 1.0) * 127.5 + 0.5);
-            offset++;
+            const s = buffer.getChannelData(ch)[i];
+            const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
+            audioData[off++] = u;
           }
         }
       } else {
-        audioData = new Int16Array(length * numChannels);
-        let offset = 0;
-        for (let i = 0; i < length; i++) {
+        // 16-bit signed little endian
+        const tmp = new Int16Array(buffer.length * numChannels);
+        let off = 0;
+        for (let i = 0; i < buffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-            const val = Math.floor(sample * (sample < 0 ? 32768 : 32767));
-            audioData[offset] = Math.max(-32768, Math.min(32767, val));
-            offset++;
+            const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+            const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
+            tmp[off++] = v;
           }
         }
+        audioData = tmp.buffer;
       }
-      
-      return new Blob([header, ko2Chunk, audioData.buffer], { type: 'audio/wav' });
-    }
 
-    function writeKO2Chunk(pitch, release, playmode) {
-      const buffer = new ArrayBuffer(12);
-      const view = new DataView(buffer);
-      
-      writeString(view, 0, 'ko2 ');
-      view.setUint32(4, 4, true);
-      view.setInt8(8, pitch);
-      view.setUint16(9, release, true);
-      view.setUint8(11, playmode);
-      
-      return buffer;
+      // final blob: RIFF header + fmt chunk + ko2 chunk + data header + audioData
+      return new Blob([riffHeader, fmtBuf, ko2Buf, dataHeader, audioData], { type: 'audio/wav' });
     }
 
     function writeString(view, offset, str) {
@@ -1412,7 +1447,7 @@
       const titleBar = document.createElement('div');
       titleBar.className = 'title-bar';
       titleBar.innerHTML = `
-        <span>${title}</span>
+        <span>${escapeHtml(title)}</span>
         <div class="window-controls">
           <button class="minimize" title="Minimize">_</button>
           <button class="close" title="Close">×</button>
@@ -1440,12 +1475,15 @@
       closeBtn.addEventListener('click', () => {
         const windowObj = waveWindows.find(w => w.id === windowId);
         if (windowObj && windowObj.wavesurfer) {
-          const url = windowObj.wavesurfer.getMediaElement()?.src;
-          if (url) URL.revokeObjectURL(url);
-          windowObj.wavesurfer.destroy();
+          try {
+            const audioEl = windowObj.wavesurfer.getMediaElement && windowObj.wavesurfer.getMediaElement();
+            const url = audioEl?.src || windowObj.wavesurfer.getCurrentTime && null;
+            if (url) try { URL.revokeObjectURL(url); } catch(e) {}
+          } catch (e) {}
+          try { windowObj.wavesurfer.destroy(); } catch(e) {}
         }
         
-        document.body.removeChild(windowElement);
+        try { document.body.removeChild(windowElement); } catch(e) {}
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
@@ -1499,18 +1537,22 @@
     async function renderWaveform(audioBuffer, filename) {
       let windowObj;
       try {
-        if (typeof WaveSurfer === 'undefined') {
+        const WaveSurferLib = (window.WaveSurfer && window.WaveSurfer.default) ? window.WaveSurfer.default : window.WaveSurfer;
+        if (!WaveSurferLib) {
           throw new Error('Wavesurfer failed to load');
         }
         
         if (waveWindows.length >= 5) {
           const oldest = waveWindows.shift();
           if (oldest.wavesurfer) {
-            const url = oldest.wavesurfer.getMediaElement()?.src;
-            if (url) URL.revokeObjectURL(url);
-            oldest.wavesurfer.destroy();
+            try {
+              const audioEl = oldest.wavesurfer.getMediaElement && oldest.wavesurfer.getMediaElement();
+              const url = audioEl?.src;
+              if (url) try { URL.revokeObjectURL(url); } catch(e) {}
+            } catch (e) {}
+            try { oldest.wavesurfer.destroy(); } catch(e) {}
           }
-          oldest.element.remove();
+          try { oldest.element.remove(); } catch(e) {}
         }
         
         windowObj = createWaveWindow(filename);
@@ -1522,18 +1564,11 @@
           throw new Error('Wave container not found');
         }
         
-        const wavesurfer = WaveSurfer.create({
+        const wavesurfer = WaveSurferLib.create({
           container: waveContainer,
-          waveColor: '#0f0',
-          progressColor: '#ff0',
           height: 100,
-          barWidth: 2,
-          minPxPerSec: 100,
-          cursorColor: '#f00',
           normalize: true,
-          fillParent: true,
-          partialRender: true,
-          pixelRatio: 1
+          fillParent: true
         });
 
         windowObj.wavesurfer = wavesurfer;
@@ -1541,14 +1576,18 @@
         wavesurfer.on('ready', () => {
           if (playButton) {
             playButton.addEventListener('click', () => {
-              if (wavesurfer.isPlaying()) {
-                wavesurfer.pause();
-                playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
-                updateStatus("Playback paused");
-              } else {
-                wavesurfer.play();
-                playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
-                updateStatus("Playing processed audio");
+              try {
+                if (wavesurfer.isPlaying()) {
+                  wavesurfer.pause();
+                  playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
+                  updateStatus("Playback paused");
+                } else {
+                  wavesurfer.play();
+                  playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                  updateStatus("Playing processed audio");
+                }
+              } catch (e) {
+                console.warn('Playback control failed', e);
               }
             });
           }
@@ -1557,27 +1596,54 @@
         wavesurfer.on('error', (err) => {
           console.error('Wavesurfer error:', err);
           if (waveContainer) {
-            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
+            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
           }
         });
 
         wavesurfer.on('destroy', () => {
-          const url = wavesurfer.getMediaElement()?.src;
-          if (url) URL.revokeObjectURL(url);
+          try {
+            const audioEl = wavesurfer.getMediaElement && wavesurfer.getMediaElement();
+            const url = audioEl?.src;
+            if (url) try { URL.revokeObjectURL(url); } catch(e) {}
+          } catch (e) {}
         });
         
         const wavBlob = audioBufferToWav(audioBuffer);
         const url = URL.createObjectURL(wavBlob);
         createdObjectURLs.push(url);
         
-        wavesurfer.load(url);
+        // prefer to load via a real audio element if available
+        const audioEl = document.createElement('audio');
+        audioEl.src = url;
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
+        
+        audioEl.addEventListener('canplay', () => {
+          try {
+            if (typeof wavesurfer.loadMediaElement === 'function') {
+              wavesurfer.loadMediaElement(audioEl);
+            } else {
+              wavesurfer.load(url);
+            }
+          } catch (e) {
+            try { wavesurfer.load(url); } catch (err) {
+              console.error('Fallback load failed', err);
+            }
+          }
+        });
+        // If canplay doesn't fire in some environments, fallback to load after timeout
+        setTimeout(() => {
+          if (!wavesurfer.isReady && typeof wavesurfer.load === 'function') {
+            try { wavesurfer.load(url); } catch(e) {}
+          }
+        }, 800);
         
       } catch (err) {
         console.error('Waveform render error:', err);
         if (windowObj && windowObj.element) {
           const errorContainer = document.createElement('div');
           errorContainer.className = 'render-error';
-          errorContainer.textContent = `Render failed: ${err.message} (Sample rate: ${audioBuffer.sampleRate} Hz)`;
+          errorContainer.textContent = `Render failed: ${err && err.message ? err.message : String(err)} (Sample rate: ${audioBuffer && audioBuffer.sampleRate ? audioBuffer.sampleRate : 'unknown'} Hz)`;
           windowObj.element.querySelector('.content').appendChild(errorContainer);
         }
       }
@@ -1633,11 +1699,24 @@
     }
 
     window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+      createdObjectURLs.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch(e) {}
+      });
       if (activeAudioContext) {
-        activeAudioContext.close();
+        try { activeAudioContext.close(); } catch(e) {}
       }
     });
+
+    // utility: escape text to avoid accidental HTML injection
+    function escapeHtml(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
   </script>
 </body>
 </html>
