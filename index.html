@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SpeedUpperCut</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
@@ -30,6 +30,8 @@
         radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0);
       background-size: 4px 4px;
       background-position: 0 0, 2px 2px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     
     .desktop-icon {
@@ -94,6 +96,7 @@
       align-items: center;
       border-bottom: 2px solid var(--win-gray);
       cursor: move;
+      user-select: none;
     }
     
     .title-bar button {
@@ -478,6 +481,95 @@
       align-items: center;
       margin-bottom: 10px;
     }
+    
+    /* Мобильная адаптация */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
+      .window, .preview-window {
+        width: 95vw;
+        max-width: none;
+        top: 10px;
+        transform: scale(0.98);
+      }
+      
+      .wave-element {
+        height: 100px !important;
+      }
+      
+      .preview-list {
+        max-height: 30vh !important;
+      }
+      
+      .preview-controls {
+        flex-direction: row;
+        justify-content: center;
+      }
+      
+      .wave-button {
+        padding: 10px 5px;
+        font-size: 14px;
+        flex: 1;
+        min-height: 44px;
+      }
+      
+      .button-group {
+        flex-wrap: wrap;
+      }
+      
+      .button-group button {
+        min-width: 45%;
+        margin: 5px;
+        font-size: 14px;
+        padding: 8px;
+      }
+      
+      .desktop-icon {
+        transform: scale(1.3);
+        top: 10px !important;
+        left: 5px !important;
+      }
+      
+      .win95-list {
+        height: 80px;
+      }
+      
+      .list-item {
+        padding: 6px 4px;
+        font-size: 12px;
+      }
+    }
+
+    /* Пейзажная ориентация */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .preview-container {
+        display: flex;
+        flex-direction: row;
+      }
+      
+      .wave-element {
+        width: 70% !important;
+        height: 150px !important;
+      }
+      
+      .preview-controls {
+        width: 30%;
+        flex-direction: column;
+      }
+    }
+    
+    .mobile-fallback {
+      text-align: center;
+      padding: 15px;
+      background: white;
+    }
+    
+    .mobile-fallback audio {
+      width: 100%;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -610,7 +702,6 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
   <script>
     const waveformQueue = [];
     let activeAudioContext = null;
@@ -624,6 +715,7 @@
     let audioContextInitialized = false;
     let memoryWarningShown = false;
     let isProcessing = false;
+    let audioContextResumed = false;
 
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
@@ -759,22 +851,47 @@
       });
       
       updateStatus("Ready to process files");
+      
+      // Добавляем активацию аудио на все интерактивные элементы
+      document.querySelectorAll('#play-button, #pause-button, #stop-button, .preview-item').forEach(el => {
+        el.addEventListener('click', activateAudio);
+      });
+    }
+    
+    function activateAudio() {
+      if (!audioContextResumed && wavesurfer) {
+        try {
+          const context = wavesurfer.backend.getAudioContext();
+          if (context.state === 'suspended') {
+            context.resume().then(() => {
+              audioContextResumed = true;
+              console.log('Audio context resumed');
+            }).catch(err => {
+              console.error('Failed to resume audio context:', err);
+            });
+          }
+        } catch (e) {
+          console.error('Error accessing audio context:', e);
+        }
+      }
     }
     
     function closePreviewWindow() {
       document.getElementById('preview-window').style.display = 'none';
       if (wavesurfer) {
         wavesurfer.stop();
-        try {
-          const audioEl = wavesurfer.getMediaElement();
-          const url = audioEl?.src;
-          if (url) try { URL.revokeObjectURL(url); } catch(e) {}
-        } catch (e) {}
         try { wavesurfer.destroy(); } catch(e) {}
         wavesurfer = null;
       }
       playButton.style.display = 'block';
       pauseButton.style.display = 'none';
+      audioContextResumed = false;
+      
+      // Очищаем кеш
+      createdObjectURLs.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch(e) {}
+      });
+      createdObjectURLs = [];
     }
     
     function checkMemoryAndWarn() {
@@ -1045,8 +1162,8 @@
           else if (result.channels === 2) stereoOriginal++;
           
           previewFiles.push({
-            fileName: result.fileName,
-            url: result.url,
+            fileName: fileName,
+            url: url,
             originalSize: result.originalSize,
             processedSize: result.processedSize
           });
@@ -1494,15 +1611,15 @@
       return buf;
     }
 
-    function audioBufferToWav(buffer) {
+    function audioBufferToWav(audioBuffer) {
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
       const bitDepth = fidelitySettings.bitDepth;
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
+      const numChannels = audioBuffer.numberOfChannels;
+      const sampleRate = audioBuffer.sampleRate;
       const bytesPerSample = (bitDepth === 8) ? 1 : 2;
       const blockAlign = numChannels * bytesPerSample;
-      const dataLength = buffer.length * blockAlign;
+      const dataLength = audioBuffer.length * blockAlign;
 
       const fmtChunkSize = 16;
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
@@ -1534,19 +1651,19 @@
       if (bitDepth === 8) {
         audioData = new Uint8Array(dataLength);
         let off = 0;
-        for (let i = 0; i < buffer.length; i++) {
+        for (let i = 0; i < audioBuffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = buffer.getChannelData(ch)[i];
+            const s = audioBuffer.getChannelData(ch)[i];
             const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
             audioData[off++] = u;
           }
         }
       } else {
-        const tmp = new Int16Array(buffer.length * numChannels);
+        const tmp = new Int16Array(audioBuffer.length * numChannels);
         let off = 0;
-        for (let i = 0; i < buffer.length; i++) {
+        for (let i = 0; i < audioBuffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
             const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
             tmp[off++] = v;
           }
@@ -1567,7 +1684,14 @@
       const previewList = document.getElementById('preview-list');
       previewList.innerHTML = '';
       
-      previewFiles.forEach((file, index) => {
+      // Ограничиваем количество файлов на мобильных
+      let filesToShow = previewFiles;
+      if (isMobile() && previewFiles.length > 15) {
+        filesToShow = previewFiles.slice(0, 15);
+        updateFileInfo('<div class="mobile-warning">Mobile preview limited to 15 files</div>');
+      }
+      
+      filesToShow.forEach((file, index) => {
         const item = document.createElement('div');
         item.className = 'preview-item';
         item.dataset.index = index;
@@ -1584,11 +1708,11 @@
       
       document.getElementById('preview-window').style.display = 'block';
       
-      if (previewFiles.length > 0) {
+      if (filesToShow.length > 0) {
         const firstItem = previewList.querySelector('.preview-item');
         if (firstItem) {
           firstItem.classList.add('active');
-          loadPreview(previewFiles[0].url, previewFiles[0].fileName);
+          loadPreview(filesToShow[0].url, filesToShow[0].fileName);
         }
       }
     }
@@ -1604,30 +1728,47 @@
       playButton.style.display = 'block';
       pauseButton.style.display = 'none';
       
-      wavesurfer = WaveSurfer.create({
-        container: '#wave-preview',
-        height: 150,
-        normalize: true,
-        fillParent: true,
-        progressColor: '#000080',
-        waveColor: '#c0c0c0'
-      });
-      
-      wavesurfer.on('ready', () => {
-        if (previewFiles[0].url === url) {
-          wavesurfer.play();
-          playButton.style.display = 'none';
-          pauseButton.style.display = 'block';
-        }
-      });
-      
-      wavesurfer.on('error', (err) => {
-        console.error('Wavesurfer error:', err);
-        document.getElementById('wave-preview').innerHTML = 
-          '<div class="render-error">Render failed: ' + escapeHtml(err?.message ? err.message : String(err)) + '</div>';
-      });
-      
-      wavesurfer.load(url);
+      // Пробуем инициализировать WaveSurfer
+      try {
+        wavesurfer = WaveSurfer.create({
+          container: '#wave-preview',
+          height: 150,
+          barWidth: 2,
+          cursorWidth: 1,
+          normalize: true,
+          progressColor: '#000080',
+          waveColor: '#c0c0c0',
+          interact: false
+        });
+        
+        wavesurfer.on('ready', () => {
+          playButton.disabled = false;
+          playButton.innerHTML = '<i class="fas fa-play"></i> Play';
+        });
+        
+        wavesurfer.on('error', (err) => {
+          console.error('Wavesurfer error:', err);
+          showFallbackPlayer(url, fileName);
+        });
+        
+        wavesurfer.load(url);
+      } catch (e) {
+        console.error('WaveSurfer init error:', e);
+        showFallbackPlayer(url, fileName);
+      }
+    }
+    
+    function showFallbackPlayer(url, fileName) {
+      document.getElementById('wave-preview').innerHTML = `
+        <div class="mobile-fallback">
+          <div class="wave-title">${fileName}</div>
+          <audio controls src="${url}"></audio>
+          <p>Using built-in player for compatibility</p>
+        </div>
+      `;
+      playButton.style.display = 'none';
+      pauseButton.style.display = 'none';
+      stopButton.style.display = 'none';
     }
 
     function updateProgressBar(progress) {
@@ -1669,6 +1810,59 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+    
+    // Динамическая загрузка Wavesurfer
+    async function loadWaveSurfer() {
+      if (typeof WaveSurfer === 'undefined') {
+        return new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+      return Promise.resolve();
+    }
+    
+    // Загружаем Wavesurfer при открытии превью
+    function initPreviewWindow() {
+      loadWaveSurfer().then(() => {
+        const previewList = document.getElementById('preview-list');
+        previewList.innerHTML = '';
+        
+        // Ограничиваем количество файлов на мобильных
+        let filesToShow = previewFiles;
+        if (isMobile() && previewFiles.length > 15) {
+          filesToShow = previewFiles.slice(0, 15);
+          updateFileInfo('<div class="mobile-warning">Mobile preview limited to 15 files</div>');
+        }
+        
+        filesToShow.forEach((file, index) => {
+          const item = document.createElement('div');
+          item.className = 'preview-item';
+          item.dataset.index = index;
+          item.textContent = file.fileName;
+          item.addEventListener('click', () => {
+            document.querySelectorAll('.preview-item').forEach(el => {
+              el.classList.remove('active');
+            });
+            item.classList.add('active');
+            loadPreview(file.url, file.fileName);
+          });
+          previewList.appendChild(item);
+        });
+        
+        document.getElementById('preview-window').style.display = 'block';
+        
+        if (filesToShow.length > 0) {
+          const firstItem = previewList.querySelector('.preview-item');
+          if (firstItem) {
+            firstItem.classList.add('active');
+            loadPreview(filesToShow[0].url, filesToShow[0].fileName);
+          }
+        }
+      });
     }
   </script>
 </body>
