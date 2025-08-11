@@ -7,7 +7,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    :root { --glow-color: #ff3333; }
+    :root { 
+      --glow-color: #ff3333; 
+      --primary-blue: #000080;
+      --win-gray: #c0c0c0;
+      --win-light: #ffffff;
+      --win-dark: #808080;
+    }
+    
     body {
       background: #008080;
       font-family: 'Courier New', monospace;
@@ -19,11 +26,12 @@
       min-height: 100vh;
       overflow-x: hidden;
       background-image: 
-        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0),
-        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
+        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0);
       background-size: 4px 4px;
       background-position: 0 0, 2px 2px;
     }
+    
     .desktop-icon {
       position: absolute;
       width: 80px;
@@ -35,35 +43,38 @@
       user-select: none;
       transition: transform 0.2s;
     }
+    
     .desktop-icon:hover {
       background: rgba(255,255,255,0.2);
       transform: scale(1.05);
     }
+    
     .window {
       width: 100%;
       max-width: 480px;
-      background: #c0c0c0;
+      background: var(--win-gray);
       border: 2px solid;
-      border-top-color: #ffffff;
-      border-left-color: #ffffff;
-      border-right-color: #808080;
-      border-bottom-color: #808080;
+      border-top-color: var(--win-light);
+      border-left-color: var(--win-light);
+      border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark);
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
       position: relative;
       z-index: 100;
     }
+    
     .preview-window {
       display: none;
       width: 100%;
       max-width: 600px;
-      background: #c0c0c0;
+      background: var(--win-gray);
       border: 2px solid;
-      border-top-color: #ffffff;
-      border-left-color: #ffffff;
-      border-right-color: #808080;
-      border-bottom-color: #808080;
+      border-top-color: var(--win-light);
+      border-left-color: var(--win-light);
+      border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark);
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
@@ -72,22 +83,24 @@
       top: 20px;
       margin: 0 auto;
     }
+    
     .title-bar {
-      background: #000080;
+      background: var(--primary-blue);
       color: #fff;
       padding: 4px 8px;
       font-size: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #c0c0c0;
+      border-bottom: 2px solid var(--win-gray);
       cursor: move;
     }
+    
     .title-bar button {
       width: 20px;
       height: 20px;
       border: none;
-      background: #c0c0c0;
+      background: var(--win-gray);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -96,31 +109,34 @@
       font-family: Arial, sans-serif;
       margin-left: 4px;
       border: 1px solid;
-      border-top-color: #ffffff;
-      border-left-color: #ffffff;
-      border-right-color: #808080;
-      border-bottom-color: #808080;
+      border-top-color: var(--win-light);
+      border-left-color: var(--win-light);
+      border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark);
     }
+    
     .title-bar button.minimize { 
-      background: #c0c0c0; 
       font-size: 18px;
       line-height: 12px;
     }
+    
     .title-bar button.close { 
-      background: #c0c0c0; 
       font-size: 14px;
     }
+    
     .title-bar button:active {
-      border-top-color: #808080;
-      border-left-color: #808080;
-      border-right-color: #ffffff;
-      border-bottom-color: #ffffff;
+      border-top-color: var(--win-dark);
+      border-left-color: var(--win-dark);
+      border-right-color: var(--win-light);
+      border-bottom-color: var(--win-light);
     }
+    
     .content {
       padding: 12px;
       font-size: 14px;
       color: #000;
     }
+    
     .drop-zone {
       border: 2px dashed #000;
       padding: 20px;
@@ -130,11 +146,13 @@
       position: relative;
       cursor: pointer;
       border-style: dotted;
-      border-color: #808080;
+      border-color: var(--win-dark);
     }
+    
     .drop-zone.dragover {
       background: rgba(0, 128, 0, 0.3);
     }
+    
     .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
@@ -142,35 +160,40 @@
       opacity: 0;
       cursor: pointer;
     }
+    
     .drop-zone span {
       pointer-events: none;
       font-size: 16px;
       display: block;
       margin-top: 10px;
     }
+    
     #file-info {
       margin-top: 10px;
       font-size: 14px;
       text-align: left;
       background: #fff;
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       padding: 10px;
       max-height: 200px;
       overflow-y: auto;
     }
+    
     button {
       min-height: 44px;
       padding: 10px;
       cursor: pointer;
       font-family: 'Courier New', monospace;
       font-size: 16px;
-      border: 2px outset #c0c0c0;
-      background: #c0c0c0;
+      border: 2px outset var(--win-gray);
+      background: var(--win-gray);
       color: #000;
     }
+    
     button:active {
       border-style: inset;
     }
+    
     #overlay {
       display: none;
       position: fixed;
@@ -178,6 +201,7 @@
       background: rgba(0, 0, 0, 0.4);
       z-index: 1000;
     }
+    
     #win95-loader {
       position: absolute;
       top: 50%;
@@ -185,21 +209,21 @@
       transform: translate(-50%, -50%);
       width: 320px;
       padding: 12px;
-      background: #c0c0c0;
-      border: 2px solid #000;
+      background: var(--win-gray);
       font-family: 'Courier New', monospace;
       font-size: 14px;
       color: #000;
       z-index: 1001;
       border: 2px solid;
-      border-top-color: #ffffff;
-      border-left-color: #ffffff;
-      border-right-color: #808080;
-      border-bottom-color: #808080;
+      border-top-color: var(--win-light);
+      border-left-color: var(--win-light);
+      border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark);
     }
+    
     .progress-bar-container {
       background: #fff;
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       height: 24px;
       margin-top: 8px;
       display: flex;
@@ -207,49 +231,58 @@
       gap: 1px;
       justify-content: flex-start;
     }
+    
     .progress-segment {
       width: 8px;
       height: 100%;
-      background: #c0c0c0;
+      background: var(--win-gray);
     }
+    
     .progress-segment.active {
-      background: #000080;
+      background: var(--primary-blue);
     }
+    
     .win95-inset {
-      border: 2px inset #808080;
-      background: #c0c0c0;
+      border: 2px inset var(--win-dark);
+      background: var(--win-gray);
       padding: 6px;
       margin-bottom: 6px;
     }
+    
     .win95-list {
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       background: #fff;
       padding: 4px;
       font-family: 'Courier New', monospace;
       height: 100px;
       overflow-y: auto;
     }
+    
     .list-item {
       padding: 8px 6px;
       cursor: pointer;
       user-select: none;
       font-size: 13px;
     }
+    
     .list-item:hover {
-      background: #000080;
+      background: var(--primary-blue);
       color: white;
       transition: background 0.2s ease;
     }
+    
     .list-item.selected {
-      background: #000080;
+      background: var(--primary-blue);
       color: white;
     }
+    
     .preview-container {
       margin-bottom: 20px;
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       padding: 10px;
       background: #e0e0e0;
     }
+    
     .wave-title {
       font-family: 'Courier New', monospace;
       font-size: 14px;
@@ -258,24 +291,28 @@
       font-weight: bold;
       text-align: center;
     }
+    
     .wave-element {
       width: 100%;
       height: 150px;
       background: #000;
       margin-bottom: 10px;
     }
+    
     .wave-button {
       margin-top: 6px;
       font-family: 'Courier New', monospace;
       padding: 8px;
-      background: #c0c0c0;
-      border: 2px outset #c0c0c0;
+      background: var(--win-gray);
+      border: 2px outset var(--win-gray);
       cursor: pointer;
       width: 100%;
     }
+    
     .wave-button:active {
       border-style: inset;
     }
+    
     .render-error {
       color: red;
       font-size: 13px;
@@ -283,67 +320,78 @@
       background: #ffe6e6;
       border: 1px solid #ff9999;
     }
+    
     .taskbar {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: #c0c0c0;
+      background: var(--win-gray);
       height: 36px;
-      border-top: 2px solid #ffffff;
+      border-top: 2px solid var(--win-light);
       display: flex;
       align-items: center;
       padding: 0 8px;
       z-index: 90;
     }
+    
     .start-button {
       padding: 4px 8px;
-      background: #c0c0c0;
-      border: 2px outset #c0c0c0;
+      background: var(--win-gray);
+      border: 2px outset var(--win-gray);
       font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
     }
+    
     .start-button:active {
       border-style: inset;
     }
+    
     .status-bar {
       margin-left: auto;
       padding: 0 8px;
       font-size: 14px;
     }
+    
     .window-controls {
       display: flex;
     }
+    
     .button-group {
       display: flex;
       gap: 10px;
       margin-top: 10px;
     }
+    
     .button-group button {
       flex: 1;
     }
+    
     #cancel-button {
       margin-top: 10px;
       width: 100%;
       padding: 10px;
-      background: #c0c0c0;
-      border: 2px outset #c0c0c0;
+      background: var(--win-gray);
+      border: 2px outset var(--win-gray);
       color: #000;
       font-family: 'Courier New', monospace;
       font-size: 16px;
       cursor: pointer;
     }
+    
     #cancel-button:active {
       border-style: inset;
     }
+    
     .supported-formats {
       margin-top: 8px;
       font-size: 12px;
       color: #666;
     }
+    
     .file-error {
       color: #d32f2f;
       background-color: #ffcdd2;
@@ -353,6 +401,7 @@
       border-radius: 2px;
       font-size: 13px;
     }
+    
     .memory-warning {
       color: #ff6f00;
       background-color: #fff3e0;
@@ -363,6 +412,7 @@
       font-size: 13px;
       display: none;
     }
+    
     .mobile-warning {
       color: #1976d2;
       background-color: #bbdefb;
@@ -373,15 +423,17 @@
       font-size: 13px;
       display: none;
     }
+    
     .info-panel {
       background: #fff;
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       padding: 10px;
       margin-top: 10px;
       font-size: 13px;
       max-height: 150px;
       overflow-y: auto;
     }
+    
     .trim-control {
       display: flex;
       align-items: center;
@@ -389,40 +441,37 @@
       margin-top: 10px;
       margin-bottom: 10px;
     }
-    .file-warning {
-      color: #ff6f00;
-      background-color: #fff3e0;
-      border: 1px solid #ff9800;
-      padding: 8px;
-      margin: 8px 0;
-      border-radius: 2px;
-      font-size: 13px;
-    }
+    
     .preview-controls {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
+    
     .preview-list {
-      border: 2px inset #808080;
+      border: 2px inset var(--win-dark);
       background: #fff;
       max-height: 200px;
       overflow-y: auto;
       margin-top: 10px;
     }
+    
     .preview-item {
       padding: 8px;
       cursor: pointer;
-      border-bottom: 1px solid #c0c0c0;
+      border-bottom: 1px solid var(--win-gray);
     }
+    
     .preview-item:hover {
-      background-color: #000080;
+      background-color: var(--primary-blue);
       color: white;
     }
+    
     .preview-item.active {
-      background-color: #000080;
+      background-color: var(--primary-blue);
       color: white;
     }
+    
     .preview-header {
       display: flex;
       justify-content: space-between;
@@ -561,21 +610,20 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js@7"></script>
+  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
   <script>
     const waveformQueue = [];
-    let waveformBusy = false;
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
     let processingCancelled = false;
     let currentProcessing = null;
     let lastProgress = 0;
-    let windowZIndex = 100;
     let previewFiles = [];
     let wavesurfer = null;
     let audioContextInitialized = false;
     let memoryWarningShown = false;
+    let isProcessing = false;
 
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
@@ -618,7 +666,6 @@
       const playButton = document.getElementById('play-button');
       const pauseButton = document.getElementById('pause-button');
       const stopButton = document.getElementById('stop-button');
-      const autoTrimCheckbox = document.getElementById('auto-trim');
 
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
@@ -645,7 +692,7 @@
       });
       
       previewButton.addEventListener('click', () => {
-        document.getElementById('preview-window').style.display = 'block';
+        initPreviewWindow();
       });
       
       closePreviewButton.addEventListener('click', () => {
@@ -704,12 +751,9 @@
       
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
-        waveformQueue.length = 0;
-        
         if (currentProcessing) {
           currentProcessing.cancel();
         }
-        
         hideOverlay();
         updateStatus("Processing cancelled");
       });
@@ -736,7 +780,7 @@
     function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
       
-      if (performance && performance.memory) {
+      if (performance?.memory) {
         const totalJSHeapSize = performance.memory.totalJSHeapSize;
         const jsHeapSizeLimit = performance.memory.jsHeapSizeLimit;
         if (totalJSHeapSize > jsHeapSizeLimit * 0.7) {
@@ -788,890 +832,4 @@
     function handleDragOver(e) {
       e.preventDefault();
       dragCounter++;
-      document.getElementById('drop-zone').classList.add('dragover');
-    }
-
-    function handleDragLeave() {
-      dragCounter--;
-      if (dragCounter <= 0) {
-        document.getElementById('drop-zone').classList.remove('dragover');
-      }
-    }
-
-    function handleDrop(e) {
-      e.preventDefault();
-      dragCounter = 0;
-      document.getElementById('drop-zone').classList.remove('dragover');
-      
-      if (e.dataTransfer.items) {
-        const items = [];
-        const queue = [];
-        const entries = [];
-
-        for (const item of e.dataTransfer.items) {
-          if (item.kind === 'file') {
-            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (item.getAsFile ? item.getAsFile() : null);
-            if (entry && entry.isFile === undefined) {
-              entries.push({ isFile: true, file: item.getAsFile(), name: item.getAsFile().name });
-            } else if (entry) {
-              entries.push(entry);
-            }
-          }
-        }
-
-        if (entries.length === 0) return;
-        
-        for (const entry of entries) {
-          queue.push({ entry, path: '' });
-        }
-        
-        processQueue(queue, items);
-      } else if (e.dataTransfer.files.length > 0) {
-        const items = Array.from(e.dataTransfer.files).map(file => ({
-          file,
-          path: file.name
-        }));
-        processItems(items);
-      }
-    }
-    
-    function processQueue(queue, items) {
-      if (queue.length === 0) {
-        processItems(items);
-        return;
-      }
-      
-      const queued = queue.shift();
-      const entry = queued.entry;
-      const path = queued.path || '';
-
-      if (entry && entry.isFile === true && entry.file) {
-        items.push({ file: entry.file, path: path + entry.name });
-        return processQueue(queue, items);
-      }
-
-      if (!entry) {
-        return processQueue(queue, items);
-      }
-
-      if (entry.isFile) {
-        entry.file(file => {
-          items.push({ file, path: path + file.name });
-          processQueue(queue, items);
-        }, err => {
-          console.warn('entry.file failed', err);
-          processQueue(queue, items);
-        });
-      } else if (entry.isDirectory) {
-        const dirReader = entry.createReader();
-        function readAll() {
-          dirReader.readEntries(entries => {
-            if (!entries || entries.length === 0) {
-              processQueue(queue, items);
-              return;
-            }
-            for (const childEntry of entries) {
-              queue.push({
-                entry: childEntry,
-                path: path + entry.name + '/'
-              });
-            }
-            readAll();
-          }, err => {
-            console.warn('readEntries failed for', entry, err);
-            processQueue(queue, items);
-          });
-        }
-        readAll();
-      } else {
-        processQueue(queue, items);
-      }
-    }
-
-    async function processFiles(files) {
-      const items = Array.from(files).map(file => ({
-        file,
-        path: file.name
-      }));
-      await processItems(items);
-    }
-
-    async function processFolder(files) {
-      const items = [];
-      
-      for (const file of files) {
-        const path = file.webkitRelativePath || file.name;
-        items.push({ file, path });
-      }
-      
-      await processItems(items);
-    }
-
-    function initAudioContext() {
-      if (!activeAudioContext) {
-        activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContextInitialized = true;
-      }
-      return activeAudioContext;
-    }
-
-    async function processItems(items) {
-      if (items.length === 0) {
-        updateStatus("No files to process");
-        return;
-      }
-      
-      const segmentContainer = document.getElementById('segment-container');
-      const fileInfo = document.getElementById('file-info');
-      const cancelButton = document.getElementById('cancel-button');
-      const autoTrim = document.getElementById('auto-trim').checked;
-      const previewButton = document.getElementById('preview-button');
-
-      previewFiles = [];
-      showOverlay();
-      fileInfo.innerHTML = '<div>Processing started...</div>';
-      cancelButton.disabled = false;
-      
-      updateStatus(`Processing ${items.length} item(s)`);
-
-      const zip = new JSZip();
-      
-      let stereoOriginal = 0;
-      let monoOriginal = 0;
-      let totalOriginalSize = 0;
-      let totalProcessedSize = 0;
-      let processedFiles = 0;
-      let totalTrimmed = 0;
-
-      segmentContainer.innerHTML = '';
-      const totalSegments = 50;
-      for (let i = 0; i < totalSegments; i++) {
-        const seg = document.createElement('div');
-        seg.className = 'progress-segment';
-        segmentContainer.appendChild(seg);
-      }
-
-      currentProcessing = {
-        cancel: () => {
-          processingCancelled = true;
-          if (activeAudioContext) {
-            activeAudioContext.close();
-            activeAudioContext = null;
-          }
-          cancelButton.disabled = true;
-          updateStatus("Processing cancelled");
-        }
-      };
-
-      const BATCH_SIZE = 5;
-      const MAX_CONCURRENT = 3;
-      
-      for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
-        if (processingCancelled) break;
-        
-        const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
-        const batchItems = items.slice(batchStart, batchEnd);
-        
-        const results = [];
-        let running = 0;
-        let indexInBatch = 0;
-        
-        while (indexInBatch < batchItems.length) {
-          if (running < MAX_CONCURRENT) {
-            const item = batchItems[indexInBatch];
-            const globalIndex = batchStart + indexInBatch;
-            indexInBatch++;
-            running++;
-            
-            (async () => {
-              try {
-                const result = await processSingleItem(item, globalIndex, items.length, zip);
-                if (result) {
-                  results.push(result);
-                }
-              } catch (error) {
-                handleProcessingError(error, item);
-              } finally {
-                running--;
-              }
-            })();
-          } else {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        }
-        
-        while (running > 0) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        for (const result of results) {
-          if (!result) continue;
-          
-          processedFiles++;
-          totalOriginalSize += result.originalSize || 0;
-          totalProcessedSize += result.processedSize || 0;
-          totalTrimmed += result.trimmedSamples || 0;
-          
-          if (result.channels === 1) monoOriginal++;
-          else if (result.channels === 2) stereoOriginal++;
-          
-          // Instead of rendering waveform immediately, store for preview
-          previewFiles.push({
-            fileName: result.fileName,
-            url: result.url,
-            originalSize: result.originalSize,
-            processedSize: result.processedSize
-          });
-        }
-      }
-
-      if (!processingCancelled) {
-        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-          seg.classList.add('active');
-        });
-      }
-
-      try {
-        if (processedFiles > 0 && !processingCancelled) {
-          const throttledProgress = (progress) => {
-            updateProgressBar(0.8 + progress * 0.2);
-          };
-          
-          const zipBlob = await zip.generateAsync({ 
-            type: "blob",
-            compression: "DEFLATE",
-            compressionOptions: { level: 6 }
-          }, metadata => {
-            const progress = (metadata && metadata.percent) ? (metadata.percent / 100) : 0;
-            updateStatus(`Compressing: ${metadata.percent ? metadata.percent.toFixed(1) : 0}%`);
-            throttledProgress(progress);
-          });
-          
-          await updateProgressBar(1);
-          
-          const zipUrl = URL.createObjectURL(zipBlob);
-          createdObjectURLs.push(zipUrl);
-          
-          const a = document.createElement('a');
-          a.href = zipUrl;
-          a.download = "ko2_processed_audio.zip";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
-          setTimeout(() => {
-            try {
-              URL.revokeObjectURL(zipUrl);
-            } catch (e) {}
-            createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
-          }, 2000);
-          
-          const fidelity = getSelectedValue('fidelity');
-          const channels = getSelectedValue('channels');
-          
-          fileInfo.innerHTML += `
-            <div><b>Processed ${processedFiles} files</b></div>
-            <div>Original size: ${formatBytes(totalOriginalSize)}</div>
-            <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
-            <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%</div>
-          `;
-          
-          if (autoTrim && totalTrimmed > 0) {
-            fileInfo.innerHTML += `<div>Total silence trimmed: ${(totalTrimmed/44100).toFixed(2)}s</div>`;
-          }
-          
-          fileInfo.innerHTML += `
-            <div>Fidelity: ${fidelity.toUpperCase()}</div>
-            <div>Channels: ${channels}</div>
-            <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-          `;
-          
-          updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
-          
-          // Show preview button
-          previewButton.style.display = 'block';
-        }
-      } catch (error) {
-        console.error('Error generating ZIP:', error);
-        if (!processingCancelled) {
-          handleProcessingError(error);
-        }
-      }
-
-      if (!processingCancelled) {
-        hideOverlay();
-      }
-      
-      if (activeAudioContext) {
-        try { activeAudioContext.close(); } catch(e) {}
-        activeAudioContext = null;
-        audioContextInitialized = false;
-      }
-      
-      currentProcessing = null;
-    }
-
-    async function processSingleItem(item, index, total, zip) {
-      const file = item.file;
-      let decoded, processed;
-      let originalSize = file.size;
-      let processedSize = 0;
-      let trimmedSamples = 0;
-      let fileName = '';
-      let channels = 0;
-      let originalExtension = file.name.split('.').pop().toLowerCase();
-      
-      try {
-        updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
-        updateFileInfo(`<div>Processing: ${escapeHtml(item.path)}</div>`);
-        
-        if (!isSupportedAudioType(file.type, file.name)) {
-          throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
-        }
-        
-        if (file.size > 50 * 1024 * 1024) {
-          throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
-        }
-        
-        if (!audioContextInitialized) {
-          initAudioContext();
-        }
-        
-        const arrayBuffer = await file.arrayBuffer();
-        if (processingCancelled) return null;
-        
-        decoded = await decodeAudioSafe(arrayBuffer);
-        if (processingCancelled) return null;
-        
-        channels = decoded.numberOfChannels;
-        
-        const fidelity = getSelectedValue('fidelity');
-        const channelsSetting = getSelectedValue('channels');
-        const autoTrim = document.getElementById('auto-trim').checked;
-        
-        processed = await processAudio(decoded, fidelity, channelsSetting);
-        if (processingCancelled) return null;
-        
-        if (autoTrim) {
-          const beforeLength = processed.length;
-          processed = trimSilence(processed);
-          const afterLength = processed.length;
-          trimmedSamples = Math.max(0, beforeLength - afterLength);
-          
-          updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
-        }
-        
-        const pathParts = item.path.split('/');
-        const origFilename = pathParts.pop();
-        const newFilename = origFilename.replace(/\.[^/.]+$/, '') + '_ko2.wav';
-        fileName = [...pathParts, newFilename].join('/');
-        
-        const outputBlob = await audioBufferToBlob(processed);
-        processedSize = outputBlob.size;
-        
-        zip.file(fileName, outputBlob);
-        
-        const originalSizeKB = (originalSize / 1024).toFixed(1);
-        const processedSizeKB = (processedSize / 1024).toFixed(1);
-        const sizeDifference = processedSize - originalSize;
-        let sizeInfo;
-        
-        if (sizeDifference > 0) {
-          sizeInfo = `INCREASED by ${(sizeDifference/1024).toFixed(1)}KB`;
-        } else {
-          sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
-        }
-        
-        updateFileInfo(`
-          <div>Processed: ${escapeHtml(fileName)}</div>
-          <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
-          <div>${sizeInfo}</div>
-        `);
-        
-        await updateProgressBar((index + 1) / total);
-        
-        // Create URL for preview
-        const url = URL.createObjectURL(outputBlob);
-        createdObjectURLs.push(url);
-        
-        return {
-          fileName: fileName,
-          url: url,
-          originalSize: originalSize,
-          processedSize: processedSize,
-          trimmedSamples: trimmedSamples,
-          channels: channels
-        };
-        
-      } catch (error) {
-        console.error('Error processing file:', error);
-        if (!processingCancelled) {
-          handleProcessingError(error, item);
-        }
-        return null;
-      } finally {
-        decoded = null;
-        processed = null;
-        await new Promise(resolve => setTimeout(resolve, 0));
-        if (window.gc) window.gc();
-      }
-    }
-
-    function getMimeType(extension) {
-      const types = {
-        'wav': 'audio/wav',
-        'mp3': 'audio/mpeg',
-        'ogg': 'audio/ogg',
-        'flac': 'audio/flac',
-        'aac': 'audio/aac',
-        'm4a': 'audio/mp4'
-      };
-      return types[extension] || 'audio/wav';
-    }
-
-    async function audioBufferToBlob(audioBuffer) {
-      return audioBufferToWav(audioBuffer);
-    }
-
-    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
-      const threshold = Math.pow(10, thresholdDb / 20);
-      const sampleRate = audioBuffer.sampleRate;
-      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      
-      const channelData = audioBuffer.getChannelData(0);
-      const length = channelData.length;
-      
-      const blockSize = 1024;
-      let startIndex = 0;
-      let endIndex = length - 1;
-      
-      for (let i = 0; i < length; i += blockSize) {
-        let hasSound = false;
-        const blockEnd = Math.min(i + blockSize, length);
-        
-        for (let j = i; j < blockEnd; j++) {
-          if (Math.abs(channelData[j]) > threshold) {
-            startIndex = Math.max(0, j - blockSize);
-            hasSound = true;
-            break;
-          }
-        }
-        
-        if (hasSound) break;
-      }
-      
-      for (let i = length - 1; i >= 0; i -= blockSize) {
-        let hasSound = false;
-        const blockStart = Math.max(0, i - blockSize);
-        
-        for (let j = i; j >= blockStart; j--) {
-          if (Math.abs(channelData[j]) > threshold) {
-            endIndex = Math.min(length - 1, j + blockSize);
-            hasSound = true;
-            break;
-          }
-        }
-        
-        if (hasSound) break;
-      }
-      
-      startIndex = findExactStart(channelData, startIndex, threshold);
-      endIndex = findExactEnd(channelData, endIndex, threshold);
-      
-      startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
-      endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
-      
-      if (startIndex >= endIndex) {
-        return audioBuffer;
-      }
-      
-      const newLength = endIndex - startIndex + 1;
-      const newBuffer = new AudioBuffer({
-        length: newLength,
-        sampleRate: audioBuffer.sampleRate,
-        numberOfChannels: audioBuffer.numberOfChannels
-      });
-      
-      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-        const sourceData = audioBuffer.getChannelData(ch);
-        const targetData = newBuffer.getChannelData(ch);
-        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
-      }
-      
-      return newBuffer;
-    }
-
-    function findExactStart(data, roughStart, threshold) {
-      for (let i = roughStart; i >= 0; i--) {
-        if (Math.abs(data[i]) > threshold) {
-          return i;
-        }
-      }
-      return roughStart;
-    }
-
-    function findExactEnd(data, roughEnd, threshold) {
-      for (let i = roughEnd; i < data.length; i++) {
-        if (Math.abs(data[i]) > threshold) {
-          return i;
-        }
-      }
-      return roughEnd;
-    }
-
-    function formatBytes(bytes) {
-      if (!bytes) return '0 B';
-      if (bytes < 1024) return bytes + ' B';
-      else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-      else return (bytes / 1048576).toFixed(1) + ' MB';
-    }
-
-    function handleProcessingError(error, item) {
-      console.error('Processing error:', error);
-      
-      const errorMessage = (error && error.message) ? error.message : String(error);
-      const fileName = item?.file?.name || 'unknown file';
-      const errorDetails = `Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`;
-      
-      document.getElementById('file-info').innerHTML += `
-        <div class="file-error">
-          <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
-          ${escapeHtml(errorMessage)}
-        </div>
-      `;
-      
-      updateStatus(errorDetails);
-      
-      if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
-        if (activeAudioContext) {
-          try { activeAudioContext.close(); } catch(e) {}
-          activeAudioContext = null;
-        }
-        document.getElementById('memory-warning').style.display = 'block';
-        memoryWarningShown = true;
-      }
-    }
-
-    function isSupportedAudioType(mimeType, fileName) {
-      const supportedTypes = [
-        'audio/wav', 'audio/wave', 'audio/x-wav',
-        'audio/mpeg', 'audio/mp3',
-        'audio/ogg', 'audio/vorbis',
-        'audio/aac', 'audio/aacp',
-        'audio/flac', 'audio/x-flac'
-      ];
-      
-      const ext = fileName.split('.').pop().toLowerCase();
-      const supportedExts = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
-      
-      return supportedTypes.includes(mimeType) || supportedExts.includes(ext);
-    }
-
-    async function decodeAudioSafe(arrayBuffer) {
-      if (!activeAudioContext) throw new Error("AudioContext is not available");
-      try {
-        if (activeAudioContext.decodeAudioData.length === 1) {
-          return await activeAudioContext.decodeAudioData(arrayBuffer);
-        } else {
-          return await new Promise((resolve, reject) => {
-            activeAudioContext.decodeAudioData(arrayBuffer, resolve, (err) => {
-              reject(err || new Error('decodeAudioData failed'));
-            });
-          });
-        }
-      } catch (e) {
-        throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
-      }
-    }
-
-    function getSelectedValue(name) {
-      const group = document.querySelector(`.win95-list[data-group="${name}"]`);
-      return group?.querySelector('.list-item.selected')?.dataset.value || 'cd';
-    }
-
-    function getFidelitySettings(fidelity) {
-      switch (fidelity) {
-        case 'sp8': return { sampleRate: 22050, bitDepth: 8 };
-        case 'sp16': return { sampleRate: 22050, bitDepth: 16 };
-        case 'sk': return { sampleRate: 9000, bitDepth: 8 };
-        default: return { sampleRate: 44100, bitDepth: 16 };
-      }
-    }
-
-    async function processAudio(buffer, fidelity, channels) {
-      const fidelitySettings = getFidelitySettings(fidelity);
-      const targetChannels = channels === 'mono' ? 1 : 2;
-      
-      const speedFactor = 2.0;
-      
-      const converted = await convertChannels(buffer, targetChannels);
-      
-      const downsampleRate = fidelitySettings.sampleRate;
-      return await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
-    }
-
-    async function convertChannels(buffer, targetChannels) {
-      if (buffer.numberOfChannels === targetChannels) return buffer;
-
-      const ctx = new OfflineAudioContext(
-        targetChannels, 
-        buffer.length, 
-        buffer.sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      
-      if (targetChannels === 1 && buffer.numberOfChannels > 1) {
-        const merger = ctx.createChannelMerger(1);
-        const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
-        source.connect(splitter);
-        
-        const gain = ctx.createGain();
-        gain.gain.value = 1 / buffer.numberOfChannels;
-        
-        for (let i = 0; i < buffer.numberOfChannels; i++) {
-          splitter.connect(gain, i);
-        }
-        
-        gain.connect(merger, 0, 0);
-        merger.connect(ctx.destination);
-      } 
-      else if (targetChannels === 2 && buffer.numberOfChannels === 1) {
-        const merger = ctx.createChannelMerger(2);
-        source.connect(merger, 0, 0);
-        source.connect(merger, 0, 1);
-        merger.connect(ctx.destination);
-      } 
-      else {
-        source.connect(ctx.destination);
-      }
-      
-      source.start();
-      const result = await ctx.startRendering();
-      
-      try { source.disconnect(); } catch(e) {}
-      try { if (ctx.destination) ctx.destination.disconnect(); } catch(e) {}
-      
-      return result;
-    }
-
-    async function applySpeedAndFidelity(buffer, speed, sampleRate) {
-      const duration = buffer.duration / speed;
-      const ctx = new OfflineAudioContext(
-        buffer.numberOfChannels,
-        Math.ceil(duration * sampleRate),
-        sampleRate
-      );
-      
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.playbackRate.value = speed;
-      source.connect(ctx.destination);
-      source.start();
-      const result = await ctx.startRendering();
-      
-      try { source.disconnect(); } catch(e) {}
-      try { if (ctx.destination) ctx.destination.disconnect(); } catch(e) {}
-      
-      return result;
-    }
-
-    function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
-      const dataLen = 4;
-      const buf = new ArrayBuffer(8 + dataLen);
-      const dv = new DataView(buf);
-      writeString(dv, 0, 'ko2 ');
-      dv.setUint32(4, dataLen, true);
-      dv.setInt8(8, pitch);
-      dv.setUint16(9, release, true);
-      dv.setUint8(11, playmode);
-      return buf;
-    }
-
-    function audioBufferToWav(buffer) {
-      const fidelity = getSelectedValue('fidelity');
-      const fidelitySettings = getFidelitySettings(fidelity);
-      const bitDepth = fidelitySettings.bitDepth;
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
-      const bytesPerSample = (bitDepth === 8) ? 1 : 2;
-      const blockAlign = numChannels * bytesPerSample;
-      const dataLength = buffer.length * blockAlign;
-
-      const fmtChunkSize = 16;
-      const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-      const fmtDv = new DataView(fmtBuf);
-      writeString(fmtDv, 0, 'fmt ');
-      fmtDv.setUint32(4, fmtChunkSize, true);
-      fmtDv.setUint16(8, 1, true);
-      fmtDv.setUint16(10, numChannels, true);
-      fmtDv.setUint32(12, sampleRate, true);
-      fmtDv.setUint32(16, sampleRate * blockAlign, true);
-      fmtDv.setUint16(20, blockAlign, true);
-      fmtDv.setUint16(22, bitDepth, true);
-
-      const ko2Buf = writeKO2ChunkBuf();
-
-      const dataHeader = new ArrayBuffer(8);
-      const dataDv = new DataView(dataHeader);
-      writeString(dataDv, 0, 'data');
-      dataDv.setUint32(4, dataLength, true);
-
-      const riffSize = 4 + fmtBuf.byteLength + ko2Buf.byteLength + dataHeader.byteLength + dataLength;
-      const riffHeader = new ArrayBuffer(12);
-      const riffDv = new DataView(riffHeader);
-      writeString(riffDv, 0, 'RIFF');
-      riffDv.setUint32(4, riffSize, true);
-      writeString(riffDv, 8, 'WAVE');
-
-      let audioData;
-      if (bitDepth === 8) {
-        audioData = new Uint8Array(dataLength);
-        let off = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          for (let ch = 0; ch < numChannels; ch++) {
-            const s = buffer.getChannelData(ch)[i];
-            const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
-            audioData[off++] = u;
-          }
-        }
-      } else {
-        const tmp = new Int16Array(buffer.length * numChannels);
-        let off = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-            const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
-            tmp[off++] = v;
-          }
-        }
-        audioData = tmp.buffer;
-      }
-
-      return new Blob([riffHeader, fmtBuf, ko2Buf, dataHeader, audioData], { type: 'audio/wav' });
-    }
-
-    function writeString(view, offset, str) {
-      for (let i = 0; i < str.length; i++) {
-        view.setUint8(offset + i, str.charCodeAt(i));
-      }
-    }
-
-    function initPreviewWindow() {
-      const previewList = document.getElementById('preview-list');
-      previewList.innerHTML = '';
-      
-      previewFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'preview-item';
-        item.dataset.index = index;
-        item.textContent = file.fileName;
-        item.addEventListener('click', () => {
-          document.querySelectorAll('.preview-item').forEach(el => {
-            el.classList.remove('active');
-          });
-          item.classList.add('active');
-          loadPreview(file.url, file.fileName);
-        });
-        previewList.appendChild(item);
-      });
-      
-      document.getElementById('preview-window').style.display = 'block';
-      
-      if (previewFiles.length > 0) {
-        const firstItem = previewList.querySelector('.preview-item');
-        if (firstItem) {
-          firstItem.classList.add('active');
-          loadPreview(previewFiles[0].url, previewFiles[0].fileName);
-        }
-      }
-    }
-    
-    function loadPreview(url, fileName) {
-      if (wavesurfer) {
-        wavesurfer.stop();
-        try { wavesurfer.destroy(); } catch(e) {}
-        wavesurfer = null;
-      }
-      
-      const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-      if (!WaveSurferLib) {
-        console.error('WaveSurfer not available');
-        return;
-      }
-      
-      document.getElementById('preview-title').textContent = fileName;
-      playButton.style.display = 'block';
-      pauseButton.style.display = 'none';
-      
-      wavesurfer = WaveSurferLib.create({
-        container: '#wave-preview',
-        height: 150,
-        normalize: true,
-        fillParent: true,
-        progressColor: '#000080',
-        waveColor: '#c0c0c0'
-      });
-      
-      wavesurfer.on('ready', () => {
-        // Auto-play first file
-        if (previewFiles[0].url === url) {
-          wavesurfer.play();
-          playButton.style.display = 'none';
-          pauseButton.style.display = 'block';
-        }
-      });
-      
-      wavesurfer.on('error', (err) => {
-        console.error('Wavesurfer error:', err);
-        document.getElementById('wave-preview').innerHTML = 
-          '<div class="render-error">Render failed: ' + escapeHtml(err?.message ? err.message : String(err)) + '</div>';
-      });
-      
-      wavesurfer.load(url);
-    }
-
-    function updateProgressBar(progress) {
-      return new Promise(resolve => {
-        progress = Math.max(0, Math.min(1, progress));
-        
-        const segments = document.querySelectorAll('.progress-segment');
-        const segmentsToActivate = Math.floor(progress * segments.length);
-        
-        for (let i = 0; i < segments.length; i++) {
-          const shouldBeActive = i < segmentsToActivate;
-          const isActive = segments[i].classList.contains('active');
-          
-          if (shouldBeActive !== isActive) {
-            segments[i].classList.toggle('active', shouldBeActive);
-          }
-        }
-        
-        lastProgress = progress;
-        
-        setTimeout(resolve, 20);
-      });
-    }
-
-    window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => {
-        try { URL.revokeObjectURL(url); } catch(e) {}
-      });
-      if (activeAudioContext) {
-        try { activeAudioContext.close(); } catch(e) {}
-      }
-    });
-
-    function escapeHtml(str) {
-      if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-  </script>
-</body>
-</html>
+      document.getElementById('drop-zone').class极长的代码，后续部分在下一个消息中发送
