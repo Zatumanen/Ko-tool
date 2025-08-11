@@ -265,6 +265,8 @@
       border: 2px inset var(--win-dark);
       padding: 10px;
       background: #e0e0e0;
+      position: relative;
+      padding-bottom: 60px; /* Дополнительное место для кнопок */
     }
     
     .wave-title {
@@ -278,19 +280,18 @@
     
     .wave-element {
       width: 100%;
-      height: 150px;
+      height: 80px; /* Уменьшенная высота волны */
       background: #000;
       margin-bottom: 10px;
     }
     
     .wave-button {
-      margin-top: 6px;
       font-family: 'Courier New', monospace;
       padding: 8px;
       background: var(--win-gray);
       border: 2px outset var(--win-gray);
       cursor: pointer;
-      width: 100%;
+      min-width: 80px;
     }
     
     .wave-button:active {
@@ -447,7 +448,10 @@
       display: flex;
       gap: 10px;
       justify-content: center;
-      margin-top: 10px;
+      position: absolute;
+      bottom: 10px;
+      left: 0;
+      right: 0;
     }
     
     @media (max-width: 768px) {
@@ -463,7 +467,7 @@
       }
       
       .wave-element {
-        height: 100px !important;
+        height: 70px !important; /* Уменьшенная высота для мобильных */
       }
       
       .desktop-icon {
@@ -488,18 +492,19 @@
       }
       
       .preview-controls {
-        flex-direction: column;
-        align-items: center;
+        flex-direction: row;
+        flex-wrap: wrap;
       }
       
       .wave-button {
-        min-width: 150px;
+        min-width: 100px;
+        padding: 6px;
       }
     }
 
     @media (max-width: 768px) and (orientation: landscape) {
       .wave-element {
-        height: 100px !important;
+        height: 70px !important;
       }
     }
     
@@ -1673,7 +1678,7 @@
         
         const wavesurfer = WaveSurferLib.create({
           container: waveContainer,
-          height: 150,
+          height: 80, // Уменьшенная высота контейнера
           barWidth: 2,
           cursorWidth: 1,
           normalize: true,
