@@ -67,25 +67,6 @@
       z-index: 100;
     }
     
-    .preview-window {
-      display: none;
-      width: 100%;
-      max-width: 600px;
-      background: var(--win-gray);
-      border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
-      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-      padding: 0;
-      box-sizing: border-box;
-      position: relative;
-      z-index: 101;
-      top: 20px;
-      margin: 0 auto;
-    }
-    
     .title-bar {
       background: var(--primary-blue);
       color: #fff;
@@ -279,14 +260,11 @@
       color: white;
     }
     
-    .preview-container {
+    .wave-container {
       margin-bottom: 20px;
       border: 2px inset var(--win-dark);
       padding: 10px;
       background: #e0e0e0;
-      display: flex;
-      flex-direction: column;
-      height: 70vh;
     }
     
     .wave-title {
@@ -298,17 +276,9 @@
       text-align: center;
     }
     
-    .wave-preview-container {
-      flex: 1;
-      min-height: 200px;
-      display: flex;
-      flex-direction: column;
-    }
-    
     .wave-element {
       width: 100%;
-      flex: 1;
-      min-height: 150px;
+      height: 150px;
       background: #000;
       margin-bottom: 10px;
     }
@@ -456,49 +426,28 @@
       margin-bottom: 10px;
     }
     
+    .wave-window {
+      position: absolute;
+      width: 400px;
+      background: var(--win-gray);
+      border: 2px solid;
+      border-top-color: var(--win-light);
+      border-left-color: var(--win-light);
+      border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark);
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      padding: 0;
+      box-sizing: border-box;
+      z-index: 101;
+      top: 100px;
+      left: 100px;
+    }
+    
     .preview-controls {
       display: flex;
       gap: 10px;
-      margin-top: 10px;
       justify-content: center;
-    }
-    
-    .preview-list {
-      border: 2px inset var(--win-dark);
-      background: #fff;
-      max-height: 200px;
-      overflow-y: auto;
       margin-top: 10px;
-    }
-    
-    .preview-item {
-      padding: 8px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--win-gray);
-    }
-    
-    .preview-item:hover {
-      background-color: var(--primary-blue);
-      color: white;
-    }
-    
-    .preview-item.active {
-      background-color: var(--primary-blue);
-      color: white;
-    }
-    
-    .preview-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    
-    .controls-container {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-      justify-content: center;
     }
     
     @media (max-width: 768px) {
@@ -506,7 +455,7 @@
         padding: 10px;
       }
       
-      .window, .preview-window {
+      .window {
         width: 95vw;
         max-width: none;
         top: 10px;
@@ -514,34 +463,7 @@
       }
       
       .wave-element {
-        min-height: 100px;
-      }
-      
-      .preview-list {
-        max-height: 30vh;
-      }
-      
-      .preview-controls {
-        flex-direction: row;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      
-      .wave-button {
-        padding: 10px 5px;
-        font-size: 14px;
-        min-width: 120px;
-      }
-      
-      .button-group {
-        flex-wrap: wrap;
-      }
-      
-      .button-group button {
-        min-width: 45%;
-        margin: 5px;
-        font-size: 14px;
-        padding: 8px;
+        height: 100px !important;
       }
       
       .desktop-icon {
@@ -559,32 +481,25 @@
         font-size: 12px;
       }
       
-      .preview-container {
-        height: 80vh;
+      .wave-window {
+        width: 90vw;
+        left: 5vw;
+        top: 20px;
+      }
+      
+      .preview-controls {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .wave-button {
+        min-width: 150px;
       }
     }
 
     @media (max-width: 768px) and (orientation: landscape) {
-      .preview-container {
-        flex-direction: row;
-        flex-wrap: wrap;
-      }
-      
-      .wave-preview-container {
-        width: 60%;
-        min-height: 200px;
-      }
-      
-      .preview-controls-container {
-        width: 40%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-      
-      .preview-list {
-        width: 100%;
-        max-height: 200px;
+      .wave-element {
+        height: 100px !important;
       }
     }
     
@@ -664,7 +579,6 @@
         <button id="select-file-button">Select Files</button>
         <button id="select-folder-button">Select Folder</button>
         <button id="clear-button">Clear List</button>
-        <button id="preview-button" style="display: none;">Preview Results</button>
       </div>
       
       <div class="info-panel" id="file-info">
@@ -673,42 +587,6 @@
         <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="preview-window" id="preview-window">
-    <div class="title-bar">
-      <span>Preview Processed Audio</span>
-      <div class="window-controls">
-        <button class="minimize" title="Minimize">_</button>
-        <button class="close" title="Close">×</button>
-      </div>
-    </div>
-    <div class="content">
-      <div class="preview-container">
-        <div class="wave-preview-container">
-          <div class="wave-element" id="wave-preview"></div>
-          
-          <div class="controls-container">
-            <button class="wave-button" id="play-button">
-              <i class="fas fa-play"></i> Play
-            </button>
-            <button class="wave-button" id="pause-button" style="display: none;">
-              <i class="fas fa-pause"></i> Pause
-            </button>
-            <button class="wave-button" id="stop-button">
-              <i class="fas fa-stop"></i> Stop
-            </button>
-          </div>
-        </div>
-        
-        <div class="preview-header">
-          <div class="wave-title" id="preview-title">Select a file to preview</div>
-          <button id="close-preview">Close Preview</button>
-        </div>
-        
-        <div class="preview-list" id="preview-list"></div>
       </div>
     </div>
   </div>
@@ -732,18 +610,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
+    const waveformQueue = [];
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
     let processingCancelled = false;
     let currentProcessing = null;
     let lastProgress = 0;
-    let previewFiles = [];
-    let wavesurfer = null;
+    let windowZIndex = 100;
+    let waveWindows = [];
     let audioContextInitialized = false;
     let memoryWarningShown = false;
     let audioContextResumed = false;
-    let isProcessing = false;
 
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
@@ -781,11 +659,6 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
-      const previewButton = document.getElementById('preview-button');
-      const closePreviewButton = document.getElementById('close-preview');
-      const playButton = document.getElementById('play-button');
-      const pauseButton = document.getElementById('pause-button');
-      const stopButton = document.getElementById('stop-button');
 
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
@@ -819,39 +692,6 @@
         updateStatus("File list cleared");
       });
       
-      previewButton.addEventListener('click', () => {
-        initPreviewWindow();
-      });
-      
-      closePreviewButton.addEventListener('click', () => {
-        closePreviewWindow();
-      });
-      
-      playButton.addEventListener('click', () => {
-        activateAudio();
-        if (wavesurfer) {
-          wavesurfer.play();
-          playButton.style.display = 'none';
-          pauseButton.style.display = 'block';
-        }
-      });
-      
-      pauseButton.addEventListener('click', () => {
-        if (wavesurfer) {
-          wavesurfer.pause();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-        }
-      });
-      
-      stopButton.addEventListener('click', () => {
-        if (wavesurfer) {
-          wavesurfer.stop();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-        }
-      });
-      
       fileInput.addEventListener('change', async (e) => {
         updateStatus(`Files selected: ${e.target.files.length}`);
         updateFileInfo(`<div>Selected ${e.target.files.length} file(s). Starting processing...</div>`);
@@ -878,14 +718,6 @@
         document.querySelector('.window').style.display = 'none';
       });
       
-      document.querySelector('#preview-window .minimize').addEventListener('click', () => {
-        document.getElementById('preview-window').style.display = 'none';
-      });
-      
-      document.querySelector('#preview-window .close').addEventListener('click', () => {
-        closePreviewWindow();
-      });
-      
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
         if (currentProcessing) {
@@ -900,10 +732,8 @@
       const activationElements = [
         '#select-file-button', 
         '#select-folder-button',
-        '#play-button',
-        '#pause-button',
-        '#stop-button',
-        '.preview-item',
+        '.wave-button',
+        '.wave-window',
         '#drop-zone'
       ];
       
@@ -924,6 +754,7 @@
         try {
           await activeAudioContext.resume();
           audioContextResumed = true;
+          console.log("AudioContext resumed");
           return true;
         } catch (e) {
           console.error("Failed to resume AudioContext:", e);
@@ -952,6 +783,7 @@
         try {
           const ContextClass = window.AudioContext || window.webkitAudioContext;
           activeAudioContext = new ContextClass();
+          console.log("AudioContext created");
           return activeAudioContext;
         } catch (e) {
           console.error('AudioContext creation failed:', e);
@@ -960,115 +792,6 @@
         }
       }
       return activeAudioContext;
-    }
-    
-    function closePreviewWindow() {
-      document.getElementById('preview-window').style.display = 'none';
-      if (wavesurfer) {
-        wavesurfer.stop();
-        try { wavesurfer.destroy(); } catch(e) {}
-        wavesurfer = null;
-      }
-      playButton.style.display = 'block';
-      pauseButton.style.display = 'none';
-      audioContextResumed = false;
-      
-      createdObjectURLs.forEach(url => {
-        try { URL.revokeObjectURL(url); } catch(e) {}
-      });
-      createdObjectURLs = [];
-    }
-    
-    function initPreviewWindow() {
-      document.getElementById('preview-window').style.display = 'block';
-      
-      const previewList = document.getElementById('preview-list');
-      previewList.innerHTML = '';
-      
-      let filesToShow = previewFiles;
-      if (isMobile() && previewFiles.length > 15) {
-        filesToShow = previewFiles.slice(0, 15);
-        updateFileInfo('<div class="mobile-warning">Mobile preview limited to 15 files</div>');
-      }
-      
-      filesToShow.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'preview-item';
-        item.dataset.index = index;
-        item.textContent = file.fileName;
-        item.addEventListener('click', () => {
-          document.querySelectorAll('.preview-item').forEach(el => {
-            el.classList.remove('active');
-          });
-          item.classList.add('active');
-          loadPreview(file.url, file.fileName);
-        });
-        previewList.appendChild(item);
-      });
-      
-      if (filesToShow.length > 0) {
-        const firstItem = previewList.querySelector('.preview-item');
-        if (firstItem) {
-          firstItem.classList.add('active');
-          loadPreview(filesToShow[0].url, filesToShow[0].fileName);
-        }
-      }
-    }
-    
-    function loadPreview(url, fileName) {
-      if (wavesurfer) {
-        wavesurfer.stop();
-        try { wavesurfer.destroy(); } catch(e) {}
-        wavesurfer = null;
-      }
-      
-      document.getElementById('preview-title').textContent = fileName;
-      playButton.style.display = 'block';
-      pauseButton.style.display = 'none';
-      
-      try {
-        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-        
-        wavesurfer = WaveSurferLib.create({
-          container: '#wave-preview',
-          height: '100%',
-          barWidth: 2,
-          cursorWidth: 1,
-          normalize: true,
-          progressColor: '#000080',
-          waveColor: '#c0c0c0',
-          interact: false
-        });
-        
-        wavesurfer.on('ready', () => {
-          playButton.disabled = false;
-          playButton.innerHTML = '<i class="fas fa-play"></i> Play';
-        });
-        
-        wavesurfer.on('error', (err) => {
-          console.error('Wavesurfer error:', err);
-          showFallbackPlayer(url, fileName);
-        });
-        
-        wavesurfer.load(url);
-      } catch (e) {
-        console.error('WaveSurfer init error:', e);
-        showFallbackPlayer(url, fileName);
-      }
-    }
-    
-    function showFallbackPlayer(url, fileName) {
-      document.getElementById('wave-preview').innerHTML = `
-        <div class="mobile-fallback">
-          <div class="wave-title">${fileName}</div>
-          <audio controls src="${url}"></audio>
-          <p>Using built-in player for compatibility</p>
-        </div>
-      `;
-      playButton.style.display = 'none';
-      pauseButton.style.display = 'none';
-      stopButton.style.display = 'none';
     }
     
     function checkMemoryAndWarn() {
@@ -1262,16 +985,11 @@
         return;
       }
       
-      if (isProcessing) return;
-      isProcessing = true;
-      
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
-      const previewButton = document.getElementById('preview-button');
 
-      previewFiles = [];
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
@@ -1341,13 +1059,6 @@
           if (result.channels === 1) monoOriginal++;
           else if (result.channels === 2) stereoOriginal++;
           
-          previewFiles.push({
-            fileName: result.fileName,
-            url: result.url,
-            originalSize: result.originalSize,
-            processedSize: result.processedSize
-          });
-          
           await updateProgressBar(processedFiles / items.length);
         }
       }
@@ -1409,8 +1120,6 @@
           `;
           
           updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
-          
-          previewButton.style.display = 'block';
         }
       } catch (error) {
         console.error('Error generating ZIP:', error);
@@ -1430,7 +1139,6 @@
       }
       
       currentProcessing = null;
-      isProcessing = false;
     }
 
     async function processSingleItem(item, index, total, zip) {
@@ -1511,6 +1219,9 @@
         
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
+        
+        // Create preview window for this file
+        createWaveWindow(fileName, url);
         
         return {
           fileName: fileName,
@@ -1856,6 +1567,173 @@
       for (let i = 0; i < str.length; i++) {
         view.setUint8(offset + i, str.charCodeAt(i));
       }
+    }
+
+    function createWaveWindow(title, url) {
+      windowZIndex += 2;
+      const windowId = 'wave-window-' + Date.now();
+      
+      const top = 80 + (waveWindows.length * 30);
+      const left = 100 + (waveWindows.length * 30);
+      
+      const windowElement = document.createElement('div');
+      windowElement.className = 'wave-window window';
+      windowElement.id = windowId;
+      windowElement.style.zIndex = windowZIndex;
+      windowElement.style.top = top + 'px';
+      windowElement.style.left = left + 'px';
+      
+      windowElement.innerHTML = `
+        <div class="title-bar">
+          <span>${escapeHtml(title)}</span>
+          <div class="window-controls">
+            <button class="minimize" title="Minimize">_</button>
+            <button class="close" title="Close">×</button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="wave-container">
+            <div class="wave-title">${escapeHtml(title)}</div>
+            <div class="wave-element"></div>
+            <div class="preview-controls">
+              <button class="wave-button play-button">
+                <i class="fas fa-play"></i> Play
+              </button>
+              <button class="wave-button pause-button" style="display: none;">
+                <i class="fas fa-pause"></i> Pause
+              </button>
+              <button class="wave-button stop-button">
+                <i class="fas fa-stop"></i> Stop
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(windowElement);
+      
+      const playButton = windowElement.querySelector('.play-button');
+      const pauseButton = windowElement.querySelector('.pause-button');
+      const stopButton = windowElement.querySelector('.stop-button');
+      const waveContainer = windowElement.querySelector('.wave-element');
+      
+      // Управление окном
+      const minimizeBtn = windowElement.querySelector('.minimize');
+      minimizeBtn.addEventListener('click', () => {
+        const content = windowElement.querySelector('.content');
+        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+      });
+      
+      const closeBtn = windowElement.querySelector('.close');
+      closeBtn.addEventListener('click', () => {
+        if (windowElement.wavesurfer) {
+          try {
+            windowElement.wavesurfer.destroy();
+          } catch(e) {}
+        }
+        document.body.removeChild(windowElement);
+        waveWindows = waveWindows.filter(w => w.id !== windowId);
+      });
+      
+      // Перетаскивание окна
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      const titleBar = windowElement.querySelector('.title-bar');
+      titleBar.addEventListener('mousedown', dragMouseDown);
+      
+      function dragMouseDown(e) {
+        e.preventDefault();
+        windowZIndex += 2;
+        windowElement.style.zIndex = windowZIndex;
+        
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.addEventListener('mouseup', closeDragElement);
+        document.addEventListener('mousemove', elementDrag);
+      }
+      
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
+        windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
+      }
+      
+      function closeDragElement() {
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('mousemove', elementDrag);
+      }
+      
+      // Инициализация WaveSurfer
+      try {
+        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+        
+        const wavesurfer = WaveSurferLib.create({
+          container: waveContainer,
+          height: 150,
+          barWidth: 2,
+          cursorWidth: 1,
+          normalize: true,
+          progressColor: '#000080',
+          waveColor: '#c0c0c0',
+          interact: false
+        });
+        
+        windowElement.wavesurfer = wavesurfer;
+        
+        // Кнопки управления
+        playButton.addEventListener('click', () => {
+          activateAudio();
+          wavesurfer.play();
+          playButton.style.display = 'none';
+          pauseButton.style.display = 'block';
+        });
+        
+        pauseButton.addEventListener('click', () => {
+          wavesurfer.pause();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+        });
+        
+        stopButton.addEventListener('click', () => {
+          wavesurfer.stop();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+        });
+        
+        // Загрузка аудио
+        wavesurfer.load(url);
+        
+        // Очистка при закрытии
+        wavesurfer.on('destroy', () => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch(e) {}
+          createdObjectURLs = createdObjectURLs.filter(u => u !== url);
+        });
+        
+      } catch (e) {
+        console.error('WaveSurfer init error:', e);
+        // Fallback для мобильных устройств
+        waveContainer.innerHTML = `
+          <div class="mobile-fallback">
+            <audio controls src="${url}" style="width: 100%;"></audio>
+          </div>
+        `;
+        playButton.style.display = 'none';
+        pauseButton.style.display = 'none';
+      }
+      
+      const windowObj = {
+        id: windowId,
+        element: windowElement
+      };
+      
+      waveWindows.push(windowObj);
+      return windowElement;
     }
 
     function updateProgressBar(progress) {
