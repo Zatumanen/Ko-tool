@@ -482,7 +482,6 @@
       margin-bottom: 10px;
     }
     
-    /* Мобильная адаптация */
     @media (max-width: 768px) {
       body {
         padding: 10px;
@@ -542,7 +541,6 @@
       }
     }
 
-    /* Пейзажная ориентация */
     @media (max-width: 768px) and (orientation: landscape) {
       .preview-container {
         display: flex;
@@ -679,7 +677,6 @@
         </div>
         
         <div class="preview-list" id="preview-list">
-          <!-- Preview items will be added here -->
         </div>
       </div>
     </div>
@@ -727,6 +724,10 @@
              (navigator.msMaxTouchPoints > 0);
     }
 
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+
     function initApp() {
       if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
@@ -771,8 +772,16 @@
       
       dropZone.addEventListener('touchend', handleDragLeave);
       
-      selectFileButton.addEventListener('click', () => fileInput.click());
-      selectFolderButton.addEventListener('click', () => folderInput.click());
+      selectFileButton.addEventListener('click', () => {
+        fileInput.click();
+        activateAudio();
+      });
+      
+      selectFolderButton.addEventListener('click', () => {
+        folderInput.click();
+        activateAudio();
+      });
+      
       clearButton.addEventListener('click', () => {
         document.getElementById('file-info').innerHTML = 
           '<div>Drop or select audio files/folders to process</div>' +
@@ -792,6 +801,7 @@
       });
       
       playButton.addEventListener('click', () => {
+        activateAudio();
         if (wavesurfer) {
           wavesurfer.play();
           playButton.style.display = 'none';
@@ -816,12 +826,16 @@
       });
       
       fileInput.addEventListener('change', (e) => {
-        processFiles(e.target.files);
+        updateStatus(`Files selected: ${e.target.files.length}`);
+        updateFileInfo(`<div>Files selected. Starting processing...</div>`);
+        setTimeout(() => processFiles(e.target.files), 100);
         e.target.value = null;
       });
       
       folderInput.addEventListener('change', (e) => {
-        processFolder(e.target.files);
+        updateStatus(`Folder selected with ${e.target.files.length} files`);
+        updateFileInfo(`<div>Folder selected. Starting processing...</div>`);
+        setTimeout(() => processFolder(e.target.files), 100);
         e.target.value = null;
       });
       
@@ -852,26 +866,34 @@
       
       updateStatus("Ready to process files");
       
-      // Добавляем активацию аудио на все интерактивные элементы
-      document.querySelectorAll('#play-button, #pause-button, #stop-button, .preview-item').forEach(el => {
-        el.addEventListener('click', activateAudio);
+      const activationElements = [
+        '#select-file-button', 
+        '#select-folder-button',
+        '#play-button',
+        '#pause-button',
+        '#stop-button',
+        '.preview-item',
+        '#drop-zone'
+      ];
+      
+      activationElements.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+          el.addEventListener('click', activateAudio);
+          el.addEventListener('touchstart', activateAudio);
+        });
       });
     }
     
     function activateAudio() {
-      if (!audioContextResumed && wavesurfer) {
+      if (!audioContextResumed && activeAudioContext) {
         try {
-          const context = wavesurfer.backend.getAudioContext();
-          if (context.state === 'suspended') {
-            context.resume().then(() => {
+          if (activeAudioContext.state === 'suspended') {
+            activeAudioContext.resume().then(() => {
               audioContextResumed = true;
-              console.log('Audio context resumed');
-            }).catch(err => {
-              console.error('Failed to resume audio context:', err);
             });
           }
         } catch (e) {
-          console.error('Error accessing audio context:', e);
+          console.error('Failed to resume audio context:', e);
         }
       }
     }
@@ -887,7 +909,6 @@
       pauseButton.style.display = 'none';
       audioContextResumed = false;
       
-      // Очищаем кеш
       createdObjectURLs.forEach(url => {
         try { URL.revokeObjectURL(url); } catch(e) {}
       });
@@ -1050,6 +1071,13 @@
     }
 
     async function processFiles(files) {
+      if (!files || files.length === 0) return;
+      
+      updateStatus(`Selected ${files.length} file(s)`);
+      updateFileInfo(`<div>Selected ${files.length} file(s). Processing started...</div>`);
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const items = Array.from(files).map(file => ({
         file,
         path: file.name
@@ -1058,6 +1086,13 @@
     }
 
     async function processFolder(files) {
+      if (!files || files.length === 0) return;
+      
+      updateStatus(`Folder selected with ${files.length} files`);
+      updateFileInfo(`<div>Folder selected. Processing started...</div>`);
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const items = [];
       
       for (const file of files) {
@@ -1070,8 +1105,19 @@
 
     function initAudioContext() {
       if (!activeAudioContext) {
-        activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContextInitialized = true;
+        try {
+          const ContextClass = window.AudioContext || window.webkitAudioContext;
+          activeAudioContext = new ContextClass();
+          
+          if (isIOS()) {
+            activeAudioContext.suspend();
+          }
+          
+          audioContextInitialized = true;
+        } catch (e) {
+          console.error('AudioContext creation failed:', e);
+          updateFileInfo(`<div class="file-error">AudioContext failed: ${e.message}</div>`);
+        }
       }
       return activeAudioContext;
     }
@@ -1162,8 +1208,8 @@
           else if (result.channels === 2) stereoOriginal++;
           
           previewFiles.push({
-            fileName: fileName,
-            url: url,
+            fileName: result.fileName,
+            url: result.url,
             originalSize: result.originalSize,
             processedSize: result.processedSize
           });
@@ -1230,7 +1276,6 @@
           
           updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
           
-          // Show preview button
           previewButton.style.display = 'block';
         }
       } catch (error) {
@@ -1330,7 +1375,6 @@
           <div>${sizeInfo}</div>
         `);
         
-        // Create URL for preview
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
         
@@ -1684,7 +1728,6 @@
       const previewList = document.getElementById('preview-list');
       previewList.innerHTML = '';
       
-      // Ограничиваем количество файлов на мобильных
       let filesToShow = previewFiles;
       if (isMobile() && previewFiles.length > 15) {
         filesToShow = previewFiles.slice(0, 15);
@@ -1728,7 +1771,6 @@
       playButton.style.display = 'block';
       pauseButton.style.display = 'none';
       
-      // Пробуем инициализировать WaveSurfer
       try {
         wavesurfer = WaveSurfer.create({
           container: '#wave-preview',
@@ -1810,59 +1852,6 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
-    }
-    
-    // Динамическая загрузка Wavesurfer
-    async function loadWaveSurfer() {
-      if (typeof WaveSurfer === 'undefined') {
-        return new Promise((resolve) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js';
-          script.onload = resolve;
-          document.head.appendChild(script);
-        });
-      }
-      return Promise.resolve();
-    }
-    
-    // Загружаем Wavesurfer при открытии превью
-    function initPreviewWindow() {
-      loadWaveSurfer().then(() => {
-        const previewList = document.getElementById('preview-list');
-        previewList.innerHTML = '';
-        
-        // Ограничиваем количество файлов на мобильных
-        let filesToShow = previewFiles;
-        if (isMobile() && previewFiles.length > 15) {
-          filesToShow = previewFiles.slice(0, 15);
-          updateFileInfo('<div class="mobile-warning">Mobile preview limited to 15 files</div>');
-        }
-        
-        filesToShow.forEach((file, index) => {
-          const item = document.createElement('div');
-          item.className = 'preview-item';
-          item.dataset.index = index;
-          item.textContent = file.fileName;
-          item.addEventListener('click', () => {
-            document.querySelectorAll('.preview-item').forEach(el => {
-              el.classList.remove('active');
-            });
-            item.classList.add('active');
-            loadPreview(file.url, file.fileName);
-          });
-          previewList.appendChild(item);
-        });
-        
-        document.getElementById('preview-window').style.display = 'block';
-        
-        if (filesToShow.length > 0) {
-          const firstItem = previewList.querySelector('.preview-item');
-          if (firstItem) {
-            firstItem.classList.add('active');
-            loadPreview(filesToShow[0].url, filesToShow[0].fileName);
-          }
-        }
-      });
     }
   </script>
 </body>
