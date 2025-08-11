@@ -509,8 +509,14 @@
       initApp();
     });
 
+    function isMobile() {
+      return ('ontouchstart' in window) || 
+             (navigator.maxTouchPoints > 0) || 
+             (navigator.msMaxTouchPoints > 0);
+    }
+
     function initApp() {
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
       }
       
@@ -621,12 +627,9 @@
       }
     }
 
-    // Унифицированный апдейт информационной панели.
-    // Если message содержит HTML-тэги, вставляем как HTML, иначе как текст.
     function updateFileInfo(message) {
       const fileInfo = document.getElementById('file-info');
       if (!fileInfo) return;
-      // простая эвристика: если есть '<' или '&lt;', считаем html
       if (/<[a-z][\s\S]*>/i.test(message)) {
         fileInfo.insertAdjacentHTML('beforeend', message);
       } else {
@@ -634,7 +637,6 @@
         div.textContent = message;
         fileInfo.appendChild(div);
       }
-      // авт-скролл к низу
       fileInfo.scrollTop = fileInfo.scrollHeight;
     }
 
@@ -643,7 +645,6 @@
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
-      // ВАЖНО: не отзываем existing object URLs здесь — окна могут ещё их использовать.
     }
 
     function hideOverlay() {
@@ -678,7 +679,6 @@
           if (item.kind === 'file') {
             const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (item.getAsFile ? item.getAsFile() : null);
             if (entry && entry.isFile === undefined) {
-              // if this is a File not a FileSystemEntry fallback
               entries.push({ isFile: true, file: item.getAsFile(), name: item.getAsFile().name });
             } else if (entry) {
               entries.push(entry);
@@ -712,10 +712,8 @@
       const entry = queued.entry;
       const path = queued.path || '';
 
-      // If entry is a plain File-like object (fallback), handle it
       if (entry && entry.isFile === true && entry.file) {
         items.push({ file: entry.file, path: path + entry.name });
-        // continue with queue
         return processQueue(queue, items);
       }
 
@@ -733,11 +731,9 @@
         });
       } else if (entry.isDirectory) {
         const dirReader = entry.createReader();
-        // readEntries returns partial lists — keep calling until empty array
         function readAll() {
           dirReader.readEntries(entries => {
             if (!entries || entries.length === 0) {
-              // finished this directory
               processQueue(queue, items);
               return;
             }
@@ -747,17 +743,14 @@
                 path: path + entry.name + '/'
               });
             }
-            // there might be more entries — keep reading
             readAll();
           }, err => {
             console.warn('readEntries failed for', entry, err);
-            // continue with rest
             processQueue(queue, items);
           });
         }
         readAll();
       } else {
-        // unknown entry type - skip
         processQueue(queue, items);
       }
     }
@@ -1053,6 +1046,10 @@
         
         await updateProgressBar((index + 1) / total);
         
+        if (window.gc) {
+          window.gc();
+        }
+        
         return {
           buffer: processed,
           fileName: fileName,
@@ -1092,7 +1089,6 @@
       return audioBufferToWav(audioBuffer);
     }
 
-    // --- Trim silence helpers (unchanged, just kept robust) ---
     function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
@@ -1227,23 +1223,28 @@
       return supportedTypes.includes(mimeType) || supportedExts.includes(ext);
     }
 
-    // Robust decodeAudioData wrapper (handles promise & callback variants)
     async function decodeAudioSafe(arrayBuffer) {
       if (!activeAudioContext) throw new Error("AudioContext is not available");
       try {
-        // modern promise-based decodeAudioData
         if (activeAudioContext.decodeAudioData.length === 1) {
           return await activeAudioContext.decodeAudioData(arrayBuffer);
         } else {
-          // older callback-based
           return await new Promise((resolve, reject) => {
             activeAudioContext.decodeAudioData(arrayBuffer, resolve, (err) => {
-              reject(err || new Error('decodeAudioData failed'));
+              if (err && err.name === 'EncodingError') {
+                reject(new Error('Unsupported audio format'));
+              } else {
+                reject(err || new Error('decodeAudioData failed'));
+              }
             });
           });
         }
       } catch (e) {
-        throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
+        if (e.name === 'EncodingError') {
+          throw new Error('Unsupported audio format');
+        } else {
+          throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
+        }
       }
     }
 
@@ -1286,7 +1287,6 @@
       source.buffer = buffer;
       
       if (targetChannels === 1 && buffer.numberOfChannels > 1) {
-        // mixdown to mono
         const merger = ctx.createChannelMerger(1);
         const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
         source.connect(splitter);
@@ -1341,10 +1341,9 @@
       return result;
     }
 
-    // --- Correct WAV builder with fmt + ko2 chunk BEFORE data chunk ---
     function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
-      const dataLen = 4; // pitch(1) + release(2) + playmode(1)
-      const buf = new ArrayBuffer(8 + dataLen); // "ko2 " + size + payload
+      const dataLen = 4;
+      const buf = new ArrayBuffer(8 + dataLen);
       const dv = new DataView(buf);
       writeString(dv, 0, 'ko2 ');
       dv.setUint32(4, dataLen, true);
@@ -1364,29 +1363,25 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = buffer.length * blockAlign;
 
-      // fmt chunk (8 + 16)
       const fmtChunkSize = 16;
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
       const fmtDv = new DataView(fmtBuf);
       writeString(fmtDv, 0, 'fmt ');
       fmtDv.setUint32(4, fmtChunkSize, true);
-      fmtDv.setUint16(8, 1, true); // PCM
+      fmtDv.setUint16(8, 1, true);
       fmtDv.setUint16(10, numChannels, true);
       fmtDv.setUint32(12, sampleRate, true);
       fmtDv.setUint32(16, sampleRate * blockAlign, true);
       fmtDv.setUint16(20, blockAlign, true);
       fmtDv.setUint16(22, bitDepth, true);
 
-      // ko2 chunk (optional custom)
-      const ko2Buf = writeKO2ChunkBuf(); // returns full ko2 chunk (header+payload)
+      const ko2Buf = writeKO2ChunkBuf();
 
-      // data header
       const dataHeader = new ArrayBuffer(8);
       const dataDv = new DataView(dataHeader);
       writeString(dataDv, 0, 'data');
       dataDv.setUint32(4, dataLength, true);
 
-      // RIFF header: size = 4 (WAVE) + fmtChunk + ko2Chunk + dataHeader + dataLength
       const riffSize = 4 + fmtBuf.byteLength + ko2Buf.byteLength + dataHeader.byteLength + dataLength;
       const riffHeader = new ArrayBuffer(12);
       const riffDv = new DataView(riffHeader);
@@ -1394,7 +1389,6 @@
       riffDv.setUint32(4, riffSize, true);
       writeString(riffDv, 8, 'WAVE');
 
-      // build PCM data
       let audioData;
       if (bitDepth === 8) {
         audioData = new Uint8Array(dataLength);
@@ -1407,7 +1401,6 @@
           }
         }
       } else {
-        // 16-bit signed little endian
         const tmp = new Int16Array(buffer.length * numChannels);
         let off = 0;
         for (let i = 0; i < buffer.length; i++) {
@@ -1420,7 +1413,6 @@
         audioData = tmp.buffer;
       }
 
-      // final blob: RIFF header + fmt chunk + ko2 chunk + data header + audioData
       return new Blob([riffHeader, fmtBuf, ko2Buf, dataHeader, audioData], { type: 'audio/wav' });
     }
 
@@ -1612,7 +1604,6 @@
         const url = URL.createObjectURL(wavBlob);
         createdObjectURLs.push(url);
         
-        // prefer to load via a real audio element if available
         const audioEl = document.createElement('audio');
         audioEl.src = url;
         audioEl.preload = 'auto';
@@ -1631,7 +1622,6 @@
             }
           }
         });
-        // If canplay doesn't fire in some environments, fallback to load after timeout
         setTimeout(() => {
           if (!wavesurfer.isReady && typeof wavesurfer.load === 'function') {
             try { wavesurfer.load(url); } catch(e) {}
@@ -1707,7 +1697,6 @@
       }
     });
 
-    // utility: escape text to avoid accidental HTML injection
     function escapeHtml(str) {
       if (str == null) return '';
       return String(str)
