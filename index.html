@@ -54,6 +54,24 @@
       position: relative;
       z-index: 100;
     }
+    .preview-window {
+      display: none;
+      width: 100%;
+      max-width: 600px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      padding: 0;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 101;
+      top: 20px;
+      margin: 0 auto;
+    }
     .title-bar {
       background: #000080;
       color: #fff;
@@ -226,12 +244,11 @@
       background: #000080;
       color: white;
     }
-    .wave-container {
+    .preview-container {
       margin-bottom: 20px;
       border: 2px inset #808080;
       padding: 10px;
       background: #e0e0e0;
-      overflow-x: auto;
     }
     .wave-title {
       font-family: 'Courier New', monospace;
@@ -239,11 +256,13 @@
       margin-bottom: 6px;
       word-break: break-word;
       font-weight: bold;
+      text-align: center;
     }
     .wave-element {
       width: 100%;
-      height: 100px;
+      height: 150px;
       background: #000;
+      margin-bottom: 10px;
     }
     .wave-button {
       margin-top: 6px;
@@ -363,22 +382,6 @@
       max-height: 150px;
       overflow-y: auto;
     }
-    .wave-window {
-      position: absolute;
-      width: 400px;
-      background: #c0c0c0;
-      border: 2px solid;
-      border-top-color: #ffffff;
-      border-left-color: #ffffff;
-      border-right-color: #808080;
-      border-bottom-color: #808080;
-      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-      padding: 0;
-      box-sizing: border-box;
-      z-index: 101;
-      top: 100px;
-      left: 100px;
-    }
     .trim-control {
       display: flex;
       align-items: center;
@@ -394,6 +397,37 @@
       margin: 8px 0;
       border-radius: 2px;
       font-size: 13px;
+    }
+    .preview-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .preview-list {
+      border: 2px inset #808080;
+      background: #fff;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .preview-item {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #c0c0c0;
+    }
+    .preview-item:hover {
+      background-color: #000080;
+      color: white;
+    }
+    .preview-item.active {
+      background-color: #000080;
+      color: white;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -461,6 +495,7 @@
         <button id="select-file-button">Select Files</button>
         <button id="select-folder-button">Select Folder</button>
         <button id="clear-button">Clear List</button>
+        <button id="preview-button" style="display: none;">Preview Results</button>
       </div>
       
       <div class="info-panel" id="file-info">
@@ -469,6 +504,42 @@
         <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
         <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-window" id="preview-window">
+    <div class="title-bar">
+      <span>Preview Processed Audio</span>
+      <div class="window-controls">
+        <button class="minimize" title="Minimize">_</button>
+        <button class="close" title="Close">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="preview-container">
+        <div class="wave-element" id="wave-preview"></div>
+        
+        <div class="preview-header">
+          <div class="wave-title" id="preview-title">Select a file to preview</div>
+          <button id="close-preview">Close Preview</button>
+        </div>
+        
+        <div class="preview-controls">
+          <button class="wave-button" id="play-button">
+            <i class="fas fa-play"></i> Play
+          </button>
+          <button class="wave-button" id="pause-button" style="display: none;">
+            <i class="fas fa-pause"></i> Pause
+          </button>
+          <button class="wave-button" id="stop-button">
+            <i class="fas fa-stop"></i> Stop
+          </button>
+        </div>
+        
+        <div class="preview-list" id="preview-list">
+          <!-- Preview items will be added here -->
+        </div>
       </div>
     </div>
   </div>
@@ -501,7 +572,8 @@
     let currentProcessing = null;
     let lastProgress = 0;
     let windowZIndex = 100;
-    let waveWindows = [];
+    let previewFiles = [];
+    let wavesurfer = null;
     let audioContextInitialized = false;
     let memoryWarningShown = false;
 
@@ -541,6 +613,11 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
+      const previewButton = document.getElementById('preview-button');
+      const closePreviewButton = document.getElementById('close-preview');
+      const playButton = document.getElementById('play-button');
+      const pauseButton = document.getElementById('pause-button');
+      const stopButton = document.getElementById('stop-button');
       const autoTrimCheckbox = document.getElementById('auto-trim');
 
       dropZone.addEventListener('dragover', handleDragOver);
@@ -567,6 +644,38 @@
         updateStatus("File list cleared");
       });
       
+      previewButton.addEventListener('click', () => {
+        document.getElementById('preview-window').style.display = 'block';
+      });
+      
+      closePreviewButton.addEventListener('click', () => {
+        closePreviewWindow();
+      });
+      
+      playButton.addEventListener('click', () => {
+        if (wavesurfer) {
+          wavesurfer.play();
+          playButton.style.display = 'none';
+          pauseButton.style.display = 'block';
+        }
+      });
+      
+      pauseButton.addEventListener('click', () => {
+        if (wavesurfer) {
+          wavesurfer.pause();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+        }
+      });
+      
+      stopButton.addEventListener('click', () => {
+        if (wavesurfer) {
+          wavesurfer.stop();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+        }
+      });
+      
       fileInput.addEventListener('change', (e) => {
         processFiles(e.target.files);
         e.target.value = null;
@@ -585,6 +694,14 @@
         document.querySelector('.window').style.display = 'none';
       });
       
+      document.querySelector('#preview-window .minimize').addEventListener('click', () => {
+        document.getElementById('preview-window').style.display = 'none';
+      });
+      
+      document.querySelector('#preview-window .close').addEventListener('click', () => {
+        closePreviewWindow();
+      });
+      
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
         waveformQueue.length = 0;
@@ -598,6 +715,22 @@
       });
       
       updateStatus("Ready to process files");
+    }
+    
+    function closePreviewWindow() {
+      document.getElementById('preview-window').style.display = 'none';
+      if (wavesurfer) {
+        wavesurfer.stop();
+        try {
+          const audioEl = wavesurfer.getMediaElement();
+          const url = audioEl?.src;
+          if (url) try { URL.revokeObjectURL(url); } catch(e) {}
+        } catch (e) {}
+        try { wavesurfer.destroy(); } catch(e) {}
+        wavesurfer = null;
+      }
+      playButton.style.display = 'block';
+      pauseButton.style.display = 'none';
     }
     
     function checkMemoryAndWarn() {
@@ -792,7 +925,9 @@
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
+      const previewButton = document.getElementById('preview-button');
 
+      previewFiles = [];
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
@@ -880,7 +1015,13 @@
           if (result.channels === 1) monoOriginal++;
           else if (result.channels === 2) stereoOriginal++;
           
-          enqueueWaveformRender(result.buffer, result.fileName);
+          // Instead of rendering waveform immediately, store for preview
+          previewFiles.push({
+            fileName: result.fileName,
+            url: result.url,
+            originalSize: result.originalSize,
+            processedSize: result.processedSize
+          });
         }
       }
 
@@ -946,6 +1087,9 @@
           `;
           
           updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
+          
+          // Show preview button
+          previewButton.style.display = 'block';
         }
       } catch (error) {
         console.error('Error generating ZIP:', error);
@@ -1046,13 +1190,13 @@
         
         await updateProgressBar((index + 1) / total);
         
-        if (window.gc) {
-          window.gc();
-        }
+        // Create URL for preview
+        const url = URL.createObjectURL(outputBlob);
+        createdObjectURLs.push(url);
         
         return {
-          buffer: processed,
           fileName: fileName,
+          url: url,
           originalSize: originalSize,
           processedSize: processedSize,
           trimmedSamples: trimmedSamples,
@@ -1231,20 +1375,12 @@
         } else {
           return await new Promise((resolve, reject) => {
             activeAudioContext.decodeAudioData(arrayBuffer, resolve, (err) => {
-              if (err && err.name === 'EncodingError') {
-                reject(new Error('Unsupported audio format'));
-              } else {
-                reject(err || new Error('decodeAudioData failed'));
-              }
+              reject(err || new Error('decodeAudioData failed'));
             });
           });
         }
       } catch (e) {
-        if (e.name === 'EncodingError') {
-          throw new Error('Unsupported audio format');
-        } else {
-          throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
-        }
+        throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
       }
     }
 
@@ -1422,248 +1558,78 @@
       }
     }
 
-    function createWaveWindow(title) {
-      windowZIndex += 2;
-      const windowId = 'wave-window-' + Date.now();
+    function initPreviewWindow() {
+      const previewList = document.getElementById('preview-list');
+      previewList.innerHTML = '';
       
-      const top = 80 + (waveWindows.length * 30);
-      const left = 100 + (waveWindows.length * 30);
-      
-      const windowElement = document.createElement('div');
-      windowElement.className = 'wave-window window';
-      windowElement.id = windowId;
-      windowElement.style.zIndex = windowZIndex;
-      windowElement.style.top = top + 'px';
-      windowElement.style.left = left + 'px';
-      
-      const titleBar = document.createElement('div');
-      titleBar.className = 'title-bar';
-      titleBar.innerHTML = `
-        <span>${escapeHtml(title)}</span>
-        <div class="window-controls">
-          <button class="minimize" title="Minimize">_</button>
-          <button class="close" title="Close">×</button>
-        </div>
-      `;
-      
-      const content = document.createElement('div');
-      content.className = 'content';
-      content.innerHTML = `
-        <div class="wave-container">
-          <div class="wave-element"></div>
-          <button class="wave-button">
-            <i class="fas fa-play"></i> Play Processed Audio
-          </button>
-        </div>
-      `;
-      
-      windowElement.appendChild(titleBar);
-      windowElement.appendChild(content);
-      document.body.appendChild(windowElement);
-      
-      const playButton = content.querySelector('.wave-button');
-      
-      const closeBtn = titleBar.querySelector('.close');
-      closeBtn.addEventListener('click', () => {
-        const windowObj = waveWindows.find(w => w.id === windowId);
-        if (windowObj && windowObj.wavesurfer) {
-          try {
-            const audioEl = windowObj.wavesurfer.getMediaElement && windowObj.wavesurfer.getMediaElement();
-            const url = audioEl?.src || windowObj.wavesurfer.getCurrentTime && null;
-            if (url) try { URL.revokeObjectURL(url); } catch(e) {}
-          } catch (e) {}
-          try { windowObj.wavesurfer.destroy(); } catch(e) {}
-        }
-        
-        try { document.body.removeChild(windowElement); } catch(e) {}
-        waveWindows = waveWindows.filter(w => w.id !== windowId);
+      previewFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'preview-item';
+        item.dataset.index = index;
+        item.textContent = file.fileName;
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.preview-item').forEach(el => {
+            el.classList.remove('active');
+          });
+          item.classList.add('active');
+          loadPreview(file.url, file.fileName);
+        });
+        previewList.appendChild(item);
       });
       
-      const minimizeBtn = titleBar.querySelector('.minimize');
-      minimizeBtn.addEventListener('click', () => {
-        content.style.display = content.style.display === 'none' ? 'block' : 'none';
-      });
+      document.getElementById('preview-window').style.display = 'block';
       
-      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      titleBar.addEventListener('mousedown', dragMouseDown);
-      
-      function dragMouseDown(e) {
-        e.preventDefault();
-        windowZIndex += 2;
-        windowElement.style.zIndex = windowZIndex;
-        
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.addEventListener('mouseup', closeDragElement);
-        document.addEventListener('mousemove', elementDrag);
-      }
-      
-      function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
-        windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
-      }
-      
-      function closeDragElement() {
-        document.removeEventListener('mouseup', closeDragElement);
-        document.removeEventListener('mousemove', elementDrag);
-      }
-      
-      const windowObj = {
-        id: windowId,
-        element: windowElement,
-        waveContainer: content.querySelector('.wave-element'),
-        playButton: playButton,
-        wavesurfer: null
-      };
-      
-      waveWindows.push(windowObj);
-      
-      return windowObj;
-    }
-
-    async function renderWaveform(audioBuffer, filename) {
-      let windowObj;
-      try {
-        const WaveSurferLib = (window.WaveSurfer && window.WaveSurfer.default) ? window.WaveSurfer.default : window.WaveSurfer;
-        if (!WaveSurferLib) {
-          throw new Error('Wavesurfer failed to load');
-        }
-        
-        if (waveWindows.length >= 5) {
-          const oldest = waveWindows.shift();
-          if (oldest.wavesurfer) {
-            try {
-              const audioEl = oldest.wavesurfer.getMediaElement && oldest.wavesurfer.getMediaElement();
-              const url = audioEl?.src;
-              if (url) try { URL.revokeObjectURL(url); } catch(e) {}
-            } catch (e) {}
-            try { oldest.wavesurfer.destroy(); } catch(e) {}
-          }
-          try { oldest.element.remove(); } catch(e) {}
-        }
-        
-        windowObj = createWaveWindow(filename);
-        const { waveContainer, playButton } = windowObj;
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (!waveContainer) {
-          throw new Error('Wave container not found');
-        }
-        
-        const wavesurfer = WaveSurferLib.create({
-          container: waveContainer,
-          height: 100,
-          normalize: true,
-          fillParent: true
-        });
-
-        windowObj.wavesurfer = wavesurfer;
-
-        wavesurfer.on('ready', () => {
-          if (playButton) {
-            playButton.addEventListener('click', () => {
-              try {
-                if (wavesurfer.isPlaying()) {
-                  wavesurfer.pause();
-                  playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
-                  updateStatus("Playback paused");
-                } else {
-                  wavesurfer.play();
-                  playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
-                  updateStatus("Playing processed audio");
-                }
-              } catch (e) {
-                console.warn('Playback control failed', e);
-              }
-            });
-          }
-        });
-
-        wavesurfer.on('error', (err) => {
-          console.error('Wavesurfer error:', err);
-          if (waveContainer) {
-            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
-          }
-        });
-
-        wavesurfer.on('destroy', () => {
-          try {
-            const audioEl = wavesurfer.getMediaElement && wavesurfer.getMediaElement();
-            const url = audioEl?.src;
-            if (url) try { URL.revokeObjectURL(url); } catch(e) {}
-          } catch (e) {}
-        });
-        
-        const wavBlob = audioBufferToWav(audioBuffer);
-        const url = URL.createObjectURL(wavBlob);
-        createdObjectURLs.push(url);
-        
-        const audioEl = document.createElement('audio');
-        audioEl.src = url;
-        audioEl.preload = 'auto';
-        audioEl.crossOrigin = 'anonymous';
-        
-        audioEl.addEventListener('canplay', () => {
-          try {
-            if (typeof wavesurfer.loadMediaElement === 'function') {
-              wavesurfer.loadMediaElement(audioEl);
-            } else {
-              wavesurfer.load(url);
-            }
-          } catch (e) {
-            try { wavesurfer.load(url); } catch (err) {
-              console.error('Fallback load failed', err);
-            }
-          }
-        });
-        setTimeout(() => {
-          if (!wavesurfer.isReady && typeof wavesurfer.load === 'function') {
-            try { wavesurfer.load(url); } catch(e) {}
-          }
-        }, 800);
-        
-      } catch (err) {
-        console.error('Waveform render error:', err);
-        if (windowObj && windowObj.element) {
-          const errorContainer = document.createElement('div');
-          errorContainer.className = 'render-error';
-          errorContainer.textContent = `Render failed: ${err && err.message ? err.message : String(err)} (Sample rate: ${audioBuffer && audioBuffer.sampleRate ? audioBuffer.sampleRate : 'unknown'} Hz)`;
-          windowObj.element.querySelector('.content').appendChild(errorContainer);
+      if (previewFiles.length > 0) {
+        const firstItem = previewList.querySelector('.preview-item');
+        if (firstItem) {
+          firstItem.classList.add('active');
+          loadPreview(previewFiles[0].url, previewFiles[0].fileName);
         }
       }
     }
-
-    function enqueueWaveformRender(audioBuffer, filename) {
-      if (processingCancelled) return;
-      
-      waveformQueue.push({ audioBuffer, filename });
-      if (!waveformBusy) {
-        processNextWaveform();
+    
+    function loadPreview(url, fileName) {
+      if (wavesurfer) {
+        wavesurfer.stop();
+        try { wavesurfer.destroy(); } catch(e) {}
+        wavesurfer = null;
       }
-    }
-
-    async function processNextWaveform() {
-      if (waveformQueue.length === 0 || processingCancelled) {
-        waveformBusy = false;
+      
+      const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+      if (!WaveSurferLib) {
+        console.error('WaveSurfer not available');
         return;
       }
-
-      waveformBusy = true;
-      const { audioBuffer, filename } = waveformQueue.shift();
       
-      try {
-        await renderWaveform(audioBuffer, filename);
-      } catch (err) {
-        console.error('Waveform render error:', err);
-      }
+      document.getElementById('preview-title').textContent = fileName;
+      playButton.style.display = 'block';
+      pauseButton.style.display = 'none';
       
-      setTimeout(processNextWaveform, 0);
+      wavesurfer = WaveSurferLib.create({
+        container: '#wave-preview',
+        height: 150,
+        normalize: true,
+        fillParent: true,
+        progressColor: '#000080',
+        waveColor: '#c0c0c0'
+      });
+      
+      wavesurfer.on('ready', () => {
+        // Auto-play first file
+        if (previewFiles[0].url === url) {
+          wavesurfer.play();
+          playButton.style.display = 'none';
+          pauseButton.style.display = 'block';
+        }
+      });
+      
+      wavesurfer.on('error', (err) => {
+        console.error('Wavesurfer error:', err);
+        document.getElementById('wave-preview').innerHTML = 
+          '<div class="render-error">Render failed: ' + escapeHtml(err?.message ? err.message : String(err)) + '</div>';
+      });
+      
+      wavesurfer.load(url);
     }
 
     function updateProgressBar(progress) {
