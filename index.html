@@ -3,18 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SpeedUpperCut Pro</title>
+  <title>SpeedUpperCut</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    :root {
-      --glow-color: #ff3333;
-      --primary-blue: #000080;
-      --win-gray: #c0c0c0;
-      --win-light: #ffffff;
-      --win-dark: #808080;
-    }
-    
+    :root { --glow-color: #ff3333; }
     body {
       background: #008080;
       font-family: 'Courier New', monospace;
@@ -26,12 +19,11 @@
       min-height: 100vh;
       overflow-x: hidden;
       background-image: 
-        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
-        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0),
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0);
       background-size: 4px 4px;
       background-position: 0 0, 2px 2px;
     }
-    
     .desktop-icon {
       position: absolute;
       width: 80px;
@@ -43,45 +35,41 @@
       user-select: none;
       transition: transform 0.2s;
     }
-    
     .desktop-icon:hover {
       background: rgba(255,255,255,0.2);
       transform: scale(1.05);
     }
-    
     .window {
       width: 100%;
-      max-width: 520px;
-      background: var(--win-gray);
+      max-width: 480px;
+      background: #c0c0c0;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
       position: relative;
       z-index: 100;
     }
-    
     .title-bar {
-      background: var(--primary-blue);
+      background: #000080;
       color: #fff;
       padding: 4px 8px;
       font-size: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid var(--win-gray);
+      border-bottom: 2px solid #c0c0c0;
       cursor: move;
     }
-    
     .title-bar button {
       width: 20px;
       height: 20px;
       border: none;
-      background: var(--win-gray);
+      background: #c0c0c0;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -90,34 +78,31 @@
       font-family: Arial, sans-serif;
       margin-left: 4px;
       border: 1px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
     }
-    
     .title-bar button.minimize { 
+      background: #c0c0c0; 
       font-size: 18px;
       line-height: 12px;
     }
-    
     .title-bar button.close { 
+      background: #c0c0c0; 
       font-size: 14px;
     }
-    
     .title-bar button:active {
-      border-top-color: var(--win-dark);
-      border-left-color: var(--win-dark);
-      border-right-color: var(--win-light);
-      border-bottom-color: var(--win-light);
+      border-top-color: #808080;
+      border-left-color: #808080;
+      border-right-color: #ffffff;
+      border-bottom-color: #ffffff;
     }
-    
     .content {
       padding: 12px;
       font-size: 14px;
       color: #000;
     }
-    
     .drop-zone {
       border: 2px dashed #000;
       padding: 20px;
@@ -127,13 +112,11 @@
       position: relative;
       cursor: pointer;
       border-style: dotted;
-      border-color: var(--win-dark);
+      border-color: #808080;
     }
-    
     .drop-zone.dragover {
       background: rgba(0, 128, 0, 0.3);
     }
-    
     .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
@@ -141,40 +124,35 @@
       opacity: 0;
       cursor: pointer;
     }
-    
     .drop-zone span {
       pointer-events: none;
       font-size: 16px;
       display: block;
       margin-top: 10px;
     }
-    
     #file-info {
       margin-top: 10px;
       font-size: 14px;
       text-align: left;
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       max-height: 200px;
       overflow-y: auto;
     }
-    
     button {
       min-height: 44px;
       padding: 10px;
       cursor: pointer;
       font-family: 'Courier New', monospace;
       font-size: 16px;
-      border: 2px outset var(--win-gray);
-      background: var(--win-gray);
+      border: 2px outset #c0c0c0;
+      background: #c0c0c0;
       color: #000;
     }
-    
     button:active {
       border-style: inset;
     }
-    
     #overlay {
       display: none;
       position: fixed;
@@ -182,7 +160,6 @@
       background: rgba(0, 0, 0, 0.4);
       z-index: 1000;
     }
-    
     #win95-loader {
       position: absolute;
       top: 50%;
@@ -190,21 +167,21 @@
       transform: translate(-50%, -50%);
       width: 320px;
       padding: 12px;
-      background: var(--win-gray);
+      background: #c0c0c0;
+      border: 2px solid #000;
       font-family: 'Courier New', monospace;
       font-size: 14px;
       color: #000;
       z-index: 1001;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
     }
-    
     .progress-bar-container {
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       height: 24px;
       margin-top: 8px;
       display: flex;
@@ -212,59 +189,50 @@
       gap: 1px;
       justify-content: flex-start;
     }
-    
     .progress-segment {
       width: 8px;
       height: 100%;
-      background: var(--win-gray);
+      background: #c0c0c0;
     }
-    
     .progress-segment.active {
-      background: var(--primary-blue);
+      background: #000080;
     }
-    
     .win95-inset {
-      border: 2px inset var(--win-dark);
-      background: var(--win-gray);
+      border: 2px inset #808080;
+      background: #c0c0c0;
       padding: 6px;
       margin-bottom: 6px;
     }
-    
     .win95-list {
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       background: #fff;
       padding: 4px;
       font-family: 'Courier New', monospace;
       height: 100px;
       overflow-y: auto;
     }
-    
     .list-item {
       padding: 8px 6px;
       cursor: pointer;
       user-select: none;
       font-size: 13px;
     }
-    
     .list-item:hover {
-      background: var(--primary-blue);
+      background: #000080;
       color: white;
       transition: background 0.2s ease;
     }
-    
     .list-item.selected {
-      background: var(--primary-blue);
+      background: #000080;
       color: white;
     }
-    
     .wave-container {
       margin-bottom: 20px;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       background: #e0e0e0;
       overflow-x: auto;
     }
-    
     .wave-title {
       font-family: 'Courier New', monospace;
       font-size: 14px;
@@ -272,27 +240,23 @@
       word-break: break-word;
       font-weight: bold;
     }
-    
     .wave-element {
       width: 100%;
       height: 100px;
       background: #000;
     }
-    
     .wave-button {
       margin-top: 6px;
       font-family: 'Courier New', monospace;
       padding: 8px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       cursor: pointer;
       width: 100%;
     }
-    
     .wave-button:active {
       border-style: inset;
     }
-    
     .render-error {
       color: red;
       font-size: 13px;
@@ -300,78 +264,67 @@
       background: #ffe6e6;
       border: 1px solid #ff9999;
     }
-    
     .taskbar {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--win-gray);
+      background: #c0c0c0;
       height: 36px;
-      border-top: 2px solid var(--win-light);
+      border-top: 2px solid #ffffff;
       display: flex;
       align-items: center;
       padding: 0 8px;
       z-index: 90;
     }
-    
     .start-button {
       padding: 4px 8px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
     }
-    
     .start-button:active {
       border-style: inset;
     }
-    
     .status-bar {
       margin-left: auto;
       padding: 0 8px;
       font-size: 14px;
     }
-    
     .window-controls {
       display: flex;
     }
-    
     .button-group {
       display: flex;
       gap: 10px;
       margin-top: 10px;
     }
-    
     .button-group button {
       flex: 1;
     }
-    
     #cancel-button {
       margin-top: 10px;
       width: 100%;
       padding: 10px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       color: #000;
       font-family: 'Courier New', monospace;
       font-size: 16px;
       cursor: pointer;
     }
-    
     #cancel-button:active {
       border-style: inset;
     }
-    
     .supported-formats {
       margin-top: 8px;
       font-size: 12px;
       color: #666;
     }
-    
     .file-error {
       color: #d32f2f;
       background-color: #ffcdd2;
@@ -381,7 +334,6 @@
       border-radius: 2px;
       font-size: 13px;
     }
-    
     .memory-warning {
       color: #ff6f00;
       background-color: #fff3e0;
@@ -392,7 +344,6 @@
       font-size: 13px;
       display: none;
     }
-    
     .mobile-warning {
       color: #1976d2;
       background-color: #bbdefb;
@@ -403,26 +354,24 @@
       font-size: 13px;
       display: none;
     }
-    
     .info-panel {
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       margin-top: 10px;
       font-size: 13px;
       max-height: 150px;
       overflow-y: auto;
     }
-    
     .wave-window {
       position: absolute;
       width: 400px;
-      background: var(--win-gray);
+      background: #c0c0c0;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
@@ -430,7 +379,6 @@
       top: 100px;
       left: 100px;
     }
-    
     .trim-control {
       display: flex;
       align-items: center;
@@ -438,7 +386,6 @@
       margin-top: 10px;
       margin-bottom: 10px;
     }
-    
     .file-warning {
       color: #ff6f00;
       background-color: #fff3e0;
@@ -448,44 +395,10 @@
       border-radius: 2px;
       font-size: 13px;
     }
-    
-    .trim-settings {
-      display: flex;
-      gap: 15px;
-      margin-top: 10px;
-      flex-wrap: wrap;
-    }
-    
-    .trim-setting {
-      display: flex;
-      flex-direction: column;
-      min-width: 120px;
-    }
-    
-    .trim-setting label {
-      font-size: 12px;
-      margin-bottom: 4px;
-    }
-    
-    .trim-setting input {
-      padding: 4px;
-      border: 1px solid var(--win-dark);
-    }
-    
-    .batch-counter {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: rgba(0,0,0,0.5);
-      color: white;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-size: 10px;
-    }
   </style>
 </head>
 <body>
-  <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="openMainWindow()">
+  <div class="desktop-icon" style="top: 20px; left: 30px;" onclick="document.querySelector('.window').style.display = 'block'">
     <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" 
          width="48" height="48">
     <div>KO II Tool</div>
@@ -493,7 +406,7 @@
   
   <div class="window">
     <div class="title-bar">
-      <span>SpeedUpperCut Pro</span>
+      <span>SpeedUpperCut</span>
       <div class="window-controls">
         <button class="minimize" title="Minimize">_</button>
         <button class="close" title="Close">×</button>
@@ -534,23 +447,6 @@
         <label for="auto-trim">Auto-trim silence at start/end</label>
       </div>
       
-      <div id="trim-settings" style="display: none;">
-        <div class="trim-settings">
-          <div class="trim-setting">
-            <label for="threshold">Threshold (dB):</label>
-            <input type="number" id="threshold" min="-100" max="-1" value="-40">
-          </div>
-          <div class="trim-setting">
-            <label for="min-silence">Min Silence (s):</label>
-            <input type="number" id="min-silence" min="0.01" max="5" step="0.01" value="0.1">
-          </div>
-          <div class="trim-setting">
-            <label for="padding">Padding (ms):</label>
-            <input type="number" id="padding" min="0" max="1000" value="50">
-          </div>
-        </div>
-      </div>
-      
       <div class="drop-zone" id="drop-zone">
         <i class="fas fa-cloud-upload-alt" style="font-size: 36px;"></i>
         <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple />
@@ -582,19 +478,15 @@
       <div id="processing-title">Processing Audio Files...</div>
       <div class="progress-bar-container" id="segment-container"></div>
       <div id="current-file">Preparing...</div>
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button id="pause-button">Pause</button>
-        <button id="cancel-button">Cancel</button>
-      </div>
+      <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
 
   <div class="taskbar">
-    <div class="start-button" id="start-button">
+    <div class="start-button">
       <i class="fas fa-bars"></i> Start
     </div>
     <div class="status-bar" id="status-bar">Ready</div>
-    <div id="batch-counter" class="batch-counter" style="display: none;">0/0</div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -606,16 +498,12 @@
     let createdObjectURLs = [];
     let dragCounter = 0;
     let processingCancelled = false;
-    let processingPaused = false;
     let currentProcessing = null;
     let lastProgress = 0;
     let windowZIndex = 100;
     let waveWindows = [];
     let audioContextInitialized = false;
     let memoryWarningShown = false;
-    let currentBatch = { start: 0, end: 0, total: 0 };
-    let pendingFiles = [];
-    let processedFilesCount = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
@@ -625,12 +513,6 @@
       return ('ontouchstart' in window) || 
              (navigator.maxTouchPoints > 0) || 
              (navigator.msMaxTouchPoints > 0);
-    }
-
-    function openMainWindow() {
-      const mainWindow = document.querySelector('.window');
-      mainWindow.style.display = 'block';
-      mainWindow.style.zIndex = windowZIndex += 2;
     }
 
     function initApp() {
@@ -659,16 +541,7 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
-      const pauseButton = document.getElementById('pause-button');
       const autoTrimCheckbox = document.getElementById('auto-trim');
-
-      autoTrimCheckbox.addEventListener('change', function() {
-        document.getElementById('trim-settings').style.display = this.checked ? 'block' : 'none';
-      });
-      
-      if (autoTrimCheckbox.checked) {
-        document.getElementById('trim-settings').style.display = 'block';
-      }
 
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
@@ -724,19 +597,13 @@
         updateStatus("Processing cancelled");
       });
       
-      pauseButton.addEventListener('click', () => {
-        processingPaused = !processingPaused;
-        pauseButton.textContent = processingPaused ? 'Resume' : 'Pause';
-        updateStatus(processingPaused ? "Processing paused" : "Processing resumed");
-      });
-      
       updateStatus("Ready to process files");
     }
     
     function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
       
-      if (performance?.memory) {
+      if (performance && performance.memory) {
         const totalJSHeapSize = performance.memory.totalJSHeapSize;
         const jsHeapSizeLimit = performance.memory.jsHeapSizeLimit;
         if (totalJSHeapSize > jsHeapSizeLimit * 0.7) {
@@ -777,7 +644,6 @@
       document.getElementById('overlay').style.display = 'block';
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
-      processingPaused = false;
       lastProgress = 0;
     }
 
@@ -926,12 +792,10 @@
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
-      const batchCounter = document.getElementById('batch-counter');
 
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
-      batchCounter.style.display = 'block';
       
       updateStatus(`Processing ${items.length} item(s)`);
 
@@ -964,24 +828,14 @@
         }
       };
 
-      const BATCH_SIZE = 3;
-      const MAX_CONCURRENT = 2;
+      const BATCH_SIZE = 5;
+      const MAX_CONCURRENT = 3;
       
-      pendingFiles = [...items];
-      processedFilesCount = 0;
-      const totalFiles = items.length;
-      
-      while (pendingFiles.length > 0 && !processingCancelled) {
-        if (processingPaused) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          continue;
-        }
+      for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
+        if (processingCancelled) break;
         
-        const batchItems = pendingFiles.splice(0, BATCH_SIZE);
-        const batchStart = processedFilesCount;
-        const batchEnd = Math.min(processedFilesCount + batchItems.length, totalFiles);
-        
-        batchCounter.textContent = `${batchStart + 1}-${batchEnd}/${totalFiles}`;
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
+        const batchItems = items.slice(batchStart, batchEnd);
         
         const results = [];
         let running = 0;
@@ -990,13 +844,13 @@
         while (indexInBatch < batchItems.length) {
           if (running < MAX_CONCURRENT) {
             const item = batchItems[indexInBatch];
-            const globalIndex = processedFilesCount + indexInBatch;
+            const globalIndex = batchStart + indexInBatch;
             indexInBatch++;
             running++;
             
             (async () => {
               try {
-                const result = await processSingleItem(item, globalIndex, totalFiles, zip);
+                const result = await processSingleItem(item, globalIndex, items.length, zip);
                 if (result) {
                   results.push(result);
                 }
@@ -1019,7 +873,6 @@
           if (!result) continue;
           
           processedFiles++;
-          processedFilesCount++;
           totalOriginalSize += result.originalSize || 0;
           totalProcessedSize += result.processedSize || 0;
           totalTrimmed += result.trimmedSamples || 0;
@@ -1029,8 +882,6 @@
           
           enqueueWaveformRender(result.buffer, result.fileName);
         }
-        
-        await updateProgressBar(processedFilesCount / totalFiles);
       }
 
       if (!processingCancelled) {
@@ -1050,7 +901,7 @@
             compression: "DEFLATE",
             compressionOptions: { level: 6 }
           }, metadata => {
-            const progress = metadata?.percent ? (metadata.percent / 100) : 0;
+            const progress = (metadata && metadata.percent) ? (metadata.percent / 100) : 0;
             updateStatus(`Compressing: ${metadata.percent ? metadata.percent.toFixed(1) : 0}%`);
             throttledProgress(progress);
           });
@@ -1107,8 +958,6 @@
         hideOverlay();
       }
       
-      batchCounter.style.display = 'none';
-      
       if (activeAudioContext) {
         try { activeAudioContext.close(); } catch(e) {}
         activeAudioContext = null;
@@ -1126,6 +975,7 @@
       let trimmedSamples = 0;
       let fileName = '';
       let channels = 0;
+      let originalExtension = file.name.split('.').pop().toLowerCase();
       
       try {
         updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
@@ -1135,8 +985,8 @@
           throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
         }
         
-        if (file.size > 100 * 1024 * 1024) {
-          throw new Error(`File size exceeds 100MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
         if (!audioContextInitialized) {
@@ -1159,12 +1009,8 @@
         if (processingCancelled) return null;
         
         if (autoTrim) {
-          const threshold = parseFloat(document.getElementById('threshold').value) || -40;
-          const minSilence = parseFloat(document.getElementById('min-silence').value) || 0.1;
-          const padding = parseFloat(document.getElementById('padding').value) || 50;
-          
           const beforeLength = processed.length;
-          processed = trimSilence(processed, threshold, minSilence, padding);
+          processed = trimSilence(processed);
           const afterLength = processed.length;
           trimmedSamples = Math.max(0, beforeLength - afterLength);
           
@@ -1243,26 +1089,25 @@
       return audioBufferToWav(audioBuffer);
     }
 
-    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1, paddingMs = 50) {
+    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      const paddingSamples = Math.floor((paddingMs / 1000) * sampleRate);
       
       const channelData = audioBuffer.getChannelData(0);
       const length = channelData.length;
       
+      const blockSize = 1024;
       let startIndex = 0;
       let endIndex = length - 1;
       
-      // Find start
-      for (let i = 0; i < length; i += 1024) {
+      for (let i = 0; i < length; i += blockSize) {
         let hasSound = false;
-        const blockEnd = Math.min(i + 1024, length);
+        const blockEnd = Math.min(i + blockSize, length);
         
         for (let j = i; j < blockEnd; j++) {
           if (Math.abs(channelData[j]) > threshold) {
-            startIndex = Math.max(0, j - 1024);
+            startIndex = Math.max(0, j - blockSize);
             hasSound = true;
             break;
           }
@@ -1271,14 +1116,13 @@
         if (hasSound) break;
       }
       
-      // Find end
-      for (let i = length - 1; i >= 0; i -= 1024) {
+      for (let i = length - 1; i >= 0; i -= blockSize) {
         let hasSound = false;
-        const blockStart = Math.max(0, i - 1024);
+        const blockStart = Math.max(0, i - blockSize);
         
         for (let j = i; j >= blockStart; j--) {
           if (Math.abs(channelData[j]) > threshold) {
-            endIndex = Math.min(length - 1, j + 1024);
+            endIndex = Math.min(length - 1, j + blockSize);
             hasSound = true;
             break;
           }
@@ -1287,13 +1131,11 @@
         if (hasSound) break;
       }
       
-      // Refine positions
       startIndex = findExactStart(channelData, startIndex, threshold);
       endIndex = findExactEnd(channelData, endIndex, threshold);
       
-      // Apply padding
-      startIndex = Math.max(0, startIndex - paddingSamples);
-      endIndex = Math.min(length - 1, endIndex + paddingSamples);
+      startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
+      endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
       
       if (startIndex >= endIndex) {
         return audioBuffer;
@@ -1343,8 +1185,9 @@
     function handleProcessingError(error, item) {
       console.error('Processing error:', error);
       
-      const errorMessage = error?.message ? error.message : String(error);
+      const errorMessage = (error && error.message) ? error.message : String(error);
       const fileName = item?.file?.name || 'unknown file';
+      const errorDetails = `Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`;
       
       document.getElementById('file-info').innerHTML += `
         <div class="file-error">
@@ -1353,7 +1196,7 @@
         </div>
       `;
       
-      updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
+      updateStatus(errorDetails);
       
       if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
         if (activeAudioContext) {
@@ -1400,7 +1243,7 @@
         if (e.name === 'EncodingError') {
           throw new Error('Unsupported audio format');
         } else {
-          throw new Error('Audio decoding failed: ' + (e?.message ? e.message : String(e)));
+          throw new Error('Audio decoding failed: ' + (e && e.message ? e.message : String(e)));
         }
       }
     }
@@ -1422,10 +1265,13 @@
     async function processAudio(buffer, fidelity, channels) {
       const fidelitySettings = getFidelitySettings(fidelity);
       const targetChannels = channels === 'mono' ? 1 : 2;
+      
       const speedFactor = 2.0;
       
       const converted = await convertChannels(buffer, targetChannels);
-      return await applySpeedAndFidelity(converted, speedFactor, fidelitySettings.sampleRate);
+      
+      const downsampleRate = fidelitySettings.sampleRate;
+      return await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
     }
 
     async function convertChannels(buffer, targetChannels) {
@@ -1507,15 +1353,15 @@
       return buf;
     }
 
-    function audioBufferToWav(audioBuffer) {
+    function audioBufferToWav(buffer) {
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
       const bitDepth = fidelitySettings.bitDepth;
-      const numChannels = audioBuffer.numberOfChannels;
-      const sampleRate = audioBuffer.sampleRate;
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
       const bytesPerSample = (bitDepth === 8) ? 1 : 2;
       const blockAlign = numChannels * bytesPerSample;
-      const dataLength = audioBuffer.length * blockAlign;
+      const dataLength = buffer.length * blockAlign;
 
       const fmtChunkSize = 16;
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
@@ -1547,19 +1393,19 @@
       if (bitDepth === 8) {
         audioData = new Uint8Array(dataLength);
         let off = 0;
-        for (let i = 0; i < audioBuffer.length; i++) {
+        for (let i = 0; i < buffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = audioBuffer.getChannelData(ch)[i];
+            const s = buffer.getChannelData(ch)[i];
             const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
             audioData[off++] = u;
           }
         }
       } else {
-        const tmp = new Int16Array(audioBuffer.length * numChannels);
+        const tmp = new Int16Array(buffer.length * numChannels);
         let off = 0;
-        for (let i = 0; i < audioBuffer.length; i++) {
+        for (let i = 0; i < buffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+            const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
             const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
             tmp[off++] = v;
           }
@@ -1620,10 +1466,10 @@
       const closeBtn = titleBar.querySelector('.close');
       closeBtn.addEventListener('click', () => {
         const windowObj = waveWindows.find(w => w.id === windowId);
-        if (windowObj?.wavesurfer) {
+        if (windowObj && windowObj.wavesurfer) {
           try {
-            const audioEl = windowObj.wavesurfer.getMediaElement?.();
-            const url = audioEl?.src;
+            const audioEl = windowObj.wavesurfer.getMediaElement && windowObj.wavesurfer.getMediaElement();
+            const url = audioEl?.src || windowObj.wavesurfer.getCurrentTime && null;
             if (url) try { URL.revokeObjectURL(url); } catch(e) {}
           } catch (e) {}
           try { windowObj.wavesurfer.destroy(); } catch(e) {}
@@ -1681,26 +1527,24 @@
     }
 
     async function renderWaveform(audioBuffer, filename) {
-      if (processingCancelled) return;
-      
       let windowObj;
       try {
-        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+        const WaveSurferLib = (window.WaveSurfer && window.WaveSurfer.default) ? window.WaveSurfer.default : window.WaveSurfer;
         if (!WaveSurferLib) {
           throw new Error('Wavesurfer failed to load');
         }
         
         if (waveWindows.length >= 5) {
           const oldest = waveWindows.shift();
-          if (oldest?.wavesurfer) {
+          if (oldest.wavesurfer) {
             try {
-              const audioEl = oldest.wavesurfer.getMediaElement?.();
+              const audioEl = oldest.wavesurfer.getMediaElement && oldest.wavesurfer.getMediaElement();
               const url = audioEl?.src;
               if (url) try { URL.revokeObjectURL(url); } catch(e) {}
             } catch (e) {}
             try { oldest.wavesurfer.destroy(); } catch(e) {}
           }
-          try { oldest?.element?.remove(); } catch(e) {}
+          try { oldest.element.remove(); } catch(e) {}
         }
         
         windowObj = createWaveWindow(filename);
@@ -1716,9 +1560,7 @@
           container: waveContainer,
           height: 100,
           normalize: true,
-          fillParent: true,
-          progressColor: '#000080',
-          waveColor: '#c0c0c0'
+          fillParent: true
         });
 
         windowObj.wavesurfer = wavesurfer;
@@ -1746,13 +1588,13 @@
         wavesurfer.on('error', (err) => {
           console.error('Wavesurfer error:', err);
           if (waveContainer) {
-            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + escapeHtml(err?.message ? err.message : String(err)) + '</div>';
+            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
           }
         });
 
         wavesurfer.on('destroy', () => {
           try {
-            const audioEl = wavesurfer.getMediaElement?.();
+            const audioEl = wavesurfer.getMediaElement && wavesurfer.getMediaElement();
             const url = audioEl?.src;
             if (url) try { URL.revokeObjectURL(url); } catch(e) {}
           } catch (e) {}
@@ -1788,10 +1630,10 @@
         
       } catch (err) {
         console.error('Waveform render error:', err);
-        if (windowObj?.element) {
+        if (windowObj && windowObj.element) {
           const errorContainer = document.createElement('div');
           errorContainer.className = 'render-error';
-          errorContainer.textContent = `Render failed: ${err?.message ? err.message : String(err)} (Sample rate: ${audioBuffer?.sampleRate || 'unknown'} Hz)`;
+          errorContainer.textContent = `Render failed: ${err && err.message ? err.message : String(err)} (Sample rate: ${audioBuffer && audioBuffer.sampleRate ? audioBuffer.sampleRate : 'unknown'} Hz)`;
           windowObj.element.querySelector('.content').appendChild(errorContainer);
         }
       }
@@ -1813,21 +1655,15 @@
       }
 
       waveformBusy = true;
-      const next = waveformQueue.shift();
-      const { audioBuffer, filename } = next;
-
-      if (processingCancelled) {
-        waveformBusy = false;
-        return;
-      }
-
+      const { audioBuffer, filename } = waveformQueue.shift();
+      
       try {
         await renderWaveform(audioBuffer, filename);
       } catch (err) {
         console.error('Waveform render error:', err);
-      } finally {
-        setTimeout(processNextWaveform, 0);
       }
+      
+      setTimeout(processNextWaveform, 0);
     }
 
     function updateProgressBar(progress) {
