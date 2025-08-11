@@ -825,17 +825,25 @@
         }
       });
       
-      fileInput.addEventListener('change', (e) => {
+      fileInput.addEventListener('change', async (e) => {
         updateStatus(`Files selected: ${e.target.files.length}`);
-        updateFileInfo(`<div>Files selected. Starting processing...</div>`);
-        setTimeout(() => processFiles(e.target.files), 100);
+        updateFileInfo(`<div>Selected ${e.target.files.length} file(s). Starting processing...</div>`);
+        
+        // Ключевое исправление
+        await ensureAudioContext();
+        
+        processFiles(e.target.files);
         e.target.value = null;
       });
       
-      folderInput.addEventListener('change', (e) => {
+      folderInput.addEventListener('change', async (e) => {
         updateStatus(`Folder selected with ${e.target.files.length} files`);
         updateFileInfo(`<div>Folder selected. Starting processing...</div>`);
-        setTimeout(() => processFolder(e.target.files), 100);
+        
+        // Ключевое исправление
+        await ensureAudioContext();
+        
+        processFolder(e.target.files);
         e.target.value = null;
       });
       
@@ -884,6 +892,25 @@
       });
     }
     
+    async function ensureAudioContext() {
+      if (!activeAudioContext) {
+        initAudioContext();
+      }
+      
+      if (activeAudioContext && activeAudioContext.state === 'suspended') {
+        try {
+          await activeAudioContext.resume();
+          audioContextResumed = true;
+          console.log("AudioContext resumed");
+          return true;
+        } catch (e) {
+          console.error("Failed to resume AudioContext:", e);
+          return false;
+        }
+      }
+      return true;
+    }
+    
     function activateAudio() {
       if (!audioContextResumed && activeAudioContext) {
         try {
@@ -896,6 +923,22 @@
           console.error('Failed to resume audio context:', e);
         }
       }
+    }
+    
+    function initAudioContext() {
+      if (!activeAudioContext) {
+        try {
+          const ContextClass = window.AudioContext || window.webkitAudioContext;
+          activeAudioContext = new ContextClass();
+          console.log("AudioContext created");
+          return activeAudioContext;
+        } catch (e) {
+          console.error('AudioContext creation failed:', e);
+          updateFileInfo(`<div class="file-error">AudioContext failed: ${e.message}</div>`);
+          return null;
+        }
+      }
+      return activeAudioContext;
     }
     
     function closePreviewWindow() {
@@ -1076,12 +1119,11 @@
       updateStatus(`Selected ${files.length} file(s)`);
       updateFileInfo(`<div>Selected ${files.length} file(s). Processing started...</div>`);
       
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const items = Array.from(files).map(file => ({
         file,
         path: file.name
       }));
+      
       await processItems(items);
     }
 
@@ -1091,8 +1133,6 @@
       updateStatus(`Folder selected with ${files.length} files`);
       updateFileInfo(`<div>Folder selected. Processing started...</div>`);
       
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const items = [];
       
       for (const file of files) {
@@ -1101,25 +1141,6 @@
       }
       
       await processItems(items);
-    }
-
-    function initAudioContext() {
-      if (!activeAudioContext) {
-        try {
-          const ContextClass = window.AudioContext || window.webkitAudioContext;
-          activeAudioContext = new ContextClass();
-          
-          if (isIOS()) {
-            activeAudioContext.suspend();
-          }
-          
-          audioContextInitialized = true;
-        } catch (e) {
-          console.error('AudioContext creation failed:', e);
-          updateFileInfo(`<div class="file-error">AudioContext failed: ${e.message}</div>`);
-        }
-      }
-      return activeAudioContext;
     }
 
     async function processItems(items) {
@@ -1320,8 +1341,8 @@
           throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
-        if (!audioContextInitialized) {
-          initAudioContext();
+        if (!activeAudioContext) {
+          await ensureAudioContext();
         }
         
         const arrayBuffer = await file.arrayBuffer();
