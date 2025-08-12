@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
+    /* Стили остаются без изменений */
     :root { 
       --glow-color: #ff3333; 
       --primary-blue: #000080;
@@ -428,7 +429,7 @@
     
     .wave-window {
       position: absolute;
-      width: 500px; /* Шире для лучшего отображения */
+      width: 500px;
       background: var(--win-gray);
       border: 2px solid;
       border-top-color: var(--win-light);
@@ -1027,50 +1028,44 @@
 
       const BATCH_SIZE = 3;
       
-      for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
-        if (processingCancelled) break;
-        
-        const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
-        const batchItems = items.slice(batchStart, batchEnd);
-        
-        const results = [];
-        
-        for (const item of batchItems) {
+      try {
+        for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
           if (processingCancelled) break;
           
-          try {
-            const result = await processSingleItem(item, batchStart + results.length, items.length, zip);
-            if (result) {
-              results.push(result);
+          const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
+          const batchItems = items.slice(batchStart, batchEnd);
+          
+          const results = [];
+          
+          for (const item of batchItems) {
+            if (processingCancelled) break;
+            
+            try {
+              const result = await processSingleItem(item, batchStart + results.length, items.length, zip);
+              if (result) {
+                results.push(result);
+              }
+            } catch (error) {
+              handleProcessingError(error, item);
             }
-          } catch (error) {
-            handleProcessingError(error, item);
+          }
+          
+          for (const result of results) {
+            if (!result) continue;
+            
+            processedFiles++;
+            totalOriginalSize += result.originalSize || 0;
+            totalProcessedSize += result.processedSize || 0;
+            totalTrimmed += result.trimmedSamples || 0;
+            
+            if (result.channels === 1) monoOriginal++;
+            else if (result.channels === 2) stereoOriginal++;
+            
+            await updateProgressBar(processedFiles / items.length);
           }
         }
-        
-        for (const result of results) {
-          if (!result) continue;
-          
-          processedFiles++;
-          totalOriginalSize += result.originalSize || 0;
-          totalProcessedSize += result.processedSize || 0;
-          totalTrimmed += result.trimmedSamples || 0;
-          
-          if (result.channels === 1) monoOriginal++;
-          else if (result.channels === 2) stereoOriginal++;
-          
-          await updateProgressBar(processedFiles / items.length);
-        }
-      }
 
-      if (!processingCancelled) {
-        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
-          seg.classList.add('active');
-        });
-      }
-
-      try {
-        if (processedFiles > 0 && !processingCancelled) {
+        if (!processingCancelled && processedFiles > 0) {
           const zipBlob = await zip.generateAsync({ 
             type: "blob",
             compression: "DEFLATE",
@@ -1126,19 +1121,19 @@
         if (!processingCancelled) {
           handleProcessingError(error);
         }
+      } finally {
+        if (!processingCancelled) {
+          hideOverlay();
+        }
+        
+        if (activeAudioContext) {
+          try { activeAudioContext.close(); } catch(e) {}
+          activeAudioContext = null;
+          audioContextInitialized = false;
+        }
+        
+        currentProcessing = null;
       }
-
-      if (!processingCancelled) {
-        hideOverlay();
-      }
-      
-      if (activeAudioContext) {
-        try { activeAudioContext.close(); } catch(e) {}
-        activeAudioContext = null;
-        audioContextInitialized = false;
-      }
-      
-      currentProcessing = null;
     }
 
     async function processSingleItem(item, index, total, zip) {
@@ -1198,7 +1193,11 @@
         const outputBlob = await audioBufferToBlob(processed);
         processedSize = outputBlob.size;
         
-        zip.file(fileName, outputBlob);
+        try {
+          zip.file(fileName, outputBlob);
+        } catch (zipError) {
+          throw new Error(`Failed to add to ZIP: ${zipError.message}`);
+        }
         
         const originalSizeKB = (originalSize / 1024).toFixed(1);
         const processedSizeKB = (processedSize / 1024).toFixed(1);
@@ -1221,7 +1220,7 @@
         createdObjectURLs.push(url);
         
         // Create preview window for this file
-        createWaveWindow(fileName, url);
+        createWaveWindow(fileName, url, processed);
         
         return {
           fileName: fileName,
@@ -1262,7 +1261,7 @@
       return audioBufferToWav(audioBuffer);
     }
 
-    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
+    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
@@ -1430,7 +1429,10 @@
     async function convertChannels(buffer, targetChannels) {
       if (buffer.numberOfChannels === targetChannels) return buffer;
 
-      const ctx = new OfflineAudioContext(
+      const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OfflineContext) throw new Error("OfflineAudioContext not supported");
+      
+      const ctx = new OfflineContext(
         targetChannels, 
         buffer.length, 
         buffer.sampleRate
@@ -1472,7 +1474,11 @@
 
     async function applySpeedAndFidelity(buffer, speed, sampleRate) {
       const duration = buffer.duration / speed;
-      const ctx = new OfflineAudioContext(
+      
+      const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OfflineContext) throw new Error("OfflineAudioContext not supported");
+      
+      const ctx = new OfflineContext(
         buffer.numberOfChannels,
         Math.ceil(duration * sampleRate),
         sampleRate
@@ -1569,7 +1575,22 @@
       }
     }
 
-    function createWaveWindow(title, url) {
+    function createWaveWindow(title, url, audioBuffer) {
+      if (waveWindows.length >= 5) {
+        const oldestWindow = waveWindows.shift();
+        if (oldestWindow && oldestWindow.element) {
+          try {
+            if (oldestWindow.element.wavesurfer) {
+              oldestWindow.element.wavesurfer.destroy();
+            }
+            URL.revokeObjectURL(oldestWindow.url);
+            document.body.removeChild(oldestWindow.element);
+          } catch (e) {
+            console.warn('Error closing old window:', e);
+          }
+        }
+      }
+      
       windowZIndex += 2;
       const windowId = 'wave-window-' + Date.now();
       
@@ -1631,6 +1652,12 @@
             windowElement.wavesurfer.destroy();
           } catch(e) {}
         }
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.warn('Failed to revoke URL:', e);
+        }
+        createdObjectURLs = createdObjectURLs.filter(u => u !== url);
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
@@ -1666,7 +1693,7 @@
         document.removeEventListener('mousemove', elementDrag);
       }
       
-      // Инициализация WaveSurfer с улучшенной визуализацией
+      // Инициализация WaveSurfer
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
@@ -1680,7 +1707,8 @@
           progressColor: '#000080',
           waveColor: '#c0c0c0',
           fillParent: true,
-          interact: false
+          interact: false,
+          backend: audioBuffer && audioBuffer.length > 44100 * 30 ? 'MediaElement' : 'WebAudio'
         });
         
         windowElement.wavesurfer = wavesurfer;
@@ -1711,18 +1739,24 @@
         // Загрузка аудио
         wavesurfer.load(url);
         
-        // Очистка при закрытии
-        wavesurfer.on('destroy', () => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch(e) {}
-          createdObjectURLs = createdObjectURLs.filter(u => u !== url);
+        // Обработка ошибок
+        wavesurfer.on('error', (err) => {
+          console.error('WaveSurfer error:', err);
+          waveContainer.innerHTML = `
+            <div class="file-error">
+              WaveSurfer error: ${escapeHtml(err.message || 'Failed to load audio')}
+            </div>
+          `;
+          playButton.style.display = 'none';
+          pauseButton.style.display = 'none';
         });
         
       } catch (e) {
         console.error('WaveSurfer init error:', e);
-        // Fallback для мобильных устройств
         waveContainer.innerHTML = `
+          <div class="file-error">
+            WaveSurfer failed: ${escapeHtml(e.message || 'Audio preview not available')}
+          </div>
           <div class="mobile-fallback">
             <audio controls src="${url}" style="width: 100%;"></audio>
           </div>
@@ -1733,7 +1767,8 @@
       
       const windowObj = {
         id: windowId,
-        element: windowElement
+        element: windowElement,
+        url: url
       };
       
       waveWindows.push(windowObj);
