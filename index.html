@@ -476,7 +476,6 @@
       margin: 8px 0;
       border-radius: 2px;
       font-size: 13px;
-      display: none;
     }
     
     @media (max-width: 768px) {
@@ -570,9 +569,9 @@
         Processing on mobile may be slow. Use small files for best results.
       </div>
       
-      <div class="format-warning" id="format-warning">
+      <div class="format-warning">
         <i class="fas fa-info-circle"></i>
-        Compressed files (MP3/OGG) will be saved in original format to preserve size
+        Files will be saved in their original format (MP3, WAV, etc.)
       </div>
       
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
@@ -645,9 +644,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
-    // LameJS for MP3 encoding
+    // LameJS MP3 Encoder Wrapper
     class Mp3Encoder {
       constructor(channels, sampleRate, bitrate) {
+        if (typeof lamejs === 'undefined') {
+          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
+        }
+        
         this.channels = channels;
         this.sampleRate = sampleRate;
         this.bitrate = bitrate;
@@ -667,11 +670,14 @@
             ? right.subarray(i, i + sampleBlockSize) 
             : leftChunk;
           
-          // Convert float to int16
+          // Convert float to int16 with clamping
           for (let j = 0; j < leftChunk.length; j++) {
-            leftSamples[j] = leftChunk[j] * 32767.5;
+            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
+            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+            
             if (this.channels > 1) {
-              rightSamples[j] = rightChunk[j] * 32767.5;
+              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
+              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
             }
           }
           
@@ -695,10 +701,12 @@
       
       getAudioData(audioBuffer) {
         const left = audioBuffer.getChannelData(0);
-        let right = left;
+        let right = new Float32Array(audioBuffer.length); // Empty array for mono
+        
         if (audioBuffer.numberOfChannels > 1) {
           right = audioBuffer.getChannelData(1);
         }
+        
         return [left, right];
       }
     }
@@ -716,10 +724,9 @@
     let memoryWarningShown = false;
     let audioContextResumed = false;
     const MAX_PREVIEW_WINDOWS = 5;
-    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('format-warning').style.display = 'block';
       initApp();
     });
 
@@ -1062,7 +1069,7 @@
       if (!files || files.length === 0) return;
       
       updateStatus(`Folder selected with ${files.length} files`);
-      updateFileInfo(`<div>Folder selected. Processing started...</div>`);
+      updateFileInfo(`<div>Folder selected. Starting processing...</div>`);
       
       const items = [];
       
@@ -1112,7 +1119,11 @@
         cancel: () => {
           processingCancelled = true;
           if (activeAudioContext) {
-            activeAudioContext.close();
+            try {
+              activeAudioContext.close();
+            } catch (e) {
+              console.error("Error closing AudioContext:", e);
+            }
             activeAudioContext = null;
           }
           cancelButton.disabled = true;
@@ -1292,14 +1303,24 @@
         const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.' + fileExtension;
         fileName = [...pathParts, newFilename].join('/');
         
-        // Encode to original format
+        // Encode to original format with error handling
         let outputBlob;
-        if (fileExtension === 'mp3') {
-          // Use LameJS for MP3 encoding
-          const encoder = new Mp3Encoder(processed.numberOfChannels, processed.sampleRate, 192);
-          outputBlob = encoder.encode(processed);
-        } else {
-          // For other formats, use WAV
+        try {
+          if (fileExtension === 'mp3') {
+            // Use LameJS for MP3 encoding
+            const encoder = new Mp3Encoder(
+              processed.numberOfChannels, 
+              processed.sampleRate, 
+              192 // 192 kbps bitrate
+            );
+            outputBlob = encoder.encode(processed);
+          } else {
+            // For other formats, use WAV
+            outputBlob = await audioBufferToBlob(processed);
+          }
+        } catch (encodeError) {
+          console.error("Encoding error:", encodeError);
+          updateFileInfo(`<div class="file-error">Encoding error: ${encodeError.message}. Falling back to WAV format.</div>`);
           outputBlob = await audioBufferToBlob(processed);
         }
         
@@ -1472,6 +1493,8 @@
       const errorMessage = error?.message ? error.message : String(error);
       const fileName = item?.file?.name || 'unknown file';
       
+      console.error(`Processing error for ${fileName}:`, error);
+      
       document.getElementById('file-info').innerHTML += `
         <div class="file-error">
           <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
@@ -1481,7 +1504,8 @@
       
       updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
       
-      if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
+      if (errorMessage.toLowerCase().includes('memory') || 
+          errorMessage.toLowerCase().includes('allocation')) {
         if (activeAudioContext) {
           try { activeAudioContext.close(); } catch(e) {}
           activeAudioContext = null;
