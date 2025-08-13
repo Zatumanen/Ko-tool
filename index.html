@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Ваши стили остаются без изменений */
     :root { 
       --glow-color: #ff3333; 
       --primary-blue: #000080;
@@ -469,6 +468,17 @@
       transform: translate(-50%, -50%);
     }
     
+    .format-warning {
+      color: #ff6f00;
+      background-color: #fff3e0;
+      border: 1px solid #ff9800;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 2px;
+      font-size: 13px;
+      display: none;
+    }
+    
     @media (max-width: 768px) {
       body {
         padding: 10px;
@@ -560,6 +570,11 @@
         Processing on mobile may be slow. Use small files for best results.
       </div>
       
+      <div class="format-warning" id="format-warning">
+        <i class="fas fa-info-circle"></i>
+        Compressed files (MP3/OGG) will be saved in original format to preserve size
+      </div>
+      
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
         <div class="win95-inset" style="flex: 1;">
           <label>FIDELITY</label><br>
@@ -605,7 +620,8 @@
         <div>Files will be sped up 2x to save space</div>
         <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
-        <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
+        <div>Files will be saved in their original format</div>
+        <div>KO II will convert files during import</div>
       </div>
     </div>
   </div>
@@ -629,6 +645,64 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
+    // LameJS for MP3 encoding
+    class Mp3Encoder {
+      constructor(channels, sampleRate, bitrate) {
+        this.channels = channels;
+        this.sampleRate = sampleRate;
+        this.bitrate = bitrate;
+        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+      }
+      
+      encode(audioBuffer) {
+        const [left, right] = this.getAudioData(audioBuffer);
+        const sampleBlockSize = 1152;
+        const leftSamples = new Int16Array(sampleBlockSize);
+        const rightSamples = new Int16Array(sampleBlockSize);
+        const mp3Data = [];
+        
+        for (let i = 0; i < left.length; i += sampleBlockSize) {
+          const leftChunk = left.subarray(i, i + sampleBlockSize);
+          const rightChunk = this.channels > 1 
+            ? right.subarray(i, i + sampleBlockSize) 
+            : leftChunk;
+          
+          // Convert float to int16
+          for (let j = 0; j < leftChunk.length; j++) {
+            leftSamples[j] = leftChunk[j] * 32767.5;
+            if (this.channels > 1) {
+              rightSamples[j] = rightChunk[j] * 32767.5;
+            }
+          }
+          
+          const mp3buf = this.lame.encodeBuffer(
+            leftSamples.subarray(0, leftChunk.length),
+            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
+          );
+          
+          if (mp3buf.length > 0) {
+            mp3Data.push(new Int8Array(mp3buf));
+          }
+        }
+        
+        const lastChunk = this.lame.flush();
+        if (lastChunk.length > 0) {
+          mp3Data.push(new Int8Array(lastChunk));
+        }
+        
+        return new Blob(mp3Data, { type: 'audio/mp3' });
+      }
+      
+      getAudioData(audioBuffer) {
+        const left = audioBuffer.getChannelData(0);
+        let right = left;
+        if (audioBuffer.numberOfChannels > 1) {
+          right = audioBuffer.getChannelData(1);
+        }
+        return [left, right];
+      }
+    }
+
     const waveformQueue = [];
     let activeAudioContext = null;
     let createdObjectURLs = [];
@@ -645,6 +719,7 @@
     const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
     document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('format-warning').style.display = 'block';
       initApp();
     });
 
@@ -709,7 +784,8 @@
           '<div>Files will be sped up 2x to save space</div>' +
           '<div>Auto-trim removes silence at start and end</div>' +
           '<div>Folder structure will be preserved in output</div>' +
-          '<div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>';
+          '<div>Files will be saved in their original format</div>' +
+          '<div>KO II will convert files during import</div>';
         updateStatus("File list cleared");
       });
       
@@ -1143,13 +1219,10 @@
           hideOverlay();
         }
         
-        // Закрываем аудиоконтекст при завершении обработки
         if (activeAudioContext) {
           try { 
             activeAudioContext.close(); 
-          } catch(e) {
-            console.error("Error closing AudioContext:", e);
-          }
+          } catch(e) {}
           activeAudioContext = null;
           audioContextResumed = false;
         }
@@ -1166,6 +1239,7 @@
       let trimmedSamples = 0;
       let fileName = '';
       let channels = 0;
+      let isCompressed = false;
       
       try {
         updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
@@ -1178,6 +1252,11 @@
         if (file.size > MAX_FILE_SIZE) {
           throw new Error(`File size exceeds limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
+        
+        // Determine file extension and compression status
+        const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
+        const compressedFormats = ['mp3', 'ogg', 'aac', 'm4a'];
+        isCompressed = compressedFormats.includes(fileExtension);
         
         if (!activeAudioContext) {
           await ensureAudioContext();
@@ -1210,10 +1289,20 @@
         const pathParts = item.path.split('/');
         const origFilename = pathParts.pop();
         const safeFilename = origFilename.replace(/[^\w\.\-]/gi, '');
-        const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.wav';
+        const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.' + fileExtension;
         fileName = [...pathParts, newFilename].join('/');
         
-        const outputBlob = await audioBufferToBlob(processed);
+        // Encode to original format
+        let outputBlob;
+        if (fileExtension === 'mp3') {
+          // Use LameJS for MP3 encoding
+          const encoder = new Mp3Encoder(processed.numberOfChannels, processed.sampleRate, 192);
+          outputBlob = encoder.encode(processed);
+        } else {
+          // For other formats, use WAV
+          outputBlob = await audioBufferToBlob(processed);
+        }
+        
         processedSize = outputBlob.size;
         
         try {
@@ -1233,10 +1322,17 @@
           sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
         }
         
+        // Add compression info
+        let compressionInfo = '';
+        if (isCompressed) {
+          compressionInfo = `<div>Original compressed format preserved</div>`;
+        }
+        
         updateFileInfo(`
           <div>Processed: ${escapeHtml(fileName)}</div>
           <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
           <div>${sizeInfo}</div>
+          ${compressionInfo}
         `);
         
         const url = URL.createObjectURL(outputBlob);
@@ -1250,7 +1346,8 @@
           originalSize: originalSize,
           processedSize: processedSize,
           trimmedSamples: trimmedSamples,
-          channels: channels
+          channels: channels,
+          isCompressed: isCompressed
         };
         
       } catch (error) {
@@ -1259,7 +1356,6 @@
         }
         return null;
       } finally {
-        // УДАЛЕН ВЫЗОВ decoded.close() - AudioBuffer не имеет этого метода
         decoded = null;
         processed = null;
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -1516,7 +1612,6 @@
       return result;
     }
 
-    // ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ ПРАВИЛЬНОГО ЧАНКА KO II
     function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
       const data = new Uint8Array(12);
       
@@ -1845,5 +1940,6 @@
         .replace(/'/g, '&#039;');
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </body>
 </html>
