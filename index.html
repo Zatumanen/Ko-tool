@@ -1512,16 +1512,29 @@
       return result;
     }
 
+    // ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ ПРАВИЛЬНОГО ЧАНКА KO II
     function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
-      const dataLen = 4;
-      const buf = new ArrayBuffer(8 + dataLen);
-      const dv = new DataView(buf);
-      writeString(dv, 0, 'ko2 ');
-      dv.setUint32(4, dataLen, true);
-      dv.setInt8(8, pitch);
-      dv.setUint16(9, release, true);
-      dv.setUint8(11, playmode);
-      return buf;
+      const data = new Uint8Array(12);
+      
+      // Идентификатор чанка "ko2 "
+      data[0] = 0x6B; // 'k'
+      data[1] = 0x6F; // 'o'
+      data[2] = 0x32; // '2'
+      data[3] = 0x20; // ' '
+      
+      // Размер данных чанка (4 байта, little-endian)
+      data[4] = 0x04; // Размер данных = 4
+      data[5] = 0x00;
+      data[6] = 0x00;
+      data[7] = 0x00;
+      
+      // Данные чанка
+      data[8] = pitch;   // Pitch (1 байт со знаком)
+      data[9] = release; // Release (1 байт без знака)
+      data[10] = 0x00;   // Зарезервированный байт (0)
+      data[11] = playmode; // Playmode (1 байт)
+      
+      return data.buffer;
     }
 
     function audioBufferToWav(audioBuffer) {
@@ -1546,6 +1559,7 @@
       fmtDv.setUint16(20, blockAlign, true);
       fmtDv.setUint16(22, bitDepth, true);
 
+      // Используем исправленную версию для чанка KO II
       const ko2Buf = writeKO2ChunkBuf();
 
       const dataHeader = new ArrayBuffer(8);
