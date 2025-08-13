@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    /* Стили остаются без изменений */
     :root { 
       --glow-color: #ff3333; 
       --primary-blue: #000080;
@@ -278,11 +277,20 @@
       text-align: center;
     }
     
-    .wave-element {
+    .wave-element-container {
       width: 100%;
       height: 150px;
       background: #000;
       margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+      padding: 10px 0;
+      box-sizing: border-box;
+    }
+    
+    .wave-element {
+      width: 100%;
+      height: 100%;
     }
     
     .wave-button {
@@ -463,7 +471,7 @@
         transform: scale(0.98);
       }
       
-      .wave-element {
+      .wave-element-container {
         height: 100px !important;
       }
       
@@ -499,7 +507,7 @@
     }
 
     @media (max-width: 768px) and (orientation: landscape) {
-      .wave-element {
+      .wave-element-container {
         height: 100px !important;
       }
     }
@@ -755,10 +763,8 @@
         try {
           await activeAudioContext.resume();
           audioContextResumed = true;
-          console.log("AudioContext resumed");
           return true;
         } catch (e) {
-          console.error("Failed to resume AudioContext:", e);
           return false;
         }
       }
@@ -773,9 +779,7 @@
               audioContextResumed = true;
             });
           }
-        } catch (e) {
-          console.error('Failed to resume audio context:', e);
-        }
+        } catch (e) {}
       }
     }
     
@@ -784,10 +788,8 @@
         try {
           const ContextClass = window.AudioContext || window.webkitAudioContext;
           activeAudioContext = new ContextClass();
-          console.log("AudioContext created");
           return activeAudioContext;
         } catch (e) {
-          console.error('AudioContext creation failed:', e);
           updateFileInfo(`<div class="file-error">AudioContext failed: ${e.message}</div>`);
           return null;
         }
@@ -921,7 +923,6 @@
           items.push({ file, path: path + file.name });
           processQueue(queue, items);
         }, err => {
-          console.warn('entry.file failed', err);
           processQueue(queue, items);
         });
       } else if (entry.isDirectory) {
@@ -940,7 +941,6 @@
             }
             readAll();
           }, err => {
-            console.warn('readEntries failed for', entry, err);
             processQueue(queue, items);
           });
         }
@@ -1117,7 +1117,6 @@
           updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
         }
       } catch (error) {
-        console.error('Error generating ZIP:', error);
         if (!processingCancelled) {
           handleProcessingError(error);
         }
@@ -1219,7 +1218,6 @@
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
         
-        // Create preview window for this file
         createWaveWindow(fileName, url, processed);
         
         return {
@@ -1232,7 +1230,6 @@
         };
         
       } catch (error) {
-        console.error('Error processing file:', error);
         if (!processingCancelled) {
           handleProcessingError(error, item);
         }
@@ -1355,8 +1352,6 @@
     }
 
     function handleProcessingError(error, item) {
-      console.error('Processing error:', error);
-      
       const errorMessage = error?.message ? error.message : String(error);
       const fileName = item?.file?.name || 'unknown file';
       
@@ -1585,9 +1580,7 @@
             }
             URL.revokeObjectURL(oldestWindow.url);
             document.body.removeChild(oldestWindow.element);
-          } catch (e) {
-            console.warn('Error closing old window:', e);
-          }
+          } catch (e) {}
         }
       }
       
@@ -1615,7 +1608,9 @@
         <div class="content">
           <div class="wave-container">
             <div class="wave-title">${escapeHtml(title)}</div>
-            <div class="wave-element"></div>
+            <div class="wave-element-container">
+              <div class="wave-element"></div>
+            </div>
             <div class="preview-controls">
               <button class="wave-button play-button">
                 <i class="fas fa-play"></i> Play
@@ -1638,7 +1633,6 @@
       const stopButton = windowElement.querySelector('.stop-button');
       const waveContainer = windowElement.querySelector('.wave-element');
       
-      // Управление окном
       const minimizeBtn = windowElement.querySelector('.minimize');
       minimizeBtn.addEventListener('click', () => {
         const content = windowElement.querySelector('.content');
@@ -1654,15 +1648,12 @@
         }
         try {
           URL.revokeObjectURL(url);
-        } catch (e) {
-          console.warn('Failed to revoke URL:', e);
-        }
+        } catch (e) {}
         createdObjectURLs = createdObjectURLs.filter(u => u !== url);
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
-      // Перетаскивание окна
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       const titleBar = windowElement.querySelector('.title-bar');
       titleBar.addEventListener('mousedown', dragMouseDown);
@@ -1693,16 +1684,18 @@
         document.removeEventListener('mousemove', elementDrag);
       }
       
-      // Инициализация WaveSurfer
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
         
         const wavesurfer = WaveSurferLib.create({
           container: waveContainer,
-          height: 150,
+          height: '100%',
           barWidth: 2,
+          barGap: 1,
+          barRadius: 1,
           cursorWidth: 1,
+          cursorColor: 'transparent',
           normalize: true,
           progressColor: '#000080',
           waveColor: '#c0c0c0',
@@ -1713,7 +1706,6 @@
         
         windowElement.wavesurfer = wavesurfer;
         
-        // Кнопки управления
         playButton.addEventListener('click', () => {
           activateAudio();
           wavesurfer.play();
@@ -1736,12 +1728,9 @@
           updateStatus("Playback stopped");
         });
         
-        // Загрузка аудио
         wavesurfer.load(url);
         
-        // Обработка ошибок
         wavesurfer.on('error', (err) => {
-          console.error('WaveSurfer error:', err);
           waveContainer.innerHTML = `
             <div class="file-error">
               WaveSurfer error: ${escapeHtml(err.message || 'Failed to load audio')}
@@ -1752,7 +1741,6 @@
         });
         
       } catch (e) {
-        console.error('WaveSurfer init error:', e);
         waveContainer.innerHTML = `
           <div class="file-error">
             WaveSurfer failed: ${escapeHtml(e.message || 'Audio preview not available')}
