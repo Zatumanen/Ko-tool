@@ -644,13 +644,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
-    // LameJS MP3 Encoder Wrapper
     class Mp3Encoder {
       constructor(channels, sampleRate, bitrate) {
         if (typeof lamejs === 'undefined') {
           throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
         }
-        
         this.channels = channels;
         this.sampleRate = sampleRate;
         this.bitrate = bitrate;
@@ -670,7 +668,6 @@
             ? right.subarray(i, i + sampleBlockSize) 
             : leftChunk;
           
-          // Convert float to int16 with clamping
           for (let j = 0; j < leftChunk.length; j++) {
             const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
             leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
@@ -701,7 +698,7 @@
       
       getAudioData(audioBuffer) {
         const left = audioBuffer.getChannelData(0);
-        let right = new Float32Array(audioBuffer.length); // Empty array for mono
+        let right = new Float32Array(audioBuffer.length);
         
         if (audioBuffer.numberOfChannels > 1) {
           right = audioBuffer.getChannelData(1);
@@ -1264,7 +1261,6 @@
           throw new Error(`File size exceeds limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
-        // Determine file extension and compression status
         const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
         const compressedFormats = ['mp3', 'ogg', 'aac', 'm4a'];
         isCompressed = compressedFormats.includes(fileExtension);
@@ -1303,19 +1299,16 @@
         const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.' + fileExtension;
         fileName = [...pathParts, newFilename].join('/');
         
-        // Encode to original format with error handling
         let outputBlob;
         try {
           if (fileExtension === 'mp3') {
-            // Use LameJS for MP3 encoding
             const encoder = new Mp3Encoder(
               processed.numberOfChannels, 
               processed.sampleRate, 
-              192 // 192 kbps bitrate
+              192
             );
             outputBlob = encoder.encode(processed);
           } else {
-            // For other formats, use WAV
             outputBlob = await audioBufferToBlob(processed);
           }
         } catch (encodeError) {
@@ -1343,7 +1336,6 @@
           sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
         }
         
-        // Add compression info
         let compressionInfo = '';
         if (isCompressed) {
           compressionInfo = `<div>Original compressed format preserved</div>`;
@@ -1359,7 +1351,10 @@
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
         
-        createWaveWindow(fileName, url, processed);
+        const fidelitySettings = getFidelitySettings(fidelity);
+        const forceME = fidelitySettings.sampleRate < 11025 || fidelitySettings.bitDepth === 8 || processed.sampleRate < 11025 || fidelity === 'sk' || (processed.numberOfChannels === 1 && processed.sampleRate <= 9000);
+        
+        createWaveWindow(fileName, url, processed, { forceMediaElement: forceME });
         
         return {
           fileName: fileName,
@@ -1417,6 +1412,7 @@
     function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
+      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
       const length = audioBuffer.length;
 
       const blockSize = 1024;
@@ -1452,38 +1448,46 @@
       }
 
       const newLength = endIndex - startIndex + 1;
-      const newBuffer = new AudioBuffer({ length: newLength, sampleRate: audioBuffer.sampleRate, numberOfChannels: audioBuffer.numberOfChannels });
+      const newBuffer = new AudioBuffer({
+        length: newLength,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels
+      });
+
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
-        const destData = newBuffer.getChannelData(ch);
-        destData.set(sourceData.subarray(startIndex, endIndex + 1));
+        const targetData = newBuffer.getChannelData(ch);
+        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
       }
+
       return newBuffer;
     }
 
     function findExactStartMulti(buffer, roughStart, threshold) {
       for (let i = roughStart; i >= 0; i--) {
-        let active = false;
+        let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { active = true; break; }
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
+            found = true;
+            break;
+          }
         }
-        if (active) return i;
+        if (found) return i;
       }
       return roughStart;
     }
 
     function findExactEndMulti(buffer, roughEnd, threshold) {
       for (let i = roughEnd; i < buffer.length; i++) {
-        let active = false;
+        let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { active = true; break; }
-        }
-        if (active) return i;
-      }
-      return roughEnd;
-    }
-
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
+            found = true;
+            break;
           }
+        }
+        if (found) return i;
+      }
       return roughEnd;
     }
 
@@ -1644,23 +1648,20 @@
     function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
       const data = new Uint8Array(12);
       
-      // Идентификатор чанка "ko2 "
-      data[0] = 0x6B; // 'k'
-      data[1] = 0x6F; // 'o'
-      data[2] = 0x32; // '2'
-      data[3] = 0x20; // ' '
+      data[0] = 0x6B;
+      data[1] = 0x6F;
+      data[2] = 0x32;
+      data[3] = 0x20;
       
-      // Размер данных чанка (4 байта, little-endian)
-      data[4] = 0x04; // Размер данных = 4
+      data[4] = 0x04;
       data[5] = 0x00;
       data[6] = 0x00;
       data[7] = 0x00;
       
-      // Данные чанка
-      data[8] = pitch;   // Pitch (1 байт со знаком)
-      data[9] = release; // Release (1 байт без знака)
-      data[10] = 0x00;   // Зарезервированный байт (0)
-      data[11] = playmode; // Playmode (1 байт)
+      data[8] = pitch;
+      data[9] = release;
+      data[10] = 0x00;
+      data[11] = playmode;
       
       return data.buffer;
     }
@@ -1687,7 +1688,6 @@
       fmtDv.setUint16(20, blockAlign, true);
       fmtDv.setUint16(22, bitDepth, true);
 
-      // Используем исправленную версию для чанка KO II
       const ko2Buf = writeKO2ChunkBuf();
 
       const dataHeader = new ArrayBuffer(8);
@@ -1735,7 +1735,7 @@
       }
     }
 
-    function createWaveWindow(title, url, audioBuffer) {
+    function createWaveWindow(title, url, audioBuffer, opts) {
       if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
@@ -1821,44 +1821,64 @@
       
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       const titleBar = windowElement.querySelector('.title-bar');
-      titleBar.addEventListener('mousedown', dragMouseDown);
       
-      function dragMouseDown(e) {
+      function startDragPointer(e) {
         e.preventDefault();
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
-        
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.addEventListener('mouseup', closeDragElement);
-        document.addEventListener('mousemove', elementDrag);
+        if (e.type.startsWith('touch')) {
+          const t = e.touches[0];
+          pos3 = t.clientX;
+          pos4 = t.clientY;
+          document.addEventListener('touchmove', pointerMove, { passive: false });
+          document.addEventListener('touchend', endPointerDrag);
+        } else {
+          pos3 = e.clientX;
+          pos4 = e.clientY;
+          document.addEventListener('pointermove', pointerMove);
+          document.addEventListener('pointerup', endPointerDrag);
+        }
       }
       
-      function elementDrag(e) {
+      function pointerMove(e) {
         e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
+        let clientX, clientY;
+        if (e.type.startsWith('touch')) {
+          const t = e.touches[0];
+          clientX = t.clientX;
+          clientY = t.clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+        pos1 = pos3 - clientX;
+        pos2 = pos4 - clientY;
+        pos3 = clientX;
+        pos4 = clientY;
         windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
         windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
       }
       
-      function closeDragElement() {
-        document.removeEventListener('mouseup', closeDragElement);
-        document.removeEventListener('mousemove', elementDrag);
+      function endPointerDrag() {
+        document.removeEventListener('pointermove', pointerMove);
+        document.removeEventListener('pointerup', endPointerDrag);
+        document.removeEventListener('touchmove', pointerMove);
+        document.removeEventListener('touchend', endPointerDrag);
       }
       
+      titleBar.addEventListener('pointerdown', startDragPointer);
+      titleBar.addEventListener('touchstart', startDragPointer, { passive: false });
+      titleBar.addEventListener('mousedown', startDragPointer);
+
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
         
+        const backend = (opts && opts.forceMediaElement) ? 'MediaElement' : (isMobile() ? 'MediaElement' : 'WebAudio');
         
-        const forceMediaElement = (audioBuffer && (audioBuffer.sampleRate < 11025 || (audioBuffer.numberOfChannels === 1 && audioBuffer.sampleRate <= 9000)));
-        const backend = forceMediaElement || isMobile() ? 'MediaElement' : 'WebAudio';
         const wavesurfer = WaveSurferLib.create({
           container: waveContainer,
-          height: '100%',
+          height: 128,
           barWidth: 2,
           barGap: 1,
           barRadius: 1,
@@ -1871,13 +1891,16 @@
           interact: false,
           backend: backend
         });
-
         
         windowElement.wavesurfer = wavesurfer;
         
         playButton.addEventListener('click', () => {
           activateAudio();
-          wavesurfer.play();
+          try {
+            wavesurfer.play();
+          } catch (e) {
+            // ignore
+          }
           playButton.style.display = 'none';
           pauseButton.style.display = 'block';
           updateStatus("Playing processed audio");
@@ -1897,43 +1920,44 @@
           updateStatus("Playback stopped");
         });
         
-        wavesurfer.load(url);
-        
+        wavesurfer.on('ready', () => {
+          // no-op
+        });
         
         wavesurfer.on('error', (err) => {
-          while (waveContainer.firstChild) waveContainer.removeChild(waveContainer.firstChild);
+          waveContainer.innerHTML = '';
           const errDiv = document.createElement('div');
           errDiv.className = 'file-error';
-          errDiv.textContent = 'WaveSurfer error: ' + (err && err.message ? err.message : 'Failed to load audio');
+          errDiv.textContent = `WaveSurfer error: ${err?.message || 'Failed to load audio'}`;
           const fb = document.createElement('div');
           fb.className = 'mobile-fallback';
-          const audioEl = document.createElement('audio');
-          audioEl.controls = true;
-          audioEl.style.width = '100%';
-          audioEl.src = url;
-          fb.appendChild(audioEl);
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.style.width = '100%';
+          audio.src = url;
+          fb.appendChild(audio);
           waveContainer.appendChild(errDiv);
           waveContainer.appendChild(fb);
           playButton.style.display = 'none';
           pauseButton.style.display = 'none';
         });
-
+        
+        wavesurfer.load(url);
         
       } catch (e) {
-        while (waveContainer.firstChild) waveContainer.removeChild(waveContainer.firstChild);
+        waveContainer.innerHTML = '';
         const errDiv = document.createElement('div');
         errDiv.className = 'file-error';
-        errDiv.textContent = 'WaveSurfer failed: ' + (e && e.message ? e.message : 'Audio preview not available');
+        errDiv.textContent = `WaveSurfer failed: ${e?.message || 'Audio preview not available'}`;
         const fb = document.createElement('div');
         fb.className = 'mobile-fallback';
-        const audioEl = document.createElement('audio');
-        audioEl.controls = true;
-        audioEl.style.width = '100%';
-        audioEl.src = url;
-        fb.appendChild(audioEl);
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.style.width = '100%';
+        audio.src = url;
+        fb.appendChild(audio);
         waveContainer.appendChild(errDiv);
         waveContainer.appendChild(fb);
-    
         playButton.style.display = 'none';
         pauseButton.style.display = 'none';
       }
