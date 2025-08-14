@@ -644,14 +644,71 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
-    // Объединенный код с лучшими функциями из двух версий
-    
-    // Основные константы и переменные
-    const MAX_PREVIEW_WINDOWS = 5;
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-    const MAX_CONCURRENT = Math.max(2, Math.min(6, Math.floor((navigator.hardwareConcurrency || 4) / 2)));
-    
-    let waveformQueue = [];
+    class Mp3Encoder {
+      constructor(channels, sampleRate, bitrate) {
+        if (typeof lamejs === 'undefined') {
+          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
+        }
+        this.channels = channels;
+        this.sampleRate = sampleRate;
+        this.bitrate = bitrate;
+        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+      }
+      
+      encode(audioBuffer) {
+        const [left, right] = this.getAudioData(audioBuffer);
+        const sampleBlockSize = 1152;
+        const leftSamples = new Int16Array(sampleBlockSize);
+        const rightSamples = new Int16Array(sampleBlockSize);
+        const mp3Data = [];
+        
+        for (let i = 0; i < left.length; i += sampleBlockSize) {
+          const leftChunk = left.subarray(i, i + sampleBlockSize);
+          const rightChunk = this.channels > 1 
+            ? right.subarray(i, i + sampleBlockSize) 
+            : leftChunk;
+          
+          for (let j = 0; j < leftChunk.length; j++) {
+            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
+            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+            
+            if (this.channels > 1) {
+              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
+              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
+            }
+          }
+          
+          const mp3buf = this.lame.encodeBuffer(
+            leftSamples.subarray(0, leftChunk.length),
+            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
+          );
+          
+          if (mp3buf.length > 0) {
+            mp3Data.push(new Int8Array(mp3buf));
+          }
+        }
+        
+        const lastChunk = this.lame.flush();
+        if (lastChunk.length > 0) {
+          mp3Data.push(new Int8Array(lastChunk));
+        }
+        
+        return new Blob(mp3Data, { type: 'audio/mp3' });
+      }
+      
+      getAudioData(audioBuffer) {
+        const left = audioBuffer.getChannelData(0);
+        let right = new Float32Array(audioBuffer.length);
+        
+        if (audioBuffer.numberOfChannels > 1) {
+          right = audioBuffer.getChannelData(1);
+        }
+        
+        return [left, right];
+      }
+    }
+
+    const waveformQueue = [];
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
@@ -660,23 +717,22 @@
     let lastProgress = 0;
     let windowZIndex = 100;
     let waveWindows = [];
-    let audioContextResumed = false;
+    let audioContextInitialized = false;
     let memoryWarningShown = false;
-    
-    // Инициализация приложения
+    let audioContextResumed = false;
+    const MAX_PREVIEW_WINDOWS = 5;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
-      restoreSettings();
     });
 
-    // Проверка мобильного устройства
     function isMobile() {
       return ('ontouchstart' in window) || 
              (navigator.maxTouchPoints > 0) || 
              (navigator.msMaxTouchPoints > 0);
     }
 
-    // Основная инициализация
     function initApp() {
       if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
@@ -684,7 +740,6 @@
       
       checkMemoryAndWarn();
       
-      // Инициализация списков выбора
       document.querySelectorAll('.win95-list').forEach(group => {
         group.addEventListener('click', e => {
           if (e.target.classList.contains('list-item')) {
@@ -693,12 +748,10 @@
             });
             e.target.classList.add('selected');
             updateStatus(`Fidelity set to: ${e.target.textContent}`);
-            saveSettings();
           }
         });
       });
 
-      // Получение элементов интерфейса
       const dropZone = document.getElementById('drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const folderInput = document.getElementById('folder-upload');
@@ -707,7 +760,6 @@
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
 
-      // Обработчики событий
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
       dropZone.addEventListener('drop', handleDrop);
@@ -784,7 +836,6 @@
       
       updateStatus("Ready to process files");
       
-      // Активация аудиоконтекста при взаимодействии
       const activationElements = [
         '#select-file-button', 
         '#select-folder-button',
@@ -801,7 +852,6 @@
       });
     }
     
-    // Активация аудиоконтекста
     async function ensureAudioContext() {
       if (!activeAudioContext) {
         initAudioContext();
@@ -831,7 +881,6 @@
       }
     }
     
-    // Инициализация аудиоконтекста
     function initAudioContext() {
       if (!activeAudioContext) {
         try {
@@ -846,7 +895,6 @@
       return activeAudioContext;
     }
     
-    // Проверка памяти и предупреждение
     function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
       
@@ -863,12 +911,10 @@
       }
     }
 
-    // Обновление статуса
     function updateStatus(message) {
       document.getElementById('status-bar').textContent = message;
     }
 
-    // Обновление текущего файла
     function updateCurrentFile(message) {
       const currentFileElement = document.getElementById('current-file');
       if (currentFileElement) {
@@ -876,7 +922,6 @@
       }
     }
 
-    // Обновление информации о файлах
     function updateFileInfo(message) {
       const fileInfo = document.getElementById('file-info');
       if (!fileInfo) return;
@@ -890,7 +935,6 @@
       fileInfo.scrollTop = fileInfo.scrollHeight;
     }
 
-    // Показать оверлей
     function showOverlay() {
       document.getElementById('overlay').style.display = 'block';
       document.getElementById('win95-loader').style.display = 'block';
@@ -898,13 +942,11 @@
       lastProgress = 0;
     }
 
-    // Скрыть оверлей
     function hideOverlay() {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('win95-loader').style.display = 'none';
     }
 
-    // Обработка перетаскивания файлов
     function handleDragOver(e) {
       e.preventDefault();
       dragCounter++;
@@ -955,7 +997,6 @@
       }
     }
     
-    // Обработка очереди файлов
     function processQueue(queue, items) {
       if (queue.length === 0) {
         processItems(items);
@@ -1007,7 +1048,6 @@
       }
     }
 
-    // Обработка файлов
     async function processFiles(files) {
       if (!files || files.length === 0) return;
       
@@ -1022,7 +1062,6 @@
       await processItems(items);
     }
 
-    // Обработка папки
     async function processFolder(files) {
       if (!files || files.length === 0) return;
       
@@ -1039,7 +1078,6 @@
       await processItems(items);
     }
 
-    // Основная обработка элементов
     async function processItems(items) {
       if (items.length === 0) {
         updateStatus("No files to process");
@@ -1049,6 +1087,7 @@
       const segmentContainer = document.getElementById('segment-container');
       const fileInfo = document.getElementById('file-info');
       const cancelButton = document.getElementById('cancel-button');
+      const autoTrim = document.getElementById('auto-trim').checked;
 
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
@@ -1089,17 +1128,29 @@
         }
       };
 
+      const BATCH_SIZE = 3;
+      
       try {
-        for (let batchStart = 0; batchStart < items.length; batchStart += MAX_CONCURRENT) {
+        for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
           if (processingCancelled) break;
           
-          const batchEnd = Math.min(batchStart + MAX_CONCURRENT, items.length);
+          const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
           const batchItems = items.slice(batchStart, batchEnd);
           
-          const results = await Promise.all(
-            batchItems.map((item, index) => 
-              processSingleItem(item, batchStart + index, items.length, zip)
-          );
+          const results = [];
+          
+          for (const item of batchItems) {
+            if (processingCancelled) break;
+            
+            try {
+              const result = await processSingleItem(item, batchStart + results.length, items.length, zip);
+              if (result) {
+                results.push(result);
+              }
+            } catch (error) {
+              handleProcessingError(error, item);
+            }
+          }
           
           for (const result of results) {
             if (!result) continue;
@@ -1138,6 +1189,13 @@
           a.click();
           document.body.removeChild(a);
           
+          setTimeout(() => {
+            try {
+              URL.revokeObjectURL(zipUrl);
+            } catch (e) {}
+            createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
+          }, 2000);
+          
           const fidelity = getSelectedValue('fidelity');
           const channels = getSelectedValue('channels');
           
@@ -1148,7 +1206,7 @@
             <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%</div>
           `;
           
-          if (document.getElementById('auto-trim').checked && totalTrimmed > 0) {
+          if (autoTrim && totalTrimmed > 0) {
             fileInfo.innerHTML += `<div>Total silence trimmed: ${(totalTrimmed/44100).toFixed(2)}s</div>`;
           }
           
@@ -1181,7 +1239,6 @@
       }
     }
 
-    // Обработка отдельного элемента
     async function processSingleItem(item, index, total, zip) {
       const file = item.file;
       let decoded, processed;
@@ -1322,72 +1379,151 @@
       }
     }
 
-    // Класс для кодирования MP3
-    class Mp3Encoder {
-      constructor(channels, sampleRate, bitrate) {
-        if (typeof lamejs === 'undefined') {
-          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
+    function getMimeType(extension) {
+      const types = {
+        'wav': 'audio/wav',
+        'mp3': 'audio/mpeg',
+        'ogg': 'audio/ogg',
+        'flac': 'audio/flac',
+        'aac': 'audio/aac',
+        'm4a': 'audio/mp4'
+      };
+      return types[extension] || 'audio/wav';
+    }
+
+    async function audioBufferToBlob(audioBuffer) {
+      return audioBufferToWav(audioBuffer);
+    }
+
+    function calculateRMSMulti(buffer, start, end) {
+      const ch = buffer.numberOfChannels;
+      let sum = 0;
+      const n = (end - start) * ch;
+      for (let c = 0; c < ch; c++) {
+        const data = buffer.getChannelData(c);
+        for (let i = start; i < end; i++) {
+          const s = data[i];
+          sum += s * s;
         }
-        this.channels = channels;
-        this.sampleRate = sampleRate;
-        this.bitrate = bitrate;
-        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
       }
-      
-      encode(audioBuffer) {
-        const [left, right] = this.getAudioData(audioBuffer);
-        const sampleBlockSize = 1152;
-        const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new Int16Array(sampleBlockSize);
-        const mp3Data = [];
-        
-        for (let i = 0; i < left.length; i += sampleBlockSize) {
-          const leftChunk = left.subarray(i, i + sampleBlockSize);
-          const rightChunk = this.channels > 1 
-            ? right.subarray(i, i + sampleBlockSize) 
-            : leftChunk;
-          
-          for (let j = 0; j < leftChunk.length; j++) {
-            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
-            
-            if (this.channels > 1) {
-              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
-            }
-          }
-          
-          const mp3buf = this.lame.encodeBuffer(
-            leftSamples.subarray(0, leftChunk.length),
-            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
-          );
-          
-          if (mp3buf.length > 0) {
-            mp3Data.push(new Int8Array(mp3buf));
-          }
+      return Math.sqrt(sum / n);
+    }
+
+    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
+      const threshold = Math.pow(10, thresholdDb / 20);
+      const sampleRate = audioBuffer.sampleRate;
+      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
+      const length = audioBuffer.length;
+
+      const blockSize = 1024;
+      let startIndex = 0;
+      let endIndex = length - 1;
+
+      for (let i = 0; i < length; i += blockSize) {
+        const blockEnd = Math.min(i + blockSize, length);
+        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
+        if (rms > threshold) {
+          startIndex = Math.max(0, i - blockSize);
+          break;
         }
-        
-        const lastChunk = this.lame.flush();
-        if (lastChunk.length > 0) {
-          mp3Data.push(new Int8Array(lastChunk));
-        }
-        
-        return new Blob(mp3Data, { type: 'audio/mp3' });
       }
-      
-      getAudioData(audioBuffer) {
-        const left = audioBuffer.getChannelData(0);
-        let right = new Float32Array(audioBuffer.length);
-        
-        if (audioBuffer.numberOfChannels > 1) {
-          right = audioBuffer.getChannelData(1);
+
+      for (let i = length - blockSize; i >= 0; i -= blockSize) {
+        const blockEnd = Math.min(i + blockSize, length);
+        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
+        if (rms > threshold) {
+          endIndex = Math.min(length - 1, i + blockSize);
+          break;
         }
-        
-        return [left, right];
+      }
+
+      startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
+      endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
+
+      startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
+      endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
+
+      if (startIndex >= endIndex) {
+        return audioBuffer;
+      }
+
+      const newLength = endIndex - startIndex + 1;
+      const newBuffer = new AudioBuffer({
+        length: newLength,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels
+      });
+
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+        const sourceData = audioBuffer.getChannelData(ch);
+        const targetData = newBuffer.getChannelData(ch);
+        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
+      }
+
+      return newBuffer;
+    }
+
+    function findExactStartMulti(buffer, roughStart, threshold) {
+      for (let i = roughStart; i >= 0; i--) {
+        let found = false;
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
+            found = true;
+            break;
+          }
+        }
+        if (found) return i;
+      }
+      return roughStart;
+    }
+
+    function findExactEndMulti(buffer, roughEnd, threshold) {
+      for (let i = roughEnd; i < buffer.length; i++) {
+        let found = false;
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
+            found = true;
+            break;
+          }
+        }
+        if (found) return i;
+      }
+      return roughEnd;
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function handleProcessingError(error, item) {
+      const errorMessage = error?.message ? error.message : String(error);
+      const fileName = item?.file?.name || 'unknown file';
+      
+      console.error(`Processing error for ${fileName}:`, error);
+      
+      document.getElementById('file-info').innerHTML += `
+        <div class="file-error">
+          <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
+          ${escapeHtml(errorMessage)}
+        </div>
+      `;
+      
+      updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
+      
+      if (errorMessage.toLowerCase().includes('memory') || 
+          errorMessage.toLowerCase().includes('allocation')) {
+        if (activeAudioContext) {
+          try { activeAudioContext.close(); } catch(e) {}
+          activeAudioContext = null;
+        }
+        document.getElementById('memory-warning').style.display = 'block';
+        memoryWarningShown = true;
       }
     }
 
-    // Вспомогательные функции
     function isSupportedAudioType(mimeType, fileName) {
       const supportedTypes = [
         'audio/wav', 'audio/wave', 'audio/x-wav',
@@ -1599,139 +1735,6 @@
       }
     }
 
-    async function audioBufferToBlob(audioBuffer) {
-      return audioBufferToWav(audioBuffer);
-    }
-
-    function calculateRMSMulti(buffer, start, end) {
-      const ch = buffer.numberOfChannels;
-      let sum = 0;
-      const n = (end - start) * ch;
-      for (let c = 0; c < ch; c++) {
-        const data = buffer.getChannelData(c);
-        for (let i = start; i < end; i++) {
-          const s = data[i];
-          sum += s * s;
-        }
-      }
-      return Math.sqrt(sum / n);
-    }
-
-    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
-      const threshold = Math.pow(10, thresholdDb / 20);
-      const sampleRate = audioBuffer.sampleRate;
-      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      const length = audioBuffer.length;
-
-      const blockSize = 1024;
-      let startIndex = 0;
-      let endIndex = length - 1;
-
-      for (let i = 0; i < length; i += blockSize) {
-        const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
-        if (rms > threshold) {
-          startIndex = Math.max(0, i - blockSize);
-          break;
-        }
-      }
-
-      for (let i = length - blockSize; i >= 0; i -= blockSize) {
-        const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
-        if (rms > threshold) {
-          endIndex = Math.min(length - 1, i + blockSize);
-          break;
-        }
-      }
-
-      startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
-      endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
-
-      startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
-      endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
-
-      if (startIndex >= endIndex) {
-        return audioBuffer;
-      }
-
-      const newLength = endIndex - startIndex + 1;
-      const newBuffer = new AudioBuffer({
-        length: newLength,
-        sampleRate: audioBuffer.sampleRate,
-        numberOfChannels: audioBuffer.numberOfChannels
-      });
-
-      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-        const sourceData = audioBuffer.getChannelData(ch);
-        const targetData = newBuffer.getChannelData(ch);
-        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
-      }
-
-      return newBuffer;
-    }
-
-    function findExactStartMulti(buffer, roughStart, threshold) {
-      for (let i = roughStart; i >= 0; i--) {
-        let found = false;
-        for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
-            found = true;
-            break;
-          }
-        }
-        if (found) return i;
-      }
-      return roughStart;
-    }
-
-    function findExactEndMulti(buffer, roughEnd, threshold) {
-      for (let i = roughEnd; i < buffer.length; i++) {
-        let found = false;
-        for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
-            found = true;
-            break;
-          }
-        }
-        if (found) return i;
-      }
-      return roughEnd;
-    }
-
-    function formatBytes(bytes) {
-      if (!bytes) return '0 B';
-      if (bytes < 1024) return bytes + ' B';
-      else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-      else return (bytes / 1048576).toFixed(1) + ' MB';
-    }
-
-    function handleProcessingError(error, item) {
-      const errorMessage = error?.message ? error.message : String(error);
-      const fileName = item?.file?.name || 'unknown file';
-      
-      console.error(`Processing error for ${fileName}:`, error);
-      
-      document.getElementById('file-info').innerHTML += `
-        <div class="file-error">
-          <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
-          ${escapeHtml(errorMessage)}
-        </div>
-      `;
-      
-      updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
-      
-      if (errorMessage.toLowerCase().includes('memory') || 
-          errorMessage.toLowerCase().includes('allocation')) {
-        if (activeAudioContext) {
-          try { activeAudioContext.close(); } catch(e) {}
-          activeAudioContext = null;
-        }
-        document.getElementById('memory-warning').style.display = 'block';
-        memoryWarningShown = true;
-      }
-    }
-
     function createWaveWindow(title, url, audioBuffer, opts) {
       if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
         const oldestWindow = waveWindows.shift();
@@ -1895,7 +1898,9 @@
           activateAudio();
           try {
             wavesurfer.play();
-          } catch (e) {}
+          } catch (e) {
+            // ignore
+          }
           playButton.style.display = 'none';
           pauseButton.style.display = 'block';
           updateStatus("Playing processed audio");
@@ -1915,7 +1920,9 @@
           updateStatus("Playback stopped");
         });
         
-        wavesurfer.on('ready', () => {});
+        wavesurfer.on('ready', () => {
+          // no-op
+        });
         
         wavesurfer.on('error', (err) => {
           waveContainer.innerHTML = '';
@@ -1987,6 +1994,15 @@
       });
     }
 
+    window.addEventListener('beforeunload', () => {
+      createdObjectURLs.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch(e) {}
+      });
+      if (activeAudioContext) {
+        try { activeAudioContext.close(); } catch(e) {}
+      }
+    });
+
     function escapeHtml(str) {
       if (str == null) return '';
       return String(str)
@@ -1996,58 +2012,6 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
     }
-    
-    // Сохранение и восстановление настроек
-    function saveSettings() {
-      try {
-        const fidelity = getSelectedValue('fidelity');
-        const channels = getSelectedValue('channels');
-        const autoTrim = document.getElementById('auto-trim').checked;
-        localStorage.setItem('ko2_settings', JSON.stringify({ fidelity, channels, autoTrim }));
-      } catch (e) {}
-    }
-    
-    function restoreSettings() {
-      try {
-        const raw = localStorage.getItem('ko2_settings');
-        if (!raw) return;
-        const settings = JSON.parse(raw);
-        
-        if (settings.fidelity) {
-          const el = document.querySelector(`.win95-list[data-group="fidelity"] .list-item[data-value="${settings.fidelity}"]`);
-          if (el) {
-            document.querySelectorAll('.win95-list[data-group="fidelity"] .list-item').forEach(i => i.classList.remove('selected'));
-            el.classList.add('selected');
-          }
-        }
-        
-        if (settings.channels) {
-          const el = document.querySelector(`.win95-list[data-group="channels"] .list-item[data-value="${settings.channels}"]`);
-          if (el) {
-            document.querySelectorAll('.win95-list[data-group="channels"] .list-item').forEach(i => i.classList.remove('selected'));
-            el.classList.add('selected');
-          }
-        }
-        
-        if (settings.autoTrim !== undefined) {
-          document.getElementById('auto-trim').checked = settings.autoTrim;
-        }
-      } catch (e) {}
-    }
-    
-    // Обработка перед закрытием страницы
-    window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {}
-      });
-      if (activeAudioContext) {
-        try { 
-          activeAudioContext.close(); 
-        } catch(e) {}
-      }
-    });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </body>
