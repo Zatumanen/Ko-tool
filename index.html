@@ -2,19 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SpeedUpperCut</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <style>
-    :root { 
-      --glow-color: #ff3333; 
-      --primary-blue: #000080;
-      --win-gray: #c0c0c0;
-      --win-light: #ffffff;
-      --win-dark: #808080;
-    }
-    
+    :root { --glow-color: #ff3333; }
     body {
       background: #008080;
       font-family: 'Courier New', monospace;
@@ -26,14 +19,11 @@
       min-height: 100vh;
       overflow-x: hidden;
       background-image: 
-        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
-        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0),
+        radial-gradient(circle at 1px 1px, #808080 1px, transparent 0);
       background-size: 4px 4px;
       background-position: 0 0, 2px 2px;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
     }
-    
     .desktop-icon {
       position: absolute;
       width: 80px;
@@ -45,46 +35,41 @@
       user-select: none;
       transition: transform 0.2s;
     }
-    
     .desktop-icon:hover {
       background: rgba(255,255,255,0.2);
       transform: scale(1.05);
     }
-    
     .window {
       width: 100%;
       max-width: 480px;
-      background: var(--win-gray);
+      background: #c0c0c0;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
       position: relative;
       z-index: 100;
     }
-    
     .title-bar {
-      background: var(--primary-blue);
+      background: #000080;
       color: #fff;
       padding: 4px 8px;
       font-size: 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid var(--win-gray);
+      border-bottom: 2px solid #c0c0c0;
       cursor: move;
-      user-select: none;
     }
-    
     .title-bar button {
       width: 20px;
       height: 20px;
       border: none;
-      background: var(--win-gray);
+      background: #c0c0c0;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -93,34 +78,31 @@
       font-family: Arial, sans-serif;
       margin-left: 4px;
       border: 1px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
     }
-    
     .title-bar button.minimize { 
+      background: #c0c0c0; 
       font-size: 18px;
       line-height: 12px;
     }
-    
     .title-bar button.close { 
+      background: #c0c0c0; 
       font-size: 14px;
     }
-    
     .title-bar button:active {
-      border-top-color: var(--win-dark);
-      border-left-color: var(--win-dark);
-      border-right-color: var(--win-light);
-      border-bottom-color: var(--win-light);
+      border-top-color: #808080;
+      border-left-color: #808080;
+      border-right-color: #ffffff;
+      border-bottom-color: #ffffff;
     }
-    
     .content {
       padding: 12px;
       font-size: 14px;
       color: #000;
     }
-    
     .drop-zone {
       border: 2px dashed #000;
       padding: 20px;
@@ -130,13 +112,11 @@
       position: relative;
       cursor: pointer;
       border-style: dotted;
-      border-color: var(--win-dark);
+      border-color: #808080;
     }
-    
     .drop-zone.dragover {
       background: rgba(0, 128, 0, 0.3);
     }
-    
     .drop-zone input[type="file"] {
       position: absolute;
       width: 100%;
@@ -144,40 +124,35 @@
       opacity: 0;
       cursor: pointer;
     }
-    
     .drop-zone span {
       pointer-events: none;
       font-size: 16px;
       display: block;
       margin-top: 10px;
     }
-    
     #file-info {
       margin-top: 10px;
       font-size: 14px;
       text-align: left;
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       max-height: 200px;
       overflow-y: auto;
     }
-    
     button {
       min-height: 44px;
       padding: 10px;
       cursor: pointer;
       font-family: 'Courier New', monospace;
       font-size: 16px;
-      border: 2px outset var(--win-gray);
-      background: var(--win-gray);
+      border: 2px outset #c0c0c0;
+      background: #c0c0c0;
       color: #000;
     }
-    
     button:active {
       border-style: inset;
     }
-    
     #overlay {
       display: none;
       position: fixed;
@@ -185,7 +160,6 @@
       background: rgba(0, 0, 0, 0.4);
       z-index: 1000;
     }
-    
     #win95-loader {
       position: absolute;
       top: 50%;
@@ -193,21 +167,21 @@
       transform: translate(-50%, -50%);
       width: 320px;
       padding: 12px;
-      background: var(--win-gray);
+      background: #c0c0c0;
+      border: 2px solid #000;
       font-family: 'Courier New', monospace;
       font-size: 14px;
       color: #000;
       z-index: 1001;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
     }
-    
     .progress-bar-container {
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       height: 24px;
       margin-top: 8px;
       display: flex;
@@ -215,97 +189,74 @@
       gap: 1px;
       justify-content: flex-start;
     }
-    
     .progress-segment {
       width: 8px;
       height: 100%;
-      background: var(--win-gray);
+      background: #c0c0c0;
     }
-    
     .progress-segment.active {
-      background: var(--primary-blue);
+      background: #000080;
     }
-    
     .win95-inset {
-      border: 2px inset var(--win-dark);
-      background: var(--win-gray);
+      border: 2px inset #808080;
+      background: #c0c0c0;
       padding: 6px;
       margin-bottom: 6px;
     }
-    
     .win95-list {
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       background: #fff;
       padding: 4px;
       font-family: 'Courier New', monospace;
       height: 100px;
       overflow-y: auto;
     }
-    
     .list-item {
       padding: 8px 6px;
       cursor: pointer;
       user-select: none;
       font-size: 13px;
     }
-    
     .list-item:hover {
-      background: var(--primary-blue);
+      background: #000080;
       color: white;
       transition: background 0.2s ease;
     }
-    
     .list-item.selected {
-      background: var(--primary-blue);
+      background: #000080;
       color: white;
     }
-    
     .wave-container {
       margin-bottom: 20px;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       background: #e0e0e0;
-      position: relative;
+      overflow-x: auto;
     }
-    
     .wave-title {
       font-family: 'Courier New', monospace;
       font-size: 14px;
       margin-bottom: 6px;
       word-break: break-word;
       font-weight: bold;
-      text-align: center;
     }
-    
-    .wave-element-container {
-      width: 100%;
-      height: 150px;
-      background: #000;
-      margin-bottom: 10px;
-      position: relative;
-      overflow: hidden;
-      padding: 10px 0;
-      box-sizing: border-box;
-    }
-    
     .wave-element {
       width: 100%;
-      height: 100%;
+      height: 100px;
+      background: #000;
     }
-    
     .wave-button {
+      margin-top: 6px;
       font-family: 'Courier New', monospace;
       padding: 8px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       cursor: pointer;
-      min-width: 80px;
+      width: 100%;
     }
-    
     .wave-button:active {
       border-style: inset;
     }
-    
     .render-error {
       color: red;
       font-size: 13px;
@@ -313,78 +264,67 @@
       background: #ffe6e6;
       border: 1px solid #ff9999;
     }
-    
     .taskbar {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--win-gray);
+      background: #c0c0c0;
       height: 36px;
-      border-top: 2px solid var(--win-light);
+      border-top: 2px solid #ffffff;
       display: flex;
       align-items: center;
       padding: 0 8px;
       z-index: 90;
     }
-    
     .start-button {
       padding: 4px 8px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
     }
-    
     .start-button:active {
       border-style: inset;
     }
-    
     .status-bar {
       margin-left: auto;
       padding: 0 8px;
       font-size: 14px;
     }
-    
     .window-controls {
       display: flex;
     }
-    
     .button-group {
       display: flex;
       gap: 10px;
       margin-top: 10px;
     }
-    
     .button-group button {
       flex: 1;
     }
-    
     #cancel-button {
       margin-top: 10px;
       width: 100%;
       padding: 10px;
-      background: var(--win-gray);
-      border: 2px outset var(--win-gray);
+      background: #c0c0c0;
+      border: 2px outset #c0c0c0;
       color: #000;
       font-family: 'Courier New', monospace;
       font-size: 16px;
       cursor: pointer;
     }
-    
     #cancel-button:active {
       border-style: inset;
     }
-    
     .supported-formats {
       margin-top: 8px;
       font-size: 12px;
       color: #666;
     }
-    
     .file-error {
       color: #d32f2f;
       background-color: #ffcdd2;
@@ -394,7 +334,6 @@
       border-radius: 2px;
       font-size: 13px;
     }
-    
     .memory-warning {
       color: #ff6f00;
       background-color: #fff3e0;
@@ -405,7 +344,6 @@
       font-size: 13px;
       display: none;
     }
-    
     .mobile-warning {
       color: #1976d2;
       background-color: #bbdefb;
@@ -416,34 +354,24 @@
       font-size: 13px;
       display: none;
     }
-    
     .info-panel {
       background: #fff;
-      border: 2px inset var(--win-dark);
+      border: 2px inset #808080;
       padding: 10px;
       margin-top: 10px;
       font-size: 13px;
       max-height: 150px;
       overflow-y: auto;
     }
-    
-    .trim-control {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      margin-bottom: 10px;
-    }
-    
     .wave-window {
       position: absolute;
-      width: 500px;
-      background: var(--win-gray);
+      width: 400px;
+      background: #c0c0c0;
       border: 2px solid;
-      border-top-color: var(--win-light);
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark);
+      border-top-color: #ffffff;
+      border-left-color: #ffffff;
+      border-right-color: #808080;
+      border-bottom-color: #808080;
       box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
       padding: 0;
       box-sizing: border-box;
@@ -451,24 +379,14 @@
       top: 100px;
       left: 100px;
     }
-    
-    .preview-controls {
+    .trim-control {
       display: flex;
-      gap: 10px;
-      justify-content: center;
+      align-items: center;
+      gap: 8px;
       margin-top: 10px;
+      margin-bottom: 10px;
     }
-
-    .wave-element-container:empty::after {
-      content: "Loading...";
-      color: var(--win-dark);
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    
-    .format-warning {
+    .file-warning {
       color: #ff6f00;
       background-color: #fff3e0;
       border: 1px solid #ff9800;
@@ -476,70 +394,6 @@
       margin: 8px 0;
       border-radius: 2px;
       font-size: 13px;
-    }
-    
-    @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-      
-      .window {
-        width: 95vw;
-        max-width: none;
-        top: 10px;
-        transform: scale(0.98);
-      }
-      
-      .wave-element-container {
-        height: 100px !important;
-      }
-      
-      .desktop-icon {
-        transform: scale(1.3);
-        top: 10px !important;
-        left: 5px !important;
-      }
-      
-      .win95-list {
-        height: 80px;
-      }
-      
-      .list-item {
-        padding: 6px 4px;
-        font-size: 12px;
-      }
-      
-      .wave-window {
-        width: 90vw;
-        left: 5vw;
-        top: 20px;
-      }
-      
-      .preview-controls {
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .wave-button {
-        min-width: 150px;
-      }
-    }
-
-    @media (max-width: 768px) and (orientation: landscape) {
-      .wave-element-container {
-        height: 100px !important;
-      }
-    }
-    
-    .mobile-fallback {
-      text-align: center;
-      padding: 15px;
-      background: white;
-    }
-    
-    .mobile-fallback audio {
-      width: 100%;
-      margin: 10px 0;
     }
   </style>
 </head>
@@ -567,11 +421,6 @@
       <div class="mobile-warning" id="mobile-warning">
         <i class="fas fa-mobile-alt"></i>
         Processing on mobile may be slow. Use small files for best results.
-      </div>
-      
-      <div class="format-warning">
-        <i class="fas fa-info-circle"></i>
-        Files will be saved in their original format (MP3, WAV, etc.)
       </div>
       
       <div style="display: flex; gap: 8px; margin-bottom: 10px;">
@@ -619,8 +468,7 @@
         <div>Files will be sped up 2x to save space</div>
         <div>Auto-trim removes silence at start and end</div>
         <div>Folder structure will be preserved in output</div>
-        <div>Files will be saved in their original format</div>
-        <div>KO II will convert files during import</div>
+        <div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>
       </div>
     </div>
   </div>
@@ -644,71 +492,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script>
-    class Mp3Encoder {
-      constructor(channels, sampleRate, bitrate) {
-        if (typeof lamejs === 'undefined') {
-          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
-        }
-        this.channels = channels;
-        this.sampleRate = sampleRate;
-        this.bitrate = bitrate;
-        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
-      }
-      
-      encode(audioBuffer) {
-        const [left, right] = this.getAudioData(audioBuffer);
-        const sampleBlockSize = 1152;
-        const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new Int16Array(sampleBlockSize);
-        const mp3Data = [];
-        
-        for (let i = 0; i < left.length; i += sampleBlockSize) {
-          const leftChunk = left.subarray(i, i + sampleBlockSize);
-          const rightChunk = this.channels > 1 
-            ? right.subarray(i, i + sampleBlockSize) 
-            : leftChunk;
-          
-          for (let j = 0; j < leftChunk.length; j++) {
-            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
-            
-            if (this.channels > 1) {
-              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
-            }
-          }
-          
-          const mp3buf = this.lame.encodeBuffer(
-            leftSamples.subarray(0, leftChunk.length),
-            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
-          );
-          
-          if (mp3buf.length > 0) {
-            mp3Data.push(new Int8Array(mp3buf));
-          }
-        }
-        
-        const lastChunk = this.lame.flush();
-        if (lastChunk.length > 0) {
-          mp3Data.push(new Int8Array(lastChunk));
-        }
-        
-        return new Blob(mp3Data, { type: 'audio/mp3' });
-      }
-      
-      getAudioData(audioBuffer) {
-        const left = audioBuffer.getChannelData(0);
-        let right = new Float32Array(audioBuffer.length);
-        
-        if (audioBuffer.numberOfChannels > 1) {
-          right = audioBuffer.getChannelData(1);
-        }
-        
-        return [left, right];
-      }
-    }
-
+    // Глобальные переменные
     const waveformQueue = [];
+    let waveformBusy = false;
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
@@ -719,27 +505,22 @@
     let waveWindows = [];
     let audioContextInitialized = false;
     let memoryWarningShown = false;
-    let audioContextResumed = false;
-    const MAX_PREVIEW_WINDOWS = 5;
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+    // Инициализация приложения
     document.addEventListener('DOMContentLoaded', () => {
       initApp();
     });
 
-    function isMobile() {
-      return ('ontouchstart' in window) || 
-             (navigator.maxTouchPoints > 0) || 
-             (navigator.msMaxTouchPoints > 0);
-    }
-
     function initApp() {
-      if (isMobile()) {
+      // Проверка мобильного устройства
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         document.getElementById('mobile-warning').style.display = 'block';
       }
       
+      // Проверка памяти
       checkMemoryAndWarn();
       
+      // Назначение обработчиков событий
       document.querySelectorAll('.win95-list').forEach(group => {
         group.addEventListener('click', e => {
           if (e.target.classList.contains('list-item')) {
@@ -752,6 +533,7 @@
         });
       });
 
+      // Элементы интерфейса
       const dropZone = document.getElementById('drop-zone');
       const fileInput = document.getElementById('audio-upload');
       const folderInput = document.getElementById('folder-upload');
@@ -759,11 +541,14 @@
       const selectFolderButton = document.getElementById('select-folder-button');
       const clearButton = document.getElementById('clear-button');
       const cancelButton = document.getElementById('cancel-button');
+      const autoTrimCheckbox = document.getElementById('auto-trim');
 
+      // Drag and drop
       dropZone.addEventListener('dragover', handleDragOver);
       dropZone.addEventListener('dragleave', handleDragLeave);
       dropZone.addEventListener('drop', handleDrop);
       
+      // Поддержка touch для мобильных устройств
       dropZone.addEventListener('touchmove', e => {
         e.preventDefault();
         dragCounter++;
@@ -772,45 +557,30 @@
       
       dropZone.addEventListener('touchend', handleDragLeave);
       
-      selectFileButton.addEventListener('click', () => {
-        fileInput.click();
-        activateAudio();
-      });
-      
-      selectFolderButton.addEventListener('click', () => {
-        folderInput.click();
-        activateAudio();
-      });
-      
+      // Кнопки выбора
+      selectFileButton.addEventListener('click', () => fileInput.click());
+      selectFolderButton.addEventListener('click', () => folderInput.click());
       clearButton.addEventListener('click', () => {
         document.getElementById('file-info').innerHTML = 
           '<div>Drop or select audio files/folders to process</div>' +
           '<div>Files will be sped up 2x to save space</div>' +
           '<div>Auto-trim removes silence at start and end</div>' +
           '<div>Folder structure will be preserved in output</div>' +
-          '<div>Files will be saved in their original format</div>' +
-          '<div>KO II will convert files during import</div>';
+          '<div>Note: Original MP3/OGG files may increase in size when converted to WAV</div>';
         updateStatus("File list cleared");
       });
       
-      fileInput.addEventListener('change', async (e) => {
-        updateStatus(`Files selected: ${e.target.files.length}`);
-        updateFileInfo(`<div>Selected ${e.target.files.length} file(s). Starting processing...</div>`);
-        
-        await ensureAudioContext();
+      fileInput.addEventListener('change', (e) => {
         processFiles(e.target.files);
-        e.target.value = null;
+        e.target.value = null; // Сброс значения для повторной загрузки тех же файлов
       });
       
-      folderInput.addEventListener('change', async (e) => {
-        updateStatus(`Folder selected with ${e.target.files.length} files`);
-        updateFileInfo(`<div>Folder selected. Starting processing...</div>`);
-        
-        await ensureAudioContext();
+      folderInput.addEventListener('change', (e) => {
         processFolder(e.target.files);
-        e.target.value = null;
+        e.target.value = null; // Сброс значения
       });
       
+      // Обработка кнопок окна
       document.querySelector('.title-bar .minimize').addEventListener('click', () => {
         document.querySelector('.window').style.display = 'none';
       });
@@ -819,86 +589,28 @@
         document.querySelector('.window').style.display = 'none';
       });
       
+      // Кнопка отмены
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
+        waveformQueue.length = 0; // Очищаем очередь визуализации
+        
         if (currentProcessing) {
           currentProcessing.cancel();
         }
-        createdObjectURLs.forEach(url => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch (e) {}
-        });
-        createdObjectURLs = [];
+        
         hideOverlay();
         updateStatus("Processing cancelled");
       });
       
+      // Стартовый статус
       updateStatus("Ready to process files");
-      
-      const activationElements = [
-        '#select-file-button', 
-        '#select-folder-button',
-        '.wave-button',
-        '.wave-window',
-        '#drop-zone'
-      ];
-      
-      activationElements.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-          el.addEventListener('click', activateAudio);
-          el.addEventListener('touchstart', activateAudio);
-        });
-      });
     }
     
-    async function ensureAudioContext() {
-      if (!activeAudioContext) {
-        initAudioContext();
-      }
-      
-      if (activeAudioContext && activeAudioContext.state === 'suspended') {
-        try {
-          await activeAudioContext.resume();
-          audioContextResumed = true;
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    function activateAudio() {
-      if (!audioContextResumed && activeAudioContext) {
-        try {
-          if (activeAudioContext.state === 'suspended') {
-            activeAudioContext.resume().then(() => {
-              audioContextResumed = true;
-            });
-          }
-        } catch (e) {}
-      }
-    }
-    
-    function initAudioContext() {
-      if (!activeAudioContext) {
-        try {
-          const ContextClass = window.AudioContext || window.webkitAudioContext;
-          activeAudioContext = new ContextClass();
-          return activeAudioContext;
-        } catch (e) {
-          updateFileInfo(`<div class="file-error">AudioContext failed: ${e.message}</div>`);
-          return null;
-        }
-      }
-      return activeAudioContext;
-    }
-    
+    // Проверка доступной памяти
     function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
       
-      if (performance?.memory) {
+      if (performance && performance.memory) {
         const totalJSHeapSize = performance.memory.totalJSHeapSize;
         const jsHeapSizeLimit = performance.memory.jsHeapSizeLimit;
         if (totalJSHeapSize > jsHeapSizeLimit * 0.7) {
@@ -911,6 +623,7 @@
       }
     }
 
+    // Функции обновления интерфейса
     function updateStatus(message) {
       document.getElementById('status-bar').textContent = message;
     }
@@ -924,15 +637,9 @@
 
     function updateFileInfo(message) {
       const fileInfo = document.getElementById('file-info');
-      if (!fileInfo) return;
-      if (/<[a-z][\s\S]*>/i.test(message)) {
-        fileInfo.insertAdjacentHTML('beforeend', message);
-      } else {
-        const div = document.createElement('div');
-        div.textContent = message;
-        fileInfo.appendChild(div);
+      if (fileInfo) {
+        fileInfo.innerHTML += message;
       }
-      fileInfo.scrollTop = fileInfo.scrollHeight;
     }
 
     function showOverlay() {
@@ -940,6 +647,9 @@
       document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
+      // Очистка предыдущих URL
+      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
+      createdObjectURLs = [];
     }
 
     function hideOverlay() {
@@ -947,6 +657,7 @@
       document.getElementById('win95-loader').style.display = 'none';
     }
 
+    // Drag and drop обработчики
     function handleDragOver(e) {
       e.preventDefault();
       dragCounter++;
@@ -966,16 +677,16 @@
       document.getElementById('drop-zone').classList.remove('dragover');
       
       if (e.dataTransfer.items) {
+        // Обработка папок через items API
         const items = [];
         const queue = [];
         const entries = [];
 
+        // Собираем все entries
         for (const item of e.dataTransfer.items) {
           if (item.kind === 'file') {
-            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : (item.getAsFile ? item.getAsFile() : null);
-            if (entry && entry.isFile === undefined) {
-              entries.push({ isFile: true, file: item.getAsFile(), name: item.getAsFile().name });
-            } else if (entry) {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
               entries.push(entry);
             }
           }
@@ -983,12 +694,15 @@
 
         if (entries.length === 0) return;
         
+        // Добавляем все элементы в очередь
         for (const entry of entries) {
           queue.push({ entry, path: '' });
         }
         
+        // Начинаем обработку очереди
         processQueue(queue, items);
       } else if (e.dataTransfer.files.length > 0) {
+        // Обработка отдельных файлов
         const items = Array.from(e.dataTransfer.files).map(file => ({
           file,
           path: file.name
@@ -997,80 +711,53 @@
       }
     }
     
+    // Обработка очереди файлов/папок
     function processQueue(queue, items) {
       if (queue.length === 0) {
         processItems(items);
         return;
       }
       
-      const queued = queue.shift();
-      const entry = queued.entry;
-      const path = queued.path || '';
-
-      if (entry && entry.isFile === true && entry.file) {
-        items.push({ file: entry.file, path: path + entry.name });
-        return processQueue(queue, items);
-      }
-
-      if (!entry) {
-        return processQueue(queue, items);
-      }
-
+      const { entry, path } = queue.shift();
+      
       if (entry.isFile) {
+        // Обработка файла
         entry.file(file => {
           items.push({ file, path: path + file.name });
           processQueue(queue, items);
-        }, err => {
-          processQueue(queue, items);
         });
       } else if (entry.isDirectory) {
+        // Обработка директории
         const dirReader = entry.createReader();
-        function readAll() {
-          dirReader.readEntries(entries => {
-            if (!entries || entries.length === 0) {
-              processQueue(queue, items);
-              return;
-            }
-            for (const childEntry of entries) {
-              queue.push({
-                entry: childEntry,
-                path: path + entry.name + '/'
-              });
-            }
-            readAll();
-          }, err => {
-            processQueue(queue, items);
-          });
-        }
-        readAll();
+        dirReader.readEntries(entries => {
+          for (const childEntry of entries) {
+            queue.push({
+              entry: childEntry,
+              path: path + entry.name + '/'
+            });
+          }
+          processQueue(queue, items);
+        });
       } else {
         processQueue(queue, items);
       }
     }
 
+    // Обработка отдельных файлов
     async function processFiles(files) {
-      if (!files || files.length === 0) return;
-      
-      updateStatus(`Selected ${files.length} file(s)`);
-      updateFileInfo(`<div>Selected ${files.length} file(s). Processing started...</div>`);
-      
       const items = Array.from(files).map(file => ({
         file,
         path: file.name
       }));
-      
       await processItems(items);
     }
 
+    // Обработка папки
     async function processFolder(files) {
-      if (!files || files.length === 0) return;
-      
-      updateStatus(`Folder selected with ${files.length} files`);
-      updateFileInfo(`<div>Folder selected. Starting processing...</div>`);
-      
       const items = [];
       
       for (const file of files) {
+        // Используем относительный путь, если он доступен
         const path = file.webkitRelativePath || file.name;
         items.push({ file, path });
       }
@@ -1078,6 +765,17 @@
       await processItems(items);
     }
 
+    // Инициализация AudioContext
+    function initAudioContext() {
+      if (!activeAudioContext) {
+        activeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log("AudioContext created");
+        audioContextInitialized = true;
+      }
+      return activeAudioContext;
+    }
+
+    // Основная функция обработки
     async function processItems(items) {
       if (items.length === 0) {
         updateStatus("No files to process");
@@ -1089,14 +787,17 @@
       const cancelButton = document.getElementById('cancel-button');
       const autoTrim = document.getElementById('auto-trim').checked;
 
+      // Подготовка интерфейса
       showOverlay();
       fileInfo.innerHTML = '<div>Processing started...</div>';
       cancelButton.disabled = false;
       
       updateStatus(`Processing ${items.length} item(s)`);
 
+      // Подготовка ZIP
       const zip = new JSZip();
       
+      // ИСПРАВЛЕНИЕ: Объявляем счетчики каналов здесь
       let stereoOriginal = 0;
       let monoOriginal = 0;
       let totalOriginalSize = 0;
@@ -1104,6 +805,7 @@
       let processedFiles = 0;
       let totalTrimmed = 0;
 
+      // Прогресс бар
       segmentContainer.innerHTML = '';
       const totalSegments = 50;
       for (let i = 0; i < totalSegments; i++) {
@@ -1112,15 +814,12 @@
         segmentContainer.appendChild(seg);
       }
 
+      // Обработка каждого элемента
       currentProcessing = {
         cancel: () => {
           processingCancelled = true;
           if (activeAudioContext) {
-            try {
-              activeAudioContext.close();
-            } catch (e) {
-              console.error("Error closing AudioContext:", e);
-            }
+            activeAudioContext.close();
             activeAudioContext = null;
           }
           cancelButton.disabled = true;
@@ -1128,55 +827,116 @@
         }
       };
 
-      const BATCH_SIZE = 3;
+      // Оптимизация: батчинг и ограничение одновременных операций
+      const BATCH_SIZE = 5;
+      const MAX_CONCURRENT = 3;
       
-      try {
-        for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
-          if (processingCancelled) break;
-          
-          const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
-          const batchItems = items.slice(batchStart, batchEnd);
-          
-          const results = [];
-          
-          for (const item of batchItems) {
-            if (processingCancelled) break;
+      for (let batchStart = 0; batchStart < items.length; batchStart += BATCH_SIZE) {
+        if (processingCancelled) break;
+        
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, items.length);
+        const batchItems = items.slice(batchStart, batchEnd);
+        
+        // Обрабатываем батч
+        const results = [];
+        let running = 0;
+        let indexInBatch = 0;
+        
+        while (indexInBatch < batchItems.length) {
+          if (running < MAX_CONCURRENT) {
+            const item = batchItems[indexInBatch];
+            const globalIndex = batchStart + indexInBatch;
+            indexInBatch++;
+            running++;
             
-            try {
-              const result = await processSingleItem(item, batchStart + results.length, items.length, zip);
-              if (result) {
-                results.push(result);
+            (async () => {
+              try {
+                const result = await processSingleItem(item, globalIndex, items.length, zip);
+                if (result) {
+                  results.push(result);
+                }
+              } catch (error) {
+                handleProcessingError(error, item);
+              } finally {
+                running--;
               }
-            } catch (error) {
-              handleProcessingError(error, item);
-            }
-          }
-          
-          for (const result of results) {
-            if (!result) continue;
-            
-            processedFiles++;
-            totalOriginalSize += result.originalSize || 0;
-            totalProcessedSize += result.processedSize || 0;
-            totalTrimmed += result.trimmedSamples || 0;
-            
-            if (result.channels === 1) monoOriginal++;
-            else if (result.channels === 2) stereoOriginal++;
-            
-            await updateProgressBar(processedFiles / items.length);
+            })();
+          } else {
+            // Ждем, пока освободится место
+            await new Promise(resolve => setTimeout(resolve, 50));
           }
         }
+        
+        // Ждем завершения всех операций в батче
+        while (running > 0) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        // Обновляем статистику
+        for (const result of results) {
+          if (!result) continue;
+          
+          processedFiles++;
+          totalOriginalSize += result.originalSize;
+          totalProcessedSize += result.processedSize;
+          totalTrimmed += result.trimmedSamples || 0;
+          
+          // ИСПРАВЛЕНИЕ: Обновляем счетчики каналов
+          if (result.channels === 1) monoOriginal++;
+          else if (result.channels === 2) stereoOriginal++;
+          
+          // Визуализация в отдельном окне
+          enqueueWaveformRender(result.buffer, result.fileName);
+        }
+      }
 
-        if (!processingCancelled && processedFiles > 0) {
+      // Завершение прогресс бара
+      if (!processingCancelled) {
+        segmentContainer.querySelectorAll('.progress-segment').forEach(seg => {
+          seg.classList.add('active');
+        });
+      }
+
+      // Скачивание ZIP
+      try {
+        if (processedFiles > 0 && !processingCancelled) {
+          // Функция для дросселирования обновления прогресс-бара
+          const throttle = (func, limit) => {
+            let lastFunc;
+            let lastRan;
+            return function() {
+              const context = this;
+              const args = arguments;
+              if (!lastRan) {
+                func.apply(context, args);
+                lastRan = Date.now();
+              } else {
+                clearTimeout(lastFunc);
+                lastFunc = setTimeout(function() {
+                  if ((Date.now() - lastRan) >= limit) {
+                    func.apply(context, args);
+                    lastRan = Date.now();
+                  }
+                }, limit - (Date.now() - lastRan));
+              }
+            }
+          };
+          
+          const throttledProgress = throttle(progress => {
+            updateProgressBar(0.8 + progress * 0.2);
+          }, 100);
+          
           const zipBlob = await zip.generateAsync({ 
             type: "blob",
             compression: "DEFLATE",
             compressionOptions: { level: 6 }
           }, metadata => {
-            const progress = metadata?.percent ? (metadata.percent / 100) : 0;
-            updateStatus(`Compressing: ${metadata.percent ? metadata.percent.toFixed(1) : 0}%`);
+            const progress = metadata.percent / 100;
+            updateStatus(`Compressing: ${metadata.percent.toFixed(1)}%`);
+            throttledProgress(progress);
           });
           
+          // Финализация прогресс-бара
           await updateProgressBar(1);
           
           const zipUrl = URL.createObjectURL(zipBlob);
@@ -1189,13 +949,13 @@
           a.click();
           document.body.removeChild(a);
           
+          // Освобождаем URL после скачивания
           setTimeout(() => {
-            try {
-              URL.revokeObjectURL(zipUrl);
-            } catch (e) {}
+            URL.revokeObjectURL(zipUrl);
             createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
-          }, 2000);
+          }, 1000);
           
+          // Статистика
           const fidelity = getSelectedValue('fidelity');
           const channels = getSelectedValue('channels');
           
@@ -1203,7 +963,7 @@
             <div><b>Processed ${processedFiles} files</b></div>
             <div>Original size: ${formatBytes(totalOriginalSize)}</div>
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
-            <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%</div>
+            <div>Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%</div>
           `;
           
           if (autoTrim && totalTrimmed > 0) {
@@ -1216,27 +976,27 @@
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
           `;
           
-          updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : '0'}%`);
+          updateStatus(`Processed ${processedFiles} files. Space saved: ${(100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1)}%`);
         }
       } catch (error) {
+        console.error('Error generating ZIP:', error);
         if (!processingCancelled) {
           handleProcessingError(error);
         }
-      } finally {
-        if (!processingCancelled) {
-          hideOverlay();
-        }
-        
-        if (activeAudioContext) {
-          try { 
-            activeAudioContext.close(); 
-          } catch(e) {}
-          activeAudioContext = null;
-          audioContextResumed = false;
-        }
-        
-        currentProcessing = null;
       }
+
+      // Закрытие оверлея
+      if (!processingCancelled) {
+        hideOverlay();
+      }
+      
+      if (activeAudioContext) {
+        activeAudioContext.close();
+        activeAudioContext = null;
+        audioContextInitialized = false;
+      }
+      
+      currentProcessing = null;
     }
 
     async function processSingleItem(item, index, total, zip) {
@@ -1247,84 +1007,96 @@
       let trimmedSamples = 0;
       let fileName = '';
       let channels = 0;
-      let isCompressed = false;
+      let originalExtension = file.name.split('.').pop().toLowerCase();
+      let useWavFallback = false;
       
       try {
+        // Обновление UI
         updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`);
-        updateFileInfo(`<div>Processing: ${escapeHtml(item.path)}</div>`);
+        updateFileInfo(`<div>Processing: ${item.path}</div>`);
         
+        // Проверка типа файла
         if (!isSupportedAudioType(file.type, file.name)) {
           throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
         }
         
-        if (file.size > MAX_FILE_SIZE) {
-          throw new Error(`File size exceeds limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
+        // Проверка размера файла
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(`File size exceeds 50MB limit (${(file.size/(1024*1024)).toFixed(1)}MB)`);
         }
         
-        const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
-        const compressedFormats = ['mp3', 'ogg', 'aac', 'm4a'];
-        isCompressed = compressedFormats.includes(fileExtension);
-        
-        if (!activeAudioContext) {
-          await ensureAudioContext();
+        // Инициализация AudioContext при необходимости
+        if (!audioContextInitialized) {
+          initAudioContext();
         }
         
+        // Декодирование аудио
         const arrayBuffer = await file.arrayBuffer();
         if (processingCancelled) return null;
         
         decoded = await decodeAudioSafe(arrayBuffer);
         if (processingCancelled) return null;
         
+        // Сохраняем количество каналов
         channels = decoded.numberOfChannels;
         
+        // Получение настроек
         const fidelity = getSelectedValue('fidelity');
         const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
         
+        // Обработка аудио - ускорение 2x
         processed = await processAudio(decoded, fidelity, channelsSetting);
         if (processingCancelled) return null;
         
+        // Автоматическая обрезка тишины
         if (autoTrim) {
           const beforeLength = processed.length;
           processed = trimSilence(processed);
           const afterLength = processed.length;
-          trimmedSamples = Math.max(0, beforeLength - afterLength);
+          trimmedSamples = beforeLength - afterLength;
           
           updateFileInfo(`<div>Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence</div>`);
         }
         
-        const pathParts = item.path.split('/');
-        const origFilename = pathParts.pop();
-        const safeFilename = origFilename.replace(/[^\w\.\-]/gi, '');
-        const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.' + fileExtension;
-        fileName = [...pathParts, newFilename].join('/');
-        
-        let outputBlob;
-        try {
-          if (fileExtension === 'mp3') {
-            const encoder = new Mp3Encoder(
-              processed.numberOfChannels, 
-              processed.sampleRate, 
-              192
-            );
-            outputBlob = encoder.encode(processed);
+        // Определение пути в ZIP с сохранением оригинального расширения
+        fileName = item.path;
+        if (fileName.includes('/')) {
+          const lastDot = fileName.lastIndexOf('.');
+          if (lastDot !== -1) {
+            fileName = fileName.substring(0, lastDot) + '_ko2.' + originalExtension;
           } else {
-            outputBlob = await audioBufferToBlob(processed);
+            fileName += '_ko2.' + originalExtension;
           }
-        } catch (encodeError) {
-          console.error("Encoding error:", encodeError);
-          updateFileInfo(`<div class="file-error">Encoding error: ${encodeError.message}. Falling back to WAV format.</div>`);
-          outputBlob = await audioBufferToBlob(processed);
+        } else {
+          fileName = fileName.replace(/\.[^/.]+$/, '') + '_ko2.' + originalExtension;
         }
         
+        // Проверяем, поддерживается ли формат браузером
+        let outputExtension = originalExtension;
+        let mimeType = getMimeType(originalExtension);
+        
+        // Для форматов, отличных от WAV, проверяем поддержку
+        if (originalExtension !== 'wav') {
+          // Если MediaRecorder не поддерживает тип, используем WAV
+          if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
+            useWavFallback = true;
+            outputExtension = 'wav';
+            // Обновляем имя файла
+            fileName = fileName.replace(/\.[^/.]+$/, '') + '.wav';
+            // Добавляем предупреждение
+            updateFileInfo(`<div class="file-warning">Browser does not support ${originalExtension} encoding. Using WAV format instead.</div>`);
+          }
+        }
+        
+        // Создание Blob с оригинальным типом
+        const outputBlob = await audioBufferToBlob(processed, outputExtension);
         processedSize = outputBlob.size;
         
-        try {
-          zip.file(fileName, outputBlob);
-        } catch (zipError) {
-          throw new Error(`Failed to add to ZIP: ${zipError.message}`);
-        }
+        // Добавление в ZIP с сохранением структуры папок
+        zip.file(fileName, outputBlob);
         
+        // Обновление информации
         const originalSizeKB = (originalSize / 1024).toFixed(1);
         const processedSizeKB = (processedSize / 1024).toFixed(1);
         const sizeDifference = processedSize - originalSize;
@@ -1336,49 +1108,40 @@
           sizeInfo = `DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`;
         }
         
-        let compressionInfo = '';
-        if (isCompressed) {
-          compressionInfo = `<div>Original compressed format preserved</div>`;
-        }
-        
         updateFileInfo(`
-          <div>Processed: ${escapeHtml(fileName)}</div>
+          <div>Processed: ${fileName}</div>
           <div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div>
           <div>${sizeInfo}</div>
-          ${compressionInfo}
         `);
         
-        const url = URL.createObjectURL(outputBlob);
-        createdObjectURLs.push(url);
-        
-        const fidelitySettings = getFidelitySettings(fidelity);
-        const forceME = fidelitySettings.sampleRate < 11025 || fidelitySettings.bitDepth === 8 || processed.sampleRate < 11025 || fidelity === 'sk' || (processed.numberOfChannels === 1 && processed.sampleRate <= 9000);
-        
-        createWaveWindow(fileName, url, processed, { forceMediaElement: forceME });
+        // Обновление прогресса
+        await updateProgressBar((index + 1) / total);
         
         return {
+          buffer: processed,
           fileName: fileName,
-          url: url,
           originalSize: originalSize,
           processedSize: processedSize,
           trimmedSamples: trimmedSamples,
-          channels: channels,
-          isCompressed: isCompressed
+          channels: channels
         };
         
       } catch (error) {
+        console.error('Error processing file:', error);
         if (!processingCancelled) {
           handleProcessingError(error, item);
         }
         return null;
       } finally {
+        // Освобождение памяти
         decoded = null;
         processed = null;
-        await new Promise(resolve => setTimeout(resolve, 0));
-        if (window.gc) window.gc();
+        await new Promise(resolve => setTimeout(resolve, 0)); // Дать время на GC
+        if (window.gc) window.gc(); // Принудительный сборщик мусора в Chrome
       }
     }
 
+    // Функция для получения MIME-типа по расширению
     function getMimeType(extension) {
       const types = {
         'wav': 'audio/wav',
@@ -1391,132 +1154,175 @@
       return types[extension] || 'audio/wav';
     }
 
-    async function audioBufferToBlob(audioBuffer) {
-      return audioBufferToWav(audioBuffer);
-    }
-
-    function calculateRMSMulti(buffer, start, end) {
-      const ch = buffer.numberOfChannels;
-      let sum = 0;
-      const n = (end - start) * ch;
-      for (let c = 0; c < ch; c++) {
-        const data = buffer.getChannelData(c);
-        for (let i = start; i < end; i++) {
-          const s = data[i];
-          sum += s * s;
-        }
+    // Конвертация AudioBuffer в Blob с нужным форматом
+    async function audioBufferToBlob(audioBuffer, extension) {
+      if (extension === 'wav') {
+        return audioBufferToWav(audioBuffer);
+      } else {
+        // Для других форматов конвертируем через медиа-рекордер
+        return new Promise((resolve, reject) => {
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const dest = audioContext.createMediaStreamDestination();
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(dest);
+            source.start();
+            
+            const mimeType = getMimeType(extension);
+            const recorder = new MediaRecorder(dest.stream, {
+              mimeType: mimeType
+            });
+            
+            const chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType });
+              resolve(blob);
+              audioContext.close();
+            };
+            
+            recorder.onerror = (e) => {
+              reject(e.error || new Error('MediaRecorder error'));
+              audioContext.close();
+            };
+            
+            recorder.start();
+            setTimeout(() => {
+              recorder.stop();
+              source.stop();
+            }, audioBuffer.duration * 1000 + 500);
+          } catch (error) {
+            reject(error);
+          }
+        });
       }
-      return Math.sqrt(sum / n);
     }
 
-    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
-      const threshold = Math.pow(10, thresholdDb / 20);
+    // Оптимизированная функция обрезки тишины
+    function trimSilence(audioBuffer, thresholdDb = -40, minSilenceDuration = 0.1) {
+      const threshold = Math.pow(10, thresholdDb / 20); // Преобразование dB в линейное значение
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      const length = audioBuffer.length;
-
+      const channelData = audioBuffer.getChannelData(0);
+      const length = channelData.length;
+      
+      // Быстрая проверка по максимумам в блоках
       const blockSize = 1024;
       let startIndex = 0;
       let endIndex = length - 1;
-
+      
+      // Находим начало звука
       for (let i = 0; i < length; i += blockSize) {
+        let hasSound = false;
         const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
-        if (rms > threshold) {
-          startIndex = Math.max(0, i - blockSize);
-          break;
+        
+        for (let j = i; j < blockEnd; j++) {
+          if (Math.abs(channelData[j]) > threshold) {
+            startIndex = Math.max(0, j - blockSize);
+            hasSound = true;
+            break;
+          }
         }
+        
+        if (hasSound) break;
       }
-
-      for (let i = length - blockSize; i >= 0; i -= blockSize) {
-        const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
-        if (rms > threshold) {
-          endIndex = Math.min(length - 1, i + blockSize);
-          break;
+      
+      // Находим конец звука
+      for (let i = length - 1; i >= 0; i -= blockSize) {
+        let hasSound = false;
+        const blockStart = Math.max(0, i - blockSize);
+        
+        for (let j = i; j >= blockStart; j--) {
+          if (Math.abs(channelData[j]) > threshold) {
+            endIndex = Math.min(length - 1, j + blockSize);
+            hasSound = true;
+            break;
+          }
         }
+        
+        if (hasSound) break;
       }
-
-      startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
-      endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
-
+      
+      // Уточнение границ
+      startIndex = findExactStart(channelData, startIndex, threshold);
+      endIndex = findExactEnd(channelData, endIndex, threshold);
+      
+      // Добавляем небольшую паузу в начале и конце
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
       endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
-
+      
+      // Если весь буфер - тишина, возвращаем исходный
       if (startIndex >= endIndex) {
         return audioBuffer;
       }
-
+      
+      // Создаем новый буфер с обрезанными данными
       const newLength = endIndex - startIndex + 1;
       const newBuffer = new AudioBuffer({
         length: newLength,
         sampleRate: audioBuffer.sampleRate,
         numberOfChannels: audioBuffer.numberOfChannels
       });
-
+      
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
         const targetData = newBuffer.getChannelData(ch);
+        // Используем set для быстрого копирования
         targetData.set(sourceData.subarray(startIndex, endIndex + 1));
       }
-
+      
       return newBuffer;
     }
 
-    function findExactStartMulti(buffer, roughStart, threshold) {
+    function findExactStart(data, roughStart, threshold) {
+      // Ищем точное начало от грубой позиции
       for (let i = roughStart; i >= 0; i--) {
-        let found = false;
-        for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
-            found = true;
-            break;
-          }
+        if (Math.abs(data[i]) > threshold) {
+          return i;
         }
-        if (found) return i;
       }
       return roughStart;
     }
 
-    function findExactEndMulti(buffer, roughEnd, threshold) {
-      for (let i = roughEnd; i < buffer.length; i++) {
-        let found = false;
-        for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) {
-            found = true;
-            break;
-          }
+    function findExactEnd(data, roughEnd, threshold) {
+      // Ищем точный конец от грубой позиции
+      for (let i = roughEnd; i < data.length; i++) {
+        if (Math.abs(data[i]) > threshold) {
+          return i;
         }
-        if (found) return i;
       }
       return roughEnd;
     }
 
+    // Форматирование размера файла
     function formatBytes(bytes) {
-      if (!bytes) return '0 B';
       if (bytes < 1024) return bytes + ' B';
       else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
       else return (bytes / 1048576).toFixed(1) + ' MB';
     }
 
+    // Обработка ошибок
     function handleProcessingError(error, item) {
-      const errorMessage = error?.message ? error.message : String(error);
-      const fileName = item?.file?.name || 'unknown file';
+      console.error('Processing error:', error);
       
-      console.error(`Processing error for ${fileName}:`, error);
+      const errorMessage = error.message || 'Unknown error';
+      const fileName = item?.file?.name || 'unknown file';
+      const errorDetails = `Error: ${errorMessage} (${fileName})`;
       
       document.getElementById('file-info').innerHTML += `
         <div class="file-error">
-          <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>
-          ${escapeHtml(errorMessage)}
+          <strong>Error processing:</strong> ${fileName}<br>
+          ${errorMessage}
         </div>
       `;
       
-      updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
+      updateStatus(errorDetails);
       
-      if (errorMessage.toLowerCase().includes('memory') || 
-          errorMessage.toLowerCase().includes('allocation')) {
+      // Освобождаем ресурсы при критических ошибках
+      if (error.message.includes('memory') || error.message.includes('allocation')) {
         if (activeAudioContext) {
-          try { activeAudioContext.close(); } catch(e) {}
+          activeAudioContext.close();
           activeAudioContext = null;
         }
         document.getElementById('memory-warning').style.display = 'block';
@@ -1524,6 +1330,7 @@
       }
     }
 
+    // Проверка поддерживаемых форматов
     function isSupportedAudioType(mimeType, fileName) {
       const supportedTypes = [
         'audio/wav', 'audio/wave', 'audio/x-wav',
@@ -1539,15 +1346,23 @@
       return supportedTypes.includes(mimeType) || supportedExts.includes(ext);
     }
 
+    // Безопасное декодирование аудио
     async function decodeAudioSafe(arrayBuffer) {
-      if (!activeAudioContext) throw new Error("AudioContext is not available");
-      try {
-        return await activeAudioContext.decodeAudioData(arrayBuffer.slice(0));
-      } catch (e) {
-        throw new Error('Audio decoding failed: ' + (e?.message ? e.message : String(e)));
-      }
+      return new Promise((resolve, reject) => {
+        if (!activeAudioContext) {
+          reject(new Error("AudioContext is not available"));
+          return;
+        }
+        
+        activeAudioContext.decodeAudioData(
+          arrayBuffer,
+          buffer => resolve(buffer),
+          error => reject(new Error(`Audio decoding failed: ${error.message}`))
+        );
+      });
     }
 
+    // Аудио обработка
     function getSelectedValue(name) {
       const group = document.querySelector(`.win95-list[data-group="${name}"]`);
       return group?.querySelector('.list-item.selected')?.dataset.value || 'cd';
@@ -1565,25 +1380,22 @@
     async function processAudio(buffer, fidelity, channels) {
       const fidelitySettings = getFidelitySettings(fidelity);
       const targetChannels = channels === 'mono' ? 1 : 2;
+      
+      // Ускоряем в 2 раза
       const speedFactor = 2.0;
       
+      // Применяем каналы
       const converted = await convertChannels(buffer, targetChannels);
-      return await applySpeedAndFidelity(converted, speedFactor, fidelitySettings.sampleRate);
-    }
-
-    function checkOfflineAudioContextSupport() {
-      if (!window.OfflineAudioContext && !window.webkitOfflineAudioContext) {
-        throw new Error("OfflineAudioContext is not supported in this browser.");
-      }
+      
+      // Применяем фиделити
+      const downsampleRate = fidelitySettings.sampleRate;
+      return await applySpeedAndFidelity(converted, speedFactor, downsampleRate);
     }
 
     async function convertChannels(buffer, targetChannels) {
-      checkOfflineAudioContextSupport();
-      
       if (buffer.numberOfChannels === targetChannels) return buffer;
 
-      const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      const ctx = new OfflineContext(
+      const ctx = new OfflineAudioContext(
         targetChannels, 
         buffer.length, 
         buffer.sampleRate
@@ -1592,11 +1404,13 @@
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       
+      // Для преобразования в моно
       if (targetChannels === 1 && buffer.numberOfChannels > 1) {
         const merger = ctx.createChannelMerger(1);
         const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
         source.connect(splitter);
         
+        // Усредняем все каналы в моно
         const gain = ctx.createGain();
         gain.gain.value = 1 / buffer.numberOfChannels;
         
@@ -1607,12 +1421,14 @@
         gain.connect(merger, 0, 0);
         merger.connect(ctx.destination);
       } 
+      // Для преобразования в стерео
       else if (targetChannels === 2 && buffer.numberOfChannels === 1) {
         const merger = ctx.createChannelMerger(2);
         source.connect(merger, 0, 0);
         source.connect(merger, 0, 1);
         merger.connect(ctx.destination);
       } 
+      // Для других случаев
       else {
         source.connect(ctx.destination);
       }
@@ -1620,16 +1436,16 @@
       source.start();
       const result = await ctx.startRendering();
       
+      // Освобождение ресурсов
+      source.disconnect();
+      if (ctx.destination) ctx.destination.disconnect();
+      
       return result;
     }
 
     async function applySpeedAndFidelity(buffer, speed, sampleRate) {
-      checkOfflineAudioContextSupport();
-      
       const duration = buffer.duration / speed;
-      
-      const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      const ctx = new OfflineContext(
+      const ctx = new OfflineAudioContext(
         buffer.numberOfChannels,
         Math.ceil(duration * sampleRate),
         sampleRate
@@ -1642,91 +1458,118 @@
       source.start();
       const result = await ctx.startRendering();
       
+      // Освобождение ресурсов
+      source.disconnect();
+      if (ctx.destination) ctx.destination.disconnect();
+      
       return result;
     }
 
-    function writeKO2ChunkBuf(pitch = -12, release = 255, playmode = 1) {
-      const data = new Uint8Array(12);
+    function audioBufferToWav(buffer) {
+      // ФИКСИРОВАННЫЕ МЕТАДАННЫЕ ДЛЯ KO II
+      const pitch = -12;      // -12 полутонов (октава вниз)
+      const release = 255;    // Максимальное время затухания
+      const playmode = 1;     // 1 = one shot
       
-      data[0] = 0x6B;
-      data[1] = 0x6F;
-      data[2] = 0x32;
-      data[3] = 0x20;
+      // Создаем чанк ko2 с фиксированными параметрами (оригинальный формат)
+      const ko2Chunk = writeKO2Chunk(pitch, release, playmode);
       
-      data[4] = 0x04;
-      data[5] = 0x00;
-      data[6] = 0x00;
-      data[7] = 0x00;
-      
-      data[8] = pitch;
-      data[9] = release;
-      data[10] = 0x00;
-      data[11] = playmode;
-      
-      return data.buffer;
-    }
-
-    function audioBufferToWav(audioBuffer) {
+      // Получение параметров фиделити
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
       const bitDepth = fidelitySettings.bitDepth;
-      const numChannels = audioBuffer.numberOfChannels;
-      const sampleRate = audioBuffer.sampleRate;
-      const bytesPerSample = (bitDepth === 8) ? 1 : 2;
+      
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length;
+      const bytesPerSample = bitDepth === 8 ? 1 : 2;
       const blockAlign = numChannels * bytesPerSample;
-      const dataLength = audioBuffer.length * blockAlign;
-
-      const fmtChunkSize = 16;
-      const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-      const fmtDv = new DataView(fmtBuf);
-      writeString(fmtDv, 0, 'fmt ');
-      fmtDv.setUint32(4, fmtChunkSize, true);
-      fmtDv.setUint16(8, 1, true);
-      fmtDv.setUint16(10, numChannels, true);
-      fmtDv.setUint32(12, sampleRate, true);
-      fmtDv.setUint32(16, sampleRate * blockAlign, true);
-      fmtDv.setUint16(20, blockAlign, true);
-      fmtDv.setUint16(22, bitDepth, true);
-
-      const ko2Buf = writeKO2ChunkBuf();
-
-      const dataHeader = new ArrayBuffer(8);
-      const dataDv = new DataView(dataHeader);
-      writeString(dataDv, 0, 'data');
-      dataDv.setUint32(4, dataLength, true);
-
-      const riffSize = 4 + fmtBuf.byteLength + ko2Buf.byteLength + dataHeader.byteLength + dataLength;
-      const riffHeader = new ArrayBuffer(12);
-      const riffDv = new DataView(riffHeader);
-      writeString(riffDv, 0, 'RIFF');
-      riffDv.setUint32(4, riffSize, true);
-      writeString(riffDv, 8, 'WAVE');
-
+      const dataLength = length * blockAlign;
+      
+      // Исправленный расчет размера файла
+      const chunkSize = 36 + dataLength; // Размер "fmt " + "data" чанков
+      const fileSize = 8 + chunkSize + ko2Chunk.byteLength; // RIFF заголовок + данные
+      const riffSize = fileSize - 8;
+      
+      // Создание WAV-заголовка
+      const header = new ArrayBuffer(44);
+      const view = new DataView(header);
+      
+      // RIFF identifier
+      writeString(view, 0, 'RIFF');
+      // RIFF chunk length
+      view.setUint32(4, riffSize, true);
+      // RIFF type
+      writeString(view, 8, 'WAVE');
+      // Format chunk identifier
+      writeString(view, 12, 'fmt ');
+      // Format chunk length
+      view.setUint32(16, 16, true);
+      // Sample format (raw)
+      view.setUint16(20, 1, true);
+      // Channel count
+      view.setUint16(22, numChannels, true);
+      // Sample rate
+      view.setUint32(24, sampleRate, true);
+      // Byte rate (sample rate * block align)
+      view.setUint32(28, sampleRate * blockAlign, true);
+      // Block align (channel count * bytes per sample)
+      view.setUint16(32, blockAlign, true);
+      // Bits per sample
+      view.setUint16(34, bitDepth, true);
+      // Data chunk identifier
+      writeString(view, 36, 'data');
+      // Data chunk length
+      view.setUint32(40, dataLength, true);
+      
+      // Сборка аудиоданных
       let audioData;
       if (bitDepth === 8) {
-        audioData = new Uint8Array(dataLength);
-        let off = 0;
-        for (let i = 0; i < audioBuffer.length; i++) {
+        // 8-битное беззнаковое аудио
+        audioData = new Uint8Array(length * numChannels);
+        let offset = 0;
+        for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = audioBuffer.getChannelData(ch)[i];
-            const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
-            audioData[off++] = u;
+            const sample = buffer.getChannelData(ch)[i];
+            audioData[offset] = Math.floor((sample + 1.0) * 127.5 + 0.5);
+            offset++;
           }
         }
       } else {
-        const tmp = new Int16Array(audioBuffer.length * numChannels);
-        let off = 0;
-        for (let i = 0; i < audioBuffer.length; i++) {
+        // 16-битное знаковое аудио
+        audioData = new Int16Array(length * numChannels);
+        let offset = 0;
+        for (let i = 0; i < length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
-            const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
-            tmp[off++] = v;
+            const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+            const val = Math.floor(sample * (sample < 0 ? 32768 : 32767));
+            audioData[offset] = Math.max(-32768, Math.min(32767, val));
+            offset++;
           }
         }
-        audioData = tmp.buffer;
       }
+      
+      // Создание итогового WAV файла
+      return new Blob([header, audioData.buffer, ko2Chunk], { type: 'audio/wav' });
+    }
 
-      return new Blob([riffHeader, fmtBuf, ko2Buf, dataHeader, audioData], { type: 'audio/wav' });
+    function writeKO2Chunk(pitch, release, playmode) {
+      // Оригинальный формат как в repitch: 12 байт
+      const buffer = new ArrayBuffer(12);
+      const view = new DataView(buffer);
+      
+      // Заголовок чанка "ko2 "
+      writeString(view, 0, 'ko2 ');
+      
+      // Размер данных (4 байта)
+      view.setUint32(4, 4, true);
+      
+      // Данные параметров (как в оригинальном приложении)
+      view.setInt8(8, pitch);      // pitch (-24...+24)
+      view.setUint16(9, release, true); // release (0-255)
+      view.setUint8(11, playmode); // playmode (0 = poly, 1 = one shot)
+      
+      return buffer;
     }
 
     function writeString(view, offset, str) {
@@ -1735,23 +1578,12 @@
       }
     }
 
-    function createWaveWindow(title, url, audioBuffer, opts) {
-      if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
-        const oldestWindow = waveWindows.shift();
-        if (oldestWindow && oldestWindow.element) {
-          try {
-            if (oldestWindow.element.wavesurfer) {
-              oldestWindow.element.wavesurfer.destroy();
-            }
-            URL.revokeObjectURL(oldestWindow.url);
-            document.body.removeChild(oldestWindow.element);
-          } catch (e) {}
-        }
-      }
-      
+    // Создание нового окна
+    function createWaveWindow(title) {
       windowZIndex += 2;
       const windowId = 'wave-window-' + Date.now();
       
+      // Позиционируем окна каскадом
       const top = 80 + (waveWindows.length * 30);
       const left = 100 + (waveWindows.length * 30);
       
@@ -1762,257 +1594,272 @@
       windowElement.style.top = top + 'px';
       windowElement.style.left = left + 'px';
       
-      windowElement.innerHTML = `
-        <div class="title-bar">
-          <span>${escapeHtml(title)}</span>
-          <div class="window-controls">
-            <button class="minimize" title="Minimize">_</button>
-            <button class="close" title="Close">×</button>
-          </div>
-        </div>
-        <div class="content">
-          <div class="wave-container">
-            <div class="wave-title">${escapeHtml(title)}</div>
-            <div class="wave-element-container">
-              <div class="wave-element"></div>
-            </div>
-            <div class="preview-controls">
-              <button class="wave-button play-button">
-                <i class="fas fa-play"></i> Play
-              </button>
-              <button class="wave-button pause-button" style="display: none;">
-                <i class="fas fa-pause"></i> Pause
-              </button>
-              <button class="wave-button stop-button">
-                <i class="fas fa-stop"></i> Stop
-              </button>
-            </div>
-          </div>
+      const titleBar = document.createElement('div');
+      titleBar.className = 'title-bar';
+      titleBar.innerHTML = `
+        <span>${title}</span>
+        <div class="window-controls">
+          <button class="minimize" title="Minimize">_</button>
+          <button class="close" title="Close">×</button>
         </div>
       `;
       
+      const content = document.createElement('div');
+      content.className = 'content';
+      content.innerHTML = `
+        <div class="wave-container">
+          <div class="wave-element"></div>
+          <button class="wave-button">
+            <i class="fas fa-play"></i> Play Processed Audio
+          </button>
+        </div>
+      `;
+      
+      windowElement.appendChild(titleBar);
+      windowElement.appendChild(content);
       document.body.appendChild(windowElement);
       
-      const playButton = windowElement.querySelector('.play-button');
-      const pauseButton = windowElement.querySelector('.pause-button');
-      const stopButton = windowElement.querySelector('.stop-button');
-      const waveContainer = windowElement.querySelector('.wave-element');
+      // Находим кнопку воспроизведения
+      const playButton = content.querySelector('.wave-button');
       
-      const minimizeBtn = windowElement.querySelector('.minimize');
-      minimizeBtn.addEventListener('click', () => {
-        const content = windowElement.querySelector('.content');
-        content.style.display = content.style.display === 'none' ? 'block' : 'none';
-      });
-      
-      const closeBtn = windowElement.querySelector('.close');
+      // Обработка кнопок окна
+      const closeBtn = titleBar.querySelector('.close');
       closeBtn.addEventListener('click', () => {
-        if (windowElement.wavesurfer) {
-          try {
-            windowElement.wavesurfer.destroy();
-          } catch(e) {}
+        // Уничтожение Wavesurfer при закрытии окна
+        const windowObj = waveWindows.find(w => w.id === windowId);
+        if (windowObj && windowObj.wavesurfer) {
+          windowObj.wavesurfer.destroy();
         }
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {}
-        createdObjectURLs = createdObjectURLs.filter(u => u !== url);
+        
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
-      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      const titleBar = windowElement.querySelector('.title-bar');
+      const minimizeBtn = titleBar.querySelector('.minimize');
+      minimizeBtn.addEventListener('click', () => {
+        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+      });
       
-      function startDragPointer(e) {
+      // Добавляем функционал перемещения
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      titleBar.addEventListener('mousedown', dragMouseDown);
+      
+      function dragMouseDown(e) {
         e.preventDefault();
+        // Поднимаем окно на верхний план
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
-        if (e.type.startsWith('touch')) {
-          const t = e.touches[0];
-          pos3 = t.clientX;
-          pos4 = t.clientY;
-          document.addEventListener('touchmove', pointerMove, { passive: false });
-          document.addEventListener('touchend', endPointerDrag);
-        } else {
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          document.addEventListener('pointermove', pointerMove);
-          document.addEventListener('pointerup', endPointerDrag);
-        }
+        
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.addEventListener('mouseup', closeDragElement);
+        document.addEventListener('mousemove', elementDrag);
       }
       
-      function pointerMove(e) {
+      function elementDrag(e) {
         e.preventDefault();
-        let clientX, clientY;
-        if (e.type.startsWith('touch')) {
-          const t = e.touches[0];
-          clientX = t.clientX;
-          clientY = t.clientY;
-        } else {
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-        pos1 = pos3 - clientX;
-        pos2 = pos4 - clientY;
-        pos3 = clientX;
-        pos4 = clientY;
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
         windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
         windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
       }
       
-      function endPointerDrag() {
-        document.removeEventListener('pointermove', pointerMove);
-        document.removeEventListener('pointerup', endPointerDrag);
-        document.removeEventListener('touchmove', pointerMove);
-        document.removeEventListener('touchend', endPointerDrag);
+      function closeDragElement() {
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('mousemove', elementDrag);
       }
       
-      titleBar.addEventListener('pointerdown', startDragPointer);
-      titleBar.addEventListener('touchstart', startDragPointer, { passive: false });
-      titleBar.addEventListener('mousedown', startDragPointer);
-
-      try {
-        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-        
-        const backend = (opts && opts.forceMediaElement) ? 'MediaElement' : (isMobile() ? 'MediaElement' : 'WebAudio');
-        
-        const wavesurfer = WaveSurferLib.create({
-          container: waveContainer,
-          height: 128,
-          barWidth: 2,
-          barGap: 1,
-          barRadius: 1,
-          cursorWidth: 1,
-          cursorColor: 'transparent',
-          normalize: true,
-          progressColor: '#000080',
-          waveColor: '#c0c0c0',
-          fillParent: true,
-          interact: false,
-          backend: backend
-        });
-        
-        windowElement.wavesurfer = wavesurfer;
-        
-        playButton.addEventListener('click', () => {
-          activateAudio();
-          try {
-            wavesurfer.play();
-          } catch (e) {
-            // ignore
-          }
-          playButton.style.display = 'none';
-          pauseButton.style.display = 'block';
-          updateStatus("Playing processed audio");
-        });
-        
-        pauseButton.addEventListener('click', () => {
-          wavesurfer.pause();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback paused");
-        });
-        
-        stopButton.addEventListener('click', () => {
-          wavesurfer.stop();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback stopped");
-        });
-        
-        wavesurfer.on('ready', () => {
-          // no-op
-        });
-        
-        wavesurfer.on('error', (err) => {
-          waveContainer.innerHTML = '';
-          const errDiv = document.createElement('div');
-          errDiv.className = 'file-error';
-          errDiv.textContent = `WaveSurfer error: ${err?.message || 'Failed to load audio'}`;
-          const fb = document.createElement('div');
-          fb.className = 'mobile-fallback';
-          const audio = document.createElement('audio');
-          audio.controls = true;
-          audio.style.width = '100%';
-          audio.src = url;
-          fb.appendChild(audio);
-          waveContainer.appendChild(errDiv);
-          waveContainer.appendChild(fb);
-          playButton.style.display = 'none';
-          pauseButton.style.display = 'none';
-        });
-        
-        wavesurfer.load(url);
-        
-      } catch (e) {
-        waveContainer.innerHTML = '';
-        const errDiv = document.createElement('div');
-        errDiv.className = 'file-error';
-        errDiv.textContent = `WaveSurfer failed: ${e?.message || 'Audio preview not available'}`;
-        const fb = document.createElement('div');
-        fb.className = 'mobile-fallback';
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.style.width = '100%';
-        audio.src = url;
-        fb.appendChild(audio);
-        waveContainer.appendChild(errDiv);
-        waveContainer.appendChild(fb);
-        playButton.style.display = 'none';
-        pauseButton.style.display = 'none';
-      }
-      
+      // Сохраняем ссылку на окно
       const windowObj = {
         id: windowId,
         element: windowElement,
-        url: url
+        waveContainer: content.querySelector('.wave-element'),
+        playButton: playButton,
+        wavesurfer: null
       };
       
       waveWindows.push(windowObj);
-      return windowElement;
+      
+      return windowObj;
     }
 
+    // Визуализация волны в отдельном окне
+    async function renderWaveform(audioBuffer, filename) {
+      let windowObj;
+      try {
+        // Проверяем, загрузился ли Wavesurfer
+        if (typeof WaveSurfer === 'undefined') {
+          throw new Error('Wavesurfer failed to load');
+        }
+        
+        // Ограничиваем количество открытых окон
+        if (waveWindows.length >= 5) {
+          const oldest = waveWindows.shift();
+          if (oldest.wavesurfer) {
+            oldest.wavesurfer.destroy();
+          }
+          oldest.element.remove();
+        }
+        
+        // Создаем новое окно
+        windowObj = createWaveWindow(filename);
+        const { waveContainer, playButton } = windowObj;
+        
+        // Даем время на рендеринг DOM
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Проверяем существование контейнера
+        if (!waveContainer) {
+          throw new Error('Wave container not found');
+        }
+        
+        // Инициализация Wavesurfer
+        const wavesurfer = WaveSurfer.create({
+          container: waveContainer,
+          waveColor: '#0f0',
+          progressColor: '#ff0',
+          height: 100,
+          barWidth: 2,
+          minPxPerSec: 100,
+          cursorColor: '#f00',
+          // УДАЛЕНО: sampleRate - Wavesurfer сам определит из аудио
+          normalize: true,
+          fillParent: true,
+          partialRender: true,
+          pixelRatio: 1
+        });
+
+        // Сохраняем ссылку на Wavesurfer в объекте окна
+        windowObj.wavesurfer = wavesurfer;
+
+        // Обработка готовности
+        wavesurfer.on('ready', () => {
+          if (playButton) {
+            playButton.addEventListener('click', () => {
+              if (wavesurfer.isPlaying()) {
+                wavesurfer.pause();
+                playButton.innerHTML = '<i class="fas fa-play"></i> Play Processed Audio';
+                updateStatus("Playback paused");
+              } else {
+                wavesurfer.play();
+                playButton.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                updateStatus("Playing processed audio");
+              }
+            });
+          }
+        });
+
+        // Обработка ошибок
+        wavesurfer.on('error', (err) => {
+          console.error('Wavesurfer error:', err);
+          if (waveContainer) {
+            waveContainer.innerHTML = '<div class="render-error">Render failed: ' + err.message + '</div>';
+          }
+        });
+
+        // Освобождаем ресурсы при уничтожении
+        wavesurfer.on('destroy', () => {
+          const url = wavesurfer.getMediaElement()?.src;
+          if (url) {
+            URL.revokeObjectURL(url);
+          }
+        });
+        
+        // Загрузка обработанного буфера
+        const wavBlob = audioBufferToWav(audioBuffer);
+        const url = URL.createObjectURL(wavBlob);
+        createdObjectURLs.push(url);
+        
+        // Загружаем данные
+        wavesurfer.load(url);
+        
+      } catch (err) {
+        console.error('Waveform render error:', err);
+        console.error('AudioBuffer details:', {
+          sampleRate: audioBuffer.sampleRate,
+          length: audioBuffer.length,
+          duration: audioBuffer.duration,
+          numberOfChannels: audioBuffer.numberOfChannels
+        });
+        
+        // Добавляем информацию об ошибке в окно
+        if (windowObj && windowObj.element) {
+          const errorContainer = document.createElement('div');
+          errorContainer.className = 'render-error';
+          errorContainer.textContent = `Render failed: ${err.message} (Sample rate: ${audioBuffer.sampleRate} Hz)`;
+          windowObj.element.querySelector('.content').appendChild(errorContainer);
+        }
+      }
+    }
+
+    // Управление очередью рендеринга
+    function enqueueWaveformRender(audioBuffer, filename) {
+      if (processingCancelled) return;
+      
+      waveformQueue.push({ audioBuffer, filename });
+      if (!waveformBusy) {
+        processNextWaveform();
+      }
+    }
+
+    async function processNextWaveform() {
+      if (waveformQueue.length === 0 || processingCancelled) {
+        waveformBusy = false;
+        return;
+      }
+
+      waveformBusy = true;
+      const { audioBuffer, filename } = waveformQueue.shift();
+      
+      try {
+        await renderWaveform(audioBuffer, filename);
+      } catch (err) {
+        console.error('Waveform render error:', err);
+      }
+      
+      // Обработка следующего элемента
+      setTimeout(processNextWaveform, 0);
+    }
+
+    // Вспомогательные функции
     function updateProgressBar(progress) {
       return new Promise(resolve => {
+        // Ограничиваем прогресс от 0 до 1
         progress = Math.max(0, Math.min(1, progress));
         
+        // Рассчитываем сколько сегментов должно быть активными
         const segments = document.querySelectorAll('.progress-segment');
         const segmentsToActivate = Math.floor(progress * segments.length);
         
+        // Обновляем только изменившиеся сегменты
         for (let i = 0; i < segments.length; i++) {
           const shouldBeActive = i < segmentsToActivate;
           const isActive = segments[i].classList.contains('active');
           
-          if (shouldBeActive !== isActive) {
-            segments[i].classList.toggle('active', shouldBeActive);
+          if (shouldBeActive && !isActive) {
+            segments[i].classList.add('active');
+          } else if (!shouldBeActive && isActive) {
+            segments[i].classList.remove('active');
           }
         }
         
+        // Сохраняем текущий прогресс
         lastProgress = progress;
         
+        // Даем время на рендеринг
         setTimeout(resolve, 20);
       });
     }
 
+    // Очистка при закрытии
     window.addEventListener('beforeunload', () => {
-      createdObjectURLs.forEach(url => {
-        try { URL.revokeObjectURL(url); } catch(e) {}
-      });
+      createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
       if (activeAudioContext) {
-        try { activeAudioContext.close(); } catch(e) {}
+        activeAudioContext.close();
       }
     });
-
-    function escapeHtml(str) {
-      if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </body>
-</html>
+</html> 
