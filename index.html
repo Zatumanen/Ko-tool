@@ -1400,21 +1400,24 @@
       return audioBufferToWav(audioBuffer);
     }
 
-    function calculateRMS(data, start, end) {
+    function calculateRMSMulti(buffer, start, end) {
+      const ch = buffer.numberOfChannels;
       let sum = 0;
-      for (let i = start; i < end; i++) {
-        const sample = data[i];
-        sum += sample * sample;
+      const n = (end - start) * ch;
+      for (let c = 0; c < ch; c++) {
+        const data = buffer.getChannelData(c);
+        for (let i = start; i < end; i++) {
+          const s = data[i];
+          sum += s * s;
+        }
       }
-      return Math.sqrt(sum / (end - start));
+      return Math.sqrt(sum / n);
     }
 
     function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
-      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-      const channelData = audioBuffer.getChannelData(0);
-      const length = channelData.length;
+      const length = audioBuffer.length;
 
       const blockSize = 1024;
       let startIndex = 0;
@@ -1422,7 +1425,7 @@
 
       for (let i = 0; i < length; i += blockSize) {
         const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMS(channelData, i, blockEnd);
+        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
         if (rms > threshold) {
           startIndex = Math.max(0, i - blockSize);
           break;
@@ -1431,15 +1434,15 @@
 
       for (let i = length - blockSize; i >= 0; i -= blockSize) {
         const blockEnd = Math.min(i + blockSize, length);
-        const rms = calculateRMS(channelData, i, blockEnd);
+        const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
         if (rms > threshold) {
           endIndex = Math.min(length - 1, i + blockSize);
           break;
         }
       }
 
-      startIndex = findExactStart(channelData, startIndex, threshold);
-      endIndex = findExactEnd(channelData, endIndex, threshold);
+      startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
+      endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
 
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
       endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
@@ -1449,36 +1452,38 @@
       }
 
       const newLength = endIndex - startIndex + 1;
-      const newBuffer = new AudioBuffer({
-        length: newLength,
-        sampleRate: audioBuffer.sampleRate,
-        numberOfChannels: audioBuffer.numberOfChannels
-      });
-
+      const newBuffer = new AudioBuffer({ length: newLength, sampleRate: audioBuffer.sampleRate, numberOfChannels: audioBuffer.numberOfChannels });
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
-        const targetData = newBuffer.getChannelData(ch);
-        targetData.set(sourceData.subarray(startIndex, endIndex + 1));
+        const destData = newBuffer.getChannelData(ch);
+        destData.set(sourceData.subarray(startIndex, endIndex + 1));
       }
-
       return newBuffer;
     }
 
-    function findExactStart(data, roughStart, threshold) {
+    function findExactStartMulti(buffer, roughStart, threshold) {
       for (let i = roughStart; i >= 0; i--) {
-        if (Math.abs(data[i]) > threshold) {
-          return i;
+        let active = false;
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { active = true; break; }
         }
+        if (active) return i;
       }
       return roughStart;
     }
 
-    function findExactEnd(data, roughEnd, threshold) {
-      for (let i = roughEnd; i < data.length; i++) {
-        if (Math.abs(data[i]) > threshold) {
-          return i;
+    function findExactEndMulti(buffer, roughEnd, threshold) {
+      for (let i = roughEnd; i < buffer.length; i++) {
+        let active = false;
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { active = true; break; }
         }
+        if (active) return i;
       }
+      return roughEnd;
+    }
+
+          }
       return roughEnd;
     }
 
@@ -1848,6 +1853,9 @@
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
         
+        
+        const forceMediaElement = (audioBuffer && (audioBuffer.sampleRate < 11025 || (audioBuffer.numberOfChannels === 1 && audioBuffer.sampleRate <= 9000)));
+        const backend = forceMediaElement || isMobile() ? 'MediaElement' : 'WebAudio';
         const wavesurfer = WaveSurferLib.create({
           container: waveContainer,
           height: '100%',
@@ -1861,8 +1869,9 @@
           waveColor: '#c0c0c0',
           fillParent: true,
           interact: false,
-          backend: isMobile() ? 'MediaElement' : 'WebAudio'
+          backend: backend
         });
+
         
         windowElement.wavesurfer = wavesurfer;
         
@@ -1890,25 +1899,41 @@
         
         wavesurfer.load(url);
         
+        
         wavesurfer.on('error', (err) => {
-          waveContainer.innerHTML = `
-            <div class="file-error">
-              WaveSurfer error: ${escapeHtml(err.message || 'Failed to load audio')}
-            </div>
-          `;
+          while (waveContainer.firstChild) waveContainer.removeChild(waveContainer.firstChild);
+          const errDiv = document.createElement('div');
+          errDiv.className = 'file-error';
+          errDiv.textContent = 'WaveSurfer error: ' + (err && err.message ? err.message : 'Failed to load audio');
+          const fb = document.createElement('div');
+          fb.className = 'mobile-fallback';
+          const audioEl = document.createElement('audio');
+          audioEl.controls = true;
+          audioEl.style.width = '100%';
+          audioEl.src = url;
+          fb.appendChild(audioEl);
+          waveContainer.appendChild(errDiv);
+          waveContainer.appendChild(fb);
           playButton.style.display = 'none';
           pauseButton.style.display = 'none';
         });
+
         
       } catch (e) {
-        waveContainer.innerHTML = `
-          <div class="file-error">
-            WaveSurfer failed: ${escapeHtml(e.message || 'Audio preview not available')}
-          </div>
-          <div class="mobile-fallback">
-            <audio controls src="${url}" style="width: 100%;"></audio>
-          </div>
-        `;
+        while (waveContainer.firstChild) waveContainer.removeChild(waveContainer.firstChild);
+        const errDiv = document.createElement('div');
+        errDiv.className = 'file-error';
+        errDiv.textContent = 'WaveSurfer failed: ' + (e && e.message ? e.message : 'Audio preview not available');
+        const fb = document.createElement('div');
+        fb.className = 'mobile-fallback';
+        const audioEl = document.createElement('audio');
+        audioEl.controls = true;
+        audioEl.style.width = '100%';
+        audioEl.src = url;
+        fb.appendChild(audioEl);
+        waveContainer.appendChild(errDiv);
+        waveContainer.appendChild(fb);
+    
         playButton.style.display = 'none';
         pauseButton.style.display = 'none';
       }
