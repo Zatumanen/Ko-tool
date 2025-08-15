@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="%23e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="%23b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
 <style>
 :root{
   --glow-color:#ff3333;
@@ -13,22 +14,48 @@
   --win-light:#ffffff;
   --win-dark:#808080;
 }
-*{box-sizing:border-box}
 body{
+  background:#008080;
+  font-family:'Courier New',monospace;
   margin:0;
   padding:20px;
-  background:#008080 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="1" height="1" fill="%23808080"/></svg>');
-  font-family:'Courier New',monospace;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
   min-height:100vh;
   overflow-x:hidden;
+  background-image:
+    radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0),
+    radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0);
+  background-size:4px 4px;
+  background-position:0 0,2px 2px;
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
+.desktop-icon{
+  position:absolute;
+  width:80px;
+  text-align:center;
+  color:#fff;
+  text-shadow:1px 1px 1px #000;
+  cursor:pointer;
+  padding:4px;
+  user-select:none;
+  transition:transform .2s;
+}
+.desktop-icon:hover{background:rgba(255,255,255,.2);transform:scale(1.05)}
 .window{
   width:100%;
   max-width:480px;
   background:var(--win-gray);
-  border:2px outset;
+  border:2px solid;
+  border-top-color:var(--win-light);
+  border-left-color:var(--win-light);
+  border-right-color:var(--win-dark);
+  border-bottom-color:var(--win-dark);
+  box-shadow:2px 2px 4px rgba(0,0,0,.5);
+  padding:0;
+  box-sizing:border-box;
   position:relative;
   z-index:100;
 }
@@ -40,23 +67,36 @@ body{
   display:flex;
   justify-content:space-between;
   align-items:center;
+  border-bottom:2px solid var(--win-gray);
   cursor:move;
   user-select:none;
 }
 .title-bar button{
   width:20px;height:20px;
-  border:1px outset;
+  border:none;
   background:var(--win-gray);
   cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:bold;
+  margin-left:4px;
+  border:1px outset;
 }
+.title-bar button:active{border-style:inset}
+.content{padding:12px;font-size:14px;color:#000}
 .drop-zone{
   border:2px dashed #000;
   padding:20px;
   text-align:center;
   background:rgba(255,255,255,.3);
+  margin-top:12px;
   position:relative;
   cursor:pointer;
+  border-style:dotted;
+  border-color:var(--win-dark);
 }
+.drop-zone.dragover{background:rgba(0,128,0,.3)}
 .drop-zone input[type=file]{
   position:absolute;
   inset:0;
@@ -65,166 +105,331 @@ body{
   opacity:0;
   cursor:pointer;
 }
-.drop-zone.dragover{background:rgba(0,128,0,.3)}
-.button-group{display:flex;gap:10px;margin-top:10px}
-.button-group button{flex:1;min-height:44px}
-.taskbar{
-  position:fixed;bottom:0;left:0;right:0;
-  background:var(--win-gray);
-  height:36px;
-  border-top:2px outset;
-  display:flex;
-  align-items:center;
-  padding:0 8px;
-  z-index:90;
-}
-.start-button{
-  padding:4px 8px;
-  border:2px outset;
-  cursor:pointer;
-}
-.status-bar{margin-left:auto}
-.win95-list{height:100px;overflow-y:auto;border:2px inset #fff;background:#fff}
-.list-item{padding:4px;cursor:pointer}
-.list-item.selected{background:var(--primary-blue);color:#fff}
+.drop-zone span{pointer-events:none;font-size:16px;display:block;margin-top:10px}
+.supported-formats{font-size:12px;color:#666;margin-top:4px}
+#file-info{margin-top:10px;font-size:14px;background:#fff;border:2px inset var(--win-dark);padding:10px;max-height:200px;overflow-y:auto}
+button{min-height:44px;padding:10px;cursor:pointer;font-family:'Courier New',monospace;font-size:16px;border:2px outset var(--win-gray);background:var(--win-gray)}
+button:active{border-style:inset}
 #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}
-#win95-loader{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;padding:12px;background:var(--win-gray);border:2px outset}
-.progress-bar-container{background:#fff;border:2px inset;height:24px;display:flex;gap:1px;padding:2px}
-.progress-segment{background:var(--win-gray);width:8px}
+#win95-loader{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;padding:12px;background:var(--win-gray);font-family:'Courier New',monospace;font-size:14px;color:#000;z-index:1001;border:2px outset}
+.progress-bar-container{background:#fff;border:2px inset;height:24px;margin-top:8px;display:flex;padding:2px;gap:1px}
+.progress-segment{width:8px;height:100%;background:var(--win-gray)}
 .progress-segment.active{background:var(--primary-blue)}
-.wave-window{position:absolute;width:500px;background:var(--win-gray);border:2px outset;z-index:101}
-.wave-element-container{height:150px;background:#000;position:relative}
+.win95-inset{border:2px inset var(--win-dark);background:var(--win-gray);padding:6px;margin-bottom:6px}
+.win95-list{border:2px inset var(--win-dark);background:#fff;padding:4px;font-family:'Courier New',monospace;height:100px;overflow-y:auto}
+.list-item{padding:8px 6px;cursor:pointer;user-select:none;font-size:13px}
+.list-item:hover,.list-item.selected{background:var(--primary-blue);color:#fff}
+.wave-container{margin-bottom:20px;border:2px inset var(--win-dark);padding:10px;background:#e0e0e0}
+.wave-title{font-size:14px;margin-bottom:6px;text-align:center;font-weight:bold}
+.wave-element-container{width:100%;height:150px;background:#000;position:relative;overflow:hidden;padding:10px 0;box-sizing:border-box}
+.wave-element{width:100%;height:100%}
+.wave-button{font-family:'Courier New',monospace;padding:8px;background:var(--win-gray);border:2px outset;cursor:pointer;min-width:80px}
+.wave-button:active{border-style:inset}
+.taskbar{position:fixed;bottom:0;left:0;right:0;background:var(--win-gray);height:36px;border-top:2px solid var(--win-light);display:flex;align-items:center;padding:0 8px;z-index:90}
+.start-button{padding:4px 8px;background:var(--win-gray);border:2px outset;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:4px}
+.start-button:active{border-style:inset}
+.status-bar{margin-left:auto;padding:0 8px;font-size:14px}
+.window-controls{display:flex}
+.button-group{display:flex;gap:10px;margin-top:10px}
+.button-group button{flex:1}
+#cancel-button{margin-top:10px;width:100%;padding:10px;background:var(--win-gray);border:2px outset;color:#000;font-family:'Courier New',monospace;font-size:16px;cursor:pointer}
+#cancel-button:active{border-style:inset}
+.trim-control{display:flex;align-items:center;gap:8px;margin:10px 0}
+.wave-window{position:absolute;width:500px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;z-index:101;top:100px;left:100px}
+.preview-controls{display:flex;gap:10px;justify-content:center;margin-top:10px}
+.wave-element-container:empty::after{content:"Loading...";color:var(--win-dark);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
 @media(max-width:768px){
-  .window{width:95vw}
-  .wave-window{width:90vw;left:5vw}
+  body{padding:10px}
+  .window{width:95vw;max-width:none;top:10px;transform:scale(.98)}
+  .wave-element-container{height:100px!important}
+  .desktop-icon{transform:scale(1.3);top:10px!important;left:5px!important}
+  .win95-list{height:80px}
+  .list-item{padding:6px 4px;font-size:12px}
+  .wave-window{width:90vw;left:5vw;top:20px}
+  .preview-controls{flex-direction:column;align-items:center}
+  .wave-button{min-width:150px}
 }
+.mobile-fallback{text-align:center;padding:15px;background:#fff}
+.mobile-fallback audio{width:100%;margin:10px 0}
 </style>
 </head>
 <body>
-<div class="window" id="main-win">
+<!-- Desktop icon -->
+<div class="desktop-icon" style="top:20px;left:30px" onclick="mainWin.style.display='block'">
+  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" width="48" height="48">
+  <div>KO II Tool</div>
+</div>
+
+<!-- Main window -->
+<div class="window" id="mainWin" style="display:block">
   <div class="title-bar">
     <span>SpeedUpperCut</span>
-    <div>
-      <button onclick="mainWin.style.display='none'">×</button>
+    <div class="window-controls">
+      <button class="minimize" title="Minimize" onclick="mainWin.style.display='none'">_</button>
+      <button class="close" title="Close" onclick="mainWin.style.display='none'">×</button>
     </div>
   </div>
-  <div class="content" style="padding:12px">
-    <div>
-      <label>FIDELITY</label>
-      <div class="win95-list" id="fidelity">
-        <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
-        <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
-        <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
-        <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
+  <div class="content">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="win95-inset" style="flex:1">
+        <label>FIDELITY</label><br>
+        <div class="win95-list" data-group="fidelity">
+          <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
+          <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
+          <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
+          <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
+        </div>
+      </div>
+      <div class="win95-inset" style="flex:1">
+        <label>CHANNELS</label><br>
+        <div class="win95-list" data-group="channels">
+          <div data-value="stereo" class="list-item selected">Stereo</div>
+          <div data-value="mono" class="list-item">Mono</div>
+        </div>
       </div>
     </div>
-    <div style="margin-top:8px">
-      <label>CHANNELS</label>
-      <div class="win95-list" id="channels">
-        <div data-value="stereo" class="list-item selected">Stereo</div>
-        <div data-value="mono" class="list-item">Mono</div>
-      </div>
+
+    <div class="trim-control">
+      <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
+      <label for="auto-trim">Auto-trim silence at start/end</label>
     </div>
-    <div style="margin:8px 0">
-      <label><input type="checkbox" id="auto-trim" checked> Auto-trim silence</label>
-    </div>
+
     <div class="drop-zone" id="drop-zone">
-      <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i><br>
-      <span>DRAG & DROP AUDIO FILES</span>
-      <input type="file" multiple accept="audio/*" id="file-input">
+      <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
+      <input type="file" id="audio-upload" multiple accept=".wav,.mp3,.aac,.ogg,.flac,audio/*">
+      <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+      <div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div>
     </div>
+
     <div class="button-group">
-      <button onclick="fileInput.click()">Select Files</button>
-      <button onclick="clearList()">Clear</button>
+      <button id="select-file-button">Select Files</button>
+      <button id="select-folder-button">Select Folder</button>
+      <button id="clear-button">Clear List</button>
     </div>
-    <div id="info" style="background:#fff;border:inset 1px;padding:6px;height:120px;overflow-y:auto;font-size:13px">
-      Drop files to process
+
+    <div id="file-info">
+      <div>Drop or select audio files/folders to process</div>
+      <div>Files will be sped up 2× to save space</div>
+      <div>Auto-trim removes silence at start and end</div>
+      <div>Folder structure will be preserved in output</div>
+      <div>Files will be saved in their original format</div>
+      <div>KO II will convert files during import</div>
     </div>
   </div>
 </div>
 
+<!-- Loader -->
 <div id="overlay">
   <div id="win95-loader">
-    <div id="proc-title">Processing...</div>
-    <div class="progress-bar-container" id="progress"></div>
-    <button onclick="cancel=true">Cancel</button>
+    <div id="processing-title">Processing Audio Files...</div>
+    <div class="progress-bar-container" id="segment-container"></div>
+    <div id="current-file">Preparing...</div>
+    <button id="cancel-button">Cancel Processing</button>
   </div>
 </div>
 
+<!-- Taskbar -->
 <div class="taskbar">
   <div class="start-button"><i class="fas fa-bars"></i> Start</div>
-  <div class="status-bar" id="status">Ready</div>
+  <div class="status-bar" id="status-bar">Ready</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/wavesurfer.js@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 <script>
-/* ---------- CONFIG ---------- */
-const MAX_PREVIEW = 5;
-const MIN_DURATION = 0.5;
-let cancel = false;
-let waveWindows = [];
-let audioCtx;
+/* ---------- ОСНОВНЫЕ ПЕРЕМЕННЫЕ ---------- */
+let activeAudioContext=null;
+let createdObjectURLs=[];
+let processingCancelled=false;
+let waveWindows=[];
+let lastProgress=0;
 
-/* ---------- UTIL ---------- */
+/* ---------- МИНИМАЛЬНЫЕ ФИКСЫ ---------- */
+// 1. Дроп-зона растянута inset:0
+// 2. MIN_DURATION для SK-1/mono
+const MIN_DURATION = 0.5; // секунды
+
+/* ---------- УТИЛИТЫ ---------- */
 const $ = s => document.querySelector(s);
-const info = $('#info');
-const statusBar = $('#status');
-const dropZone = $('#drop-zone');
-const fileInput = $('#file-input');
-const mainWin = $('#main-win');
-
-function log(msg){
-  info.insertAdjacentHTML('beforeend',`<div>${msg}</div>`);
-  info.scrollTop = info.scrollHeight;
+const $$ = s => document.querySelectorAll(s);
+function log(msg,cls=''){
+  const fi=$('#file-info');
+  fi.insertAdjacentHTML('beforeend',`<div${cls?` class="${cls}"`:''}>${msg}</div>`);
+  fi.scrollTop=fi.scrollHeight;
 }
-function setStatus(msg){statusBar.textContent=msg}
-function showOverlay(b){$('#overlay').style.display=b?'block':'none'}
+function setStatus(msg){$('#status-bar').textContent=msg}
+
+/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
+document.addEventListener('DOMContentLoaded',initApp);
+function initApp(){
+  /* выбор fidelity / channels */
+  $$('.win95-list').forEach(group=>{
+    group.addEventListener('click',e=>{
+      if(!e.target.classList.contains('list-item'))return;
+      group.querySelectorAll('.list-item').forEach(i=>i.classList.remove('selected'));
+      e.target.classList.add('selected');
+      setStatus(`Fidelity set to: ${e.target.textContent}`);
+    });
+  });
+
+  /* кнопки */
+  $('#select-file-button').addEventListener('click',()=>{activateAudio();$('#audio-upload').click()});
+  $('#select-folder-button').addEventListener('click',()=>{activateAudio();$('#folder-upload').click()});
+  $('#clear-button').addEventListener('click',clearList);
+  $('#cancel-button').addEventListener('click',()=>{processingCancelled=true});
+
+  /* дроп-зона */
+  const dz=$('#drop-zone');
+  let dragCounter=0;
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{
+    e.preventDefault();dragCounter++;dz.classList.add('dragover');
+  }));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{
+    e.preventDefault();dragCounter--;if(dragCounter<=0)dz.classList.remove('dragover');
+    if(e.type==='drop')handleDrop(e);
+  }));
+  $('#audio-upload').addEventListener('change',e=>{activateAudio();processFiles(e.target.files)});
+  $('#folder-upload').addEventListener('change',e=>{activateAudio();processFolder(e.target.files)});
+}
+
+/* ---------- AUDIO CONTEXT ---------- */
+async function activateAudio(){
+  if(!activeAudioContext)activeAudioContext=new(window.AudioContext||webkitAudioContext)();
+  if(activeAudioContext.state==='suspended')await activeAudioContext.resume();
+}
+
+/* ---------- ОБРАБОТКА ФАЙЛОВ ---------- */
+async function processFiles(files){
+  if(!files.length)return;
+  const items=[...files].map(f=>({file:f,path:f.name}));
+  await processItems(items);
+}
+async function processFolder(files){
+  if(!files.length)return;
+  const items=[...files].map(f=>({file:f,path:f.webkitRelativePath||f.name}));
+  await processItems(items);
+}
+async function processItems(items){
+  if(!items.length)return;
+  showOverlay(true);processingCancelled=false;
+  const zip=new JSZip();
+  const segmentContainer=$('#segment-container');
+  segmentContainer.innerHTML='';
+  for(let i=0;i<50;i++){const s=document.createElement('div');s.className='progress-segment';segmentContainer.appendChild(s)}
+  const segs=[...segmentContainer.children];
+  let done=0,totalOriginal=0,totalProcessed=0;
+
+  for(const {file,path} of items){
+    if(processingCancelled)break;
+    $('#current-file').textContent=`Processing: ${path}`;
+    try{
+      await activateAudio();
+      const ab=await file.arrayBuffer();
+      const buf=await activeAudioContext.decodeAudioData(ab.slice(0));
+      let processed=await convertChannels(buf,getSelected('channels'));
+      processed=await applySpeedAndFidelity(processed,2,getSelected('fidelity'));
+      if($('#auto-trim').checked)processed=trimSilence(processed);
+      const wavBlob=await audioBufferToWav(processed);
+      const newName=path.replace(/\.[^/.]+$/,'_ko2.wav');
+      zip.file(newName,wavBlob);
+      const previewURL=URL.createObjectURL(wavBlob);
+      createdObjectURLs.push(previewURL);
+      createWaveWindow(newName,previewURL,processed);
+      done++;
+      totalOriginal+=file.size;
+      totalProcessed+=wavBlob.size;
+      segs.forEach((s,i)=>s.classList.toggle('active',i<done/items.length*50));
+    }catch(err){
+      log(`<div class="file-error">${path}: ${err.message}</div>`);
+    }
+  }
+  if(!processingCancelled&&done){
+    const zipBlob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(zipBlob);
+    createdObjectURLs.push(url);
+    const a=document.createElement('a');a.href=url;a.download='ko2_processed_audio.zip';a.click();
+    log(`<b>Done</b>: ${done} files, saved ${((totalOriginal-totalProcessed)/1024).toFixed(1)} KB`);
+  }
+  showOverlay(false);
+}
 
 /* ---------- DRAG & DROP ---------- */
-['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{
-  e.preventDefault();dropZone.classList.add('dragover')
-}));
-['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{
-  e.preventDefault();dropZone.classList.remove('dragover');
-  if(ev.type==='drop')handleFiles(e.dataTransfer.files)
-}));
-fileInput.addEventListener('change',e=>handleFiles(e.target.files));
-
-/* ---------- AUDIO ---------- */
-async function getCtx(){
-  if(!audioCtx)audioCtx=new(window.AudioContext||webkitAudioContext)();
-  if(audioCtx.state==='suspended')await audioCtx.resume();
-  return audioCtx;
-}
-
-async function processBuffer(ab,fidelity,channels){
-  const ctx = await getCtx();
-  const buf = await ctx.decodeAudioData(ab.slice(0));
-  const Offline = window.OfflineAudioContext||webkitOfflineAudioContext;
-  const targetSR = fidelity==='sk'?9000:fidelity==='sp8'||fidelity==='sp16'?22050:44100;
-  const targetCh = channels==='mono'?1:2;
-  const dur = Math.max(buf.duration/2,MIN_DURATION);
-  const off = new Offline(targetCh,dur*targetSR,targetSR);
-  const src = off.createBufferSource();
-  src.buffer = buf;
-  src.playbackRate.value = 2;
-  if(buf.numberOfChannels!==targetCh){
-    const merger = off.createChannelMerger(targetCh);
-    src.connect(merger);
-    merger.connect(off.destination);
-  }else{
-    src.connect(off.destination);
+function handleDrop(e){
+  if(e.dataTransfer.items){
+    const queue=[],items=[];
+    [...e.dataTransfer.items].forEach(item=>{
+      const entry=item.webkitGetAsEntry?.()||item.getAsFile?.();
+      if(entry)queue.push({entry,path:''});
+    });
+    processQueue(queue,items);
+  }else if(e.dataTransfer.files.length){
+    const items=[...e.dataTransfer.files].map(f=>({file:f,path:f.name}));
+    processItems(items);
   }
-  src.start();
-  return off.startRendering();
+}
+function processQueue(queue,items){
+  if(!queue.length){processItems(items);return}
+  const {entry,path}=queue.shift();
+  if(!entry){processQueue(queue,items);return}
+  if(entry.isFile){
+    entry.file(f=>{items.push({file:f,path:path+f.name});processQueue(queue,items)});
+  }else if(entry.isDirectory){
+    const reader=entry.createReader();
+    reader.readEntries(entries=>{
+      entries.forEach(e=>queue.push({entry:e,path:path+entry.name+'/'}));
+      processQueue(queue,items);
+    });
+  }else processQueue(queue,items);
 }
 
+/* ---------- ОБРАБОТКА АУДИО ---------- */
+function getSelected(group){
+  return document.querySelector(`.win95-list[data-group="${group}"] .selected`)?.dataset.value||'cd';
+}
+async function convertChannels(buffer,target){
+  if(buffer.numberOfChannels===(target==='mono'?1:2))return buffer;
+  const Offline=window.OfflineAudioContext||webkitOfflineAudioContext;
+  const ctx=new Offline(target==='mono'?1:2,buffer.length,buffer.sampleRate);
+  const src=ctx.createBufferSource();
+  src.buffer=buffer;
+  src.connect(ctx.destination);
+  src.start();
+  return ctx.startRendering();
+}
+async function applySpeedAndFidelity(buffer,speed,fidelity){
+  const map={cd:44100,sp8:22050,sp16:22050,sk:9000};
+  const sr=map[fidelity]||44100;
+  const dur=Math.max(buffer.duration/speed,MIN_DURATION);
+  const Offline=window.OfflineAudioContext||webkitOfflineAudioContext;
+  const ctx=new Offline(buffer.numberOfChannels,dur*sr,sr);
+  const src=ctx.createBufferSource();
+  src.buffer=buffer;
+  src.playbackRate.value=speed;
+  src.connect(ctx.destination);
+  src.start();
+  return ctx.startRendering();
+}
+function trimSilence(buffer,thresholdDb=-60,minDur=.1){
+  const th=10**(thresholdDb/20);
+  const sr=buffer.sampleRate,minSamples=sr*minDur;
+  const ch=buffer.getChannelData(0);
+  let start=0,end=ch.length-1;
+  for(let i=0;i<ch.length;i++)if(Math.abs(ch[i])>th){start=i;break}
+  for(let i=ch.length-1;i>=0;i--)if(Math.abs(ch[i])>th){end=i;break}
+  if(start>=end)return buffer;
+  const len=end-start+1;
+  const nb=new AudioBuffer({length:len,numberOfChannels:buffer.numberOfChannels,sampleRate:sr});
+  for(let c=0;c<buffer.numberOfChannels;c++){
+    nb.copyToChannel(buffer.getChannelData(c).subarray(start,end+1),c);
+  }
+  return nb;
+}
 function audioBufferToWav(buf){
   const len=buf.length*buf.numberOfChannels*2;
-  const arr=new ArrayBuffer(44+len);
-  const v=new DataView(arr);
-  const writeStr=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  const b=new ArrayBuffer(44+len);
+  const v=new DataView(b);
+  const writeStr=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt()));
   writeStr(0,'RIFF');v.setUint32(4,36+len,true);
   writeStr(8,'WAVEfmt ');v.setUint32(16,16,true);
   v.setUint16(20,1,true);v.setUint16(22,buf.numberOfChannels,true);
@@ -239,74 +444,82 @@ function audioBufferToWav(buf){
       offset+=2;
     }
   }
-  return new Blob([arr],{type:'audio/wav'});
+  return new Blob([b],{type:'audio/wav'});
 }
 
-/* ---------- ZIP & UI ---------- */
-async function handleFiles(files){
-  if(!files.length)return;
-  showOverlay(true);cancel=false;
-  const zip=new JSZip();
-  let done=0;
-  const total=files.length;
-  const progress=$('#progress');
-  progress.innerHTML='';
-  for(let i=0;i<50;i++){
-    const s=document.createElement('div');s.className='progress-segment';
-    progress.appendChild(s);
-  }
-  const segs=[...progress.children];
-  for(const f of files){
-    if(cancel)break;
-    setStatus(`Processing ${f.name} (${done+1}/${total})`);
-    const ab=await f.arrayBuffer();
-    const buf=await processBuffer(ab,$('#fidelity .selected').dataset.value,$('#channels .selected').dataset.value);
-    const wav=audioBufferToWav(buf);
-    zip.file(f.name.replace(/\.[^/.]+$/,'_ko2.wav'),wav);
-    done++;
-    segs.forEach((s,i)=>s.classList.toggle('active',i<done/total*50));
-  }
-  if(!cancel){
-    const blob=await zip.generateAsync({type:'blob'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download='ko2_processed_audio.zip';a.click();
-    setStatus(`Done: ${done} files`);
-  }
-  showOverlay(false);
-}
-
-function clearList(){info.innerHTML='Drop files to process'}
-
-/* ---------- PREVIEW ---------- */
-function addWave(title,url){
-  if(waveWindows.length>=MAX_PREVIEW){
+/* ---------- ВИЗУАЛИЗАЦИЯ ---------- */
+function createWaveWindow(title,url,buf){
+  if(waveWindows.length>=5){
     const old=waveWindows.shift();
-    old.win.remove();URL.revokeObjectURL(old.url);
+    try{old.win.remove();URL.revokeObjectURL(old.url)}catch(e){}
   }
   const win=document.createElement('div');
   win.className='wave-window';
-  win.style.top=60+waveWindows.length*25+'px';
-  win.style.left=10+waveWindows.length*25+'px';
+  win.style.zIndex=100+waveWindows.length*2;
+  win.style.top=80+waveWindows.length*30+'px';
+  win.style.left=100+waveWindows.length*30+'px';
   win.innerHTML=`
-    <div class="title-bar"><span>${title}</span><button onclick="this.closest('.wave-window').remove()">×</button></div>
-    <div><div class="wave-element-container"><div class="wave-element"></div></div></div>
+    <div class="title-bar">
+      <span>${title}</span>
+      <div class="window-controls">
+        <button class="minimize" onclick="this.closest('.wave-window').querySelector('.content').style.display='none'">_</button>
+        <button class="close" onclick="this.closest('.wave-window').remove()">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="wave-container">
+        <div class="wave-title">${title}</div>
+        <div class="wave-element-container"><div class="wave-element"></div></div>
+        <div class="preview-controls">
+          <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
+          <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
+        </div>
+      </div>
+    </div>
   `;
   document.body.appendChild(win);
   const ws=WaveSurfer.create({container:win.querySelector('.wave-element'),height:150,backend:'MediaElement'});
   ws.load(url);
+  win.querySelector('.play-button').onclick=()=>ws.play();
+  win.querySelector('.stop-button').onclick=()=>ws.stop();
+  makeDraggable(win);
   waveWindows.push({win,url});
 }
+function makeDraggable(el){
+  let pos1=0,pos2=0,pos3=0,pos4=0;
+  el.querySelector('.title-bar').addEventListener('mousedown',e=>{
+    e.preventDefault();
+    pos3=e.clientX;pos4=e.clientY;
+    document.addEventListener('mousemove',drag);
+    document.addEventListener('mouseup',stop);
+  });
+  function drag(e){
+    el.style.top=(el.offsetTop-e.clientY+pos4)+'px';
+    el.style.left=(el.offsetLeft-e.clientX+pos3)+'px';
+    pos3=e.clientX;pos4=e.clientY;
+  }
+  function stop(){document.removeEventListener('mousemove',drag);document.removeEventListener('mouseup',stop)}
+}
+function showOverlay(b){$('#overlay').style.display=b?'block':'none'}
 
-/* ---------- INIT ---------- */
-$('#fidelity').addEventListener('click',e=>{
-  [...e.currentTarget.children].forEach(c=>c.classList.remove('selected'));
-  e.target.classList.add('selected');
+/* ---------- ОЧИСТКА ---------- */
+function clearList(){
+  $('#file-info').innerHTML=`
+    <div>Drop or select audio files/folders to process</div>
+    <div>Files will be sped up 2× to save space</div>
+    <div>Auto-trim removes silence at start and end</div>
+    <div>Folder structure will be preserved in output</div>
+    <div>Files will be saved in their original format</div>
+    <div>KO II will convert files during import</div>
+  `;
+  setStatus('Ready');
+}
+
+/* ---------- MEMORY ---------- */
+window.addEventListener('beforeunload',()=>{
+  createdObjectURLs.forEach(u=>{try{URL.revokeObjectURL(u)}catch{}});
+  if(activeAudioContext)try{activeAudioContext.close()}catch{}
 });
-$('#channels').addEventListener('click',e=>{
-  [...e.currentTarget.children].forEach(c=>c.classList.remove('selected'));
-  e.target.classList.add('selected');
-});
-setStatus('Ready');
 </script>
 </body>
 </html>
