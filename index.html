@@ -120,4 +120,74 @@ async function process({file,fidelity,channels,trim}){
   if(trim){
     const th=10**(-60/20);let start=0,end=processed.length;
     outer:for(let i=0;i<processed.length;i++)for(let c=0;c<processed.numberOfChannels;c++)if(Math.abs(processed.getChannelData(c)[i])>th){start=Math.max(0,i-2205);break outer}
-    outer:for(let i=processed.length-1;i>=0;i--)for(let c=0;c<processed.numberOfChannels;c++)if(Math.abs(processed.getChannelData(c)[i])>th
+    outer:for(let i=processed.length-1;i>=0;i--)for(let c=0;c<processed.numberOfChannels;c++)if(Math.abs(processed.getChannelData(c)[i])>th){end=Math.min(processed.length,i+2205);break outer}
+    const len=end-start,buf=new AudioBuffer({length:len,sampleRate:processed.sampleRate,numberOfChannels:processed.numberOfChannels});
+    for(let c=0;c<processed.numberOfChannels;c++)buf.copyToChannel(processed.getChannelData(c).subarray(start,end),c);
+    return {blob:wav(buf),name:file.name.replace(/\\.\\w+$/,'_ko2.wav')};
+  }
+  return {blob:wav(processed),name:file.name.replace(/\\.\\w+$/,'_ko2.wav')};
+}
+self.onmessage=async({data})=>{
+  const{id,payload}=data;try{const res=await process(payload);self.postMessage({id,res})}
+  catch(err){self.postMessage({id,err:err.message})}
+}`;
+const worker=new Worker(URL.createObjectURL(new Blob([workerCode],{type:'application/javascript'})));
+/* ===== UI ===== */
+const dz=document.getElementById('drop-zone');
+const fileInput=document.getElementById('audio-upload');
+const info=document.getElementById('file-info');
+const pb=document.getElementById('pb');
+
+const getVal=id=>document.getElementById(id).querySelector('.selected').dataset.value;
+
+[...document.querySelectorAll('.win95-list')].forEach(g=>g.addEventListener('click',e=>{
+  if(!e.target.classList.contains('list-item'))return;
+  g.querySelectorAll('.list-item').forEach(i=>i.classList.remove('selected'));
+  e.target.classList.add('selected');
+}));
+
+['dragover','dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{
+  e.preventDefault();
+  dz.classList.toggle('dragover',ev==='dragover');
+  if(ev==='drop')handleFiles(e.dataTransfer.files);
+}));
+fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+
+async function handleFiles(files){
+  if(!files.length)return;
+  pb.style.display='flex';
+  pb.innerHTML=[...Array(50)].map(()=>'<div class="progress-segment"></div>').join('');
+  info.innerHTML='';
+  const JSZip=await import('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+  const zip=new JSZip.default();
+  const tasks=[...files].map((f,i)=>workerProc(f,i,files.length));
+  const results=await Promise.all(tasks);
+  results.forEach(({res})=>zip.file(res.name,res.blob));
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='ko2_processed.zip';a.click();
+  URL.revokeObjectURL(url);
+  pb.style.display='none';
+  info.innerHTML='<div>✅ Готово! Скачайте ZIP выше.</div>';
+}
+function workerProc(file,idx,total){
+  return new Promise(res=>{
+    const id=Math.random();
+    const payload={file,fidelity:getVal('fidelity'),channels:getVal('channels'),trim:document.getElementById('auto-trim').checked};
+    worker.postMessage({id,payload});
+    worker.addEventListener('message',function fn({data}){
+      if(data.id!==id)return;
+      worker.removeEventListener('message',fn);
+      updateProgress((idx+1)/total);
+      if(data.err){info.innerHTML+=`<div class="file-error">${data.err}</div>`;res({})}
+      else{info.innerHTML+=`<div>✅ ${file.name}</div>`;res(data)}
+    });
+  });
+}
+function updateProgress(p){
+  const segs=pb.querySelectorAll('.progress-segment'),n=Math.floor(p*segs.length);
+  segs.forEach((s,i)=>s.classList.toggle('active',i<n));
+}
+</script>
+</body>
+</html>
