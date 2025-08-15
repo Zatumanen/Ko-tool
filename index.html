@@ -2,438 +2,46 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="%23e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="%23b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
 <style>
 :root{--glow-color:#ff3333;--primary-blue:#000080;--win-gray:#c0c0c0;--win-light:#ffffff;--win-dark:#808080;}
 body{background:#008080;font-family:'Courier New',monospace;margin:0;padding:20px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;overflow-x:hidden;background-image:radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0),radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0);background-size:4px 4px;background-position:0 0,2px 2px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
-.desktop-icon{position:absolute;width:80px;text-align:center;color:#fff;text-shadow:1px 1px 1px #000;cursor:pointer;padding:4px;user-select:none;transition:transform .2s}.desktop-icon:hover{background:rgba(255,255,255,.2);transform:scale(1.05)}
-.window{width:100%;max-width:480px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;position:relative;z-index:100;}
-.title-bar{background:var(--primary-blue);color:#fff;padding:4px 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--win-gray);cursor:move;user-select:none;}
+.desktop-icon{position:absolute;width:80px;text-align:center;color:white;text-shadow:1px 1px 1px black;cursor:pointer;padding:4px;user-select:none;transition:transform .2s}.desktop-icon:hover{background:rgba(255,255,255,.2);transform:scale(1.05)}
+.window{width:100%;max-width:480px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;position:relative;z-index:100}
+.title-bar{background:var(--primary-blue);color:#fff;padding:4px 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--win-gray);cursor:move;user-select:none}
 .title-bar button{width:20px;height:20px;border:none;background:var(--win-gray);cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;margin-left:4px;border:1px outset}.title-bar button:active{border-style:inset}
 .content{padding:12px;font-size:14px;color:#000}
-.drop-zone{border:2px dashed #000;padding:20px;text-align:center;background:rgba(255,255,255,.3);margin-top:12px;position:relative;cursor:pointer;border-style:dotted;border-color:var(--win-dark)}
-.drop-zone.dragover{background:rgba(0,128,0,.3)}
-.drop-zone input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-.drop-zone span{pointer-events:none;font-size:16px;display:block;margin-top:10px}
-.supported-formats{font-size:12px;color:#666;margin-top:4px}
-#file-info{margin-top:10px;font-size:14px;background:#fff;border:2px inset var(--win-dark);padding:10px;max-height:200px;overflow-y:auto}
-button{min-height:44px;padding:10px;cursor:pointer;font-family:'Courier New',monospace;font-size:16px;border:2px outset var(--win-gray);background:var(--win-gray)}
-button:active{border-style:inset}
-#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}
-#win95-loader{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;padding:12px;background:var(--win-gray);font-family:'Courier New',monospace;font-size:14px;color:#000;z-index:1001;border:2px outset}
-.progress-bar-container{background:#fff;border:2px inset;height:24px;margin-top:8px;display:flex;padding:2px;gap:1px}
-.progress-segment{width:8px;height:100%;background:var(--win-gray)}
-.progress-segment.active{background:var(--primary-blue)}
-.win95-inset{border:2px inset var(--win-dark);background:var(--win-gray);padding:6px;margin-bottom:6px}
-.win95-list{border:2px inset var(--win-dark);background:#fff;padding:4px;font-family:'Courier New',monospace;height:100px;overflow-y:auto}
-.list-item{padding:8px 6px;cursor:pointer;user-select:none;font-size:13px}
-.list-item:hover,.list-item.selected{background:var(--primary-blue);color:#fff}
-.trim-control{display:flex;align-items:center;gap:8px;margin:10px 0}
-.wave-window{position:absolute;width:500px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;z-index:101;top:100px;left:100px}
-.preview-controls{display:flex;gap:10px;justify-content:center;margin-top:10px}
-.taskbar{position:fixed;bottom:0;left:0;right:0;background:var(--win-gray);height:36px;border-top:2px solid var(--win-light);display:flex;align-items:center;padding:0 8px;z-index:90}
-.start-button{padding:4px 8px;background:var(--win-gray);border:2px outset;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:4px}
-.start-button:active{border-style:inset}
-.status-bar{margin-left:auto;padding:0 8px;font-size:14px}
-@media(max-width:768px){body{padding:10px}.window{width:95vw}.wave-window{width:90vw;left:5vw;top:20px}}
+.drop-zone{border:2px dashed #000;padding:20px;text-align:center;background:rgba(255,255,255,.3);margin-top:12px;position:relative;cursor:pointer;border-style:dotted;border-color:var(--win-dark)}.drop-zone.dragover{background:rgba(0,128,0,.3)}.drop-zone input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.drop-zone span{pointer-events:none;font-size:16px;display:block;margin-top:10px}#file-info{margin-top:10px;font-size:14px;background:#fff;border:2px inset var(--win-dark);padding:10px;max-height:200px;overflow-y:auto}button{min-height:44px;padding:10px;cursor:pointer;font-family:'Courier New',monospace;font-size:16px;border:2px outset var(--win-gray);background:var(--win-gray)}button:active{border-style:inset}#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}#win95-loader{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;padding:12px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);font-family:'Courier New',monospace;font-size:14px;color:#000;z-index:1001}.progress-bar-container{background:#fff;border:2px inset var(--win-dark);height:24px;margin-top:8px;display:flex;padding:2px;gap:1px}.progress-segment{width:8px;height:100%;background:var(--win-gray)}.progress-segment.active{background:var(--primary-blue)}.win95-inset{border:2px inset var(--win-dark);background:var(--win-gray);padding:6px;margin-bottom:6px}.win95-list{border:2px inset var(--win-dark);background:#fff;padding:4px;font-family:'Courier New',monospace;height:100px;overflow-y:auto}.list-item{padding:8px 6px;cursor:pointer;user-select:none;font-size:13px}.list-item:hover{background:var(--primary-blue);color:white}.list-item.selected{background:var(--primary-blue);color:white}.wave-container{margin-bottom:20px;border:2px inset var(--win-dark);padding:10px;background:#e0e0e0}.wave-title{font-family:'Courier New',monospace;font-size:14px;margin-bottom:6px;text-align:center;font-weight:bold}.wave-element-container{width:100%;height:150px;background:#000;position:relative;overflow:hidden;padding:10px 0;box-sizing:border-box}.wave-element{width:100%;height:100%}.wave-button{font-family:'Courier New',monospace;padding:8px;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer;min-width:80px}.wave-button:active{border-style:inset}.taskbar{position:fixed;bottom:0;left:0;right:0;background:var(--win-gray);height:36px;border-top:2px solid var(--win-light);display:flex;align-items:center;padding:0 8px;z-index:90}.start-button{padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:4px}.status-bar{margin-left:auto;padding:0 8px;font-size:14px}.window-controls{display:flex}.button-group{display:flex;gap:10px;margin-top:10px}.button-group button{flex:1}#cancel-button{margin-top:10px;width:100%;padding:10px;background:var(--win-gray);border:2px outset var(--win-gray);color:#000;font-family:'Courier New',monospace;font-size:16px;cursor:pointer}#cancel-button:active{border-style:inset}.supported-formats{margin-top:8px;font-size:12px;color:#666}.file-error{color:#d32f2f;background-color:#ffcdd2;border:1px solid #f44336;padding:8px;margin:8px 0;border-radius:2px;font-size:13px}.memory-warning{color:#ff6f00;background-color:#fff3e0;border:1px solid #ff9800;padding:8px;margin:8px 0;border-radius:2px;font-size:13px;display:none}.mobile-warning{color:#1976d2;background-color:#bbdefb;border:1px solid #2196f3;padding:8px;margin:8px 0;border-radius:2px;font-size:13px;display:none}.info-panel{background:#fff;border:2px inset var(--win-dark);padding:10px;margin-top:10px;font-size:13px;max-height:150px;overflow-y:auto}.trim-control{display:flex;align-items:center;gap:8px;margin:10px 0}.wave-window{position:absolute;width:500px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;z-index:101;top:100px;left:100px}.preview-controls{display:flex;gap:10px;justify-content:center;margin-top:10px}.preview-controls button{flex:1}.wave-element-container:empty::after{content:"Loading...";color:var(--win-dark);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}@media(max-width:768px){body{padding:10px}.window{width:95vw;max-width:none;top:10px;transform:scale(.98)}.wave-element-container{height:100px!important}.desktop-icon{transform:scale(1.3);top:10px!important;left:5px!important}.win95-list{height:80px}.list-item{padding:6px 4px;font-size:12px}.wave-window{width:90vw;left:5vw;top:20px}.preview-controls{flex-direction:column;align-items:center}.wave-button{min-width:150px}}@media(max-width:768px)and(orientation:landscape){.wave-element-container{height:100px!important}}
 </style>
 </head>
 <body>
-<div class="desktop-icon" style="top:20px;left:30px" onclick="document.getElementById('mainWin').style.display='block'">
-  <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KICA8cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPgogIDxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" width="48" height="48">
-  <div>KO II Tool</div>
+<div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48"><div>KO II Tool</div></div>
+<div class="window">
+<div class="title-bar"><span>SpeedUpperCut</span><div class="window-controls"><button class="minimize">_</button><button class="close">×</button></div></div>
+<div class="content">
+<div class="memory-warning" id="memory-warning"><i class="fas fa-exclamation-triangle"></i>Processing large files may use significant memory. Close other tabs for best performance.</div>
+<div class="mobile-warning" id="mobile-warning"><i class="fas fa-mobile-alt"></i>Processing on mobile may be slow. Use small files for best results.</div>
+<div class="format-warning"><i class="fas fa-info-circle"></i>Files will be saved in their original format (MP3, WAV, etc.)</div>
+<div style="display:flex;gap:8px;margin-bottom:10px">
+<div class="win95-inset" style="flex:1"><label>FIDELITY</label><br><div class="win95-list" data-group="fidelity"><div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div><div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div><div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div><div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div></div></div>
+<div class="win95-inset" style="flex:1"><label>CHANNELS</label><br><div class="win95-list" data-group="channels"><div data-value="stereo" class="list-item selected">Stereo</div><div data-value="mono" class="list-item">Mono</div></div></div>
 </div>
-
-<div class="window" id="mainWin">
-  <div class="title-bar">
-    <span>SpeedUpperCut</span>
-    <div class="window-controls">
-      <button class="minimize" onclick="mainWin.style.display='none'">_</button>
-      <button class="close" onclick="mainWin.style.display='none'">×</button>
-    </div>
-  </div>
-  <div class="content">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <div class="win95-inset" style="flex:1">
-        <label>FIDELITY</label><br>
-        <div class="win95-list" data-group="fidelity">
-          <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
-          <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
-          <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
-          <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
-        </div>
-      </div>
-      <div class="win95-inset" style="flex:1">
-        <label>CHANNELS</label><br>
-        <div class="win95-list" data-group="channels">
-          <div data-value="stereo" class="list-item selected">Stereo</div>
-          <div data-value="mono" class="list-item">Mono</div>
-        </div>
-      </div>
-    </div>
-    <div class="trim-control">
-      <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
-      <label for="auto-trim">Auto-trim silence at start/end</label>
-    </div>
-    <div class="drop-zone" id="drop-zone">
-      <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
-      <input type="file" id="audio-upload" multiple accept=".wav,.mp3,.aac,.ogg,.flac,audio/*">
-      <input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none">
-      <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
-      <div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div>
-    </div>
-    <div class="button-group">
-      <button id="select-file-button">Select Files</button>
-      <button id="select-folder-button">Select Folder</button>
-      <button id="clear-button">Clear List</button>
-    </div>
-    <div id="file-info">
-      <div>Drop or select audio files/folders to process</div>
-      <div>Files will be sped up 2× to save space</div>
-      <div>Auto-trim removes silence at start and end</div>
-      <div>Folder structure will be preserved in output</div>
-      <div>Files will be saved in their original format</div>
-      <div>KO II will convert files during import</div>
-    </div>
-  </div>
+<div class="trim-control"><input type="checkbox" id="auto-trim" checked style="width:16px;height:16px"><label for="auto-trim">Auto-trim silence at start/end</label></div>
+<div class="drop-zone" id="drop-zone"><i class="fas fa-cloud-upload-alt" style="font-size:36px"></i><input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple><input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none"><span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span><div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div></div>
+<div class="button-group"><button id="select-file-button">Select Files</button><button id="select-folder-button">Select Folder</button><button id="clear-button">Clear List</button></div>
+<div class="info-panel" id="file-info"><div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div></div>
 </div>
-
-<div id="overlay">
-  <div id="win95-loader">
-    <div id="processing-title">Processing Audio Files...</div>
-    <div class="progress-bar-container" id="segment-container"></div>
-    <div id="current-file">Preparing...</div>
-    <button id="cancel-button">Cancel Processing</button>
-  </div>
 </div>
-
-<div class="taskbar">
-  <div class="start-button"><i class="fas fa-bars"></i> Start</div>
-  <div class="status-bar" id="status-bar">Ready</div>
-</div>
-
+<div id="overlay"><div id="win95-loader"><div id="processing-title">Processing Audio Files...</div><div class="progress-bar-container" id="segment-container"></div><div id="current-file">Preparing...</div><button id="cancel-button">Cancel Processing</button></div></div>
+<div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/wavesurfer.js@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 <script>
-/* ---------- КОНСТАНТЫ ---------- */
-const MIN_DURATION = 0.5;  // фикс SK-1 + mono
-const maxPreview = 5;
-let activeAudioContext = null;
-let createdObjectURLs = [];
-let processingCancelled = false;
-let waveWindows = [];
-
-/* ---------- УТИЛИТЫ ---------- */
-const $  = s => document.querySelector(s);
-const $$ = s => document.querySelectorAll(s);
-function log(msg, cls = '') {
-  const fi = $('#file-info');
-  fi.insertAdjacentHTML('beforeend', `<div${cls ? ' class="' + cls + '"' : ''}>${msg}</div>`);
-  fi.scrollTop = fi.scrollHeight;
-}
-function setStatus(msg) { $('#status-bar').textContent = msg; }
-
-/* ---------- AUDIO CONTEXT ---------- */
-async function getCtx() {
-  if (!activeAudioContext) activeAudioContext = new (window.AudioContext || webkitAudioContext)();
-  if (activeAudioContext.state === 'suspended') await activeAudioContext.resume();
-  return activeAudioContext;
-}
-
-/* ---------- ОБРАБОТКА ФАЙЛОВ ---------- */
-async function processFiles(files) {
-  if (!files.length) return;
-  const items = [...files].map(f => ({ file: f, path: f.name }));
-  await processItems(items);
-}
-async function processFolder(files) {
-  if (!files.length) return;
-  const items = [...files].map(f => ({ file: f, path: f.webkitRelativePath || f.name }));
-  await processItems(items);
-}
-async function processItems(items) {
-  if (!items.length) return;
-  $('#overlay').style.display = 'block';
-  processingCancelled = false;
-  const zip = new JSZip();
-  const segmentContainer = $('#segment-container');
-  segmentContainer.innerHTML = '';
-  for (let i = 0; i < 50; i++) {
-    const s = document.createElement('div');
-    s.className = 'progress-segment';
-    segmentContainer.appendChild(s);
-  }
-  const segs = [...segmentContainer.children];
-  let processed = 0, totalOriginal = 0, totalProcessed = 0, totalTrimmed = 0;
-  const fidelity = $('#fidelity .selected').dataset.value;
-  const channels = $('#channels .selected').dataset.value;
-  const autoTrim = $('#auto-trim').checked;
-
-  for (const { file, path } of items) {
-    if (processingCancelled) break;
-    $('#current-file').textContent = `Processing: ${path} (${processed + 1}/${items.length})`;
-    try {
-      await getCtx();
-      const ab = await file.arrayBuffer();
-      const buf = await activeAudioContext.decodeAudioData(ab.slice(0));
-      let procBuf = await convertChannels(buf, channels);
-      procBuf = await applySpeedAndFidelity(procBuf, 2, fidelity);
-      if (autoTrim) {
-        const before = procBuf.length;
-        procBuf = trimSilence(procBuf);
-        totalTrimmed += before - procBuf.length;
-      }
-      const ext = (file.name.split('.').pop() || 'wav').toLowerCase();
-      const newName = path.replace(/\.[^/.]+$/, '') + '_ko2.' + ext;
-      const outBlob = await encodeToOriginalFormat(procBuf, ext);
-      zip.file(newName, outBlob);
-      const previewURL = URL.createObjectURL(outBlob);
-      createdObjectURLs.push(previewURL);
-      createWaveWindow(newName, previewURL, procBuf);
-      processed++;
-      totalOriginal += file.size;
-      totalProcessed += outBlob.size;
-      segs.forEach((s, i) => s.classList.toggle('active', i < processed / items.length * 50));
-    } catch (err) {
-      log(`<div class="file-error">${path}: ${err.message}</div>`);
-    }
-  }
-  if (!processingCancelled && processed) {
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(zipBlob);
-    createdObjectURLs.push(url);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'ko2_processed_audio.zip';
-    a.click();
-    log(`<b>Processed:</b> ${processed} files`);
-    log(`<b>Original size:</b> ${(totalOriginal / 1024 / 1024).toFixed(2)} MB`);
-    log(`<b>Processed size:</b> ${(totalProcessed / 1024 / 1024).toFixed(2)} MB`);
-    log(`<b>Space saved:</b> ${((1 - totalProcessed / totalOriginal) * 100).toFixed(1)} %`);
-    if (autoTrim && totalTrimmed)
-      log(`<b>Silence trimmed:</b> ${(totalTrimmed / 44100).toFixed(2)} s`);
-  }
-  $('#overlay').style.display = 'none';
-}
-
-/* ---------- КОДИРОВАНИЕ В ИСХОДНЫЙ ФОРМАТ ---------- */
-async function encodeToOriginalFormat(buffer, ext) {
-  switch (ext) {
-    case 'mp3': return audioBufferToMp3(buffer);
-    default: return audioBufferToWav(buffer);
-  }
-}
-function audioBufferToWav(buffer) {
-  const len = buffer.length * buffer.numberOfChannels * 2;
-  const b = new ArrayBuffer(44 + len);
-  const v = new DataView(b);
-  const writeStr = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt()));
-  writeStr(0, 'RIFF');
-  v.setUint32(4, 36 + len, true);
-  writeStr(8, 'WAVEfmt ');
-  v.setUint32(16, 16, true);
-  v.setUint16(20, 1, true);
-  v.setUint16(22, buffer.numberOfChannels, true);
-  v.setUint32(24, buffer.sampleRate, true);
-  v.setUint32(28, buffer.sampleRate * buffer.numberOfChannels * 2, true);
-  v.setUint16(32, buffer.numberOfChannels * 2);
-  v.setUint16(34, 16, true);
-  writeStr(36, 'data');
-  v.setUint32(40, len, true);
-  let offset = 44;
-  for (let i = 0; i < buffer.length; i++) {
-    for (let c = 0; c < buffer.numberOfChannels; c++) {
-      const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]));
-      v.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-      offset += 2;
-    }
-  }
-  return new Blob([b], { type: 'audio/wav' });
-}
-function audioBufferToMp3(buffer) {
-  const channels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const mp3enc = new lamejs.Mp3Encoder(channels, sampleRate, 192);
-  const samples = new Int16Array(buffer.length * channels);
-  for (let i = 0; i < buffer.length; i++) {
-    for (let c = 0; c < channels; c++) {
-      const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]));
-      samples[i * channels + c] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-  }
-  const mp3Data = [];
-  const blockSize = 1152;
-  for (let i = 0; i < samples.length; i += blockSize * channels) {
-    const left = samples.subarray(i, i + blockSize);
-    const right = channels > 1 ? samples.subarray(i + blockSize, i + 2 * blockSize) : left;
-    const mp3buf = mp3enc.encodeBuffer(left, right);
-    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
-  }
-  const end = mp3enc.flush();
-  if (end.length > 0) mp3Data.push(new Int8Array(end));
-  return new Blob(mp3Data, { type: 'audio/mp3' });
-}
-
-/* ---------- КОНВЕРТАЦИЯ КАНАЛОВ / СКОРОСТЬ ---------- */
-async function convertChannels(buffer, target) {
-  const targetCh = target === 'mono' ? 1 : 2;
-  if (buffer.numberOfChannels === targetCh) return buffer;
-  const Offline = window.OfflineAudioContext || webkitOfflineAudioContext;
-  const ctx = new Offline(targetCh, buffer.length, buffer.sampleRate);
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.connect(ctx.destination);
-  src.start();
-  return ctx.startRendering();
-}
-async function applySpeedAndFidelity(buffer, speed, fidelity) {
-  const map = { cd: 44100, sp8: 22050, sp16: 22050, sk: 9000 };
-  const sr = map[fidelity] || 44100;
-  const dur = Math.max(buffer.duration / speed, MIN_DURATION);
-  const Offline = window.OfflineAudioContext || webkitOfflineAudioContext;
-  const ctx = new Offline(buffer.numberOfChannels, dur * sr, sr);
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.playbackRate.value = speed;
-  src.connect(ctx.destination);
-  src.start();
-  return ctx.startRendering();
-}
-function trimSilence(buffer, thresholdDb = -60, minDur = 0.1) {
-  const th = 10 ** (thresholdDb / 20);
-  const sr = buffer.sampleRate;
-  const ch = buffer.getChannelData(0);
-  let start = 0, end = ch.length - 1;
-  for (let i = 0; i < ch.length; i++) if (Math.abs(ch[i]) > th) { start = i; break; }
-  for (let i = ch.length - 1; i >= 0; i--) if (Math.abs(ch[i]) > th) { end = i; break; }
-  if (start >= end) return buffer;
-  const len = end - start + 1;
-  const nb = new AudioBuffer({ length: len, numberOfChannels: buffer.numberOfChannels, sampleRate: sr });
-  for (let c = 0; c < buffer.numberOfChannels; c++) {
-    nb.copyToChannel(buffer.getChannelData(c).subarray(start, end + 1), c);
-  }
-  return nb;
-}
-
-/* ---------- ВИЗУАЛИЗАЦИЯ ---------- */
-function createWaveWindow(title, url, buf) {
-  if (waveWindows.length >= 5) {
-    const old = waveWindows.shift();
-    try { old.win.remove(); URL.revokeObjectURL(old.url); } catch {}
-  }
-  const win = document.createElement('div');
-  win.className = 'wave-window';
-  win.style.zIndex = 100 + waveWindows.length * 2;
-  win.style.top = 80 + waveWindows.length * 30 + 'px';
-  win.style.left = 100 + waveWindows.length * 30 + 'px';
-  win.innerHTML = `
-    <div class="title-bar">
-      <span>${title}</span>
-      <div class="window-controls">
-        <button class="minimize" onclick="this.closest('.wave-window').querySelector('.content').style.display='none'">_</button>
-        <button class="close" onclick="this.closest('.wave-window').remove()">×</button>
-      </div>
-    </div>
-    <div class="content">
-      <div class="wave-container">
-        <div class="wave-title">${title}</div>
-        <div class="wave-element-container"><div class="wave-element"></div></div>
-        <div class="preview-controls">
-          <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
-          <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(win);
-  const ws = WaveSurfer.create({ container: win.querySelector('.wave-element'), height: 150, backend: 'MediaElement' });
-  ws.load(url);
-  win.querySelector('.play-button').onclick = () => ws.play();
-  win.querySelector('.stop-button').onclick = () => ws.stop();
-  makeDraggable(win);
-  waveWindows.push({ win, url });
-}
-function makeDraggable(el) {
-  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  el.querySelector('.title-bar').addEventListener('mousedown', e => {
-    e.preventDefault();
-    pos3 = e.clientX; pos4 = e.clientY;
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', stop);
-    function drag(e) {
-      el.style.top = (el.offsetTop - e.clientY + pos4) + 'px';
-      el.style.left = (el.offsetLeft - e.clientX + pos3) + 'px';
-      pos3 = e.clientX; pos4 = e.clientY;
-    }
-    function stop() { document.removeEventListener('mousemove', drag); document.removeEventListener('mouseup', stop); }
-  });
-}
-
-/* ---------- ОЧИСТКА ---------- */
-function clearList() {
-  $('#file-info').innerHTML = `
-    <div>Drop or select audio files/folders to process</div>
-    <div>Files will be sped up 2× to save space</div>
-    <div>Auto-trim removes silence at start and end</div>
-    <div>Folder structure will be preserved in output</div>
-    <div>Files will be saved in their original format</div>
-    <div>KO II will convert files during import</div>
-  `;
-  setStatus('Ready');
-}
-
-/* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  $$('.win95-list').forEach(group => {
-    group.addEventListener('click', e => {
-      if (!e.target.classList.contains('list-item')) return;
-      group.querySelectorAll('.list-item').forEach(i => i.classList.remove('selected'));
-      e.target.classList.add('selected');
-      setStatus(`Fidelity set to: ${e.target.textContent}`);
-    });
-  });
-  $('#select-file-button').onclick = () => { document.getElementById('audio-upload').click(); };
-  $('#select-folder-button').onclick = () => { document.getElementById('folder-upload').click(); };
-  $('#clear-button').onclick = clearList;
-  $('#cancel-button').onclick = () => processingCancelled = true;
-  const dz = $('#drop-zone');
-  let dragCounter = 0;
-  ['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dragCounter++; dz.classList.add('dragover'); }));
-  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dragCounter--; if (dragCounter<=0) dz.classList.remove('dragover'); if (e.type==='drop') handleDrop(e); }));
-  document.getElementById('audio-upload').addEventListener('change', e => processFiles(e.target.files));
-  document.getElementById('folder-upload').addEventListener('change', e => processFolder(e.target.files));
-});
-
-function handleDrop(e){
-  if(e.dataTransfer.items){
-    const queue=[],items=[];
-    [...e.dataTransfer.items].forEach(item=>{
-      const entry=item.webkitGetAsEntry?.()||item.getAsFile?.();
-      if(entry)queue.push({entry,path:''});
-    });
-    processQueue(queue,items);
-  }else if(e.dataTransfer.files.length){
-    processItems([...e.dataTransfer.files].map(f=>({file:f,path:f.name})));
-  }
-}
-function processQueue(q,i){
-  if(!q.length){processItems(i);return}
-  const {entry,path}=q.shift();
-  if(!entry){processQueue(q,i);return}
-  if(entry.isFile){
-    entry.file(f=>{i.push({file:f,path:path+f.name});processQueue(q,i)});
-  }else if(entry.isDirectory){
-    entry.createReader().readEntries(e=>{e.forEach(en=>q.push({entry:en,path:path+entry.name+'/'}));processQueue(q,i)});
-  }else processQueue(q,i);
-}
-
-window.addEventListener('beforeunload', () => {
-  createdObjectURLs.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
-  if (activeAudioContext) try { activeAudioContext.close(); } catch {}
-});
+let activeAudioContext=null,createdObjectURLs=[],dragCounter=0,processingCancelled=false,lastProgress=0,windowZIndex=100,waveWindows=[],audioContextResumed=false,memoryWarningShown=false;const MAX_PREVIEW_WINDOWS=5,MAX_FILE_SIZE=50*1024*1024,MAX_CONCURRENT=Math.max(2,Math.min(6,navigator.hardwareConcurrency||4)),BATCH_SIZE=3;function escapeHtml(t){return t?t.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"):""}function formatBytes(t){return t?t<1024?t+" B":t<1048576?(t/1024).toFixed(1)+" KB":(t/1048576).toFixed(1)+" MB":"0 B"}function safeRevoke(t){try{URL.revokeObjectURL(t),createdObjectURLs=createdObjectURLs.filter(e=>e!==t)}catch(e){}}function isMobile(){return"ontouchstart"in window||navigator.maxTouchPoints>0||navigator.msMaxTouchPoints>0}function updateStatus(t){const e=document.getElementById("status-bar");e&&(e.textContent=t)}function updateCurrentFile(t){const e=document.getElementById("current-file");e&&(e.textContent=t)}function updateFileInfo(t,e=!1){const n=document.getElementById("file-info");if(n){const o=document.createElement("div");e?o.innerHTML=t:o.textContent=t,n.appendChild(o),n.scrollTop=n.scrollHeight}}function checkMemoryAndWarn(){if(!memoryWarningShown&&(navigator.deviceMemory&&navigator.deviceMemory<4&&(document.getElementById("memory-warning").style.display="block",memoryWarningShown=!0),!memoryWarningShown)){const t=performance&&performance.memory;if(t&&t.totalJSHeapSize){const e=t.totalJSHeapSize,n=t.jsHeapSizeLimit||2*e;e>n*.7&&(document.getElementById("memory-warning").style.display="block",memoryWarningShown=!0)}}}function ensureAudioContext(){if(!activeAudioContext){const t=window.AudioContext||window.webkitAudioContext;activeAudioContext=new t}return activeAudioContext&&"suspended"===activeAudioContext.state?activeAudioContext.resume().then(()=>(audioContextResumed=!0,!0)).catch(()=>!1):Promise.resolve(!0)}function activateAudio(){audioContextResumed||activeAudioContext&&"suspended"===activeAudioContext.state&&activeAudioContext.resume().then(()=>{audioContextResumed=!0})}function handleDragOver(t){t.preventDefault(),dragCounter++,document.getElementById("drop-zone").classList.add("dragover")}function handleDragLeave(){dragCounter--,dragCounter<=0&&document.getElementById("drop-zone").classList.remove("dragover")}function handleDrop(t){t.preventDefault(),dragCounter=0,document.getElementById("drop-zone").classList.remove("dragover");const e=[];if(t.dataTransfer.items)for(const n of t.dataTransfer.items)"file"===n.kind&&e.push({file:n.getAsFile(),path:n.getAsFile().name});else if(t.dataTransfer.files.length>0)for(const n of t.dataTransfer.files)e.push({file:n,path:n.name});processItems(e)}function isSupportedAudioType(t,e){const n=["audio/wav","audio/wave","audio/x-wav","audio/mpeg","audio/mp3","audio/ogg","audio/vorbis","audio/aac","audio/aacp","audio/flac","audio/x-flac"],o=e.split(".").pop().toLowerCase();return n.includes(t)||["wav","mp3","ogg","aac","flac","m4a"].includes(o)}function getSelectedValue(t){const e=document.querySelector(`.win95-list[data-group="${t}"]`);return e?.querySelector(".list-item.selected")?.dataset.value||"cd"}function getFidelitySettings(t){switch(t){case"sp8":return{sampleRate:22050,bitDepth:8};case"sp16":return{sampleRate:22050,bitDepth:16};case"sk":return{sampleRate:9e3,bitDepth:8};default:return{sampleRate:44100,bitDepth:16}}}function trimSilence(t,e=-60,n=.1){const o=Math.pow(10,e/20),a=t.sampleRate,r=Math.floor(n*a),s=t.numberOfChannels,i=t.length,c=1024;let d=0,l=i-1;for(let e=0;e<i;e+=c){const n=Math.min(e+c,i);let a=!1;for(let o=0;o<s;o++){const r=t.getChannelData(o);for(let t=e;t<n;t++)if(Math.abs(r[t])>o){a=!0;break}}if(a){d=Math.max(0,e-c);break}}for(let e=i-c;e>=0;e-=c){const n=Math.min(e+c,i);let a=!1;for(let o=0;o<s;o++){const r=t.getChannelData(o);for(let t=e;t<n;t++)if(Math.abs(r[t])>o){a=!0;break}}if(a){l=Math.min(i-1,e+c);break}}d=Math.max(0,d-Math.floor(.05*a)),l=Math.min(i-1,l+Math.floor(.05*a));if(d>=l)return t;const u=l-d+1,f=new AudioBuffer({length:u,sampleRate:t.sampleRate,numberOfChannels:t.numberOfChannels});for(let e=0;e<s;e++)f.copyToChannel(t.getChannelData(e).subarray(d,l+1),e);return f}function writeString(t,e,n){for(let o=0;o<n.length;o++)t.setUint8(e+o,n.charCodeAt(o))}function audioBufferToWav(t){const e=getSelectedValue("fidelity"),n=getFidelitySettings(e),o=n.bitDepth,a=t.numberOfChannels,r=t.sampleRate,s=2*a,i=a*r*2,c=16*a,d=t.length*s,l=new ArrayBuffer(44+d+20),u=new DataView(l);writeString(u,0,"RIFF"),u.setUint32(4,36+d+20,!0),writeString(u,8,"WAVE"),writeString(u,12,"fmt "),u.setUint32(16,16,!0),u.setUint16(20,1,!0),u.setUint16(22,a,!0),u.setUint32(24,r,!0),u.setUint32(28,i,!0),u.setUint16(32,s,!0),u.setUint16(34,c,!0);const f=new ArrayBuffer(12),h=new DataView(f);writeString(h,0,"ko2 "),h.setUint32(4,4,!0),h.setInt8(8,-12),h.setUint8(9,255),h.setUint8(10,0),h.setUint8(11,1);const p=new ArrayBuffer(8),g=new DataView(p);writeString(g,0,"data"),g.setUint32(4,d,!0);let m;if(8===o){m=new Uint8Array(d);let e=0;for(let n=0;n<t.length;n++)for(let o=0;o<a;o++){const a=t.getChannelData(o)[n];m[e++]=Math.max(0,Math.min(255,Math.round(127.5*(a+1))))}}else{m=new Int16Array(d);let e=0;for(let n=0;n<t.length;n++)for(let o=0;o<a;o++){const a=t.getChannelData(o)[n],r=a<0?Math.round(32768*a):Math.round(32767*a);m[e++]=r}}return new Blob([l,f,p,m],{type:"audio/wav"})}class Mp3Encoder{constructor(t,e,n){if("undefined"==typeof lamejs)throw new Error("LameJS library not loaded");this.channels=t,this.sampleRate=e,this.bitrate=n,this.lame=new lamejs.Mp3Encoder(t,e,n)}encode(t){const[e,n]=this.getAudioData(t),o=1152,a=new Int16Array(o),r=new Int16Array(o),s=[];for(let t=0;t<e.length;t+=o){const i=e.subarray(t,t+o),c=this.channels>1?n.subarray(t,t+o):i;for(let t=0;t<i.length;t++){const e=Math.max(-1,Math.min(1,i[t]));a[t]=e<0?32768*e:32767*e;if(this.channels>1){const e=Math.max(-1,Math.min(1,c[t]));r[t]=e<0?32768*e:32767*e}}const d=this.lame.encodeBuffer(a.subarray(0,i.length),this.channels>1?r.subarray(0,i.length):void 0);d.length>0&&s.push(new Int8Array(d))}const i=this.lame.flush();return i.length>0&&s.push(new Int8Array(i)),new Blob(s,{type:"audio/mp3"})}getAudioData(t){const e=t.getChannelData(0),n=1===t.numberOfChannels?new Float32Array(t.length):t.getChannelData(1);return[e,n]}}async function convertChannels(t,e){if(t.numberOfChannels===e)return t;const n=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(e,t.length,t.sampleRate),o=n.createBufferSource();o.buffer=t;if(1===e&&t.numberOfChannels>1){const o=n.createChannelMerger(1),a=n.createChannelSplitter(t.numberOfChannels);o.connect(a);const r=n.createGain();r.gain.value=1/t.numberOfChannels;for(let e=0;e<t.numberOfChannels;e++)a.connect(r,e);r.connect(o),o.connect(n.destination)}else 2===e&&1===t.numberOfChannels?(o.connect(n.createChannelMerger(2),0,0),o.connect(n.createChannelMerger(2),0,1)):o.connect(n.destination);o.start();return n.startRendering()}async function applySpeedAndFidelity(t,e,n){const o=t.duration/e,a=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(t.numberOfChannels,Math.max(Math.ceil(o*n),4500),n),r=a.createBufferSource();r.buffer=t,r.playbackRate.value=e,r.connect(a.destination),r.start();return a.startRendering()}function createWaveWindow(t,e,n,o){if(waveWindows.length>=MAX_PREVIEW_WINDOWS){const t=waveWindows.shift();t.element&&(t.element.wavesurfer&&t.element.wavesurfer.destroy(),safeRevoke(t.url),document.body.removeChild(t.element))}windowZIndex+=2;const a="wave-window-"+Date.now(),r=document.createElement("div");r.className="wave-window window",r.id=a,r.style.zIndex=windowZIndex,r.style.top=80+30*waveWindows.length+"px",r.style.left=100+30*waveWindows.length+"px",r.innerHTML=`<div class="title-bar"><span>${escapeHtml(t)}</span><div class="window-controls"><button class="minimize">_</button><button class="close">×</button></div></div><div class="content"><div class="wave-container"><div class="wave-title">${escapeHtml(t)}</div><div class="wave-element-container"><div class="wave-element"></div></div><div class="preview-controls"><button class="wave-button play-button"><i class="fas fa-play"></i></button><button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i></button><button class="wave-button stop-button"><i class="fas fa-stop"></i></button></div></div></div>`;document.body.appendChild(r);const s=r.querySelector(".play-button"),i=r.querySelector(".pause-button"),c=r.querySelector(".stop-button"),d=r.querySelector(".wave-element");r.querySelector(".close").addEventListener("click",()=>{r.wavesurfer&&r.wavesurfer.destroy(),safeRevoke(e),document.body.removeChild(r),waveWindows=waveWindows.filter(t=>t.id!==a)});r.querySelector(".minimize").addEventListener("click",()=>{const t=r.querySelector(".content");t.style.display="none"===t.style.display?"block":"none"});let l=0,u=0,m=0,f=0;const h=r.querySelector(".title-bar");function g(t){t.preventDefault(),windowZIndex+=2,r.style.zIndex=windowZIndex;const e="touchstart"===t.type||"touchmove"===t.type;if(e){const e=t.touches[0];m=e.clientX,f=e.clientY;document.addEventListener("touchmove",p,{passive:!1}),document.addEventListener("touchend",y)}else{m=t.clientX,f=t.clientY;document.addEventListener("pointermove",v),document.addEventListener("pointerup",y)}}function v(t){let e,n;"touchmove"===t.type?(e=t.touches[0].clientX,n=t.touches[0].clientY):(e=t.clientX,n=t.clientY);l=m-e,u=f-n,m=e,f=n,r.style.top=r.offsetTop-u+"px",r.style.left=r.offsetLeft-l+"px"}function y(){document.removeEventListener("pointermove",v),document.removeEventListener("pointerup",y),document.removeEventListener("touchmove",v),document.removeEventListener("touchend",y)}h.addEventListener("pointerdown",g),h.addEventListener("touchstart",g,{passive:!1}),h.addEventListener("mousedown",g);const w=window.WaveSurfer?.default||window.WaveSurfer;if(!w)return;const b=(o&&o.forceMediaElement)||isMobile()?"MediaElement":"WebAudio",C=w.create({container:d,height:128,normalize:!0,fillParent:!0,backend:b});r.wavesurfer=C,C.load(e),s.addEventListener("click",()=>{activateAudio(),C.play(),s.style.display="none",i.style.display="block",updateStatus("Playing processed audio")}),i.addEventListener("click",()=>{C.pause(),i.style.display="none",s.style.display="block",updateStatus("Playback paused")}),c.addEventListener("click",()=>{C.stop(),i.style.display="none",s.style.display="block",updateStatus("Playback stopped")});const S={id:a,element:r,url:e};waveWindows.push(S);return r}function updateProgressBar(t){return new Promise(e=>{t=Math.max(0,Math.min(1,t));const n=document.querySelectorAll(".progress-segment"),o=Math.floor(t*n.length);for(let t=0;t<n.length;t++){const e=t<o,a=n[t].classList.contains("active");e!==a&&n[t].classList.toggle("active",e)}setTimeout(e,20)})}function showOverlay(){document.getElementById("overlay").style.display="block",document.getElementById("win95-loader").style.display="block",processingCancelled=!1}function hideOverlay(){document.getElementById("overlay").style.display="none",document.getElementById("win95-loader").style.display="none"}document.addEventListener("DOMContentLoaded",()=>{isMobile()&&(document.getElementById("mobile-warning").style.display="block"),checkMemoryAndWarn(),document.querySelectorAll(".win95-list").forEach(t=>{t.addEventListener("click",e=>{if(e.target.classList.contains("list-item")){t.querySelectorAll(".list-item").forEach(t=>t.classList.remove("selected")),e.target.classList.add("selected"),updateStatus("Fidelity set to: "+e.target.textContent)}})});const t=document.getElementById("drop-zone"),e=document.getElementById("audio-upload"),n=document.getElementById("folder-upload"),o=document.getElementById("select-file-button"),a=document.getElementById("select-folder-button"),r=document.getElementById("clear-button"),s=document.getElementById("cancel-button");t.addEventListener("dragover",handleDragOver),t.addEventListener("dragleave",handleDragLeave),t.addEventListener("drop",handleDrop),t.addEventListener("touchmove",t=>{t.preventDefault(),dragCounter++,t.currentTarget.classList.add("dragover")},{passive:!1}),t.addEventListener("touchend",handleDragLeave),o.addEventListener("click",()=>{e.click(),activateAudio()}),a.addEventListener("click",()=>{n.click(),activateAudio()}),r.addEventListener("click",()=>{document.getElementById("file-info").innerHTML='<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>',updateStatus("File list cleared")}),e.addEventListener("change",async t=>{updateStatus(`Files selected: ${t.target.files.length}`),updateFileInfo(`<div>Selected ${t.target.files.length} file(s). Starting processing...</div>`),await ensureAudioContext(),processFiles(t.target.files),t.target.value=null}),n.addEventListener("change",async t=>{updateStatus(`Folder selected with ${t.target.files.length} files`),updateFileInfo("<div>Folder selected. Starting processing...</div>"),await ensureAudioContext(),processFolder(t.target.files),t.target.value=null}),document.querySelector(".title-bar .minimize").addEventListener("click",()=>{document.querySelector(".window").style.display="none"}),document.querySelector(".title-bar .close").addEventListener("click",()=>{document.querySelector(".window").style.display="none"}),s.addEventListener("click",()=>{processingCancelled=!0,currentProcessing&&currentProcessing.cancel(),createdObjectURLs.forEach(t=>{try{URL.revokeObjectURL(t)}catch(t){}}),createdObjectURLs=[],hideOverlay(),updateStatus("Processing cancelled")}),updateStatus("Ready to process files");["#select-file-button","#select-folder-button",".wave-button",".wave-window","#drop-zone"].forEach(t=>{document.querySelectorAll(t).forEach(t=>{t.addEventListener("click",activateAudio),t.addEventListener("touchstart",activateAudio)})})});window.addEventListener("beforeunload",()=>{createdObjectURLs.forEach(t=>{try{URL.revokeObjectURL(t)}catch(t){}}),activeAudioContext&&activeAudioContext.close().catch(()=>{})});
 </script>
 </body>
 </html>
