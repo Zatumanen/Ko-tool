@@ -1,13 +1,73 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8"/>
   <title>SpeedUpperCut — KO II Tool</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    :root{--win-gray:#c0c0c0;--win-light:#fff;--win-dark:#808080;--primary-blue:#000080}
+    body{margin:0;font-family:'Courier New',monospace;background:teal;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:20px;box-sizing:border-box}
+    .window{width:100%;max-width:480px;background:var(--win-gray);border:2px outset var(--win-light);box-shadow:2px 2px 4px rgba(0,0,0,.5)}
+    .title-bar{background:var(--primary-blue);color:#fff;padding:4px 8px;display:flex;justify-content:space-between;align-items:center;user-select:none}
+    button{min-height:44px;padding:8px 16px;font-family:inherit;cursor:pointer;border:2px outset var(--win-gray);background:var(--win-gray)}
+    button:active{border-style:inset}
+    .drop-zone{border:2px dashed #000;padding:20px;text-align:center;cursor:pointer}
+    .drop-zone.dragover{background:rgba(0,128,0,.2)}
+    #file-info{max-height:200px;overflow-y:auto;background:#fff;border:2px inset var(--win-dark);padding:6px;font-size:13px}
+    .progress-bar-container{display:flex;gap:1px;margin:8px 0}
+    .progress-segment{width:8px;height:20px;background:var(--win-gray)}
+    .progress-segment.active{background:var(--primary-blue)}
+  </style>
 </head>
 <body>
-  <div id="app" aria-live="polite"></div>
-  <script type="module" src="main.js"></script>
-</body>
-</html>
+<div id="app">
+  <div class="window">
+    <div class="title-bar">
+      <span>SpeedUpperCut</span>
+      <div>
+        <button class="min" title="Свернуть">_</button>
+        <button class="close" title="Закрыть">×</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="drop-zone" id="dz">Перетащите аудио или нажмите для выбора</div>
+      <input id="file" type="file" multiple accept="audio/*" style="display:none"/>
+      <div id="file-info"></div>
+      <div class="progress-bar-container" id="pb" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+class WorkerPool{
+  constructor(url,size){
+    this.workers=[...Array(size)].map(()=>new Worker(url));
+    this.busy=new Set();this.queue=[]
+  }
+  async exec(p){
+    let w=this.workers.find(x=>!this.busy.has(x));
+    if(!w)return new Promise(r=>this.queue.push({p,r})).then(()=>this.exec(p));
+    return new Promise((res,rej)=>{
+      const id=Math.random();
+      const fn=({data})=>{
+        if(data.id!==id)return;
+        w.removeEventListener('message',fn);this.busy.delete(w);
+        if(this.queue.length){const{p,r}=this.queue.shift();r(this.exec(p))}
+        data.err?rej(new Error(data.err)):res(data)
+      };
+      w.addEventListener('message',fn);this.busy.add(w);w.postMessage({id,payload:p})
+    })
+  }
+}
+const pool=new WorkerPool(URL.createObjectURL(new Blob([`
+importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
+let ctx;
+function init(){if(!ctx&&(self.AudioContext||self.webkitAudioContext))ctx=new(self.AudioContext||self.webkitAudioContext)();return ctx}
+function wav(blob){
+  const{l,sr,nc}=blob,dl=l*nc*2,sz=36+dl,b=new ArrayBuffer(56+dl),v=new DataView(b);
+  const wr=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  wr(0,'RIFF');v.setUint32(4,sz,true);wr(8,'WAVE');wr(12,'fmt ');v.setUint32(16,16,true);
+  v.setUint16(20,1,true);v.setUint16(22,nc,true);v.setUint32(24,sr,true);
+  v.setUint32(28,sr*nc*2,true);v.setUint16(32,nc*2,true);v.setUint16(34,16,true);
+  wr(36,'data');v.setUint32(40,dl,true);
+  new Uint8Array(b,44,12).set(new Uint8Array([
