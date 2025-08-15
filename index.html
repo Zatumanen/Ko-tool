@@ -1,73 +1,123 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8"/>
-  <title>SpeedUpperCut — KO II Tool</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <title>SpeedUpperCut</title>
+  <!-- стили остались прежними -->
   <style>
-    :root{--win-gray:#c0c0c0;--win-light:#fff;--win-dark:#808080;--primary-blue:#000080}
-    body{margin:0;font-family:'Courier New',monospace;background:teal;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:20px;box-sizing:border-box}
-    .window{width:100%;max-width:480px;background:var(--win-gray);border:2px outset var(--win-light);box-shadow:2px 2px 4px rgba(0,0,0,.5)}
-    .title-bar{background:var(--primary-blue);color:#fff;padding:4px 8px;display:flex;justify-content:space-between;align-items:center;user-select:none}
-    button{min-height:44px;padding:8px 16px;font-family:inherit;cursor:pointer;border:2px outset var(--win-gray);background:var(--win-gray)}
+    :root{--glow-color:#ff3333;--primary-blue:#000080;--win-gray:#c0c0c0;--win-light:#fff;--win-dark:#808080}
+    body{background:#008080;font-family:'Courier New',monospace;margin:0;padding:20px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;overflow-x:hidden;background-image:radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0),radial-gradient(circle at 1px 1px,var(--win-dark) 1px,transparent 0);background-size:4px 4px;background-position:0 0,2px 2px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    .desktop-icon{position:absolute;width:80px;text-align:center;color:#fff;text-shadow:1px 1px 1px #000;cursor:pointer;padding:4px;user-select:none;transition:transform .2s}
+    .desktop-icon:hover{background:rgba(255,255,255,.2);transform:scale(1.05)}
+    .window{width:100%;max-width:480px;background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:2px 2px 4px rgba(0,0,0,.5);padding:0;box-sizing:border-box;position:relative;z-index:100}
+    .title-bar{background:var(--primary-blue);color:#fff;padding:4px 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--win-gray);cursor:move;user-select:none}
+    .title-bar button{width:20px;height:20px;border:none;background:var(--win-gray);cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:bold;font-family:Arial,sans-serif;margin-left:4px;border:1px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark)}
+    .title-bar button:active{border-top-color:var(--win-dark);border-left-color:var(--win-dark);border-right-color:var(--win-light);border-bottom-color:var(--win-light)}
+    .content{padding:12px;font-size:14px;color:#000}
+    .drop-zone{border:2px dashed #000;padding:20px;text-align:center;background:rgba(255,255,255,.3);margin-top:12px;position:relative;cursor:pointer;border-style:dotted;border-color:var(--win-dark)}
+    .drop-zone.dragover{background:rgba(0,128,0,.3)}
+    .drop-zone input[type=file]{position:absolute;width:100%;height:100%;opacity:0;cursor:pointer}
+    #file-info{margin-top:10px;font-size:14px;text-align:left;background:#fff;border:2px inset var(--win-dark);padding:10px;max-height:200px;overflow-y:auto}
+    button{min-height:44px;padding:10px;cursor:pointer;font-family:'Courier New',monospace;font-size:16px;border:2px outset var(--win-gray);background:var(--win-gray);color:#000}
     button:active{border-style:inset}
-    .drop-zone{border:2px dashed #000;padding:20px;text-align:center;cursor:pointer}
-    .drop-zone.dragover{background:rgba(0,128,0,.2)}
-    #file-info{max-height:200px;overflow-y:auto;background:#fff;border:2px inset var(--win-dark);padding:6px;font-size:13px}
-    .progress-bar-container{display:flex;gap:1px;margin:8px 0}
-    .progress-segment{width:8px;height:20px;background:var(--win-gray)}
+    .progress-bar-container{background:#fff;border:2px inset var(--win-dark);height:24px;margin-top:8px;display:flex;padding:2px;gap:1px;justify-content:flex-start}
+    .progress-segment{width:8px;height:100%;background:var(--win-gray)}
     .progress-segment.active{background:var(--primary-blue)}
+    .win95-inset{border:2px inset var(--win-dark);background:var(--win-gray);padding:6px;margin-bottom:6px}
+    .win95-list{border:2px inset var(--win-dark);background:#fff;padding:4px;font-family:'Courier New',monospace;height:100px;overflow-y:auto}
+    .list-item{padding:8px 6px;cursor:pointer;user-select:none;font-size:13px}
+    .list-item:hover,.list-item.selected{background:var(--primary-blue);color:#fff}
+    @media (max-width:768px){body{padding:10px}.window{width:95vw;max-width:none}.progress-segment{width:6px}}
   </style>
 </head>
 <body>
-<div id="app">
+  <!-- иконка на рабочем столе -->
+  <div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij4KPHJlY3QgeD0iMjQiIHk9IjQwIiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiNlNTM5MzUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMiIvPgo8cmVjdCB4PSIyNiIgeT0iNDQiIHdpZHRoPSIxMiIgaGVpZ2h0PSI0IiBmaWxsPSIjYjcxYzFjIi8+Cjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==" width="48" height="48">
+    <div>KO II Tool</div>
+  </div>
+
+  <!-- главное окно -->
   <div class="window">
     <div class="title-bar">
       <span>SpeedUpperCut</span>
       <div>
-        <button class="min" title="Свернуть">_</button>
-        <button class="close" title="Закрыть">×</button>
+        <button class="minimize" title="Minimize">_</button>
+        <button class="close" title="Close">×</button>
       </div>
     </div>
     <div class="content">
-      <div class="drop-zone" id="dz">Перетащите аудио или нажмите для выбора</div>
-      <input id="file" type="file" multiple accept="audio/*" style="display:none"/>
-      <div id="file-info"></div>
-      <div class="progress-bar-container" id="pb" style="display:none;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div class="win95-inset" style="flex:1"><label>FIDELITY</label><br>
+          <div class="win95-list" id="fidelity">
+            <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
+            <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
+            <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
+            <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
+          </div>
+        </div>
+        <div class="win95-inset" style="flex:1"><label>CHANNELS</label><br>
+          <div class="win95-list" id="channels">
+            <div data-value="stereo" class="list-item selected">Stereo</div>
+            <div data-value="mono" class="list-item">Mono</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
+        <label for="auto-trim">Auto-trim silence at start/end</label>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
+        <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple/>
+        <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+      </div>
+      <div id="file-info">
+        <div>Drop or select audio files/folders to process</div>
+        <div>Files will be sped up 2× to save space</div>
+        <div>Auto-trim removes silence at start and end</div>
+        <div>Folder structure will be preserved in output</div>
+        <div>Files will be saved in their original format</div>
+        <div>KO II will convert files during import</div>
+      </div>
     </div>
   </div>
-</div>
 
 <script type="module">
-class WorkerPool{
-  constructor(url,size){
-    this.workers=[...Array(size)].map(()=>new Worker(url));
-    this.busy=new Set();this.queue=[]
-  }
-  async exec(p){
-    let w=this.workers.find(x=>!this.busy.has(x));
-    if(!w)return new Promise(r=>this.queue.push({p,r})).then(()=>this.exec(p));
-    return new Promise((res,rej)=>{
-      const id=Math.random();
-      const fn=({data})=>{
-        if(data.id!==id)return;
-        w.removeEventListener('message',fn);this.busy.delete(w);
-        if(this.queue.length){const{p,r}=this.queue.shift();r(this.exec(p))}
-        data.err?rej(new Error(data.err)):res(data)
-      };
-      w.addEventListener('message',fn);this.busy.add(w);w.postMessage({id,payload:p})
-    })
-  }
-}
-const pool=new WorkerPool(URL.createObjectURL(new Blob([`
+/* ===== Worker ===== */
+const workerCode = `
 importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
 let ctx;
-function init(){if(!ctx&&(self.AudioContext||self.webkitAudioContext))ctx=new(self.AudioContext||self.webkitAudioContext)();return ctx}
-function wav(blob){
-  const{l,sr,nc}=blob,dl=l*nc*2,sz=36+dl,b=new ArrayBuffer(56+dl),v=new DataView(b);
+function initCtx(){if(!ctx&&(self.AudioContext||self.webkitAudioContext))ctx=new(self.AudioContext||self.webkitAudioContext)();return ctx}
+function wav(buffer){
+  const {length,sampleRate,numberOfChannels}=buffer;
+  const dataLen=length*numberOfChannels*2,size=36+dataLen;
+  const buf=new ArrayBuffer(44+12+dataLen),v=new DataView(buf);
   const wr=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
-  wr(0,'RIFF');v.setUint32(4,sz,true);wr(8,'WAVE');wr(12,'fmt ');v.setUint32(16,16,true);
-  v.setUint16(20,1,true);v.setUint16(22,nc,true);v.setUint32(24,sr,true);
-  v.setUint32(28,sr*nc*2,true);v.setUint16(32,nc*2,true);v.setUint16(34,16,true);
-  wr(36,'data');v.setUint32(40,dl,true);
-  new Uint8Array(b,44,12).set(new Uint8Array([
+  wr(0,'RIFF');v.setUint32(4,size,true);wr(8,'WAVE');wr(12,'fmt ');
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,numberOfChannels,true);
+  v.setUint32(24,sampleRate,true);v.setUint32(28,sampleRate*numberOfChannels*2,true);
+  v.setUint16(32,numberOfChannels*2,true);v.setUint16(34,16,true);
+  wr(36,'data');v.setUint32(40,dataLen,true);
+  new Uint8Array(buf,44,12).set(new Uint8Array([0x6b,0x6f,0x32,0x20,4,0,0,0,0,255,0,1]));
+  const samples=new Int16Array(buf,56);let idx=0;
+  for(let i=0;i<length;i++)for(let ch=0;ch<numberOfChannels;ch++){
+    const s=buffer.getChannelData(ch)[i];samples[idx++]=s<0?s*0x8000:s*0x7fff;
+  }
+  return new Blob([buf],{type:'audio/wav'});
+}
+async function process({file,fidelity,channels,trim}){
+  const ctx=initCtx();if(!ctx)throw new Error('Web Audio не поддерживается');
+  const ab=await file.arrayBuffer(),decoded=await ctx.decodeAudioData(ab);
+  // offline processing
+  const Offline=self.OfflineAudioContext||self.webkitOfflineAudioContext;
+  const off=new Offline(channels==='mono'?1:decoded.numberOfChannels,decoded.length,decoded.sampleRate);
+  const src=off.createBufferSource();src.buffer=decoded;src.playbackRate.value=2;
+  src.connect(off.destination);src.start();
+  const processed=await off.startRendering();
+  // trim silence
+  if(trim){
+    const th=10**(-60/20);let start=0,end=processed.length;
+    outer:for(let i=0;i<processed.length;i++)for(let c=0;c<processed.numberOfChannels;c++)if(Math.abs(processed.getChannelData(c)[i])>th){start=Math.max(0,i-2205);break outer}
+    outer:for(let i=processed.length-1;i>=0;i--)for(let c=0;c<processed.numberOfChannels;c++)if(Math.abs(processed.getChannelData(c)[i])>th
