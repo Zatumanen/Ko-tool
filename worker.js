@@ -1,23 +1,38 @@
 self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
 
+let cancelEncoding = false;
+
 class Mp3Encoder {
   constructor(channels, sampleRate, bitrate) {
     this.channels = channels;
     this.sampleRate = sampleRate;
     this.bitrate = bitrate;
+    
+    if (typeof lamejs === 'undefined') {
+      throw new Error('lamejs not loaded');
+    }
+    
     this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
   }
 
-  encode(audioBuffer) {
+  encode(audioBuffer, progressCallback) {
     const [left, right] = this.getAudioData(audioBuffer);
     const sampleBlockSize = 1152;
     const leftSamples = new Int16Array(sampleBlockSize);
     const rightSamples = new Int16Array(sampleBlockSize);
     const mp3Data = [];
+    const totalChunks = Math.ceil(left.length / sampleBlockSize);
+    let processedChunks = 0;
 
     for (let i = 0; i < left.length; i += sampleBlockSize) {
+      if (cancelEncoding) {
+        throw new Error('Encoding cancelled');
+      }
+
       const leftChunk = left.subarray(i, i + sampleBlockSize);
-      const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
+      const rightChunk = this.channels > 1 
+        ? right.subarray(i, i + sampleBlockSize) 
+        : leftChunk;
 
       for (let j = 0; j < leftChunk.length; j++) {
         const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
@@ -36,6 +51,12 @@ class Mp3Encoder {
 
       if (mp3buf.length > 0) {
         mp3Data.push(new Int8Array(mp3buf));
+      }
+
+      processedChunks++;
+      if (progressCallback && processedChunks % 5 === 0) {
+        const progress = Math.min(1, processedChunks / totalChunks);
+        progressCallback(progress);
       }
     }
 
@@ -58,37 +79,62 @@ class Mp3Encoder {
 }
 
 self.addEventListener('message', async (e) => {
-  const { id, type, audioData } = e.data;
+  if (e.data.command === 'cancel') {
+    cancelEncoding = true;
+    self.close();
+    return;
+  }
+
+  const { id, type, audioData, fileId } = e.data;
   
   if (type === 'encode') {
     try {
+      if (typeof lamejs === 'undefined') {
+        throw new Error('lamejs library failed to load');
+      }
+
       const { channels, sampleRate } = audioData;
-      const encoder = new Mp3Encoder(channels.length, sampleRate, 192);
+      const encoder = new Mp3Encoder(channels, sampleRate, 192);
       
       const left = new Float32Array(audioData.left);
-      const right = channels.length > 1 ? new Float32Array(audioData.right) : left;
+      const right = channels > 1 
+        ? new Float32Array(audioData.right) 
+        : left;
       
       const audioBuffer = {
         getChannelData: (index) => index === 0 ? left : right,
-        numberOfChannels: channels.length,
+        numberOfChannels: channels,
         sampleRate: sampleRate,
         length: left.length
       };
       
-      const mp3Blob = encoder.encode(audioBuffer);
+      const progressCallback = (progress) => {
+        self.postMessage({
+          id,
+          type: 'progress',
+          progress,
+          fileId
+        });
+      };
+      
+      const mp3Blob = encoder.encode(audioBuffer, progressCallback);
       const arrayBuffer = await mp3Blob.arrayBuffer();
       
       self.postMessage({ 
         id, 
         type: 'result', 
-        result: arrayBuffer 
+        result: arrayBuffer,
+        fileId
       });
     } catch (error) {
       self.postMessage({ 
         id, 
         type: 'error', 
-        error: `MP3 encoding error: ${error.message}` 
+        error: `MP3 encoding error: ${error.message}`,
+        fileId
       });
+    } finally {
+      audioBuffer = null;
     }
   }
 });
