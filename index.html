@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -30,29 +30,29 @@
     <div class="content">
       <div class="win95-inset">
         <details>
-          <summary><i class="fas fa-question-circle"></i> Инструкция</summary>
-          1. Выберите параметры обработки<br>
-          2. Перетащите аудиофайлы в зону загрузки<br>
-          3. Дождитесь обработки<br>
-          4. Скачайте ZIP-архив с результатами
+          <summary><i class="fas fa-question-circle"></i> Instructions</summary>
+          1. Select processing parameters<br>
+          2. Drag & drop audio files<br>
+          3. Wait for processing<br>
+          4. Download ZIP with results
         </details>
       </div>
 
       <div class="memory-warning" id="memory-warning">
-        <i class="fas fa-exclamation-triangle"></i> Обработка больших файлов требует много памяти. Закройте другие вкладки.
+        <i class="fas fa-exclamation-triangle"></i> Processing large files may use significant memory. Close other tabs.
       </div>
       
       <div class="mobile-warning" id="mobile-warning">
-        <i class="fas fa-mobile-alt"></i> На мобильных устройствах обработка медленнее. Используйте небольшие файлы.
+        <i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use small files for best results.
       </div>
       
       <div class="format-warning">
-        <i class="fas fa-info-circle"></i> Файлы сохраняются в оригинальном формате (MP3, WAV и др.)
+        <i class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
       </div>
       
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <div class="win95-inset" style="flex:1">
-          <label>КАЧЕСТВО</label><br>
+          <label>FIDELITY</label><br>
           <div class="win95-list" data-group="fidelity">
             <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
             <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
@@ -61,57 +61,58 @@
           </div>
         </div>
         <div class="win95-inset" style="flex:1">
-          <label>КАНАЛЫ</label><br>
+          <label>CHANNELS</label><br>
           <div class="win95-list" data-group="channels">
-            <div data-value="stereo" class="list-item selected">Стерео</div>
-            <div data-value="mono" class="list-item">Моно</div>
+            <div data-value="stereo" class="list-item selected">Stereo</div>
+            <div data-value="mono" class="list-item">Mono</div>
           </div>
         </div>
       </div>
       
       <div class="trim-control">
         <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
-        <label for="auto-trim">Авто-обрезка тишины</label>
+        <label for="auto-trim">Auto-trim silence at start/end</label>
       </div>
       
       <div class="drop-zone" id="drop-zone">
         <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
         <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple>
         <input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none">
-        <span>ПЕРЕТАЩИТЕ ИЛИ ВЫБЕРИТЕ АУДИОФАЙЛЫ/ПАПКИ</span>
-        <div class="supported-formats">Поддерживаемые: WAV, MP3, AAC, OGG, FLAC</div>
+        <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+        <div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div>
       </div>
       
       <div class="button-group">
-        <button id="select-file-button">Выбрать файлы</button>
-        <button id="select-folder-button">Выбрать папку</button>
-        <button id="clear-button">Очистить</button>
+        <button id="select-file-button">Select Files</button>
+        <button id="select-folder-button">Select Folder</button>
+        <button id="clear-button">Clear List</button>
       </div>
       
       <div class="info-panel" id="file-info">
-        <div>Перетащите или выберите аудиофайлы/папки</div>
-        <div>Файлы будут ускорены в 2 раза</div>
-        <div>Авто-обрезка удаляет тишину в начале/конце</div>
-        <div>Структура папок сохранится</div>
-        <div>KO II конвертирует файлы при импорте</div>
+        <div>Drop or select audio files/folders to process</div>
+        <div>Files will be sped up 2x to save space</div>
+        <div>Auto-trim removes silence at start and end</div>
+        <div>Folder structure will be preserved in output</div>
+        <div>Files will be saved in their original format</div>
+        <div>KO II will convert files during import</div>
       </div>
     </div>
   </div>
 
   <div id="overlay">
     <div id="win95-loader">
-      <div id="processing-title">Обработка файлов...</div>
+      <div id="processing-title">Processing Audio Files...</div>
       <div class="progress-bar-container" id="segment-container"></div>
-      <div id="current-file">Подготовка...</div>
-      <button id="cancel-button">Отменить</button>
+      <div id="current-file">Preparing...</div>
+      <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
 
   <div class="taskbar">
     <div class="start-button">
-      <i class="fas fa-bars"></i> Пуск
+      <i class="fas fa-bars"></i> Start
     </div>
-    <div class="status-bar" id="status-bar">Готов</div>
+    <div class="status-bar" id="status-bar">Ready</div>
   </div>
 
   <script>
@@ -127,7 +128,7 @@
       }
       checkMemoryAndWarn()
       setupEventListeners()
-      updateStatus("Готов к обработке")
+      updateStatus("Ready to process files")
     }
 
     function setupEventListeners(){
@@ -151,21 +152,21 @@
       selectFileButton.addEventListener('click',()=>{fileInput.click();activateAudio()})
       selectFolderButton.addEventListener('click',()=>{folderInput.click();activateAudio()})
       clearButton.addEventListener('click',()=>{
-        document.getElementById('file-info').innerHTML='<div>Перетащите или выберите аудиофайлы/папки</div><div>Файлы будут ускорены в 2 раза</div><div>Авто-обрезка удаляет тишину в начале/конце</div><div>Структура папок сохранится</div><div>KO II конвертирует файлы при импорте</div>'
-        updateStatus("Список очищен")
+        document.getElementById('file-info').innerHTML='<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>'
+        updateStatus("File list cleared")
       })
       
       fileInput.addEventListener('change',async e=>{
-        updateStatus(`Выбрано файлов: ${e.target.files.length}`)
-        updateFileInfo(`<div>Выбрано ${e.target.files.length} файлов. Обработка...</div>`)
+        updateStatus(`Files selected: ${e.target.files.length}`)
+        updateFileInfo(`<div>Selected ${e.target.files.length} file(s). Processing...</div>`)
         await ensureAudioContext()
         processFiles(e.target.files)
         e.target.value=null
       })
       
       folderInput.addEventListener('change',async e=>{
-        updateStatus(`Выбрана папка с ${e.target.files.length} файлами`)
-        updateFileInfo(`<div>Выбрана папка. Обработка...</div>`)
+        updateStatus(`Folder selected with ${e.target.files.length} files`)
+        updateFileInfo(`<div>Folder selected. Processing...</div>`)
         await ensureAudioContext()
         processFolder(e.target.files)
         e.target.value=null
@@ -180,7 +181,7 @@
         createdObjectURLs.forEach(url=>{try{URL.revokeObjectURL(url)}catch(e){}})
         createdObjectURLs=[]
         hideOverlay()
-        updateStatus("Обработка отменена")
+        updateStatus("Processing cancelled")
       })
       
       ['#select-file-button','#select-folder-button','.wave-button','.wave-window','#drop-zone'].forEach(selector=>{
@@ -210,7 +211,7 @@
     function initAudioContext(){
       if(!activeAudioContext){
         try{const ContextClass=window.AudioContext||window.webkitAudioContext;activeAudioContext=new ContextClass();return activeAudioContext}
-        catch(e){updateFileInfo(`<div class="file-error">Ошибка AudioContext: ${e.message}</div>`);return null}
+        catch(e){updateFileInfo(`<div class="file-error">AudioContext error: ${e.message}</div>`);return null}
       }
       return activeAudioContext
     }
@@ -225,40 +226,56 @@
     function handleDragOver(e){e.preventDefault();dragCounter++;document.getElementById('drop-zone').classList.add('dragover')}
     function handleDragLeave(){dragCounter--;if(dragCounter<=0)document.getElementById('drop-zone').classList.remove('dragover')}
     function handleDrop(e){e.preventDefault();dragCounter=0;document.getElementById('drop-zone').classList.remove('dragover')
-      if(e.dataTransfer.items){const items=[];for(const item of e.dataTransfer.items){if(item.kind==='file'){const file=item.getAsFile();if(file)items.push({file,path:file.name})}processItems(items)}
-      else if(e.dataTransfer.files.length>0){const items=Array.from(e.dataTransfer.files).map(file=>({file,path:file.name}));processItems(items)}}
+      if(e.dataTransfer.items){
+        const items=[];
+        for(const item of e.dataTransfer.items){
+          if(item.kind==='file'){
+            const file=item.getAsFile();
+            if(file) items.push({file,path:file.name})
+          }
+        }
+        processItems(items);
+      }
+      else if(e.dataTransfer.files.length>0){
+        const items=Array.from(e.dataTransfer.files).map(file=>({file,path:file.name}));
+        processItems(items);
+      }
+    }
 
     async function processFiles(files){if(!files||files.length===0)return;const items=Array.from(files).map(file=>({file,path:file.name}));await processItems(items)}
     async function processFolder(files){if(!files||files.length===0)return;const items=[];for(const file of files){const path=file.webkitRelativePath||file.name;items.push({file,path})};await processItems(items)}
 
     async function processItems(items){
-      if(!items||items.length===0){updateStatus("Нет файлов для обработки");return}
+      if(!items||items.length===0){updateStatus("No files to process");return}
       processingCancelled=false
       const segmentContainer=document.getElementById('segment-container'),fileInfo=document.getElementById('file-info'),cancelButton=document.getElementById('cancel-button')
       showOverlay()
-      fileInfo.innerHTML='<div>Начало обработки...</div>'
+      fileInfo.innerHTML='<div>Processing started...</div>'
       cancelButton.disabled=false
-      updateStatus(`Обработка ${items.length} файлов`)
+      updateStatus(`Processing ${items.length} items`)
       const zip=new JSZip()
       let stereoOriginal=0,monoOriginal=0,totalOriginalSize=0,totalProcessedSize=0,processedFiles=0,totalTrimmed=0
       segmentContainer.innerHTML=''
       const totalSegments=50
       for(let i=0;i<totalSegments;i++){const seg=document.createElement('div');seg.className='progress-segment';segmentContainer.appendChild(seg)}
-      currentProcessing={cancel:()=>{processingCancelled=true;if(activeAudioContext){try{activeAudioContext.close()}catch(e){}activeAudioContext=null}cancelButton.disabled=true;updateStatus("Обработка отменена")}}
-      try{for(let i=0;i<items.length;i++){if(processingCancelled)break
-        const item=items[i]
-        const result=await processSingleItem(item,i,items.length,zip)
-        if(!result)continue
-        processedFiles++
-        totalOriginalSize+=result.originalSize||0
-        totalProcessedSize+=result.processedSize||0
-        totalTrimmed+=result.trimmedSamples||0
-        if(result.channels===1)monoOriginal++
-        else if(result.channels===2)stereoOriginal++
-        await updateProgressBar((i+1)/items.length)}
+      currentProcessing={cancel:()=>{processingCancelled=true;if(activeAudioContext){try{activeAudioContext.close()}catch(e){}activeAudioContext=null}cancelButton.disabled=true;updateStatus("Processing cancelled")}}
+      try{
+        for(let i=0;i<items.length;i++){
+          if(processingCancelled) break
+          const item=items[i]
+          const result=await processSingleItem(item,i,items.length,zip)
+          if(!result) continue
+          processedFiles++
+          totalOriginalSize+=result.originalSize||0
+          totalProcessedSize+=result.processedSize||0
+          totalTrimmed+=result.trimmedSamples||0
+          if(result.channels===1) monoOriginal++
+          else if(result.channels===2) stereoOriginal++
+          await updateProgressBar((i+1)/items.length)
+        }
         if(!processingCancelled&&processedFiles>0){
           const zipBlob=await zip.generateAsync({type:"blob",compression:"DEFLATE",compressionOptions:{level:6}},metadata=>{
-            updateStatus(`Сжатие: ${metadata?.percent?metadata.percent.toFixed(1):0}%`)
+            updateStatus(`Compressing: ${metadata?.percent?metadata.percent.toFixed(1):0}%`)
           })
           await updateProgressBar(1)
           const zipUrl=URL.createObjectURL(zipBlob)
@@ -271,13 +288,15 @@
           document.body.removeChild(a)
           setTimeout(()=>{try{URL.revokeObjectURL(zipUrl)}catch(e){}createdObjectURLs=createdObjectURLs.filter(url=>url!==zipUrl)},2000)
           const fidelity=getSelectedValue('fidelity'),channels=getSelectedValue('channels')
-          fileInfo.innerHTML+=`<div><b>Обработано ${processedFiles} файлов</b></div><div>Исходный размер: ${formatBytes(totalOriginalSize)}</div><div>Обработанный размер: ${formatBytes(totalProcessedSize)}</div><div>Сэкономлено: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%</div>`
-          if(document.getElementById('auto-trim').checked&&totalTrimmed>0)fileInfo.innerHTML+=`<div>Обрезано тишины: ${(totalTrimmed/44100).toFixed(2)}с</div>`
-          fileInfo.innerHTML+=`<div>Качество: ${fidelity.toUpperCase()}</div><div>Каналы: ${channels}</div><div>Стерео: ${stereoOriginal}, Моно: ${monoOriginal}</div>`
-          updateStatus(`Обработано ${processedFiles} файлов. Сэкономлено: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%`)
+          fileInfo.innerHTML+=`<div><b>Processed ${processedFiles} files</b></div><div>Original size: ${formatBytes(totalOriginalSize)}</div><div>Processed size: ${formatBytes(totalProcessedSize)}</div><div>Space saved: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%</div>`
+          if(document.getElementById('auto-trim').checked&&totalTrimmed>0) fileInfo.innerHTML+=`<div>Total silence trimmed: ${(totalTrimmed/44100).toFixed(2)}s</div>`
+          fileInfo.innerHTML+=`<div>Fidelity: ${fidelity.toUpperCase()}</div><div>Channels: ${channels}</div><div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>`
+          updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%`)
         }
-      }catch(error){if(!processingCancelled)handleProcessingError(error)}finally{
-        if(!processingCancelled)hideOverlay()
+      }catch(error){
+        if(!processingCancelled) handleProcessingError(error)
+      }finally{
+        if(!processingCancelled) hideOverlay()
         if(activeAudioContext){try{activeAudioContext.close()}catch(e){}activeAudioContext=null;audioContextResumed=false}
         currentProcessing=null
       }
@@ -288,46 +307,69 @@
       let decoded,processed
       let originalSize=file.size,processedSize=0,trimmedSamples=0,fileName='',channels=0,isCompressed=false
       try{
-        updateCurrentFile(`Обработка: ${item.path} (${index+1}/${total})`)
-        updateFileInfo(`Обработка: ${escapeHtml(item.path)}`)
-        if(!isSupportedAudioType(file.type,file.name))throw new Error(`Неподдерживаемый тип: ${file.type||file.name.split('.').pop()}`)
-        if(file.size>MAX_FILE_SIZE)throw new Error(`Размер файла превышает лимит (${(file.size/(1024*1024)).toFixed(1)}MB)`)
+        updateCurrentFile(`Processing: ${item.path} (${index+1}/${total})`)
+        updateFileInfo(`Processing: ${escapeHtml(item.path)}`)
+        if(!isSupportedAudioType(file.type,file.name)) throw new Error(`Unsupported file type: ${file.type||file.name.split('.').pop()}`)
+        if(file.size>MAX_FILE_SIZE) throw new Error(`File size exceeds limit (${(file.size/(1024*1024)).toFixed(1)}MB)`)
         const fileExtension=(file.name.split('.').pop()||'wav').toLowerCase()
         const compressedFormats=['mp3','ogg','aac','m4a']
         isCompressed=compressedFormats.includes(fileExtension)
         await ensureAudioContext()
         const arrayBuffer=await file.arrayBuffer()
-        if(processingCancelled)return null
+        if(processingCancelled) return null
         decoded=await decodeAudioSafe(arrayBuffer)
-        if(processingCancelled)return null
+        if(processingCancelled) return null
         channels=decoded.numberOfChannels
         const fidelity=getSelectedValue('fidelity'),channelsSetting=getSelectedValue('channels'),autoTrim=document.getElementById('auto-trim').checked
         processed=await processAudio(decoded,fidelity,channelsSetting)
-        if(processingCancelled)return null
-        if(autoTrim){const beforeLength=processed.length;processed=trimSilence(processed);const afterLength=processed.length;trimmedSamples=Math.max(0,beforeLength-afterLength);updateFileInfo(`Обрезано: ${(trimmedSamples/processed.sampleRate).toFixed(2)}с тишины`)}
+        if(processingCancelled) return null
+        if(autoTrim){
+          const beforeLength=processed.length
+          processed=trimSilence(processed)
+          const afterLength=processed.length
+          trimmedSamples=Math.max(0,beforeLength-afterLength)
+          updateFileInfo(`Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence`)
+        }
         const pathParts=item.path.split('/'),origFilename=pathParts.pop(),safeFilename=origFilename.replace(/[^\w\.\-]/gi,''),newFilename=safeFilename.replace(/\.[^/.]+$/,'')+'_ko2.'+fileExtension
         fileName=[...pathParts,newFilename].join('/')
         let outputBlob
         try{
           if(fileExtension==='mp3'){
-            if(typeof lamejs==='undefined')throw new Error('LameJS не подключен')
+            if(typeof lamejs==='undefined') throw new Error('LameJS not loaded')
             const encoder=new Mp3Encoder(processed.numberOfChannels,processed.sampleRate,192)
             outputBlob=encoder.encode(processed)
-          }else outputBlob=await audioBufferToBlob(processed)
-        }catch(encodeError){updateFileInfo(`<div class="file-error">Ошибка кодирования: ${encodeError.message}. Используется WAV.</div>`);outputBlob=await audioBufferToBlob(processed)}
+          } else {
+            outputBlob=await audioBufferToBlob(processed)
+          }
+        }catch(encodeError){
+          updateFileInfo(`<div class="file-error">Encoding error: ${encodeError.message}. Using WAV fallback.</div>`)
+          outputBlob=await audioBufferToBlob(processed)
+        }
         processedSize=outputBlob.size
-        try{zip.file(fileName,outputBlob)}catch(zipError){throw new Error(`Ошибка добавления в ZIP: ${zipError.message}`)}
+        try{
+          zip.file(fileName,outputBlob)
+        }catch(zipError){
+          throw new Error(`Failed to add to ZIP: ${zipError.message}`)
+        }
         const originalSizeKB=(originalSize/1024).toFixed(1),processedSizeKB=(processedSize/1024).toFixed(1),sizeDifference=processedSize-originalSize
-        let sizeInfo=sizeDifference>0?`УВЕЛИЧЕН на ${(sizeDifference/1024).toFixed(1)}KB`:`УМЕНЬШЕН на ${(-sizeDifference/1024).toFixed(1)}KB`
-        let compressionInfo=isCompressed?'<div>Сохраняется сжатый формат</div>':''
-        updateFileInfo(`<div>Обработан: ${escapeHtml(fileName)}</div><div>Исходный: ${originalSizeKB}KB → Обработанный: ${processedSizeKB}KB</div><div>${sizeInfo}</div>${compressionInfo}`)
+        let sizeInfo=sizeDifference>0?`INCREASED by ${(sizeDifference/1024).toFixed(1)}KB`:`DECREASED by ${(-sizeDifference/1024).toFixed(1)}KB`
+        let compressionInfo=isCompressed?'<div>Original compressed format preserved</div>':''
+        updateFileInfo(`<div>Processed: ${escapeHtml(fileName)}</div><div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div><div>${sizeInfo}</div>${compressionInfo}`)
         const url=URL.createObjectURL(outputBlob)
         createdObjectURLs.push(url)
         const fidelitySettings=getFidelitySettings(fidelity)
         const forceME=fidelitySettings.sampleRate<11025||fidelitySettings.bitDepth===8||processed.sampleRate<11025||fidelity==='sk'||(processed.numberOfChannels===1&&processed.sampleRate<=9000)
         createWaveWindow(fileName,url,processed,{forceMediaElement:forceME})
         return{fileName:fileName,url:url,originalSize:originalSize,processedSize:processedSize,trimmedSamples:trimmedSamples,channels:channels,isCompressed:isCompressed}
-      }catch(error){if(!processingCancelled)handleProcessingError(error,item);return null}finally{decoded=null;processed=null;await new Promise(resolve=>setTimeout(resolve,0))}}
+      }catch(error){
+        if(!processingCancelled) handleProcessingError(error,item)
+        return null
+      }finally{
+        decoded=null
+        processed=null
+        await new Promise(resolve=>setTimeout(resolve,0))
+      }
+    }
     
     function isSupportedAudioType(mimeType,fileName){
       const supportedTypes=['audio/wav','audio/wave','audio/x-wav','audio/mpeg','audio/mp3','audio/ogg','audio/vorbis','audio/aac','audio/aacp','audio/flac','audio/x-flac']
@@ -337,9 +379,9 @@
     }
 
     async function decodeAudioSafe(arrayBuffer){
-      if(!activeAudioContext)throw new Error("AudioContext недоступен")
+      if(!activeAudioContext) throw new Error("AudioContext not available")
       try{return await activeAudioContext.decodeAudioData(arrayBuffer.slice(0))}
-      catch(e){throw new Error('Ошибка декодирования: '+(e?.message?e.message:String(e)))}
+      catch(e){throw new Error('Audio decoding failed: '+(e?.message?e.message:String(e)))}
     }
 
     function getSelectedValue(name){const group=document.querySelector(`.win95-list[data-group="${name}"]`);return group?.querySelector('.list-item.selected')?.dataset.value||'cd'}
@@ -347,7 +389,7 @@
     async function processAudio(buffer,fidelity,channels){const fidelitySettings=getFidelitySettings(fidelity),targetChannels=channels==='mono'?1:2,speedFactor=2.0;const converted=await convertChannels(buffer,targetChannels);return await applySpeedAndFidelity(converted,speedFactor,fidelitySettings.sampleRate)}
 
     async function convertChannels(buffer,targetChannels){
-      if(buffer.numberOfChannels===targetChannels)return buffer
+      if(buffer.numberOfChannels===targetChannels) return buffer
       const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext
       const ctx=new OfflineContext(targetChannels,buffer.length,buffer.sampleRate)
       const source=ctx.createBufferSource()
@@ -558,17 +600,17 @@
       titleBar.addEventListener('mousedown',startDragPointer)
       try{
         const WaveSurferLib=window.WaveSurfer?.default||window.WaveSurfer
-        if(!WaveSurferLib)throw new Error('WaveSurfer не загружен')
+        if(!WaveSurferLib)throw new Error('WaveSurfer not loaded')
         const backend=(opts&&opts.forceMediaElement)?'MediaElement':(isMobile()?'MediaElement':'WebAudio')
         const wavesurfer=WaveSurferLib.create({container:waveContainer,height:128,barWidth:2,barGap:1,barRadius:1,cursorWidth:1,cursorColor:'transparent',normalize:true,progressColor:'#000080',waveColor:'#c0c0c0',fillParent:true,interact:false,backend:backend})
         windowElement.wavesurfer=wavesurfer
-        playButton.addEventListener('click',()=>{activateAudio();try{wavesurfer.play()}catch(e){}playButton.style.display='none';pauseButton.style.display='block';updateStatus("Воспроизведение")})
-        pauseButton.addEventListener('click',()=>{wavesurfer.pause();pauseButton.style.display='none';playButton.style.display='block';updateStatus("Пауза")})
-        stopButton.addEventListener('click',()=>{wavesurfer.stop();pauseButton.style.display='none';playButton.style.display='block';updateStatus("Остановлено")})
+        playButton.addEventListener('click',()=>{activateAudio();try{wavesurfer.play()}catch(e){}playButton.style.display='none';pauseButton.style.display='block';updateStatus("Playing audio")})
+        pauseButton.addEventListener('click',()=>{wavesurfer.pause();pauseButton.style.display='none';playButton.style.display='block';updateStatus("Playback paused")})
+        stopButton.addEventListener('click',()=>{wavesurfer.stop();pauseButton.style.display='none';playButton.style.display='block';updateStatus("Playback stopped")})
         wavesurfer.on('ready',()=>{})
-        wavesurfer.on('error',(err)=>{waveContainer.innerHTML='';const errDiv=document.createElement('div');errDiv.className='file-error';errDiv.textContent=`Ошибка WaveSurfer: ${err?.message||'Не удалось загрузить аудио'}`;const fb=document.createElement('div');fb.className='mobile-fallback';const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';audio.src=url;fb.appendChild(audio);waveContainer.appendChild(errDiv);waveContainer.appendChild(fb);playButton.style.display='none';pauseButton.style.display='none'})
+        wavesurfer.on('error',(err)=>{waveContainer.innerHTML='';const errDiv=document.createElement('div');errDiv.className='file-error';errDiv.textContent=`WaveSurfer error: ${err?.message||'Failed to load audio'}`;const fb=document.createElement('div');fb.className='mobile-fallback';const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';audio.src=url;fb.appendChild(audio);waveContainer.appendChild(errDiv);waveContainer.appendChild(fb);playButton.style.display='none';pauseButton.style.display='none'})
         wavesurfer.load(url)
-      }catch(e){waveContainer.innerHTML='';const errDiv=document.createElement('div');errDiv.className='file-error';errDiv.textContent=`Ошибка WaveSurfer: ${e?.message||'Превью недоступно'}`;const fb=document.createElement('div');fb.className='mobile-fallback';const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';audio.src=url;fb.appendChild(audio);waveContainer.appendChild(errDiv);waveContainer.appendChild(fb);playButton.style.display='none';pauseButton.style.display='none'}
+      }catch(e){waveContainer.innerHTML='';const errDiv=document.createElement('div');errDiv.className='file-error';errDiv.textContent=`WaveSurfer error: ${e?.message||'Preview unavailable'}`;const fb=document.createElement('div');fb.className='mobile-fallback';const audio=document.createElement('audio');audio.controls=true;audio.style.width='100%';audio.src=url;fb.appendChild(audio);waveContainer.appendChild(errDiv);waveContainer.appendChild(fb);playButton.style.display='none';pauseButton.style.display='none'}
       const windowObj={id:windowId,element:windowElement,url:url}
       waveWindows.push(windowObj)
       return windowElement
@@ -591,10 +633,10 @@
 
     function handleProcessingError(error,item){
       const errorMessage=error?.message?error.message:String(error)
-      const fileName=item?.file?.name||'неизвестный файл'
-      console.error(`Ошибка обработки ${fileName}:`,error)
-      document.getElementById('file-info').innerHTML+=`<div class="file-error"><strong>Ошибка:</strong> ${escapeHtml(fileName)}<br>${escapeHtml(errorMessage)}</div>`
-      updateStatus(`Ошибка: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`)
+      const fileName=item?.file?.name||'unknown file'
+      console.error(`Processing error for ${fileName}:`,error)
+      document.getElementById('file-info').innerHTML+=`<div class="file-error"><strong>Error processing:</strong> ${escapeHtml(fileName)}<br>${escapeHtml(errorMessage)}</div>`
+      updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`)
       if(errorMessage.toLowerCase().includes('memory')||errorMessage.toLowerCase().includes('allocation')){
         if(activeAudioContext){try{activeAudioContext.close()}catch(e){}activeAudioContext=null}
         document.getElementById('memory-warning').style.display='block'
@@ -604,7 +646,7 @@
 
     class Mp3Encoder{
       constructor(channels,sampleRate,bitrate){
-        if(typeof lamejs==='undefined')throw new Error('LameJS не подключен!')
+        if(typeof lamejs==='undefined')throw new Error('LameJS library not loaded!')
         this.channels=channels
         this.sampleRate=sampleRate
         this.bitrate=bitrate
