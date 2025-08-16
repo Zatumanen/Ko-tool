@@ -580,15 +580,26 @@
     `
     document.body.appendChild(windowElement)
     
+    // ИСПРАВЛЕНИЕ: добавлено перемещение окна на передний план при взаимодействии
+    function bringToFront() {
+      windowZIndex += 2;
+      windowElement.style.zIndex = windowZIndex;
+    }
+
+    // ИСПРАВЛЕНИЕ: правильная обработка кнопок сворачивания и закрытия
     const minimizeBtn = windowElement.querySelector('.minimize')
     const closeBtn = windowElement.querySelector('.close')
     
-    minimizeBtn.addEventListener('click', () => {
+    minimizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      bringToFront();
       const content = windowElement.querySelector('.content')
       content.style.display = content.style.display === 'none' ? 'block' : 'none'
     })
     
-    closeBtn.addEventListener('click', () => {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      bringToFront();
       if(windowElement.wavesurfer){
         try{
           windowElement.wavesurfer.destroy()
@@ -609,8 +620,7 @@
     
     function startDrag(e){
       e.preventDefault()
-      windowZIndex+=2
-      windowElement.style.zIndex=windowZIndex
+      bringToFront();
       pos3 = e.clientX || (e.touches && e.touches[0].clientX)
       pos4 = e.clientY || (e.touches && e.touches[0].clientY)
       document.addEventListener('mousemove',dragMove)
@@ -643,6 +653,10 @@
     titleBar.addEventListener('mousedown',startDrag)
     titleBar.addEventListener('touchstart',startDrag, {passive: false})
 
+    // ИСПРАВЛЕНИЕ: добавлен обработчик для перемещения окна на передний план при клике
+    windowElement.addEventListener('mousedown', bringToFront);
+    windowElement.addEventListener('touchstart', bringToFront);
+
     try{
       const WaveSurferLib=window.WaveSurfer?.default||window.WaveSurfer
       if(!WaveSurferLib)throw new Error('WaveSurfer not loaded')
@@ -665,6 +679,7 @@
       windowElement.wavesurfer=wavesurfer
       
       playButton.addEventListener('click',()=>{
+        bringToFront();
         activateAudio()
         try{
           wavesurfer.play()
@@ -675,6 +690,7 @@
       })
       
       pauseButton.addEventListener('click',()=>{
+        bringToFront();
         wavesurfer.pause()
         pauseButton.style.display='none'
         playButton.style.display='block'
@@ -682,6 +698,7 @@
       })
       
       stopButton.addEventListener('click',()=>{
+        bringToFront();
         wavesurfer.stop()
         pauseButton.style.display='none'
         playButton.style.display='block'
