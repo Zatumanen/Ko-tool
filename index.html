@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js@7"></script>
+  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
   <style>
     :root { --glow-color: #ff3333; --primary-blue: #000080; --win-gray: #c0c0c0; --win-light: #ffffff; --win-dark: #808080; }
@@ -177,6 +177,66 @@
     let waveWindows = [];
     let audioContextResumed = false;
     let memoryWarningShown = false;
+
+    class Mp3Encoder {
+      constructor(channels, sampleRate, bitrate) {
+        if (typeof lamejs === 'undefined') {
+          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
+        }
+        this.channels = channels;
+        this.sampleRate = sampleRate;
+        this.bitrate = bitrate;
+        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+      }
+
+      encode(audioBuffer) {
+        const [left, right] = this.getAudioData(audioBuffer);
+        const sampleBlockSize = 1152;
+        const leftSamples = new Int16Array(sampleBlockSize);
+        const rightSamples = new Int16Array(sampleBlockSize);
+        const mp3Data = [];
+
+        for (let i = 0; i < left.length; i += sampleBlockSize) {
+          const leftChunk = left.subarray(i, i + sampleBlockSize);
+          const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
+
+          for (let j = 0; j < leftChunk.length; j++) {
+            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
+            leftSamples[j] = sampleLeft < 0 ? Math.round(sampleLeft * 32768) : Math.round(sampleLeft * 32767);
+
+            if (this.channels > 1) {
+              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
+              rightSamples[j] = sampleRight < 0 ? Math.round(sampleRight * 32768) : Math.round(sampleRight * 32767);
+            }
+          }
+
+          const mp3buf = this.lame.encodeBuffer(
+            leftSamples.subarray(0, leftChunk.length),
+            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
+          );
+
+          if (mp3buf.length > 0) {
+            mp3Data.push(new Int8Array(mp3buf));
+          }
+        }
+
+        const lastChunk = this.lame.flush();
+        if (lastChunk.length > 0) {
+          mp3Data.push(new Int8Array(lastChunk));
+        }
+
+        return new Blob(mp3Data, { type: 'audio/mp3' });
+      }
+
+      getAudioData(audioBuffer) {
+        const left = audioBuffer.getChannelData(0);
+        let right = new Float32Array(audioBuffer.length);
+        if (audioBuffer.numberOfChannels > 1) {
+          right = audioBuffer.getChannelData(1);
+        }
+        return [left, right];
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', initApp);
 
@@ -484,7 +544,6 @@
         if (!processingCancelled) hideOverlay();
         if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} activeAudioContext = null; audioContextResumed = false; }
         currentProcessing = null;
-        if (window.gc) window.gc();
       }
     }
 
@@ -696,7 +755,7 @@
         let off = 0;
         for (let i = 0; i < audioBuffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]);
+            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
             const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
             tmp[off++] = v;
           }
@@ -714,6 +773,7 @@
       const ch = buffer.numberOfChannels;
       let sum = 0;
       const n = (end - start) * ch;
+      if (n === 0) return 0;
       for (let i = 0; i < ch; i++) {
         const data = buffer.getChannelData(i).subarray(start, end);
         for (let j = 0; j < data.length; j++) sum += data[j] * data[j];
@@ -783,7 +843,7 @@
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
           try {
-            safeDestroyWavesurfer(oldestWindow.element);
+            if (oldestWindow.element.wavesurfer) oldestWindow.element.wavesurfer.destroy();
             safeRevoke(oldestWindow.url);
             document.body.removeChild(oldestWindow.element);
           } catch (e) {}
@@ -834,7 +894,9 @@
       });
 
       closeBtn.addEventListener('click', () => {
-        safeDestroyWavesurfer(windowElement);
+        if (windowElement.wavesurfer) {
+          try { windowElement.wavesurfer.destroy(); } catch (e) {}
+        }
         safeRevoke(url);
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowElement.id);
@@ -934,17 +996,7 @@
           pauseButton.style.display = 'none';
         });
 
-        if (audioBuffer.numberOfChannels === 1) {
-          const left = audioBuffer.getChannelData(0);
-          const right = new Float32Array(left.length).fill(0);
-          const offlineContext = new OfflineAudioContext(2, left.length, audioBuffer.sampleRate);
-          const buffer = offlineContext.createBuffer(2, left.length, audioBuffer.sampleRate);
-          buffer.setChannelData(0, left);
-          buffer.setChannelData(1, right);
-          wavesurfer.loadDecodedBuffer(buffer);
-        } else {
-          wavesurfer.load(url);
-        }
+        wavesurfer.load(url);
 
       } catch (e) {
         waveContainer.innerHTML = '';
@@ -972,14 +1024,6 @@
 
       waveWindows.push(windowObj);
       return windowElement;
-    }
-
-    function safeDestroyWavesurfer(element) {
-      try {
-        if (element.wavesurfer) {
-          element.wavesurfer.destroy();
-        }
-      } catch (e) {}
     }
 
     function updateProgressBar(progress) {
@@ -1017,66 +1061,6 @@
         }
         document.getElementById('memory-warning').style.display = 'block';
         memoryWarningShown = true;
-      }
-    }
-
-    class Mp3Encoder {
-      constructor(channels, sampleRate, bitrate) {
-        if (typeof lamejs === 'undefined') {
-          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
-        }
-        this.channels = channels;
-        this.sampleRate = sampleRate;
-        this.bitrate = bitrate;
-        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
-      }
-
-      encode(audioBuffer) {
-        const [left, right] = this.getAudioData(audioBuffer);
-        const sampleBlockSize = 1152;
-        const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new Int16Array(sampleBlockSize);
-        const mp3Data = [];
-
-        for (let i = 0; i < left.length; i += sampleBlockSize) {
-          const leftChunk = left.subarray(i, i + sampleBlockSize);
-          const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
-
-          for (let j = 0; j < leftChunk.length; j++) {
-            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? Math.round(sampleLeft * 32768) : Math.round(sampleLeft * 32767);
-
-            if (this.channels > 1) {
-              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? Math.round(sampleRight * 32768) : Math.round(sampleRight * 32767);
-            }
-          }
-
-          const mp3buf = this.lame.encodeBuffer(
-            leftSamples.subarray(0, leftChunk.length),
-            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
-          );
-
-          if (mp3buf.length > 0) {
-            mp3Data.push(new Int8Array(mp3buf));
-          }
-        }
-
-        const lastChunk = this.lame.flush();
-        if (lastChunk.length > 0) {
-          mp3Data.push(new Int8Array(lastChunk));
-        }
-
-        return new Blob(mp3Data, { type: 'audio/mp3' });
-      }
-
-      getAudioData(audioBuffer) {
-        const left = audioBuffer.getChannelData(0);
-        let right = new Float32Array(audioBuffer.length);
-        if (audioBuffer.numberOfChannels > 1) {
-          right = audioBuffer.getChannelData(1);
-        }
-        return [left, right];
       }
     }
 
