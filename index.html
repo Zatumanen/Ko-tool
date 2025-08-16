@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
   <style>
     :root { --glow-color: #ff3333; --primary-blue: #000080; --win-gray: #c0c0c0; --win-light: #ffffff; --win-dark: #808080; }
@@ -773,7 +773,6 @@
       const ch = buffer.numberOfChannels;
       let sum = 0;
       const n = (end - start) * ch;
-      if (n === 0) return 0;
       for (let i = 0; i < ch; i++) {
         const data = buffer.getChannelData(i).subarray(start, end);
         for (let j = 0; j < data.length; j++) sum += data[j] * data[j];
@@ -936,6 +935,11 @@
       titleBar.addEventListener('touchstart', startDrag, { passive: false });
 
       try {
+        // Проверка доступности WaveSurfer
+        if (typeof WaveSurfer === 'undefined') {
+          throw new Error('WaveSurfer not loaded');
+        }
+        
         const wavesurfer = WaveSurfer.create({
           container: waveContainer,
           height: 128,
