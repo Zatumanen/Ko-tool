@@ -107,7 +107,7 @@
 
   <script>
     let activeAudioContext=null,createdObjectURLs=[],dragCounter=0,processingCancelled=false,currentProcessing=null,lastProgress=0,windowZIndex=100,waveWindows=[],audioContextResumed=false,memoryWarningShown=false
-    const MAX_PREVIEW_WINDOWS=3,MAX_FILE_SIZE=50*1024*1024,MAX_CONCURRENT=1,BATCH_SIZE=1
+    const MAX_PREVIEW_WINDOWS=3,MAX_FILE_SIZE=50*1024*1024,MAX_CONCURRENT=1,BATCH_SIZE=1,MAX_TOTAL_FILES=100
 
     document.addEventListener('DOMContentLoaded',initApp)
 
@@ -172,6 +172,12 @@
         createdObjectURLs=[]
         hideOverlay()
         updateStatus("Processing cancelled")
+        if(activeAudioContext){
+          try{
+            activeAudioContext.close()
+          }catch(e){}
+          activeAudioContext=null
+        }
       })
       
       ['#select-file-button','#select-folder-button','.wave-button','.wave-window','#drop-zone'].forEach(selector=>{
@@ -237,6 +243,11 @@
 
     async function processItems(items){
       if(!items||items.length===0){updateStatus("No files to process");return}
+      if(items.length>MAX_TOTAL_FILES){
+        updateFileInfo(`<div class="file-error">Too many files (max ${MAX_TOTAL_FILES})</div>`)
+        updateStatus("File limit exceeded")
+        return
+      }
       processingCancelled=false
       const segmentContainer=document.getElementById('segment-container'),fileInfo=document.getElementById('file-info'),cancelButton=document.getElementById('cancel-button')
       showOverlay()
@@ -348,7 +359,6 @@
         const url=URL.createObjectURL(outputBlob)
         createdObjectURLs.push(url)
         
-        // Create preview for all settings with simplified visualization
         createWaveWindow(fileName, url, processed)
         
         return{fileName:fileName,url:url,originalSize:originalSize,processedSize:processedSize,trimmedSamples:trimmedSamples,channels:channels,isCompressed:isCompressed}
@@ -382,36 +392,48 @@
     async function convertChannels(buffer,targetChannels){
       if(buffer.numberOfChannels===targetChannels) return buffer
       const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext
-      const ctx=new OfflineContext(targetChannels,buffer.length,buffer.sampleRate)
-      const source=ctx.createBufferSource()
-      source.buffer=buffer
-      if(targetChannels===1&&buffer.numberOfChannels>1){
-        const merger=ctx.createChannelMerger(1),splitter=ctx.createChannelSplitter(buffer.numberOfChannels),gain=ctx.createGain()
-        source.connect(splitter)
-        gain.gain.value=1/buffer.numberOfChannels
-        for(let i=0;i<buffer.numberOfChannels;i++)splitter.connect(gain,i)
-        gain.connect(merger,0,0)
-        merger.connect(ctx.destination)
-      }else if(targetChannels===2&&buffer.numberOfChannels===1){
-        const merger=ctx.createChannelMerger(2)
-        source.connect(merger,0,0)
-        source.connect(merger,0,1)
-        merger.connect(ctx.destination)
-      }else source.connect(ctx.destination)
-      source.start()
-      return await ctx.startRendering()
+      try{
+        const ctx=new OfflineContext(targetChannels,buffer.length,buffer.sampleRate)
+        const source=ctx.createBufferSource()
+        source.buffer=buffer
+        if(targetChannels===1&&buffer.numberOfChannels>1){
+          const merger=ctx.createChannelMerger(1),splitter=ctx.createChannelSplitter(buffer.numberOfChannels),gain=ctx.createGain()
+          source.connect(splitter)
+          gain.gain.value=1/buffer.numberOfChannels
+          for(let i=0;i<buffer.numberOfChannels;i++)splitter.connect(gain,i)
+          gain.connect(merger,0,0)
+          merger.connect(ctx.destination)
+        }else if(targetChannels===2&&buffer.numberOfChannels===1){
+          const merger=ctx.createChannelMerger(2)
+          source.connect(merger,0,0)
+          source.connect(merger,0,1)
+          merger.connect(ctx.destination)
+        }else source.connect(ctx.destination)
+        source.start()
+        const result=await ctx.startRendering()
+        ctx.close()
+        return result
+      }catch(e){
+        throw new Error('Channel conversion failed: '+e.message)
+      }
     }
 
     async function applySpeedAndFidelity(buffer,speed,sampleRate){
       const duration=buffer.duration/speed
       const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext
-      const ctx=new OfflineContext(buffer.numberOfChannels,Math.ceil(duration*sampleRate),sampleRate)
-      const source=ctx.createBufferSource()
-      source.buffer=buffer
-      source.playbackRate.value=speed
-      source.connect(ctx.destination)
-      source.start()
-      return await ctx.startRendering()
+      try{
+        const ctx=new OfflineContext(buffer.numberOfChannels,Math.ceil(duration*sampleRate),sampleRate)
+        const source=ctx.createBufferSource()
+        source.buffer=buffer
+        source.playbackRate.value=speed
+        source.connect(ctx.destination)
+        source.start()
+        const result=await ctx.startRendering()
+        ctx.close()
+        return result
+      }catch(e){
+        throw new Error('Speed/fidelity processing failed: '+e.message)
+      }
     }
 
     function audioBufferToWav(audioBuffer){
@@ -562,7 +584,6 @@
       `
       document.body.appendChild(windowElement)
       
-      // Fixed close/minimize buttons
       const minimizeBtn = windowElement.querySelector('.minimize')
       const closeBtn = windowElement.querySelector('.close')
       
@@ -632,8 +653,8 @@
         const wavesurfer=WaveSurferLib.create({
           container:waveContainer,
           height:128,
-          barWidth:3, // Simplified visualization
-          barGap:2,   // Less detail
+          barWidth:3,
+          barGap:2,
           barRadius:1,
           cursorWidth:1,
           cursorColor:'transparent',
@@ -642,7 +663,7 @@
           waveColor:'#c0c0c0',
           fillParent:true,
           interact:false,
-          backend:'MediaElement' // Always use MediaElement for performance
+          backend:'MediaElement'
         })
         
         windowElement.wavesurfer=wavesurfer
@@ -807,13 +828,13 @@
           )
           
           if(mp3buf.length>0){
-            mp3Data.push(new Int8Array(mp3buf))
+            mp3Data.push(new Uint8Array(mp3buf))
           }
         }
         
         const lastChunk=this.lame.flush()
         if(lastChunk.length>0){
-          mp3Data.push(new Int8Array(lastChunk))
+          mp3Data.push(new Uint8Array(lastChunk))
         }
         
         return new Blob(mp3Data,{type:'audio/mp3'})
@@ -840,6 +861,11 @@
     window.addEventListener('beforeunload',()=>{
       createdObjectURLs.forEach(url=>{try{URL.revokeObjectURL(url)}catch(e){}})
       if(activeAudioContext){try{activeAudioContext.close()}catch(e){}}
+      waveWindows.forEach(w=>{
+        if(w.element.wavesurfer){
+          try{w.element.wavesurfer.destroy()}catch(e){}
+        }
+      })
     })
   </script>
 </body>
