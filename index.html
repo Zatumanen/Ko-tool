@@ -16,9 +16,9 @@
     .desktop-icon:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
     .window { width: 100%; max-width: 480px; background: var(--win-gray); border: 2px solid; border-top-color: var(--win-light); border-left-color: var(--win-light); border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); padding: 0; box-sizing: border-box; position: relative; z-index: 100; }
     .title-bar { background: var(--primary-blue); color: #fff; padding: 4px 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--win-gray); cursor: move; user-select: none; }
-    .title-bar button { width: 20px; height: 20px; border: none; background: var(--win-gray); cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: Arial, sans-serif; margin-left: 4px; border: 1px solid; border-top-color: var(--win-light); border-left-color: var(--win-light); border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); }
-    .title-bar button.minimize { font-size: 18px; line-height: 12px; }
-    .title-bar button.close { font-size: 14px; }
+    .title-bar button { width: 20px; height: 20px; border: none; background: var(--win-gray); cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: Arial, sans-serif; margin-left: 4px; border: 1px solid; border-top-color: var(--win-light); border-left-color: var(--win-light); border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); touch-action: manipulation; }
+    .title-bar button.minimize { font-size: 18px; line-height: 12px; padding: 0 4px; }
+    .title-bar button.close { font-size: 14px; padding: 0 4px; }
     .title-bar button:active { border-top-color: var(--win-dark); border-left-color: var(--win-dark); border-right-color: var(--win-light); border-bottom-color: var(--win-light); }
     .content { padding: 12px; font-size: 14px; color: #000; }
     .drop-zone { border: 2px dashed #000; padding: 20px; text-align: center; background: rgba(255, 255, 255, 0.3); margin-top: 12px; position: relative; cursor: pointer; border-style: dotted; border-color: var(--win-dark); }
@@ -67,7 +67,7 @@
     .mobile-fallback audio { width: 100%; margin: 10px 0; }
     .processing { animation: pulse 1.5s infinite; }
     @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-    @media (max-width: 768px) { body { padding: 10px; } .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); } .wave-element-container { height: 100px !important; } .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; } .win95-list { height: 80px; } .list-item { padding: 6px 4px; font-size: 12px; } .wave-window { width: 90vw; left: 5vw; top: 20px; } .preview-controls { flex-direction: column; align-items: center; } .wave-button { min-width: 150px; } button { min-height: 54px; font-size: 18px; } }
+    @media (max-width: 768px) { body { padding: 10px; } .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); } .wave-element-container { height: 100px !important; } .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; } .win95-list { height: 80px; } .list-item { padding: 6px 4px; font-size: 12px; } .wave-window { width: 90vw; left: 5vw; top: 20px; } .preview-controls { flex-direction: column; align-items: center; } .wave-button { min-width: 150px; } button { min-height: 54px; font-size: 18px; } .title-bar button { width: 28px; height: 28px; } }
     @media (max-width: 768px) and (orientation: landscape) { .wave-element-container { height: 100px !important; } }
     .batch-control { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
   </style>
@@ -954,18 +954,35 @@
       const waveContainer = windowElement.querySelector('.wave-element');
       const titleBar = windowElement.querySelector('.title-bar');
 
-      minimizeBtn.addEventListener('click', () => {
+      // Функции для сворачивания и закрытия
+      function minimizeWindow() {
         const content = windowElement.querySelector('.content');
         content.style.display = content.style.display === 'none' ? 'block' : 'none';
-      });
+      }
 
-      closeBtn.addEventListener('click', () => {
+      function closeWindow() {
         if (windowElement.wavesurfer) {
           try { windowElement.wavesurfer.destroy(); } catch (e) {}
         }
         safeRevoke(url);
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowElement.id);
+      }
+
+      // Обработчики для десктопных устройств
+      minimizeBtn.addEventListener('click', minimizeWindow);
+      closeBtn.addEventListener('click', closeWindow);
+
+      // Обработчики для мобильных устройств
+      minimizeBtn.addEventListener('touchend', minimizeWindow);
+      closeBtn.addEventListener('touchend', closeWindow);
+
+      // Предотвращаем перетаскивание при нажатии на кнопки
+      minimizeBtn.addEventListener('touchstart', function(e) {
+        e.stopPropagation();
+      });
+      closeBtn.addEventListener('touchstart', function(e) {
+        e.stopPropagation();
       });
 
       function startDrag(e) {
