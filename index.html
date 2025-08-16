@@ -181,66 +181,6 @@
     let workerPool = [];
     let workerTasks = {};
 
-    class Mp3Encoder {
-      constructor(channels, sampleRate, bitrate) {
-        if (typeof lamejs === 'undefined') {
-          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
-        }
-        this.channels = channels;
-        this.sampleRate = sampleRate;
-        this.bitrate = bitrate;
-        this.lame = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
-      }
-
-      encode(audioBuffer) {
-        const [left, right] = this.getAudioData(audioBuffer);
-        const sampleBlockSize = 1152;
-        const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new Int16Array(sampleBlockSize);
-        const mp3Data = [];
-
-        for (let i = 0; i < left.length; i += sampleBlockSize) {
-          const leftChunk = left.subarray(i, i + sampleBlockSize);
-          const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
-
-          for (let j = 0; j < leftChunk.length; j++) {
-            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? Math.round(sampleLeft * 32768) : Math.round(sampleLeft * 32767);
-
-            if (this.channels > 1) {
-              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? Math.round(sampleRight * 32768) : Math.round(sampleRight * 32767);
-            }
-          }
-
-          const mp3buf = this.lame.encodeBuffer(
-            leftSamples.subarray(0, leftChunk.length),
-            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
-          );
-
-          if (mp3buf.length > 0) {
-            mp3Data.push(new Int8Array(mp3buf));
-          }
-        }
-
-        const lastChunk = this.lame.flush();
-        if (lastChunk.length > 0) {
-          mp3Data.push(new Int8Array(lastChunk));
-        }
-
-        return new Blob(mp3Data, { type: 'audio/mp3' });
-      }
-
-      getAudioData(audioBuffer) {
-        const left = audioBuffer.getChannelData(0);
-        let right = new Float32Array(audioBuffer.length);
-        if (audioBuffer.numberOfChannels > 1) {
-          right = audioBuffer.getChannelData(1);
-        }
-        return [left, right];
-      }
-    }
-
     document.addEventListener('DOMContentLoaded', initApp);
 
     function initApp() {
@@ -279,7 +219,14 @@
         updateProgressBar(task);
       } 
       else if (type === 'result') {
-        task.resolve(result);
+        const processedBlob = new Blob([result.processedData], { type: result.mimeType });
+        task.resolve({
+          processedBlob,
+          originalSize: result.originalSize,
+          processedSize: processedBlob.size,
+          channels: result.channels,
+          trimmedSamples: result.trimmedSamples
+        });
         delete workerTasks[id];
       } 
       else if (type === 'error') {
@@ -298,27 +245,32 @@
         const worker = workerPool.pop();
         const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
-        workerTasks[taskId] = {
-          resolve,
-          reject,
-          progress: 0,
-          index,
-          total
-        };
-        
-        const message = {
-          id: taskId,
-          type: 'process',
-          file,
-          path,
-          settings: {
-            fidelity: getSelectedValue('fidelity'),
-            channels: getSelectedValue('channels'),
-            trim: document.getElementById('auto-trim').checked
-          }
-        };
-        
-        worker.postMessage(message, [file]);
+        file.arrayBuffer().then(arrayBuffer => {
+          workerTasks[taskId] = {
+            resolve,
+            reject,
+            progress: 0,
+            index,
+            total
+          };
+          
+          const message = {
+            id: taskId,
+            type: 'process',
+            fileData: arrayBuffer,
+            fileName: file.name,
+            path,
+            settings: {
+              fidelity: getSelectedValue('fidelity'),
+              channels: getSelectedValue('channels'),
+              trim: document.getElementById('auto-trim').checked
+            }
+          };
+          
+          worker.postMessage(message, [arrayBuffer]);
+        }).catch(error => {
+          reject(error);
+        });
       });
     }
 
@@ -395,11 +347,10 @@
 
       cancelButton.addEventListener('click', () => {
         processingCancelled = true;
-        if (currentProcessing) currentProcessing.cancel();
+        workerPool.forEach(worker => worker.terminate());
+        workerPool = [];
         createdObjectURLs.forEach(url => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch (e) {}
+          try { URL.revokeObjectURL(url); } catch (e) {}
         });
         createdObjectURLs = [];
         hideOverlay();
@@ -546,7 +497,6 @@
         return;
       }
       
-      // Sort files by size (smallest first)
       items.sort((a, b) => a.file.size - b.file.size);
       
       processingCancelled = false;
