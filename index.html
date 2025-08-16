@@ -164,6 +164,9 @@
   </div>
 
   <script>
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const MAX_PREVIEW_WINDOWS = 3;
+    
     let activeAudioContext = null;
     let createdObjectURLs = [];
     let dragCounter = 0;
@@ -180,6 +183,8 @@
     function initApp() {
       if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
+        document.getElementById('mobile-warning').innerHTML += '<p>Recommended: Use files under 2 minutes</p>';
+        document.querySelectorAll('.wave-element-container').forEach(el => el.style.height = '100px');
         document.querySelectorAll('button').forEach(b => {
           b.style.minHeight = '54px';
           b.style.fontSize = '18px';
@@ -472,11 +477,14 @@
           updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%`);
         }
       } catch (error) {
-        if (!processingCancelled) handleProcessingError(error);
+        if (!processingCancelled) {
+          updateFileInfo(`<div class="file-error">Critical error: ${escapeHtml(error.message)}</div>`);
+        }
       } finally {
         if (!processingCancelled) hideOverlay();
         if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} activeAudioContext = null; audioContextResumed = false; }
         currentProcessing = null;
+        if (window.gc) window.gc();
       }
     }
 
@@ -636,6 +644,12 @@
       return await ctx.startRendering();
     }
 
+    function writeString(dv, offset, str) {
+      for (let i = 0; i < str.length; i++) {
+        dv.setUint8(offset + i, str.charCodeAt(i));
+      }
+    }
+
     function audioBufferToWav(audioBuffer) {
       const fidelity = getSelectedValue('fidelity');
       const fidelitySettings = getFidelitySettings(fidelity);
@@ -682,7 +696,7 @@
         let off = 0;
         for (let i = 0; i < audioBuffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
-            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+            const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]);
             const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
             tmp[off++] = v;
           }
@@ -701,8 +715,8 @@
       let sum = 0;
       const n = (end - start) * ch;
       for (let i = 0; i < ch; i++) {
-        const data = buffer.getChannelData(i);
-        for (let j = start; j < end; j++) sum += data[j] * data[j];
+        const data = buffer.getChannelData(i).subarray(start, end);
+        for (let j = 0; j < data.length; j++) sum += data[j] * data[j];
       }
       return Math.sqrt(sum / n);
     }
@@ -769,7 +783,7 @@
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
           try {
-            if (oldestWindow.element.wavesurfer) oldestWindow.element.wavesurfer.destroy();
+            safeDestroyWavesurfer(oldestWindow.element);
             safeRevoke(oldestWindow.url);
             document.body.removeChild(oldestWindow.element);
           } catch (e) {}
@@ -820,9 +834,7 @@
       });
 
       closeBtn.addEventListener('click', () => {
-        if (windowElement.wavesurfer) {
-          try { windowElement.wavesurfer.destroy(); } catch (e) {}
-        }
+        safeDestroyWavesurfer(windowElement);
         safeRevoke(url);
         document.body.removeChild(windowElement);
         waveWindows = waveWindows.filter(w => w.id !== windowElement.id);
@@ -832,8 +844,8 @@
         e.preventDefault();
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
-        const pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-        const pos4 = e.clientY || (e.touches && e.touches[0].clientY);
+        let pos3 = e.clientX || (e.touches && e.touches[0].clientX);
+        let pos4 = e.clientY || (e.touches && e.touches[0].clientY);
         document.addEventListener('mousemove', dragMove);
         document.addEventListener('touchmove', dragMove, { passive: false });
         document.addEventListener('mouseup', endDrag);
@@ -960,6 +972,14 @@
 
       waveWindows.push(windowObj);
       return windowElement;
+    }
+
+    function safeDestroyWavesurfer(element) {
+      try {
+        if (element.wavesurfer) {
+          element.wavesurfer.destroy();
+        }
+      } catch (e) {}
     }
 
     function updateProgressBar(progress) {
