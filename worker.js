@@ -1,4 +1,3 @@
-// worker.js
 self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
 
 class Mp3Encoder {
@@ -180,56 +179,6 @@ function audioBufferToWav(audioBuffer, bitDepth) {
   return new Blob([riffHeader, fmtBuf, dataHeader, audioData], { type: 'audio/wav' });
 }
 
-function calculateRMSMulti(buffer, start, end) {
-  const ch = buffer.numberOfChannels;
-  let sum = 0;
-  const n = (end - start) * ch;
-  
-  for (let i = 0; i < ch; i++) {
-    const data = buffer.getChannelData(i).subarray(start, end);
-    for (let j = 0; j < data.length; j++) {
-      sum += data[j] * data[j];
-    }
-  }
-  
-  return Math.sqrt(sum / n);
-}
-
-function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
-  const threshold = Math.pow(10, thresholdDb / 20);
-  const sampleRate = audioBuffer.sampleRate;
-  const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
-  const length = audioBuffer.length;
-  const blockSize = 1024;
-  let startIndex = 0;
-  let endIndex = length - 1;
-  
-  // Fast peak-based trimming
-  const peaks = getPeakValues(audioBuffer, 1000);
-  startIndex = findStart(peaks, threshold);
-  endIndex = findEnd(peaks, threshold);
-  
-  startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
-  endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
-  
-  if (startIndex >= endIndex) return audioBuffer;
-  
-  const newLength = endIndex - startIndex + 1;
-  const newBuffer = new AudioBuffer({ 
-    length: newLength, 
-    sampleRate: audioBuffer.sampleRate, 
-    numberOfChannels: audioBuffer.numberOfChannels 
-  });
-  
-  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
-    const sourceData = audioBuffer.getChannelData(ch);
-    const targetData = newBuffer.getChannelData(ch);
-    targetData.set(sourceData.subarray(startIndex, endIndex + 1));
-  }
-  
-  return newBuffer;
-}
-
 function getPeakValues(buffer, samples) {
   const step = Math.floor(buffer.length / samples);
   const peaks = [];
@@ -271,13 +220,36 @@ function findEnd(peaks, threshold) {
   return peaks.length - 1;
 }
 
-async function processAudio(file, settings) {
+function trimSilence(audioBuffer, thresholdDb = -60) {
+  const threshold = Math.pow(10, thresholdDb / 20);
+  const peaks = getPeakValues(audioBuffer, 1000);
+  const startIndex = findStart(peaks, threshold);
+  const endIndex = findEnd(peaks, threshold);
+  
+  if (startIndex >= endIndex) return audioBuffer;
+  
+  const newLength = endIndex - startIndex + 1;
+  const newBuffer = new AudioBuffer({ 
+    length: newLength, 
+    sampleRate: audioBuffer.sampleRate, 
+    numberOfChannels: audioBuffer.numberOfChannels 
+  });
+  
+  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+    const sourceData = audioBuffer.getChannelData(ch);
+    const targetData = newBuffer.getChannelData(ch);
+    targetData.set(sourceData.subarray(startIndex, endIndex + 1));
+  }
+  
+  return newBuffer;
+}
+
+async function processAudio(fileData, fileName, settings) {
   try {
     self.postMessage({ type: 'progress', progress: 0.1 });
     
-    const arrayBuffer = await file.arrayBuffer();
     const audioContext = new (self.AudioContext || self.webkitAudioContext)();
-    const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const decoded = await audioContext.decodeAudioData(fileData);
     
     self.postMessage({ type: 'progress', progress: 0.3 });
     
@@ -297,22 +269,27 @@ async function processAudio(file, settings) {
     }
     self.postMessage({ type: 'progress', progress: 0.8 });
     
-    const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
+    const fileExtension = (fileName.split('.').pop() || 'wav').toLowerCase();
     let outputBlob;
+    let mimeType;
     
     if (fileExtension === 'mp3') {
       const encoder = new Mp3Encoder(finalBuffer.numberOfChannels, finalBuffer.sampleRate, 192);
       outputBlob = encoder.encode(finalBuffer);
+      mimeType = 'audio/mp3';
     } else {
       outputBlob = audioBufferToWav(finalBuffer, fidelitySettings.bitDepth);
+      mimeType = 'audio/wav';
     }
+    
+    const processedArrayBuffer = await outputBlob.arrayBuffer();
     
     self.postMessage({ type: 'progress', progress: 1.0 });
     
     return {
-      processedBlob: outputBlob,
-      originalSize: file.size,
-      processedSize: outputBlob.size,
+      processedData: processedArrayBuffer,
+      mimeType,
+      originalSize: fileData.byteLength,
       channels: decoded.numberOfChannels,
       trimmedSamples: settings.trim ? decoded.length - finalBuffer.length : 0
     };
@@ -322,11 +299,11 @@ async function processAudio(file, settings) {
 }
 
 self.addEventListener('message', async (e) => {
-  const { id, type, file, path, settings } = e.data;
+  const { id, type, fileData, fileName, path, settings } = e.data;
   
   if (type === 'process') {
     try {
-      const result = await processAudio(file, settings);
+      const result = await processAudio(fileData, fileName, settings);
       self.postMessage({ 
         id, 
         type: 'result', 
