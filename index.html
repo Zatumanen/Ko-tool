@@ -69,6 +69,7 @@
     @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     @media (max-width: 768px) { body { padding: 10px; } .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); } .wave-element-container { height: 100px !important; } .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; } .win95-list { height: 80px; } .list-item { padding: 6px 4px; font-size: 12px; } .wave-window { width: 90vw; left: 5vw; top: 20px; } .preview-controls { flex-direction: column; align-items: center; } .wave-button { min-width: 150px; } button { min-height: 54px; font-size: 18px; } }
     @media (max-width: 768px) and (orientation: landscape) { .wave-element-container { height: 100px !important; } }
+    .batch-control { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
   </style>
 </head>
 <body>
@@ -121,6 +122,15 @@
         <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
         <label for="auto-trim">Auto-trim silence at start/end</label>
       </div>
+
+      <div class="batch-control">
+        <label>Batch Size:</label>
+        <select id="batch-size">
+          <option value="1">1 file</option>
+          <option value="3">3 files</option>
+          <option value="5">5 files</option>
+        </select>
+      </div>
       
       <div class="drop-zone" id="drop-zone">
         <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
@@ -163,26 +173,11 @@
     <div class="status-bar" id="status-bar">Ready</div>
   </div>
 
-  <script>
-    const MAX_FILE_SIZE = 50 * 1024 * 1024;
-    const MAX_PREVIEW_WINDOWS = 3;
+  <script type="text/js-worker" id="mp3-worker-script">
+    self.importScripts('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
     
-    let activeAudioContext = null;
-    let createdObjectURLs = [];
-    let dragCounter = 0;
-    let processingCancelled = false;
-    let currentProcessing = null;
-    let lastProgress = 0;
-    let windowZIndex = 100;
-    let waveWindows = [];
-    let audioContextResumed = false;
-    let memoryWarningShown = false;
-
     class Mp3Encoder {
       constructor(channels, sampleRate, bitrate) {
-        if (typeof lamejs === 'undefined') {
-          throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
-        }
         this.channels = channels;
         this.sampleRate = sampleRate;
         this.bitrate = bitrate;
@@ -238,18 +233,67 @@
       }
     }
 
+    self.addEventListener('message', async (e) => {
+      const { id, type, audioData } = e.data;
+      if (type === 'encode') {
+        try {
+          const { channels, sampleRate } = audioData;
+          const encoder = new Mp3Encoder(channels, sampleRate, 192);
+          const left = new Float32Array(audioData.left);
+          const right = channels > 1 ? new Float32Array(audioData.right) : left;
+          const audioBuffer = {
+            getChannelData: (index) => index === 0 ? left : right,
+            numberOfChannels: channels,
+            sampleRate: sampleRate,
+            length: left.length
+          };
+          const mp3Blob = encoder.encode(audioBuffer);
+          const arrayBuffer = await mp3Blob.arrayBuffer();
+          self.postMessage({ id, type: 'result', result: arrayBuffer });
+        } catch (error) {
+          self.postMessage({ id, type: 'error', error: `MP3 encoding error: ${error.message}` });
+        }
+      }
+    });
+  </script>
+  
+  <script>
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const MAX_PREVIEW_WINDOWS = 3;
+    
+    let activeAudioContext = null;
+    let createdObjectURLs = [];
+    let dragCounter = 0;
+    let processingCancelled = false;
+    let currentProcessing = null;
+    let lastProgress = 0;
+    let windowZIndex = 100;
+    let waveWindows = [];
+    let audioContextResumed = false;
+    let memoryWarningShown = false;
+    let mp3Worker = null;
+
     document.addEventListener('DOMContentLoaded', initApp);
 
     function initApp() {
       if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
-        document.getElementById('mobile-warning').innerHTML += '<p>Recommended: Use files under 2 minutes</p>';
         document.querySelectorAll('.wave-element-container').forEach(el => el.style.height = '100px');
         document.querySelectorAll('button').forEach(b => {
           b.style.minHeight = '54px';
           b.style.fontSize = '18px';
         });
       }
+      
+      try {
+        const workerScript = document.querySelector('#mp3-worker-script').textContent;
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        mp3Worker = new Worker(URL.createObjectURL(blob));
+        mp3Worker.onerror = (e) => console.error('Worker error:', e);
+      } catch (e) {
+        console.error('Failed to create MP3 worker', e);
+      }
+      
       checkMemoryAndWarn();
       setupEventListeners();
       updateStatus("Ready to process files");
@@ -502,18 +546,14 @@
       }
       currentProcessing = { cancel: () => { processingCancelled = true; if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} activeAudioContext = null; } cancelButton.disabled = true; updateStatus("Processing cancelled"); } };
       try {
-        for (let i = 0; i < items.length; i++) {
+        const batchSize = parseInt(document.getElementById('batch-size').value) || 1;
+        for (let i = 0; i < items.length; i += batchSize) {
           if (processingCancelled) break;
-          const item = items[i];
-          const result = await processSingleItem(item, i, items.length, zip);
-          if (!result) continue;
-          processedFiles++;
-          totalOriginalSize += result.originalSize || 0;
-          totalProcessedSize += result.processedSize || 0;
-          totalTrimmed += result.trimmedSamples || 0;
-          if (result.channels === 1) monoOriginal++;
-          else if (result.channels === 2) stereoOriginal++;
-          await updateProgressBar((i + 1) / items.length);
+          const batch = items.slice(i, i + batchSize);
+          await Promise.all(batch.map((item, idx) => 
+            processSingleItem(item, i + idx, items.length, zip)
+          ));
+          await new Promise(resolve => requestAnimationFrame(resolve));
         }
         if (!processingCancelled && processedFiles > 0) {
           const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } }, metadata => {
@@ -589,10 +629,8 @@
         fileName = [...pathParts, newFilename].join('/');
         let outputBlob;
         try {
-          if (fileExtension === 'mp3') {
-            if (typeof lamejs === 'undefined') throw new Error('LameJS not loaded');
-            const encoder = new Mp3Encoder(processed.numberOfChannels, processed.sampleRate, 192);
-            outputBlob = encoder.encode(processed);
+          if (fileExtension === 'mp3' && mp3Worker) {
+            outputBlob = await encodeWithWorker(processed);
           } else {
             outputBlob = await audioBufferToBlob(processed);
           }
@@ -614,9 +652,7 @@
         updateFileInfo(`<div>Processed: ${escapeHtml(fileName)}</div><div>Original: ${originalSizeKB}KB → Processed: ${processedSizeKB}KB</div><div>${sizeInfo}</div>${compressionInfo}`);
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
-
         createWaveWindow(fileName, url, processed);
-
         return { fileName: fileName, url: url, originalSize: originalSize, processedSize: processedSize, trimmedSamples: trimmedSamples, channels: channels, isCompressed: isCompressed };
       } catch (error) {
         if (!processingCancelled) handleProcessingError(error, item);
@@ -626,6 +662,37 @@
         processed = null;
         await new Promise(resolve => setTimeout(resolve, 0));
       }
+    }
+
+    async function encodeWithWorker(audioBuffer) {
+      return new Promise((resolve, reject) => {
+        const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const handler = (e) => {
+          if (e.data.id === taskId) {
+            mp3Worker.removeEventListener('message', handler);
+            if (e.data.type === 'result') {
+              resolve(new Blob([e.data.result], { type: 'audio/mp3' }));
+            } else {
+              reject(new Error(e.data.error || 'Encoding failed'));
+            }
+          }
+        };
+        mp3Worker.addEventListener('message', handler);
+        const channels = audioBuffer.numberOfChannels;
+        const sampleRate = audioBuffer.sampleRate;
+        const left = audioBuffer.getChannelData(0);
+        const right = channels > 1 ? audioBuffer.getChannelData(1) : left;
+        mp3Worker.postMessage({
+          id: taskId,
+          type: 'encode',
+          audioData: {
+            channels,
+            sampleRate,
+            left: left.buffer,
+            right: right.buffer
+          }
+        }, [left.buffer, right.buffer]);
+      });
     }
 
     function isSupportedAudioType(mimeType, fileName) {
@@ -1095,6 +1162,7 @@
         try { URL.revokeObjectURL(url); } catch (e) {}
       });
       if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} }
+      if (mp3Worker) mp3Worker.terminate();
     });
   </script>
 </body>
