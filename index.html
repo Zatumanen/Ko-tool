@@ -708,6 +708,15 @@
     .processing {
       animation: pulse 1.5s infinite;
     }
+    
+    /* FIX: Add styling for minimized windows */
+    .wave-window.minimized .content {
+      display: none;
+    }
+    
+    .wave-window.minimized .minimize i {
+      transform: rotate(0deg);
+    }
   </style>
 </head>
 <body>
@@ -1750,8 +1759,8 @@
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
           try {
-            if (oldestWindow.element.wavesurfer) {
-              oldestWindow.element.wavesurfer.destroy();
+            if (oldestWindow.wavesurfer) {
+              oldestWindow.wavesurfer.destroy();
             }
             safeRevoke(oldestWindow.url);
             document.body.removeChild(oldestWindow.element);
@@ -1775,8 +1784,12 @@
         <div class="title-bar">
           <span>${escapeHtml(title)}</span>
           <div class="window-controls">
-            <button class="minimize" title="Minimize">_</button>
-            <button class="close" title="Close">×</button>
+            <button class="minimize" title="Minimize">
+              <i class="fas fa-window-minimize"></i>
+            </button>
+            <button class="close" title="Close">
+              <i class="fas fa-times"></i>
+            </button>
           </div>
         </div>
         <div class="content">
@@ -1815,23 +1828,37 @@
       const minimizeBtn = windowElement.querySelector('.minimize');
       const closeBtn = windowElement.querySelector('.close');
       
+      // FIX: Proper minimize functionality
       minimizeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         bringToFront();
-        const content = windowElement.querySelector('.content');
-        content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        windowElement.classList.toggle('minimized');
       });
       
+      // FIX: Proper close functionality
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         bringToFront();
-        if (windowElement.wavesurfer) {
+        
+        // Stop playback if playing
+        if (windowObj.wavesurfer) {
           try {
-            windowElement.wavesurfer.destroy();
-          } catch (e) {}
+            windowObj.wavesurfer.stop();
+            windowObj.wavesurfer.destroy();
+          } catch (e) {
+            console.error('Error destroying wavesurfer:', e);
+          }
         }
+        
+        // Revoke object URL
         safeRevoke(url);
-        document.body.removeChild(windowElement);
+        
+        // Remove window from DOM
+        if (document.body.contains(windowElement)) {
+          document.body.removeChild(windowElement);
+        }
+        
+        // Remove from windows array
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
@@ -1881,11 +1908,12 @@
       windowElement.addEventListener('mousedown', bringToFront);
       windowElement.addEventListener('touchstart', bringToFront);
 
+      let wavesurfer;
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
         
-        const wavesurfer = WaveSurferLib.create({
+        wavesurfer = WaveSurferLib.create({
           container: waveContainer,
           height: 128,
           barWidth: 3,
@@ -1900,8 +1928,6 @@
           interact: true,
           backend: 'MediaElement'
         });
-        
-        windowElement.wavesurfer = wavesurfer;
         
         playButton.addEventListener('click', () => {
           bringToFront();
@@ -1991,7 +2017,8 @@
       const windowObj = {
         id: windowId,
         element: windowElement,
-        url: url
+        url: url,
+        wavesurfer: wavesurfer
       };
       
       waveWindows.push(windowObj);
@@ -2162,9 +2189,9 @@
       }
       
       waveWindows.forEach(w => {
-        if (w.element.wavesurfer) {
+        if (w.wavesurfer) {
           try {
-            w.element.wavesurfer.destroy();
+            w.wavesurfer.destroy();
           } catch (e) {}
         }
       });
