@@ -869,8 +869,8 @@
     
     const MAX_PREVIEW_WINDOWS = 3,
           MAX_FILE_SIZE = 50 * 1024 * 1024,
-          MAX_CONCURRENT = 1,
-          BATCH_SIZE = 1,
+          MAX_CONCURRENT = 4,
+          BATCH_SIZE = 10,
           MAX_TOTAL_FILES = 100,
           SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
 
@@ -1243,29 +1243,41 @@
       };
       
       try {
+        const processingPromises = [];
+        
         for (let i = 0; i < items.length; i++) {
           if (processingCancelled) break;
           
-          document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
-          document.getElementById('current-file-name').textContent = items[i].file.name;
+          processingPromises.push((async () => {
+            if (processingCancelled) return;
+            
+            document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
+            document.getElementById('current-file-name').textContent = items[i].file.name;
+            
+            const result = await processSingleItem(items[i], i, items.length, zip);
+            
+            if (!result) {
+              errorCount++;
+              return;
+            }
+            
+            processedFiles++;
+            totalOriginalSize += result.originalSize || 0;
+            totalProcessedSize += result.processedSize || 0;
+            totalTrimmed += result.trimmedSamples || 0;
+            
+            if (result.channels === 1) monoOriginal++;
+            else if (result.channels === 2) stereoOriginal++;
+          })());
           
-          const result = await processSingleItem(items[i], i, items.length, zip);
-          
-          if (!result) {
-            errorCount++;
-            continue;
+          // Limit concurrency
+          if (processingPromises.length >= MAX_CONCURRENT) {
+            await Promise.all(processingPromises.splice(0, MAX_CONCURRENT));
           }
-          
-          processedFiles++;
-          totalOriginalSize += result.originalSize || 0;
-          totalProcessedSize += result.processedSize || 0;
-          totalTrimmed += result.trimmedSamples || 0;
-          
-          if (result.channels === 1) monoOriginal++;
-          else if (result.channels === 2) stereoOriginal++;
-          
-          await updateProgressBar((i + 1) / items.length);
         }
+        
+        // Process remaining promises
+        await Promise.all(processingPromises);
         
         if (!processingCancelled && processedFiles > 0) {
           addToLog(`Compressing files into ZIP archive...`);
@@ -1397,7 +1409,7 @@
         
         if (autoTrim) {
           const beforeLength = processed.length;
-          processed = trimSilence(processed);
+          processed = trimSilence(processed, 512 /* Increased block size */);
           const afterLength = processed.length;
           trimmedSamples = Math.max(0, beforeLength - afterLength);
           addToLog(`Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
@@ -1524,7 +1536,7 @@
       }
       
       try {
-        const ctx = new OfflineContext(targetChannels, buffer.length, buffer.sampleRate);
+        const ctx = new OfflineAudioContext(targetChannels, buffer.length, buffer.sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         
@@ -1563,7 +1575,7 @@
       const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       
       try {
-        const ctx = new OfflineContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
+        const ctx = new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.playbackRate.value = speed;
@@ -1666,12 +1678,11 @@
       return Math.sqrt(sum / n);
     }
 
-    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
+    function trimSilence(audioBuffer, blockSize = 512, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
       const length = audioBuffer.length;
-      const blockSize = 1024;
       
       let startIndex = 0;
       let endIndex = length - 1;
@@ -1750,6 +1761,7 @@
           }
         }
         if (found) return i;
+        break;
       }
       return roughEnd;
     }
@@ -2159,7 +2171,7 @@
     }
     
     function safeRevoke(url) {
-      try {
+            try {
         URL.revokeObjectURL(url);
         createdObjectURLs = createdObjectURLs.filter(u => u !== url);
       } catch (e) {}
