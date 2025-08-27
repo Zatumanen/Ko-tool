@@ -709,13 +709,17 @@
       animation: pulse 1.5s infinite;
     }
     
-    /* FIX: Add styling for minimized windows */
+    .wave-window.minimized {
+      height: 36px;
+      overflow: hidden;
+    }
+    
     .wave-window.minimized .content {
       display: none;
     }
     
     .wave-window.minimized .minimize i {
-      transform: rotate(0deg);
+      transform: rotate(180deg);
     }
   </style>
 </head>
@@ -827,18 +831,6 @@
       
       <div id="current-file">Preparing...</div>
       
-      <div id="file-progress-container" style="margin-top:10px">
-        <div class="file-item">
-          <div class="file-header">
-            <span id="current-file-name">-</span>
-            <span id="file-progress-percent">0%</span>
-          </div>
-          <div class="file-progress">
-            <div class="file-progress-fill" id="file-progress-fill"></div>
-          </div>
-        </div>
-      </div>
-      
       <button id="cancel-button">Cancel Processing</button>
     </div>
   </div>
@@ -869,8 +861,8 @@
     
     const MAX_PREVIEW_WINDOWS = 3,
           MAX_FILE_SIZE = 50 * 1024 * 1024,
-          MAX_CONCURRENT = 4,
-          BATCH_SIZE = 10,
+          MAX_CONCURRENT = 1,
+          BATCH_SIZE = 1,
           MAX_TOTAL_FILES = 100,
           SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
 
@@ -890,7 +882,6 @@
       updateStatus("Ready to process files");
       setupTabNavigation();
       
-      // First visit notification
       if (localStorage.getItem('firstVisit') === null) {
         showNotification('Drag audio files here or use buttons above');
         localStorage.setItem('firstVisit', '1');
@@ -903,11 +894,9 @@
         tab.addEventListener('click', () => {
           const tabId = tab.dataset.tab;
           
-          // Update active tab button
           tabs.forEach(t => t.classList.remove('active'));
           tab.classList.add('active');
           
-          // Show active tab content
           document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
           });
@@ -991,7 +980,6 @@
         processingCancelled = true;
         if (currentProcessing) currentProcessing.cancel();
         
-        // Clear all intervals
         progressIntervals.forEach(interval => clearInterval(interval));
         progressIntervals = [];
         
@@ -1085,7 +1073,6 @@
       div.innerHTML = message;
       tabElement.appendChild(div);
       
-      // Auto-scroll only if user hasn't scrolled up
       const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
       if (!isScrolledUp) {
         tabElement.scrollTop = tabElement.scrollHeight;
@@ -1099,9 +1086,7 @@
       lastProgress = 0;
       processingStartTime = Date.now();
       updateProgressBar(0);
-      updateFileProgress(0);
       
-      // Start time updater
       progressIntervals.push(setInterval(() => {
         const elapsedSeconds = Math.floor((Date.now() - processingStartTime) / 1000);
         document.getElementById('progress-time').textContent = `Time: ${elapsedSeconds}s`;
@@ -1112,7 +1097,6 @@
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('win95-loader').style.display = 'none';
       
-      // Clear all intervals
       progressIntervals.forEach(interval => clearInterval(interval));
       progressIntervals = [];
     }
@@ -1139,7 +1123,6 @@
       waveWindows.forEach(window => {
         if (window.wavesurfer) {
           window.wavesurfer.stop();
-          // Update buttons in window
           const playBtn = window.element.querySelector('.play-button');
           const pauseBtn = window.element.querySelector('.pause-button');
           if (playBtn) playBtn.style.display = 'block';
@@ -1243,41 +1226,29 @@
       };
       
       try {
-        const processingPromises = [];
-        
         for (let i = 0; i < items.length; i++) {
           if (processingCancelled) break;
           
-          processingPromises.push((async () => {
-            if (processingCancelled) return;
-            
-            document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
-            document.getElementById('current-file-name').textContent = items[i].file.name;
-            
-            const result = await processSingleItem(items[i], i, items.length, zip);
-            
-            if (!result) {
-              errorCount++;
-              return;
-            }
-            
-            processedFiles++;
-            totalOriginalSize += result.originalSize || 0;
-            totalProcessedSize += result.processedSize || 0;
-            totalTrimmed += result.trimmedSamples || 0;
-            
-            if (result.channels === 1) monoOriginal++;
-            else if (result.channels === 2) stereoOriginal++;
-          })());
+          document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
+          document.getElementById('current-file').textContent = `Processing: ${items[i].file.name}`;
           
-          // Limit concurrency
-          if (processingPromises.length >= MAX_CONCURRENT) {
-            await Promise.all(processingPromises.splice(0, MAX_CONCURRENT));
+          const result = await processSingleItem(items[i], i, items.length, zip);
+          
+          if (!result) {
+            errorCount++;
+            continue;
           }
+          
+          processedFiles++;
+          totalOriginalSize += result.originalSize || 0;
+          totalProcessedSize += result.processedSize || 0;
+          totalTrimmed += result.trimmedSamples || 0;
+          
+          if (result.channels === 1) monoOriginal++;
+          else if (result.channels === 2) stereoOriginal++;
+          
+          await updateProgressBar((i + 1) / items.length);
         }
-        
-        // Process remaining promises
-        await Promise.all(processingPromises);
         
         if (!processingCancelled && processedFiles > 0) {
           addToLog(`Compressing files into ZIP archive...`);
@@ -1287,12 +1258,10 @@
             metadata => {
               const percent = metadata.percent.toFixed(1);
               updateStatus(`Compressing: ${percent}%`);
-              updateFileProgress(percent);
             }
           );
           
           await updateProgressBar(1);
-          updateFileProgress(100);
           
           const zipUrl = URL.createObjectURL(zipBlob);
           createdObjectURLs.push(zipUrl);
@@ -1381,15 +1350,9 @@
         
         await ensureAudioContext();
         
-        // Simulate file progress - 10% for reading
-        updateFileProgress(10);
-        
         const arrayBuffer = await file.arrayBuffer();
         
         if (processingCancelled) return null;
-        
-        // Simulate progress - 30% for decoding
-        updateFileProgress(30);
         
         decoded = await decodeAudioSafe(arrayBuffer);
         
@@ -1400,16 +1363,13 @@
         const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
         
-        // Simulate progress - 50% for processing
-        updateFileProgress(50);
-        
         processed = await processAudio(decoded, fidelity, channelsSetting);
         
         if (processingCancelled) return null;
         
         if (autoTrim) {
           const beforeLength = processed.length;
-          processed = trimSilence(processed, 512 /* Increased block size */);
+          processed = trimSilence(processed);
           const afterLength = processed.length;
           trimmedSamples = Math.max(0, beforeLength - afterLength);
           addToLog(`Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
@@ -1465,9 +1425,6 @@
         createdObjectURLs.push(url);
         
         createWaveWindow(fileName, url, processed);
-        
-        // Simulate progress - 100% for completion
-        updateFileProgress(100);
         
         return {
           fileName: fileName,
@@ -1536,7 +1493,7 @@
       }
       
       try {
-        const ctx = new OfflineAudioContext(targetChannels, buffer.length, buffer.sampleRate);
+        const ctx = new OfflineContext(targetChannels, buffer.length, buffer.sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         
@@ -1575,7 +1532,7 @@
       const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       
       try {
-        const ctx = new OfflineAudioContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
+        const ctx = new OfflineContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.playbackRate.value = speed;
@@ -1678,16 +1635,16 @@
       return Math.sqrt(sum / n);
     }
 
-    function trimSilence(audioBuffer, blockSize = 512, thresholdDb = -60, minSilenceDuration = 0.1) {
+    function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
       const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
       const length = audioBuffer.length;
+      const blockSize = 1024;
       
       let startIndex = 0;
       let endIndex = length - 1;
       
-      // Find rough start
       for (let i = 0; i < length; i += blockSize) {
         const blockEnd = Math.min(i + blockSize, length);
         const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
@@ -1698,7 +1655,6 @@
         }
       }
       
-      // Find rough end
       for (let i = length - blockSize; i >= 0; i -= blockSize) {
         const blockEnd = Math.min(i + blockSize, length);
         const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
@@ -1709,13 +1665,10 @@
         }
       }
       
-      // Find exact start
       startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
       
-      // Find exact end
       endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
       
-      // Add small buffer (50ms)
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
       endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
       
@@ -1761,7 +1714,6 @@
           }
         }
         if (found) return i;
-        break;
       }
       return roughEnd;
     }
@@ -1828,31 +1780,27 @@
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
         
-        // Remove active class from all windows
         document.querySelectorAll('.wave-window').forEach(w => {
           w.classList.remove('active-window');
         });
         
-        // Add active class to this window
         windowElement.classList.add('active-window');
       }
 
       const minimizeBtn = windowElement.querySelector('.minimize');
       const closeBtn = windowElement.querySelector('.close');
       
-      // FIX: Proper minimize functionality
       minimizeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         bringToFront();
         windowElement.classList.toggle('minimized');
+        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
       });
       
-      // FIX: Proper close functionality
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         bringToFront();
         
-        // Stop playback if playing
         if (windowObj.wavesurfer) {
           try {
             windowObj.wavesurfer.stop();
@@ -1862,15 +1810,12 @@
           }
         }
         
-        // Revoke object URL
         safeRevoke(url);
         
-        // Remove window from DOM
         if (document.body.contains(windowElement)) {
           document.body.removeChild(windowElement);
         }
         
-        // Remove from windows array
         waveWindows = waveWindows.filter(w => w.id !== windowId);
       });
       
@@ -1921,9 +1866,16 @@
       windowElement.addEventListener('touchstart', bringToFront);
 
       let wavesurfer;
+      
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+        
+        const fidelity = getSelectedValue('fidelity');
+        
+        if (fidelity === 'sk') {
+          throw new Error('SK-1 format not supported for preview');
+        }
         
         wavesurfer = WaveSurferLib.create({
           container: waveContainer,
@@ -1945,7 +1897,6 @@
           bringToFront();
           activateAudio();
           try {
-            // Stop all other players
             stopAllPlayback();
             
             wavesurfer.play();
@@ -1972,7 +1923,6 @@
         });
         
         wavesurfer.on('ready', () => {
-          // Add playback progress indicator
           wavesurfer.on('audioprocess', (time) => {
             const duration = wavesurfer.getDuration();
             if (duration > 0) {
@@ -2009,7 +1959,7 @@
         waveContainer.innerHTML = '';
         const errDiv = document.createElement('div');
         errDiv.className = 'file-error';
-        errDiv.textContent = `WaveSurfer error: ${e?.message || 'Preview unavailable'}`;
+        errDiv.textContent = `Preview error: ${e?.message || 'Preview unavailable'}`;
         
         const fb = document.createElement('div');
         fb.className = 'mobile-fallback';
@@ -2049,15 +1999,6 @@
         
         setTimeout(resolve, 20);
       });
-    }
-    
-    function updateFileProgress(percent) {
-      percent = Math.max(0, Math.min(100, percent));
-      const progressFill = document.getElementById('file-progress-fill');
-      const progressPercent = document.getElementById('file-progress-percent');
-      
-      progressFill.style.width = `${percent}%`;
-      progressPercent.textContent = `${Math.round(percent)}%`;
     }
 
     function handleProcessingError(error, item) {
@@ -2171,7 +2112,7 @@
     }
     
     function safeRevoke(url) {
-            try {
+      try {
         URL.revokeObjectURL(url);
         createdObjectURLs = createdObjectURLs.filter(u => u !== url);
       } catch (e) {}
