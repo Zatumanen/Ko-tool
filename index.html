@@ -1089,11 +1089,27 @@
       try {
         const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
         if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+        
+        // Для SK-1 формата используем fallback-плеер
         const fidelity = getSelectedValue('fidelity');
-        if (fidelity === 'sk') throw new Error('Using fallback audio player for SK-1 format');
+        if (fidelity === 'sk') {
+          throw new Error('Using fallback audio player for SK-1 format');
+        }
+        
         wavesurfer = WaveSurferLib.create({
-          container: waveContainer, height: 128, barWidth: 3, barGap: 2, barRadius: 1, cursorWidth: 1, cursorColor: 'transparent',
-          normalize: true, progressColor: '#000080', waveColor: '#c0c0c0', fillParent: true, interact: true, backend: 'MediaElement'
+          container: waveContainer, 
+          height: 128, 
+          barWidth: 3, 
+          barGap: 2, 
+          barRadius: 1, 
+          cursorWidth: 1, 
+          cursorColor: 'transparent',
+          normalize: true, 
+          progressColor: '#000080', 
+          waveColor: '#c0c0c0', 
+          fillParent: true, 
+          interact: true, 
+          backend: 'MediaElement'
         });
         const playClickHandler = () => {
           bringToFront();
@@ -1135,9 +1151,15 @@
             }
           });
         });
-        wavesurfer.on('error', (err) => { showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); });
+        wavesurfer.on('error', (err) => { 
+          console.error('Wavesurfer error:', err);
+          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); 
+        });
         wavesurfer.load(url);
-      } catch (e) { showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); }
+      } catch (e) { 
+        console.error('Wavesurfer initialization failed:', e);
+        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); 
+      }
       const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: wavesurfer };
       waveWindows.push(windowObj);
       return windowElement;
@@ -1206,10 +1228,10 @@
           const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
           for (let j = 0; j < leftChunk.length; j++) {
             const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+            leftSamples[j] = sampleLeft < 0 ? Math.round(sampleLeft * 32768) : Math.round(sampleLeft * 32767);
             if (this.channels > 1) {
               const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
+              rightSamples[j] = sampleRight < 0 ? Math.round(sampleRight * 32768) : Math.round(sampleRight * 32767);
             }
           }
           const mp3buf = this.lame.encodeBuffer(leftSamples.subarray(0, leftChunk.length), this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined);
