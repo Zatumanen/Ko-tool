@@ -990,7 +990,7 @@
       for (let i = roughEnd; i < buffer.length; i++) {
         let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c][i]) > threshold) { found = true; break; }
+          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { found = true; break; }
         }
         if (found) return i;
       }
@@ -1061,7 +1061,7 @@
       const waveContainer = windowElement.querySelector('.wave-element');
       
       // Проверяем, является ли это SK-1 аудио (9kHz)
-      const isSK1 = audioBuffer.sampleRate === 9000;
+      const isSK1 = audioBuffer && audioBuffer.sampleRate === 9000;
       
       if (isSK1) {
         // Для SK-1 используем специальную обработку
@@ -1069,6 +1069,10 @@
         
         // Создаем упрощенную визуализацию волны
         createSimplifiedWaveform(audioBuffer, waveContainer);
+        
+        // Добавляем окно в массив для управления
+        const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: null };
+        waveWindows.push(windowObj);
       } else {
         // Для других форматов используем Wavesurfer
         try {
@@ -1142,6 +1146,10 @@
         } catch (e) { 
           console.error('Wavesurfer initialization failed:', e);
           showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, e.message);
+          
+          // Добавляем окно в массив даже при ошибке
+          const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: null };
+          waveWindows.push(windowObj);
         }
       }
       
@@ -1184,6 +1192,29 @@
       titleBar.addEventListener('touchstart', startDrag, { passive: false });
       windowElement.addEventListener('mousedown', bringToFront);
       windowElement.addEventListener('touchstart', bringToFront);
+      
+      // Обработчики для кнопок управления окном
+      minimizeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bringToFront();
+        windowElement.classList.toggle('minimized');
+        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
+      });
+      
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        bringToFront();
+        const windowIndex = waveWindows.findIndex(w => w.id === windowId);
+        if (windowIndex !== -1) {
+          const windowObj = waveWindows[windowIndex];
+          if (windowObj.wavesurfer) {
+            try { windowObj.wavesurfer.stop(); windowObj.wavesurfer.destroy(); } catch (e) { console.error('Error destroying wavesurfer:', e); }
+          }
+          safeRevoke(url);
+          waveWindows.splice(windowIndex, 1);
+        }
+        if (document.body.contains(windowElement)) document.body.removeChild(windowElement);
+      });
       
       return windowElement;
     }
