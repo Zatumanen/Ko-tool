@@ -128,6 +128,29 @@
     .wave-window.minimized .minimize i { transform: rotate(180deg); }
     .mobile-audio-fallback { width: 100%; margin-top: 10px; }
     
+    /* Стили для кастомной визуализации волны */
+    .custom-waveform { 
+      width: 100%; 
+      height: 100%; 
+      background: #000; 
+      position: relative;
+      overflow: hidden;
+    }
+    .custom-waveform canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .custom-wave-info {
+      position: absolute;
+      bottom: 5px;
+      left: 5px;
+      color: #c0c0c0;
+      font-size: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); } }
     @keyframes loading { 0% { left: -100%; } 100% { left: 100%; } }
     
@@ -967,7 +990,7 @@
       for (let i = roughEnd; i < buffer.length; i++) {
         let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
-          if (Math.abs(buffer.getChannelData(c)[i]) > threshold) { found = true; break; }
+          if (Math.abs(buffer.getChannelData(c][i]) > threshold) { found = true; break; }
         }
         if (found) return i;
       }
@@ -985,6 +1008,7 @@
           } catch (e) {}
         }
       }
+      
       windowZIndex += 2;
       const windowId = 'wave-window-' + Date.now();
       const top = 80 + (waveWindows.length * 30);
@@ -995,6 +1019,7 @@
       windowElement.style.zIndex = windowZIndex;
       windowElement.style.top = top + 'px';
       windowElement.style.left = left + 'px';
+      
       windowElement.innerHTML = `
         <div class="title-bar">
           <span>${escapeHtml(title)}</span>
@@ -1018,41 +1043,112 @@
           </div>
         </div>
       `;
+      
       document.body.appendChild(windowElement);
+      
       function bringToFront() {
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
         document.querySelectorAll('.wave-window').forEach(w => w.classList.remove('active-window'));
         windowElement.classList.add('active-window');
       }
+      
       const minimizeBtn = windowElement.querySelector('.minimize');
       const closeBtn = windowElement.querySelector('.close');
-      const handleMinimize = (e) => {
-        e.stopPropagation();
-        bringToFront();
-        windowElement.classList.toggle('minimized');
-        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
-      };
-      const handleClose = (e) => {
-        e.stopPropagation();
-        bringToFront();
-        if (windowObj.wavesurfer) {
-          try { windowObj.wavesurfer.stop(); windowObj.wavesurfer.destroy(); } catch (e) { console.error('Error destroying wavesurfer:', e); }
-        }
-        safeRevoke(url);
-        if (document.body.contains(windowElement)) document.body.removeChild(windowElement);
-        waveWindows = waveWindows.filter(w => w.id !== windowId);
-      };
-      minimizeBtn.addEventListener('click', handleMinimize);
-      minimizeBtn.addEventListener('touchstart', handleMinimize);
-      closeBtn.addEventListener('click', handleClose);
-      closeBtn.addEventListener('touchstart', handleClose);
       const playButton = windowElement.querySelector('.play-button');
       const pauseButton = windowElement.querySelector('.pause-button');
       const stopButton = windowElement.querySelector('.stop-button');
       const waveContainer = windowElement.querySelector('.wave-element');
+      
+      // Проверяем, является ли это SK-1 аудио (9kHz)
+      const isSK1 = audioBuffer.sampleRate === 9000;
+      
+      if (isSK1) {
+        // Для SK-1 используем специальную обработку
+        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, "SK-1 format (9kHz) uses fallback player");
+        
+        // Создаем упрощенную визуализацию волны
+        createSimplifiedWaveform(audioBuffer, waveContainer);
+      } else {
+        // Для других форматов используем Wavesurfer
+        try {
+          const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+          if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+          
+          const wavesurfer = WaveSurferLib.create({
+            container: waveContainer, 
+            height: 128, 
+            barWidth: 3, 
+            barGap: 2, 
+            barRadius: 1, 
+            cursorWidth: 1, 
+            cursorColor: 'transparent',
+            normalize: true, 
+            progressColor: '#000080', 
+            waveColor: '#c0c0c0', 
+            fillParent: true, 
+            interact: true, 
+            backend: 'MediaElement'
+          });
+          
+          // Обработчики для кнопок управления воспроизведением
+          playButton.addEventListener('click', () => {
+            bringToFront();
+            activateAudio();
+            try {
+              stopAllPlayback();
+              wavesurfer.play();
+              playButton.style.display = 'none';
+              pauseButton.style.display = 'block';
+              updateStatus("Playing audio");
+            } catch (e) {}
+          });
+          
+          pauseButton.addEventListener('click', () => {
+            bringToFront();
+            wavesurfer.pause();
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'block';
+            updateStatus("Playback paused");
+          });
+          
+          stopButton.addEventListener('click', () => {
+            bringToFront();
+            wavesurfer.stop();
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'block';
+            updateStatus("Playback stopped");
+          });
+          
+          wavesurfer.on('ready', () => {
+            wavesurfer.on('audioprocess', (time) => {
+              const duration = wavesurfer.getDuration();
+              if (duration > 0) {
+                const progress = (time / duration) * 100;
+                windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
+              }
+            });
+          });
+          
+          wavesurfer.on('error', (err) => { 
+            console.error('Wavesurfer error:', err);
+            showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, err.message);
+          });
+          
+          wavesurfer.load(url);
+          
+          const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: wavesurfer };
+          waveWindows.push(windowObj);
+        } catch (e) { 
+          console.error('Wavesurfer initialization failed:', e);
+          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, e.message);
+        }
+      }
+      
+      // Обработчики для перемещения окна
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       const titleBar = windowElement.querySelector('.title-bar');
+      
       function startDrag(e) {
         e.preventDefault();
         bringToFront();
@@ -1063,6 +1159,7 @@
         document.addEventListener('mouseup', endDrag);
         document.addEventListener('touchend', endDrag);
       }
+      
       function dragMove(e) {
         e.preventDefault();
         const clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -1075,114 +1172,106 @@
         windowElement.style.top = (windowElement.offsetTop - pos2) + "px";
         windowElement.style.left = (windowElement.offsetLeft - pos1) + "px";
       }
+      
       function endDrag() {
         document.removeEventListener('mousemove', dragMove);
         document.removeEventListener('touchmove', dragMove);
         document.removeEventListener('mouseup', endDrag);
         document.removeEventListener('touchend', endDrag);
       }
+      
       titleBar.addEventListener('mousedown', startDrag);
       titleBar.addEventListener('touchstart', startDrag, { passive: false });
       windowElement.addEventListener('mousedown', bringToFront);
       windowElement.addEventListener('touchstart', bringToFront);
-      let wavesurfer;
-      try {
-        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-        
-        // Для SK-1 формата используем fallback-плеер
-        const fidelity = getSelectedValue('fidelity');
-        if (fidelity === 'sk') {
-          throw new Error('Using fallback audio player for SK-1 format');
-        }
-        
-        wavesurfer = WaveSurferLib.create({
-          container: waveContainer, 
-          height: 128, 
-          barWidth: 3, 
-          barGap: 2, 
-          barRadius: 1, 
-          cursorWidth: 1, 
-          cursorColor: 'transparent',
-          normalize: true, 
-          progressColor: '#000080', 
-          waveColor: '#c0c0c0', 
-          fillParent: true, 
-          interact: true, 
-          backend: 'MediaElement'
-        });
-        const playClickHandler = () => {
-          bringToFront();
-          activateAudio();
-          try {
-            stopAllPlayback();
-            wavesurfer.play();
-            playButton.style.display = 'none';
-            pauseButton.style.display = 'block';
-            updateStatus("Playing audio");
-          } catch (e) {}
-        };
-        playButton.addEventListener('click', playClickHandler);
-        playButton.addEventListener('touchstart', playClickHandler);
-        const pauseClickHandler = () => {
-          bringToFront();
-          wavesurfer.pause();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback paused");
-        };
-        pauseButton.addEventListener('click', pauseClickHandler);
-        pauseButton.addEventListener('touchstart', pauseClickHandler);
-        const stopClickHandler = () => {
-          bringToFront();
-          wavesurfer.stop();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback stopped");
-        };
-        stopButton.addEventListener('click', stopClickHandler);
-        stopButton.addEventListener('touchstart', stopClickHandler);
-        wavesurfer.on('ready', () => {
-          wavesurfer.on('audioprocess', (time) => {
-            const duration = wavesurfer.getDuration();
-            if (duration > 0) {
-              const progress = (time / duration) * 100;
-              windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
-            }
-          });
-        });
-        wavesurfer.on('error', (err) => { 
-          console.error('Wavesurfer error:', err);
-          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); 
-        });
-        wavesurfer.load(url);
-      } catch (e) { 
-        console.error('Wavesurfer initialization failed:', e);
-        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton); 
-      }
-      const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: wavesurfer };
-      waveWindows.push(windowObj);
+      
       return windowElement;
     }
 
-    function showFallbackAudioPlayer(container, url, playButton, pauseButton) {
+    function createSimplifiedWaveform(audioBuffer, container) {
+      // Создаем упрощенную визуализацию волны для SK-1
+      const canvas = document.createElement('canvas');
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      
+      // Очищаем контейнер и добавляем canvas
+      container.innerHTML = '';
+      container.appendChild(canvas);
+      
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'custom-wave-info';
+      infoDiv.textContent = `SK-1 Format (${audioBuffer.sampleRate}Hz)`;
+      container.appendChild(infoDiv);
+      
+      const ctx = canvas.getContext('2d');
+      const channelData = audioBuffer.getChannelData(0);
+      const step = Math.ceil(channelData.length / canvas.width);
+      const amp = canvas.height / 2;
+      
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.beginPath();
+      ctx.moveTo(0, amp);
+      
+      for (let i = 0; i < canvas.width; i++) {
+        let min = 1.0;
+        let max = -1.0;
+        
+        for (let j = 0; j < step; j++) {
+          const index = Math.floor(i * step + j);
+          if (index < channelData.length) {
+            const datum = channelData[index];
+            if (datum < min) min = datum;
+            if (datum > max) max = datum;
+          }
+        }
+        
+        ctx.lineTo(i, (1 + min) * amp);
+        ctx.lineTo(i, (1 + max) * amp);
+      }
+      
+      ctx.strokeStyle = '#c0c0c0';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function showFallbackAudioPlayer(container, url, playButton, pauseButton, reason) {
       container.innerHTML = '';
       const audio = document.createElement('audio');
       audio.controls = true;
       audio.style.width = '100%';
       audio.src = url;
       audio.classList.add('mobile-audio-fallback');
+      
       const fallbackDiv = document.createElement('div');
       fallbackDiv.style.textAlign = 'center';
       fallbackDiv.style.padding = '10px';
-      fallbackDiv.innerHTML = '<div>Using fallback audio player</div>';
+      fallbackDiv.innerHTML = `<div>${reason || 'Using fallback audio player'}</div>`;
       fallbackDiv.appendChild(audio);
       container.appendChild(fallbackDiv);
+      
       playButton.style.display = 'none';
       pauseButton.style.display = 'none';
-      audio.addEventListener('play', () => { updateStatus("Playing audio"); });
-      audio.addEventListener('pause', () => { updateStatus("Playback paused"); });
-      audio.addEventListener('ended', () => { updateStatus("Playback stopped"); });
+      
+      audio.addEventListener('play', () => { 
+        updateStatus("Playing audio"); 
+      });
+      
+      audio.addEventListener('pause', () => { 
+        updateStatus("Playback paused"); 
+      });
+      
+      audio.addEventListener('ended', () => { 
+        updateStatus("Playback stopped"); 
+      });
+      
+      audio.addEventListener('error', function(e) {
+        console.error('Audio error:', audio.error);
+        fallbackDiv.innerHTML += `<div class="file-error">Playback error: ${audio.error?.message || 'Unknown error'}</div>`;
+      });
     }
 
     function updateProgressBar(progress) {
