@@ -726,11 +726,22 @@
       width: 100%;
       margin-top: 10px;
     }
+    
+    .sk1-preview {
+      text-align: center;
+      color: white;
+      padding: 20px;
+    }
+    
+    .sk1-preview audio {
+      width: 100%;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
   <div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tl=" width="48" height="48">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
     <div>KO II Tool</div>
   </div>
   
@@ -1050,7 +1061,7 @@
           activeAudioContext = new ContextClass();
           return activeAudioContext;
         } catch (e) {
-          addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`, 'errors');
+          addToLog(`<div class="file-error">AudioContext error: ${e.message</div>`, 'errors');
           return null;
         }
       }
@@ -1133,6 +1144,11 @@
           if (playBtn) playBtn.style.display = 'block';
           if (pauseBtn) pauseBtn.style.display = 'none';
         }
+        
+        // Also stop all audio elements
+        window.element.querySelectorAll('audio').forEach(audio => {
+          audio.pause();
+        });
       });
       updateStatus("All playback stopped");
     }
@@ -1429,7 +1445,7 @@
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
         
-        createWaveWindow(fileName, url, processed);
+        createWaveWindow(fileName, url, processed, fidelity);
         
         return {
           fileName: fileName,
@@ -1723,7 +1739,7 @@
       return roughEnd;
     }
 
-    function createWaveWindow(title, url, audioBuffer) {
+    function createWaveWindow(title, url, audioBuffer, fidelity) {
       if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
@@ -1880,88 +1896,86 @@
       let wavesurfer;
       
       try {
-        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-        
-        const fidelity = getSelectedValue('fidelity');
-        
-        // Для формата SK-1 используем стандартный аудиоплеер
+        // Для формата SK-1 используем специальный превью
         if (fidelity === 'sk') {
-          throw new Error('Using fallback audio player for SK-1 format');
+          showSK1Preview(waveContainer, url, playButton, pauseButton, stopButton);
+        } else {
+          const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+          if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+          
+          wavesurfer = WaveSurferLib.create({
+            container: waveContainer,
+            height: 128,
+            barWidth: 3,
+            barGap: 2,
+            barRadius: 1,
+            cursorWidth: 1,
+            cursorColor: 'transparent',
+            normalize: true,
+            progressColor: '#000080',
+            waveColor: '#c0c0c0',
+            fillParent: true,
+            interact: true,
+            backend: 'MediaElement'
+          });
+          
+          const playClickHandler = () => {
+            bringToFront();
+            activateAudio();
+            try {
+              stopAllPlayback();
+              
+              wavesurfer.play();
+              playButton.style.display = 'none';
+              pauseButton.style.display = 'block';
+              updateStatus("Playing audio");
+            } catch (e) {}
+          };
+          
+          playButton.addEventListener('click', playClickHandler);
+          playButton.addEventListener('touchstart', playClickHandler);
+          
+          const pauseClickHandler = () => {
+            bringToFront();
+            wavesurfer.pause();
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'block';
+            updateStatus("Playback paused");
+          };
+          
+          pauseButton.addEventListener('click', pauseClickHandler);
+          pauseButton.addEventListener('touchstart', pauseClickHandler);
+          
+          const stopClickHandler = () => {
+            bringToFront();
+            wavesurfer.stop();
+            pauseButton.style.display = 'none';
+            playButton.style.display = 'block';
+            updateStatus("Playback stopped");
+          };
+          
+          stopButton.addEventListener('click', stopClickHandler);
+          stopButton.addEventListener('touchstart', stopClickHandler);
+          
+          wavesurfer.on('ready', () => {
+            wavesurfer.on('audioprocess', (time) => {
+              const duration = wavesurfer.getDuration();
+              if (duration > 0) {
+                const progress = (time / duration) * 100;
+                windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
+              }
+            });
+          });
+          
+          wavesurfer.on('error', (err) => {
+            showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, stopButton);
+          });
+          
+          wavesurfer.load(url);
         }
         
-        wavesurfer = WaveSurferLib.create({
-          container: waveContainer,
-          height: 128,
-          barWidth: 3,
-          barGap: 2,
-          barRadius: 1,
-          cursorWidth: 1,
-          cursorColor: 'transparent',
-          normalize: true,
-          progressColor: '#000080',
-          waveColor: '#c0c0c0',
-          fillParent: true,
-          interact: true,
-          backend: 'MediaElement'
-        });
-        
-        const playClickHandler = () => {
-          bringToFront();
-          activateAudio();
-          try {
-            stopAllPlayback();
-            
-            wavesurfer.play();
-            playButton.style.display = 'none';
-            pauseButton.style.display = 'block';
-            updateStatus("Playing audio");
-          } catch (e) {}
-        };
-        
-        playButton.addEventListener('click', playClickHandler);
-        playButton.addEventListener('touchstart', playClickHandler);
-        
-        const pauseClickHandler = () => {
-          bringToFront();
-          wavesurfer.pause();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback paused");
-        };
-        
-        pauseButton.addEventListener('click', pauseClickHandler);
-        pauseButton.addEventListener('touchstart', pauseClickHandler);
-        
-        const stopClickHandler = () => {
-          bringToFront();
-          wavesurfer.stop();
-          pauseButton.style.display = 'none';
-          playButton.style.display = 'block';
-          updateStatus("Playback stopped");
-        };
-        
-        stopButton.addEventListener('click', stopClickHandler);
-        stopButton.addEventListener('touchstart', stopClickHandler);
-        
-        wavesurfer.on('ready', () => {
-          wavesurfer.on('audioprocess', (time) => {
-            const duration = wavesurfer.getDuration();
-            if (duration > 0) {
-              const progress = (time / duration) * 100;
-              windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
-            }
-          });
-        });
-        
-        wavesurfer.on('error', (err) => {
-          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton);
-        });
-        
-        wavesurfer.load(url);
-        
       } catch (e) {
-        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton);
+        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, stopButton);
       }
       
       const windowObj = {
@@ -1975,7 +1989,43 @@
       return windowElement;
     }
 
-    function showFallbackAudioPlayer(container, url, playButton, pauseButton) {
+    function showSK1Preview(container, url, playButton, pauseButton, stopButton) {
+      container.innerHTML = '';
+      
+      const sk1Div = document.createElement('div');
+      sk1Div.className = 'sk1-preview';
+      sk1Div.innerHTML = `
+        <div>SK-1 Format Preview (9kHz)</div>
+        <div style="font-size: 12px; margin: 5px 0;">Low fidelity preview</div>
+        <audio controls style="width: 100%">
+          Your browser does not support the audio element.
+        </audio>
+      `;
+      
+      const audio = sk1Div.querySelector('audio');
+      audio.src = url;
+      
+      container.appendChild(sk1Div);
+      
+      // Скрываем кнопки управления, так как используем встроенные контролы audio
+      playButton.style.display = 'none';
+      pauseButton.style.display = 'none';
+      stopButton.style.display = 'none';
+      
+      audio.addEventListener('play', () => {
+        updateStatus("Playing SK-1 audio");
+      });
+      
+      audio.addEventListener('pause', () => {
+        updateStatus("Playback paused");
+      });
+      
+      audio.addEventListener('ended', () => {
+        updateStatus("Playback stopped");
+      });
+    }
+
+    function showFallbackAudioPlayer(container, url, playButton, pauseButton, stopButton) {
       container.innerHTML = '';
       
       const audio = document.createElement('audio');
@@ -1994,6 +2044,7 @@
       
       playButton.style.display = 'none';
       pauseButton.style.display = 'none';
+      stopButton.style.display = 'none';
       
       audio.addEventListener('play', () => {
         updateStatus("Playing audio");
