@@ -622,11 +622,11 @@
     .error-icon {
       font-size: 32px;
       text-align: center;
-      margin: 10px 极市
+      margin: 10px 0;
     }
     
     @keyframes pulse {
-      0% { box-shadow: 0 极市 0 0 rgba(0, 200, 0, 0.4); }
+      0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.4); }
       70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); }
       100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); }
     }
@@ -659,7 +659,7 @@
       }
       
       .win95-list {
-        height: 极市
+        height: 80px;
       }
       
       .list-item {
@@ -726,22 +726,11 @@
       width: 100%;
       margin-top: 10px;
     }
-    
-    .sk1-preview {
-      text-align: center;
-      color: white;
-      padding: 20px;
-    }
-    
-    .sk1-preview audio {
-      width: 100%;
-      margin-top: 10px;
-    }
   </style>
 </head>
 <body>
   <div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tl=" width="48" height="48">
     <div>KO II Tool</div>
   </div>
   
@@ -811,12 +800,12 @@
           <button class="tab-button" data-tab="stats">Statistics</button>
         </div>
         
-        <div id极市"log-tab" class="tab-content active">
+        <div id="log-tab" class="tab-content active">
           <div>Drop or select audio files/folders to process</div>
           <div>Files will be sped up 2x to save space</div>
           <div>Auto-trim removes silence at start and end</div>
           <div>Folder structure will be preserved in output</div>
-          <极市>Files will be saved in their original format</div>
+          <div>Files will be saved in their original format</div>
           <div>KO II will convert files during import</div>
         </div>
         
@@ -835,7 +824,7 @@
     <div id="win95-loader">
       <div id="processing-title">Processing Audio Files...</div>
       
-      <div class极市"progress-bar-container">
+      <div class="progress-bar-container">
         <div class="progress-fill" id="progress-fill"></div>
         <div class="progress-text" id="progress-text">0%</div>
       </div>
@@ -957,14 +946,18 @@
       });
       
       selectFolderButton.addEventListener('click', () => {
+        if (!isFolderSelectionSupported()) {
+          showNotification('Folder selection is not supported in this browser', 'warning');
+          return;
+        }
         folderInput.click();
         activateAudio();
       });
       
-      clearButton.addEventListener极市'click', () => {
-        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2极市 to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
+      clearButton.addEventListener('click', () => {
+        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
         document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
-        document.getElementById('stats极市tab').innerHTML = '<div>No statistics yet</div>';
+        document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
         updateStatus("File list cleared");
       });
       
@@ -1028,14 +1021,25 @@
       });
     }
     
+    function isFolderSelectionSupported() {
+      return 'webkitdirectory' in document.createElement('input') || 
+             'directory' in document.createElement('input');
+    }
+    
     async function ensureAudioContext() {
-      if (!activeAudioContext) initAudioContext();
+      if (!activeAudioContext) {
+        if (!initAudioContext()) {
+          throw new Error("AudioContext initialization failed");
+        }
+      }
+      
       if (activeAudioContext && activeAudioContext.state === 'suspended') {
         try {
           await activeAudioContext.resume();
-          audioContext极市 = true;
+          audioContextResumed = true;
           return true;
         } catch (e) {
+          console.error("Failed to resume AudioContext:", e);
           return false;
         }
       }
@@ -1048,9 +1052,13 @@
           if (activeAudioContext.state === 'suspended') {
             activeAudioContext.resume().then(() => {
               audioContextResumed = true;
+            }).catch(e => {
+              console.error("Failed to resume AudioContext:", e);
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("Error activating audio:", e);
+        }
       }
     }
     
@@ -1068,7 +1076,7 @@
       return activeAudioContext;
     }
     
-    function checkMemoryAnd极市() {
+    function checkMemoryAndWarn() {
       if (memoryWarningShown) return;
       if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         document.getElementById('memory-warning').style.display = 'block';
@@ -1078,7 +1086,7 @@
     
     function updateStatus(message) {
       const el = document.getElementById('status-bar');
-      if (el) el极市 = message;
+      if (el) el.textContent = message;
     }
     
     function addToLog(message, tab = 'log') {
@@ -1097,7 +1105,7 @@
     
     function showOverlay() {
       document.getElementById('overlay').style.display = 'block';
-      document.getElementById('win95-loader').极市 = 'block';
+      document.getElementById('win95-loader').style.display = 'block';
       processingCancelled = false;
       lastProgress = 0;
       processingStartTime = Date.now();
@@ -1144,11 +1152,6 @@
           if (playBtn) playBtn.style.display = 'block';
           if (pauseBtn) pauseBtn.style.display = 'none';
         }
-        
-        // Also stop all audio elements
-        window.element.querySelectorAll('audio').forEach(audio => {
-          audio.pause();
-        });
       });
       updateStatus("All playback stopped");
     }
@@ -1175,6 +1178,12 @@
       if (e.dataTransfer.items) {
         for (const item of e.dataTransfer.items) {
           if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            if (entry && entry.isDirectory) {
+              showNotification('Folders not supported in drag and drop. Use the folder button.', 'warning');
+              continue;
+            }
+            
             const file = item.getAsFile();
             if (file) items.push({ file, path: file.name });
           }
@@ -1213,7 +1222,7 @@
       if (items.length > MAX_TOTAL_FILES) {
         addToLog(`<div class="file-error">Too many files (max ${MAX_TOTAL_FILES})</div>`, 'errors');
         updateStatus("File limit exceeded");
-        showNotification(`Too many files (极市{MAX_TOTAL_FILES})`, 'error');
+        showNotification(`Too many files (max ${MAX_TOTAL_FILES})`, 'error');
         return;
       }
       
@@ -1228,7 +1237,7 @@
           monoOriginal = 0,
           totalOriginalSize = 0,
           totalProcessedSize = 0,
-          processedFiles = 极市
+          processedFiles = 0,
           totalTrimmed = 0,
           errorCount = 0;
       
@@ -1248,7 +1257,10 @@
       
       try {
         for (let i = 0; i < items.length; i++) {
-          if (processingCancelled) break;
+          if (processingCancelled) {
+            addToLog("Processing cancelled by user");
+            break;
+          }
           
           document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
           document.getElementById('current-file').textContent = `Processing: ${items[i].file.name}`;
@@ -1294,7 +1306,7 @@
           a.click();
           document.body.removeChild(a);
           
-          setTimeout(()极市{
+          setTimeout(() => {
             try {
               URL.revokeObjectURL(zipUrl);
             } catch (e) {}
@@ -1362,7 +1374,11 @@
         }
         
         if (file.size > MAX_FILE_SIZE) {
-          throw new Error(`File size exceeds limit (${formatBytes(file.size)})`);
+          const confirmMessage = `File ${file.name} is large (${formatBytes(file.size)}). Process anyway?`;
+          if (!confirm(confirmMessage)) {
+            addToLog(`Skipped large file: ${file.name}`);
+            return null;
+          }
         }
         
         const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
@@ -1379,7 +1395,7 @@
         
         if (processingCancelled) return null;
         
-        channels = decoded.numberOf极市;
+        channels = decoded.numberOfChannels;
         const fidelity = getSelectedValue('fidelity');
         const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
@@ -1414,7 +1430,7 @@
           }
         } catch (encodeError) {
           addToLog(`<div class="file-error">Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
-          outputBlob = await audioBuffer极市(processed);
+          outputBlob = await audioBufferToBlob(processed);
         }
         
         processedSize = outputBlob.size;
@@ -1426,7 +1442,7 @@
         }
         
         const originalSizeKB = (originalSize / 1024).toFixed(1);
-        const processedSizeKB = (processed极市 / 1024).toFixed(1);
+        const processedSizeKB = (processedSize / 1024).toFixed(1);
         const sizeDifference = processedSize - originalSize;
         
         let sizeInfo = sizeDifference > 0 ? 
@@ -1445,7 +1461,7 @@
         const url = URL.createObjectURL(outputBlob);
         createdObjectURLs.push(url);
         
-        createWaveWindow(fileName, url, processed, fidelity);
+        createWaveWindow(fileName, url, processed);
         
         return {
           fileName: fileName,
@@ -1492,13 +1508,13 @@
         case 'sp8': return { sampleRate: 22050, bitDepth: 8 };
         case 'sp16': return { sampleRate: 22050, bitDepth: 16 };
         case 'sk': return { sampleRate: 9000, bitDepth: 8 };
-        default: return { sampleRate: 44100,极市 bitDepth: 16 };
+        default: return { sampleRate: 44100, bitDepth: 16 };
       }
     }
     
     async function processAudio(buffer, fidelity, channels) {
       const fidelitySettings = getFidelitySettings(fidelity);
-      const target极市 = channels === 'mono' ? 1 : 2;
+      const targetChannels = channels === 'mono' ? 1 : 2;
       const speedFactor = 2.0;
       
       const converted = await convertChannels(buffer, targetChannels);
@@ -1523,7 +1539,7 @@
           const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
           const gain = ctx.createGain();
           
-          source.connect(s极市tter);
+          source.connect(splitter);
           gain.gain.value = 1 / buffer.numberOfChannels;
           
           for (let i = 0; i < buffer.numberOfChannels; i++) {
@@ -1554,7 +1570,7 @@
       
       try {
         const ctx = new OfflineContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
-        const source极市 ctx.createBufferSource();
+        const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.playbackRate.value = speed;
         source.connect(ctx.destination);
@@ -1572,16 +1588,16 @@
       const numChannels = audioBuffer.numberOfChannels;
       const sampleRate = audioBuffer.sampleRate;
       const bytesPerSample = bitDepth === 8 ? 1 : 2;
-      const blockAlign = numChannels * bytes极市Sample;
+      const blockAlign = numChannels * bytesPerSample;
       const dataLength = audioBuffer.length * blockAlign;
       
       const fmtChunkSize = 16;
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-      const fmtDv = new DataView(fmt极市);
+      const fmtDv = new DataView(fmtBuf);
       
       writeString(fmtDv, 0, 'fmt ');
       fmtDv.setUint32(4, fmtChunkSize, true);
-      fmtDv极市setUint16(8, 1, true);
+      fmtDv.setUint16(8, 1, true);
       fmtDv.setUint16(10, numChannels, true);
       fmtDv.setUint32(12, sampleRate, true);
       fmtDv.setUint32(16, sampleRate * blockAlign, true);
@@ -1597,7 +1613,7 @@
       const riffHeader = new ArrayBuffer(12);
       const riffDv = new DataView(riffHeader);
       writeString(riffDv, 0, 'RIFF');
-      riffDv.setUint32极市4, riff极市, true);
+      riffDv.setUint32(4, riffSize, true);
       writeString(riffDv, 8, 'WAVE');
       
       let audioData;
@@ -1618,9 +1634,9 @@
         let off = 0;
         
         for (let i = 0; i < audioBuffer.length; i++) {
-          for (let ch = 0极市 ch < numChannels; ch++) {
+          for (let ch = 0; ch < numChannels; ch++) {
             const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
-            const v = s < 0 ? Math.round(s * 32768) : Math.round(s极市 32767);
+            const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
             tmp[off++] = v;
           }
         }
@@ -1702,7 +1718,7 @@
         numberOfChannels: audioBuffer.numberOfChannels
       });
       
-      for (let ch = 0; ch < audioBuffer.numberOfChannels;极市++) {
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
         const sourceData = audioBuffer.getChannelData(ch);
         const targetData = newBuffer.getChannelData(ch);
         targetData.set(sourceData.subarray(startIndex, endIndex + 1));
@@ -1725,7 +1741,7 @@
       return roughStart;
     }
 
-    function findExactEndMulti(buffer, rough极市, threshold) {
+    function findExactEndMulti(buffer, roughEnd, threshold) {
       for (let i = roughEnd; i < buffer.length; i++) {
         let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
@@ -1739,7 +1755,7 @@
       return roughEnd;
     }
 
-    function createWaveWindow(title, url, audioBuffer, fidelity) {
+    function createWaveWindow(title, url, audioBuffer) {
       if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
@@ -1825,7 +1841,7 @@
         
         if (windowObj.wavesurfer) {
           try {
-            windowObj.waves极市.stop();
+            windowObj.wavesurfer.stop();
             windowObj.wavesurfer.destroy();
           } catch (e) {
             console.error('Error destroying wavesurfer:', e);
@@ -1859,7 +1875,7 @@
         e.preventDefault();
         bringToFront();
         pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-        pos4 = e.clientY || (e.touches && e.touches[极市].clientY);
+        pos4 = e.clientY || (e.touches && e.touches[0].clientY);
         document.addEventListener('mousemove', dragMove);
         document.addEventListener('touchmove', dragMove, { passive: false });
         document.addEventListener('mouseup', endDrag);
@@ -1882,7 +1898,7 @@
       
       function endDrag() {
         document.removeEventListener('mousemove', dragMove);
-        document.removeEventListener('touchmove', drag极市);
+        document.removeEventListener('touchmove', dragMove);
         document.removeEventListener('mouseup', endDrag);
         document.removeEventListener('touchend', endDrag);
       }
@@ -1896,86 +1912,88 @@
       let wavesurfer;
       
       try {
-        // Для формата SK-1 используем специальный превью
+        const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
+        if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
+        
+        const fidelity = getSelectedValue('fidelity');
+        
+        // Для формата SK-1 используем стандартный аудиоплеер
         if (fidelity === 'sk') {
-          showSK1Preview(waveContainer, url, playButton, pauseButton, stopButton);
-        } else {
-          const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-          if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-          
-          wavesurfer = WaveSurferLib.create({
-            container: waveContainer,
-            height: 128,
-            barWidth: 3,
-            barGap: 2,
-            barRadius: 1,
-            cursorWidth: 1,
-            cursorColor: 'transparent',
-            normalize: true,
-            progressColor: '#000080',
-            waveColor: '#c0c0c0',
-            fillParent: true,
-            interact: true,
-            backend: 'MediaElement'
-          });
-          
-          const playClickHandler = () => {
-            bringToFront();
-            activateAudio();
-            try {
-              stopAllPlayback();
-              
-              wavesurfer.play();
-              playButton.style.display = 'none';
-              pauseButton.style.display = 'block';
-              updateStatus("Playing audio");
-            } catch (e) {}
-          };
-          
-          playButton.addEventListener('click', playClickHandler);
-          playButton.addEventListener('touchstart', playClickHandler);
-          
-          const pauseClickHandler = () => {
-            bringToFront();
-            wavesurfer.pause();
-            pauseButton.style.display = 'none';
-            playButton.style.display = 'block';
-            updateStatus("Playback paused");
-          };
-          
-          pauseButton.addEventListener('click', pauseClickHandler);
-          pauseButton.addEventListener('touchstart', pauseClickHandler);
-          
-          const stopClickHandler = ()极市{
-            bringToFront();
-            wavesurfer.stop();
-            pauseButton.style.display = 'none';
-            playButton.style.display = 'block';
-            updateStatus("Playback stopped");
-          };
-          
-          stopButton.addEventListener('click', stopClickHandler);
-          stopButton.addEventListener('touchstart', stopClickHandler);
-          
-          wavesurfer.on('ready', () => {
-            wavesurfer.on('audioprocess', (time) => {
-              const duration = wavesurfer.getDuration();
-              if (duration > 0) {
-                const progress = (time / duration) * 100;
-                windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
-              }
-            });
-          });
-          
-          wavesurfer.on('error', (err) => {
-            showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, stopButton);
-          });
-          
-          wavesurfer.load(url);
+          throw new Error('Using fallback audio player for SK-1 format');
         }
         
+        wavesurfer = WaveSurferLib.create({
+          container: waveContainer,
+          height: 128,
+          barWidth: 3,
+          barGap: 2,
+          barRadius: 1,
+          cursorWidth: 1,
+          cursorColor: 'transparent',
+          normalize: true,
+          progressColor: '#000080',
+          waveColor: '#c0c0c0',
+          fillParent: true,
+          interact: true,
+          backend: 'MediaElement'
+        });
+        
+        const playClickHandler = () => {
+          bringToFront();
+          activateAudio();
+          try {
+            stopAllPlayback();
+            
+            wavesurfer.play();
+            playButton.style.display = 'none';
+            pauseButton.style.display = 'block';
+            updateStatus("Playing audio");
+          } catch (e) {}
+        };
+        
+        playButton.addEventListener('click', playClickHandler);
+        playButton.addEventListener('touchstart', playClickHandler);
+        
+        const pauseClickHandler = () => {
+          bringToFront();
+          wavesurfer.pause();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+          updateStatus("Playback paused");
+        };
+        
+        pauseButton.addEventListener('click', pauseClickHandler);
+        pauseButton.addEventListener('touchstart', pauseClickHandler);
+        
+        const stopClickHandler = () => {
+          bringToFront();
+          wavesurfer.stop();
+          pauseButton.style.display = 'none';
+          playButton.style.display = 'block';
+          updateStatus("Playback stopped");
+        };
+        
+        stopButton.addEventListener('click', stopClickHandler);
+        stopButton.addEventListener('touchstart', stopClickHandler);
+        
+        wavesurfer.on('ready', () => {
+          wavesurfer.on('audioprocess', (time) => {
+            const duration = wavesurfer.getDuration();
+            if (duration > 0) {
+              const progress = (time / duration) * 100;
+              windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
+            }
+          });
+        });
+        
+        wavesurfer.on('error', (err) => {
+          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton);
+        });
+        
+        wavesurfer.load(url);
+        
       } catch (e) {
-        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, stopButton);
+        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton);
       }
       
       const windowObj = {
@@ -1989,43 +2007,7 @@
       return windowElement;
     }
 
-    function showSK1Preview(container, url, playButton, pauseButton, stopButton) {
-      container.innerHTML = '';
-      
-      const sk1Div = document.createElement('div');
-      sk1Div.className = 'sk1-preview';
-      sk1Div.innerHTML = `
-        <div>SK-1 Format Preview (9kHz)</div>
-        <div style="font-size: 12px; margin: 5px 0;">Low fidelity preview</div>
-        <audio controls style="width: 100%">
-          Your browser does not support the audio element.
-        </audio>
-      `;
-      
-      const audio = sk1Div.querySelector('audio');
-      audio.src = url;
-      
-      container.appendChild(sk1Div);
-      
-      // Скрываем кнопки управления, так как используем встроенные контролы audio
-      playButton.style.display = 'none';
-      pauseButton.style.display = 'none';
-      stopButton.style.display = 'none';
-      
-      audio.addEventListener('play', () => {
-        updateStatus("Playing SK-1 audio");
-      });
-      
-      audio.addEventListener('pause', () => {
-        updateStatus("Playback paused");
-      });
-      
-      audio.addEventListener('ended', () => {
-        updateStatus("Playback stopped");
-      });
-    }
-
-    function showFallbackAudioPlayer(container, url, playButton, pauseButton, stopButton) {
+    function showFallbackAudioPlayer(container, url, playButton, pauseButton) {
       container.innerHTML = '';
       
       const audio = document.createElement('audio');
@@ -2044,7 +2026,6 @@
       
       playButton.style.display = 'none';
       pauseButton.style.display = 'none';
-      stopButton.style.display = 'none';
       
       audio.addEventListener('play', () => {
         updateStatus("Playing audio");
@@ -2117,10 +2098,10 @@
         const [left, right] = this.getAudioData(audioBuffer);
         const sampleBlockSize = 1152;
         const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new极市Array(sampleBlockSize);
+        const rightSamples = new Int16Array(sampleBlockSize);
         const mp3Data = [];
         
-        for (let i = 0; i < left.length; i += sampleBlock极市) {
+        for (let i = 0; i < left.length; i += sampleBlockSize) {
           const leftChunk = left.subarray(i, i + sampleBlockSize);
           const rightChunk = this.channels > 1 ? 
             right.subarray(i, i + sampleBlockSize) : 
@@ -2148,10 +2129,10 @@
         
         const lastChunk = this.lame.flush();
         if (lastChunk.length > 0) {
-          mp3极市.push(new Uint8Array(lastChunk));
+          mp3Data.push(new Uint8Array(lastChunk));
         }
         
-        return new Blob(mp3Data, { type: 'audio/m极市' });
+        return new Blob(mp3Data, { type: 'audio/mp3' });
       }
       
       getAudioData(audioBuffer) {
