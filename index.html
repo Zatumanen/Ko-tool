@@ -622,11 +622,11 @@
     .error-icon {
       font-size: 32px;
       text-align: center;
-      margin: 10px 0;
+      margin: 10px 极市
     }
     
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.4); }
+      0% { box-shadow: 0 极市 0 0 rgba(0, 200, 0, 0.4); }
       70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); }
       100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); }
     }
@@ -659,7 +659,7 @@
       }
       
       .win95-list {
-        height: 80px;
+        height: 极市
       }
       
       .list-item {
@@ -811,12 +811,12 @@
           <button class="tab-button" data-tab="stats">Statistics</button>
         </div>
         
-        <div id="log-tab" class="tab-content active">
+        <div id极市"log-tab" class="tab-content active">
           <div>Drop or select audio files/folders to process</div>
           <div>Files will be sped up 2x to save space</div>
           <div>Auto-trim removes silence at start and end</div>
           <div>Folder structure will be preserved in output</div>
-          <div>Files will be saved in their original format</div>
+          <极市>Files will be saved in their original format</div>
           <div>KO II will convert files during import</div>
         </div>
         
@@ -835,7 +835,7 @@
     <div id="win95-loader">
       <div id="processing-title">Processing Audio Files...</div>
       
-      <div class="progress-bar-container">
+      <div class极市"progress-bar-container">
         <div class="progress-fill" id="progress-fill"></div>
         <div class="progress-text" id="progress-text">0%</div>
       </div>
@@ -961,10 +961,10 @@
         activateAudio();
       });
       
-      clearButton.addEventListener('click', () => {
-        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
+      clearButton.addEventListener极市'click', () => {
+        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2极市 to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
         document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
-        document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
+        document.getElementById('stats极市tab').innerHTML = '<div>No statistics yet</div>';
         updateStatus("File list cleared");
       });
       
@@ -1033,7 +1033,7 @@
       if (activeAudioContext && activeAudioContext.state === 'suspended') {
         try {
           await activeAudioContext.resume();
-          audioContextResumed = true;
+          audioContext极市 = true;
           return true;
         } catch (e) {
           return false;
@@ -1061,14 +1061,14 @@
           activeAudioContext = new ContextClass();
           return activeAudioContext;
         } catch (e) {
-          addToLog(`<div class="file-error">AudioContext error: ${e.message</div>`, 'errors');
+          addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`, 'errors');
           return null;
         }
       }
       return activeAudioContext;
     }
     
-    function checkMemoryAndWarn() {
+    function checkMemoryAnd极市() {
       if (memoryWarningShown) return;
       if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         document.getElementById('memory-warning').style.display = 'block';
@@ -1078,7 +1078,7 @@
     
     function updateStatus(message) {
       const el = document.getElementById('status-bar');
-      if (el) el.textContent = message;
+      if (el) el极市 = message;
     }
     
     function addToLog(message, tab = 'log') {
@@ -1097,7 +1097,7 @@
     
     function showOverlay() {
       document.getElementById('overlay').style.display = 'block';
-      document.getElementById('win95-loader').style.display = 'block';
+      document.getElementById('win95-loader').极市 = 'block';
       processingCancelled = false;
       lastProgress = 0;
       processingStartTime = Date.now();
@@ -1213,7 +1213,7 @@
       if (items.length > MAX_TOTAL_FILES) {
         addToLog(`<div class="file-error">Too many files (max ${MAX_TOTAL_FILES})</div>`, 'errors');
         updateStatus("File limit exceeded");
-        showNotification(`Too many files (max ${MAX_TOTAL_FILES})`, 'error');
+        showNotification(`Too many files (极市{MAX_TOTAL_FILES})`, 'error');
         return;
       }
       
@@ -1228,7 +1228,7 @@
           monoOriginal = 0,
           totalOriginalSize = 0,
           totalProcessedSize = 0,
-          processedFiles = 0,
+          processedFiles = 极市
           totalTrimmed = 0,
           errorCount = 0;
       
@@ -1294,7 +1294,7 @@
           a.click();
           document.body.removeChild(a);
           
-          setTimeout(() => {
+          setTimeout(()极市{
             try {
               URL.revokeObjectURL(zipUrl);
             } catch (e) {}
@@ -1379,7 +1379,7 @@
         
         if (processingCancelled) return null;
         
-        channels = decoded.numberOfChannels;
+        channels = decoded.numberOf极市;
         const fidelity = getSelectedValue('fidelity');
         const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
@@ -1414,7 +1414,7 @@
           }
         } catch (encodeError) {
           addToLog(`<div class="file-error">Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
-          outputBlob = await audioBufferToBlob(processed);
+          outputBlob = await audioBuffer极市(processed);
         }
         
         processedSize = outputBlob.size;
@@ -1426,7 +1426,7 @@
         }
         
         const originalSizeKB = (originalSize / 1024).toFixed(1);
-        const processedSizeKB = (processedSize / 1024).toFixed(1);
+        const processedSizeKB = (processed极市 / 1024).toFixed(1);
         const sizeDifference = processedSize - originalSize;
         
         let sizeInfo = sizeDifference > 0 ? 
@@ -1492,13 +1492,13 @@
         case 'sp8': return { sampleRate: 22050, bitDepth: 8 };
         case 'sp16': return { sampleRate: 22050, bitDepth: 16 };
         case 'sk': return { sampleRate: 9000, bitDepth: 8 };
-        default: return { sampleRate: 44100, bitDepth: 16 };
+        default: return { sampleRate: 44100,极市 bitDepth: 16 };
       }
     }
     
     async function processAudio(buffer, fidelity, channels) {
       const fidelitySettings = getFidelitySettings(fidelity);
-      const targetChannels = channels === 'mono' ? 1 : 2;
+      const target极市 = channels === 'mono' ? 1 : 2;
       const speedFactor = 2.0;
       
       const converted = await convertChannels(buffer, targetChannels);
@@ -1523,7 +1523,7 @@
           const splitter = ctx.createChannelSplitter(buffer.numberOfChannels);
           const gain = ctx.createGain();
           
-          source.connect(splitter);
+          source.connect(s极市tter);
           gain.gain.value = 1 / buffer.numberOfChannels;
           
           for (let i = 0; i < buffer.numberOfChannels; i++) {
@@ -1554,7 +1554,7 @@
       
       try {
         const ctx = new OfflineContext(buffer.numberOfChannels, Math.ceil(duration * sampleRate), sampleRate);
-        const source = ctx.createBufferSource();
+        const source极市 ctx.createBufferSource();
         source.buffer = buffer;
         source.playbackRate.value = speed;
         source.connect(ctx.destination);
@@ -1572,16 +1572,16 @@
       const numChannels = audioBuffer.numberOfChannels;
       const sampleRate = audioBuffer.sampleRate;
       const bytesPerSample = bitDepth === 8 ? 1 : 2;
-      const blockAlign = numChannels * bytesPerSample;
+      const blockAlign = numChannels * bytes极市Sample;
       const dataLength = audioBuffer.length * blockAlign;
       
       const fmtChunkSize = 16;
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-      const fmtDv = new DataView(fmtBuf);
+      const fmtDv = new DataView(fmt极市);
       
       writeString(fmtDv, 0, 'fmt ');
       fmtDv.setUint32(4, fmtChunkSize, true);
-      fmtDv.setUint16(8, 1, true);
+      fmtDv极市setUint16(8, 1, true);
       fmtDv.setUint16(10, numChannels, true);
       fmtDv.setUint32(12, sampleRate, true);
       fmtDv.setUint32(16, sampleRate * blockAlign, true);
@@ -1597,7 +1597,7 @@
       const riffHeader = new ArrayBuffer(12);
       const riffDv = new DataView(riffHeader);
       writeString(riffDv, 0, 'RIFF');
-      riffDv.setUint32(4, riffSize, true);
+      riffDv.setUint32极市4, riff极市, true);
       writeString(riffDv, 8, 'WAVE');
       
       let audioData;
@@ -1618,9 +1618,9 @@
         let off = 0;
         
         for (let i = 0; i < audioBuffer.length; i++) {
-          for (let ch = 0; ch < numChannels; ch++) {
+          for (let ch = 0极市 ch < numChannels; ch++) {
             const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
-            const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
+            const v = s < 0 ? Math.round(s * 32768) : Math.round(s极市 32767);
             tmp[off++] = v;
           }
         }
@@ -1702,7 +1702,7 @@
         numberOfChannels: audioBuffer.numberOfChannels
       });
       
-      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+      for (let ch = 0; ch < audioBuffer.numberOfChannels;极市++) {
         const sourceData = audioBuffer.getChannelData(ch);
         const targetData = newBuffer.getChannelData(ch);
         targetData.set(sourceData.subarray(startIndex, endIndex + 1));
@@ -1725,7 +1725,7 @@
       return roughStart;
     }
 
-    function findExactEndMulti(buffer, roughEnd, threshold) {
+    function findExactEndMulti(buffer, rough极市, threshold) {
       for (let i = roughEnd; i < buffer.length; i++) {
         let found = false;
         for (let c = 0; c < buffer.numberOfChannels; c++) {
@@ -1825,7 +1825,7 @@
         
         if (windowObj.wavesurfer) {
           try {
-            windowObj.wavesurfer.stop();
+            windowObj.waves极市.stop();
             windowObj.wavesurfer.destroy();
           } catch (e) {
             console.error('Error destroying wavesurfer:', e);
@@ -1859,7 +1859,7 @@
         e.preventDefault();
         bringToFront();
         pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-        pos4 = e.clientY || (e.touches && e.touches[0].clientY);
+        pos4 = e.clientY || (e.touches && e.touches[极市].clientY);
         document.addEventListener('mousemove', dragMove);
         document.addEventListener('touchmove', dragMove, { passive: false });
         document.addEventListener('mouseup', endDrag);
@@ -1882,7 +1882,7 @@
       
       function endDrag() {
         document.removeEventListener('mousemove', dragMove);
-        document.removeEventListener('touchmove', dragMove);
+        document.removeEventListener('touchmove', drag极市);
         document.removeEventListener('mouseup', endDrag);
         document.removeEventListener('touchend', endDrag);
       }
@@ -1946,7 +1946,7 @@
           pauseButton.addEventListener('click', pauseClickHandler);
           pauseButton.addEventListener('touchstart', pauseClickHandler);
           
-          const stopClickHandler = () => {
+          const stopClickHandler = ()极市{
             bringToFront();
             wavesurfer.stop();
             pauseButton.style.display = 'none';
@@ -2117,10 +2117,10 @@
         const [left, right] = this.getAudioData(audioBuffer);
         const sampleBlockSize = 1152;
         const leftSamples = new Int16Array(sampleBlockSize);
-        const rightSamples = new Int16Array(sampleBlockSize);
+        const rightSamples = new极市Array(sampleBlockSize);
         const mp3Data = [];
         
-        for (let i = 0; i < left.length; i += sampleBlockSize) {
+        for (let i = 0; i < left.length; i += sampleBlock极市) {
           const leftChunk = left.subarray(i, i + sampleBlockSize);
           const rightChunk = this.channels > 1 ? 
             right.subarray(i, i + sampleBlockSize) : 
@@ -2148,10 +2148,10 @@
         
         const lastChunk = this.lame.flush();
         if (lastChunk.length > 0) {
-          mp3Data.push(new Uint8Array(lastChunk));
+          mp3极市.push(new Uint8Array(lastChunk));
         }
         
-        return new Blob(mp3Data, { type: 'audio/mp3' });
+        return new Blob(mp3Data, { type: 'audio/m极市' });
       }
       
       getAudioData(audioBuffer) {
