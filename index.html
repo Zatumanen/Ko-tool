@@ -278,6 +278,13 @@
     document.addEventListener('DOMContentLoaded', initApp);
 
     function initApp() {
+      // Проверяем поддержку Web Audio API
+      if (!window.AudioContext && !window.webkitAudioContext) {
+        showNotification('Ваш браузер не поддерживает Web Audio API. Некоторые функции могут быть недоступны.', 'error');
+        addToLog('<div class="file-error">Браузер не поддерживает Web Audio API</div>', 'errors');
+        return;
+      }
+      
       if (isMobile()) {
         document.getElementById('mobile-warning').style.display = 'block';
         document.querySelectorAll('button').forEach(b => {
@@ -785,8 +792,30 @@
       switch (fidelity) {
         case 'sp8': return { sampleRate: 22050, bitDepth: 8 };
         case 'sp16': return { sampleRate: 22050, bitDepth: 16 };
-        case 'sk': return { sampleRate: 9000, bitDepth: 8 };
+        case 'sk': 
+          // Проверяем поддержку очень низкой частоты дискретизации
+          if (!isSampleRateSupported(9000)) {
+            showNotification('Браузер не поддерживает частоту 9kHz. Используется 11kHz вместо 9kHz', 'warning');
+            return { sampleRate: 11025, bitDepth: 8 };
+          }
+          return { sampleRate: 9000, bitDepth: 8 };
         default: return { sampleRate: 44100, bitDepth: 16 };
+      }
+    }
+    
+    function isSampleRateSupported(sampleRate) {
+      const audioContext = window.AudioContext || window.webkitAudioContext;
+      if (!audioContext) return false;
+      
+      try {
+        const context = new audioContext();
+        const supported = context.sampleRate === sampleRate || 
+          (typeof context.createBuffer !== 'undefined' && 
+           context.createBuffer(1, 1, sampleRate));
+        context.close();
+        return supported;
+      } catch (e) {
+        return false;
       }
     }
     
@@ -794,8 +823,39 @@
       const fidelitySettings = getFidelitySettings(fidelity);
       const targetChannels = channels === 'mono' ? 1 : 2;
       const speedFactor = 2.0;
+      
+      // Для режима SK-1 применяем дополнительную обработку
+      if (fidelity === 'sk') {
+        const converted = await convertChannels(buffer, targetChannels);
+        const spedUp = await applySpeedAndFidelity(converted, speedFactor, fidelitySettings.sampleRate);
+        return await applySK1Filter(spedUp, fidelitySettings.sampleRate);
+      }
+      
       const converted = await convertChannels(buffer, targetChannels);
       return await applySpeedAndFidelity(converted, speedFactor, fidelitySettings.sampleRate);
+    }
+
+    async function applySK1Filter(audioBuffer, sampleRate) {
+      const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      try {
+        const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        // Создаем фильтр для эмуляции SK-1
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 4000; // Ограничиваем частотный диапазон
+        
+        source.connect(filter);
+        filter.connect(ctx.destination);
+        source.start();
+        
+        return await ctx.startRendering();
+      } catch (e) {
+        console.error('SK-1 filter error:', e);
+        return audioBuffer; // Возвращаем оригинальный буфер в случае ошибки
+      }
     }
 
     async function convertChannels(buffer, targetChannels) {
@@ -979,33 +1039,52 @@
       const width = canvas.width;
       const height = canvas.height;
       
-      // Use first channel for simplicity
+      // Используем первый канал для простоты
       const data = audioBuffer.getChannelData(0);
       const step = Math.ceil(data.length / width);
       const amp = height / 2;
       
       ctx.clearRect(0, 0, width, height);
-      ctx.beginPath();
       
-      for (let i = 0; i < width; i++) {
-        let min = 1.0;
-        let max = -1.0;
+      // Для очень коротких или низкокачественных файлов увеличиваем шаг отрисовки
+      if (data.length < width * 2) {
+        ctx.beginPath();
+        ctx.moveTo(0, amp);
         
-        for (let j = 0; j < step; j++) {
-          const index = Math.floor((i * step) + j);
+        for (let i = 0; i < width; i++) {
+          const index = Math.floor((i / width) * data.length);
           if (index < data.length) {
-            const value = data[index];
-            if (value < min) min = value;
-            if (value > max) max = value;
+            const value = data[index] * amp;
+            ctx.lineTo(i, amp - value);
           }
         }
         
-        ctx.moveTo(i, amp * (1 - min));
-        ctx.lineTo(i, amp * (1 - max));
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      } else {
+        // Стандартная отрисовка для нормальных файлов
+        ctx.beginPath();
+        
+        for (let i = 0; i < width; i++) {
+          let min = 1.0;
+          let max = -1.0;
+          
+          for (let j = 0; j < step; j++) {
+            const index = Math.floor((i * step) + j);
+            if (index < data.length) {
+              const value = data[index];
+              if (value < min) min = value;
+              if (value > max) max = value;
+            }
+          }
+          
+          ctx.moveTo(i, amp * (1 - min));
+          ctx.lineTo(i, amp * (1 - max));
+        }
+        
+        ctx.strokeStyle = color;
+        ctx.stroke();
       }
-      
-      ctx.strokeStyle = color;
-      ctx.stroke();
     }
 
     function createWaveWindow(title, url, audioBuffer) {
@@ -1060,6 +1139,25 @@
       const audioElement = document.createElement('audio');
       audioElement.src = url;
       audioElement.style.display = 'none';
+      audioElement.preload = 'metadata';
+      
+      // Проверяем поддержку аудиоформата
+      audioElement.addEventListener('error', function(e) {
+        console.error('Audio loading error:', e);
+        addToLog(`<div class="file-error">Ошибка загрузки аудио для предпросмотра: ${title}</div>`, 'errors');
+        
+        // Пытаемся использовать fallback
+        if (url.toLowerCase().endsWith('.mp3')) {
+          addToLog('Попытка использовать WAV вместо MP3', 'errors');
+          // Конвертируем в WAV и пробуем again
+          audioBufferToBlob(audioBuffer).then(blob => {
+            const wavUrl = URL.createObjectURL(blob);
+            audioElement.src = wavUrl;
+            createdObjectURLs.push(wavUrl);
+          });
+        }
+      });
+      
       windowElement.querySelector('.wave-element-container').appendChild(audioElement);
       
       const canvas = windowElement.querySelector('.wave-element');
