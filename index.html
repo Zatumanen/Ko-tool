@@ -381,11 +381,11 @@
       });
       
       document.querySelector('.title-bar .minimize').addEventListener('click', () => {
-        document.querySelector('.window').style.display = 'none';
+        document.querySelector('.window').classList.toggle('minimized');
       });
       
       document.querySelector('.title-bar .close').addEventListener('click', () => {
-        document.querySelector('.window').style.display = 'none';
+        document.querySelector('.window').classList.toggle('minimized');
       });
       
       cancelButton.addEventListener('click', () => {
@@ -851,6 +851,21 @@
         filter.connect(ctx.destination);
         source.start();
         
+        // Добавляем bitcrusher эффект
+        const bitcrusher = ctx.createScriptProcessor(4096, 1, 1);
+        bitcrusher.onaudioprocess = function(e) {
+          const input = e.inputBuffer.getChannelData(0);
+          const output = e.outputBuffer.getChannelData(0);
+          const step = 1 / 32; // 5-bit
+          let phaser = 0, last = 0;
+          for (let i = 0; i < input.length; i++) {
+            phaser += step;
+            if (phaser >= 1.0) { phaser -= 1.0; last = step * Math.floor(input[i] / step + 0.5); }
+            output[i] = last;
+          }
+        };
+        filter.connect(bitcrusher);
+        bitcrusher.connect(ctx.destination);
         return await ctx.startRendering();
       } catch (e) {
         console.error('SK-1 filter error:', e);
@@ -882,6 +897,21 @@
           merger.connect(ctx.destination);
         } else source.connect(ctx.destination);
         source.start();
+        // Добавляем bitcrusher эффект
+        const bitcrusher = ctx.createScriptProcessor(4096, 1, 1);
+        bitcrusher.onaudioprocess = function(e) {
+          const input = e.inputBuffer.getChannelData(0);
+          const output = e.outputBuffer.getChannelData(0);
+          const step = 1 / 32; // 5-bit
+          let phaser = 0, last = 0;
+          for (let i = 0; i < input.length; i++) {
+            phaser += step;
+            if (phaser >= 1.0) { phaser -= 1.0; last = step * Math.floor(input[i] / step + 0.5); }
+            output[i] = last;
+          }
+        };
+        filter.connect(bitcrusher);
+        bitcrusher.connect(ctx.destination);
         return await ctx.startRendering();
       } catch (e) { throw new Error('Channel conversion failed: ' + e.message); }
     }
@@ -896,6 +926,21 @@
         source.playbackRate.value = speed;
         source.connect(ctx.destination);
         source.start();
+        // Добавляем bitcrusher эффект
+        const bitcrusher = ctx.createScriptProcessor(4096, 1, 1);
+        bitcrusher.onaudioprocess = function(e) {
+          const input = e.inputBuffer.getChannelData(0);
+          const output = e.outputBuffer.getChannelData(0);
+          const step = 1 / 32; // 5-bit
+          let phaser = 0, last = 0;
+          for (let i = 0; i < input.length; i++) {
+            phaser += step;
+            if (phaser >= 1.0) { phaser -= 1.0; last = step * Math.floor(input[i] / step + 0.5); }
+            output[i] = last;
+          }
+        };
+        filter.connect(bitcrusher);
+        bitcrusher.connect(ctx.destination);
         return await ctx.startRendering();
       } catch (e) { throw new Error('Speed/fidelity processing failed: ' + e.message); }
     }
@@ -1040,7 +1085,14 @@
       const height = canvas.height;
       
       // Используем первый канал для простоты
-      const data = audioBuffer.getChannelData(0);
+      // Усредняем каналы для более точной визуализации
+      let data = new Float32Array(audioBuffer.length);
+      for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
+        const channelData = audioBuffer.getChannelData(c);
+        for (let i = 0; i < audioBuffer.length; i++) {
+          data[i] += channelData[i] / audioBuffer.numberOfChannels;
+        }
+      }
       const step = Math.ceil(data.length / width);
       const amp = height / 2;
       
