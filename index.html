@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js@7"></script>
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
   <style>
     :root {
@@ -127,29 +126,6 @@
     .wave-window.minimized .content { display: none; }
     .wave-window.minimized .minimize i { transform: rotate(180deg); }
     .mobile-audio-fallback { width: 100%; margin-top: 10px; }
-    
-    /* Стили для кастомной визуализации волны */
-    .custom-waveform { 
-      width: 100%; 
-      height: 100%; 
-      background: #000; 
-      position: relative;
-      overflow: hidden;
-    }
-    .custom-waveform canvas {
-      width: 100%;
-      height: 100%;
-    }
-    .custom-wave-info {
-      position: absolute;
-      bottom: 5px;
-      left: 5px;
-      color: #c0c0c0;
-      font-size: 10px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 2px 5px;
-      border-radius: 3px;
-    }
     
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); } }
     @keyframes loading { 0% { left: -100%; } 100% { left: 100%; } }
@@ -543,8 +519,9 @@
     
     function stopAllPlayback() {
       waveWindows.forEach(window => {
-        if (window.wavesurfer) {
-          window.wavesurfer.stop();
+        if (window.audioElement) {
+          window.audioElement.pause();
+          window.audioElement.currentTime = 0;
           const playBtn = window.element.querySelector('.play-button');
           const pauseBtn = window.element.querySelector('.pause-button');
           if (playBtn) playBtn.style.display = 'block';
@@ -997,12 +974,45 @@
       return roughEnd;
     }
 
+    function drawWaveform(canvas, audioBuffer, color) {
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Use first channel for simplicity
+      const data = audioBuffer.getChannelData(0);
+      const step = Math.ceil(data.length / width);
+      const amp = height / 2;
+      
+      ctx.clearRect(0, 0, width, height);
+      ctx.beginPath();
+      
+      for (let i = 0; i < width; i++) {
+        let min = 1.0;
+        let max = -1.0;
+        
+        for (let j = 0; j < step; j++) {
+          const index = Math.floor((i * step) + j);
+          if (index < data.length) {
+            const value = data[index];
+            if (value < min) min = value;
+            if (value > max) max = value;
+          }
+        }
+        
+        ctx.moveTo(i, amp * (1 - min));
+        ctx.lineTo(i, amp * (1 - max));
+      }
+      
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+
     function createWaveWindow(title, url, audioBuffer) {
       if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
         const oldestWindow = waveWindows.shift();
         if (oldestWindow && oldestWindow.element) {
           try {
-            if (oldestWindow.wavesurfer) oldestWindow.wavesurfer.destroy();
             safeRevoke(oldestWindow.url);
             document.body.removeChild(oldestWindow.element);
           } catch (e) {}
@@ -1013,6 +1023,7 @@
       const windowId = 'wave-window-' + Date.now();
       const top = 80 + (waveWindows.length * 30);
       const left = 100 + (waveWindows.length * 30);
+      
       const windowElement = document.createElement('div');
       windowElement.className = 'wave-window window';
       windowElement.id = windowId;
@@ -1032,8 +1043,8 @@
           <div class="wave-container">
             <div class="wave-title">${escapeHtml(title)}</div>
             <div class="wave-element-container">
-              <div class="wave-element"></div>
-              <div class="playback-indicator"><div class="progress-bar"></div></div>
+              <canvas class="wave-element" width="480" height="128"></canvas>
+              <div class="progress-bar" style="position:absolute; top:0; left:0; height:100%; width:0; background:rgba(0,0,128,0.3); z-index:2; pointer-events:none;"></div>
             </div>
             <div class="preview-controls">
               <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
@@ -1046,6 +1057,25 @@
       
       document.body.appendChild(windowElement);
       
+      const audioElement = document.createElement('audio');
+      audioElement.src = url;
+      audioElement.style.display = 'none';
+      windowElement.querySelector('.wave-element-container').appendChild(audioElement);
+      
+      const canvas = windowElement.querySelector('.wave-element');
+      const progressBar = windowElement.querySelector('.progress-bar');
+      
+      // Draw waveform if we have the audio buffer
+      if (audioBuffer) {
+        drawWaveform(canvas, audioBuffer, '#c0c0c0');
+      }
+      
+      const playButton = windowElement.querySelector('.play-button');
+      const pauseButton = windowElement.querySelector('.pause-button');
+      const stopButton = windowElement.querySelector('.stop-button');
+      const minimizeBtn = windowElement.querySelector('.minimize');
+      const closeBtn = windowElement.querySelector('.close');
+      
       function bringToFront() {
         windowZIndex += 2;
         windowElement.style.zIndex = windowZIndex;
@@ -1053,107 +1083,70 @@
         windowElement.classList.add('active-window');
       }
       
-      const minimizeBtn = windowElement.querySelector('.minimize');
-      const closeBtn = windowElement.querySelector('.close');
-      const playButton = windowElement.querySelector('.play-button');
-      const pauseButton = windowElement.querySelector('.pause-button');
-      const stopButton = windowElement.querySelector('.stop-button');
-      const waveContainer = windowElement.querySelector('.wave-element');
-      
-      // Проверяем, является ли это SK-1 аудио (9kHz)
-      const isSK1 = audioBuffer && audioBuffer.sampleRate === 9000;
-      
-      if (isSK1) {
-        // Для SK-1 используем специальную обработку
-        showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, "SK-1 format (9kHz) uses fallback player");
-        
-        // Создаем упрощенную визуализацию волны
-        createSimplifiedWaveform(audioBuffer, waveContainer);
-        
-        // Добавляем окно в массив для управления
-        const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: null };
-        waveWindows.push(windowObj);
-      } else {
-        // Для других форматов используем Wavesurfer
-        try {
-          const WaveSurferLib = window.WaveSurfer?.default || window.WaveSurfer;
-          if (!WaveSurferLib) throw new Error('WaveSurfer not loaded');
-          
-          const wavesurfer = WaveSurferLib.create({
-            container: waveContainer, 
-            height: 128, 
-            barWidth: 3, 
-            barGap: 2, 
-            barRadius: 1, 
-            cursorWidth: 1, 
-            cursorColor: 'transparent',
-            normalize: true, 
-            progressColor: '#000080', 
-            waveColor: '#c0c0c0', 
-            fillParent: true, 
-            interact: true, 
-            backend: 'MediaElement'
-          });
-          
-          // Обработчики для кнопок управления воспроизведением
-          playButton.addEventListener('click', () => {
-            bringToFront();
-            activateAudio();
-            try {
-              stopAllPlayback();
-              wavesurfer.play();
-              playButton.style.display = 'none';
-              pauseButton.style.display = 'block';
-              updateStatus("Playing audio");
-            } catch (e) {}
-          });
-          
-          pauseButton.addEventListener('click', () => {
-            bringToFront();
-            wavesurfer.pause();
-            pauseButton.style.display = 'none';
-            playButton.style.display = 'block';
-            updateStatus("Playback paused");
-          });
-          
-          stopButton.addEventListener('click', () => {
-            bringToFront();
-            wavesurfer.stop();
-            pauseButton.style.display = 'none';
-            playButton.style.display = 'block';
-            updateStatus("Playback stopped");
-          });
-          
-          wavesurfer.on('ready', () => {
-            wavesurfer.on('audioprocess', (time) => {
-              const duration = wavesurfer.getDuration();
-              if (duration > 0) {
-                const progress = (time / duration) * 100;
-                windowElement.querySelector('.progress-bar').style.width = `${progress}%`;
-              }
-            });
-          });
-          
-          wavesurfer.on('error', (err) => { 
-            console.error('Wavesurfer error:', err);
-            showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, err.message);
-          });
-          
-          wavesurfer.load(url);
-          
-          const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: wavesurfer };
-          waveWindows.push(windowObj);
-        } catch (e) { 
-          console.error('Wavesurfer initialization failed:', e);
-          showFallbackAudioPlayer(waveContainer, url, playButton, pauseButton, e.message);
-          
-          // Добавляем окно в массив даже при ошибке
-          const windowObj = { id: windowId, element: windowElement, url: url, wavesurfer: null };
-          waveWindows.push(windowObj);
-        }
+      function handleMinimize(e) {
+        e.stopPropagation();
+        bringToFront();
+        windowElement.classList.toggle('minimized');
+        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
       }
       
-      // Обработчики для перемещения окна
+      function handleClose(e) {
+        e.stopPropagation();
+        bringToFront();
+        audioElement.pause();
+        safeRevoke(url);
+        if (document.body.contains(windowElement)) document.body.removeChild(windowElement);
+        waveWindows = waveWindows.filter(w => w.id !== windowId);
+      }
+      
+      minimizeBtn.addEventListener('click', handleMinimize);
+      minimizeBtn.addEventListener('touchstart', handleMinimize);
+      closeBtn.addEventListener('click', handleClose);
+      closeBtn.addEventListener('touchstart', handleClose);
+      
+      playButton.addEventListener('click', () => {
+        bringToFront();
+        activateAudio();
+        stopAllPlayback();
+        audioElement.play();
+        playButton.style.display = 'none';
+        pauseButton.style.display = 'block';
+        updateStatus("Playing audio");
+      });
+      
+      pauseButton.addEventListener('click', () => {
+        bringToFront();
+        audioElement.pause();
+        pauseButton.style.display = 'none';
+        playButton.style.display = 'block';
+        updateStatus("Playback paused");
+      });
+      
+      stopButton.addEventListener('click', () => {
+        bringToFront();
+        audioElement.pause();
+        audioElement.currentTime = 0;
+        pauseButton.style.display = 'none';
+        playButton.style.display = 'block';
+        progressBar.style.width = '0';
+        updateStatus("Playback stopped");
+      });
+      
+      audioElement.addEventListener('timeupdate', () => {
+        if (audioElement.duration > 0) {
+          const progress = (audioElement.currentTime / audioElement.duration) * 100;
+          progressBar.style.width = `${progress}%`;
+        }
+      });
+      
+      audioElement.addEventListener('ended', () => {
+        pauseButton.style.display = 'none';
+        playButton.style.display = 'block';
+        progressBar.style.width = '0';
+        updateStatus("Playback completed");
+      });
+      
+      // Make window draggable
       let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
       const titleBar = windowElement.querySelector('.title-bar');
       
@@ -1193,116 +1186,15 @@
       windowElement.addEventListener('mousedown', bringToFront);
       windowElement.addEventListener('touchstart', bringToFront);
       
-      // Обработчики для кнопок управления окном
-      minimizeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        bringToFront();
-        windowElement.classList.toggle('minimized');
-        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
-      });
+      const windowObj = { 
+        id: windowId, 
+        element: windowElement, 
+        url: url, 
+        audioElement: audioElement 
+      };
       
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        bringToFront();
-        const windowIndex = waveWindows.findIndex(w => w.id === windowId);
-        if (windowIndex !== -1) {
-          const windowObj = waveWindows[windowIndex];
-          if (windowObj.wavesurfer) {
-            try { windowObj.wavesurfer.stop(); windowObj.wavesurfer.destroy(); } catch (e) { console.error('Error destroying wavesurfer:', e); }
-          }
-          safeRevoke(url);
-          waveWindows.splice(windowIndex, 1);
-        }
-        if (document.body.contains(windowElement)) document.body.removeChild(windowElement);
-      });
-      
+      waveWindows.push(windowObj);
       return windowElement;
-    }
-
-    function createSimplifiedWaveform(audioBuffer, container) {
-      // Создаем упрощенную визуализацию волны для SK-1
-      const canvas = document.createElement('canvas');
-      canvas.width = container.offsetWidth;
-      canvas.height = container.offsetHeight;
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      
-      // Очищаем контейнер и добавляем canvas
-      container.innerHTML = '';
-      container.appendChild(canvas);
-      
-      const infoDiv = document.createElement('div');
-      infoDiv.className = 'custom-wave-info';
-      infoDiv.textContent = `SK-1 Format (${audioBuffer.sampleRate}Hz)`;
-      container.appendChild(infoDiv);
-      
-      const ctx = canvas.getContext('2d');
-      const channelData = audioBuffer.getChannelData(0);
-      const step = Math.ceil(channelData.length / canvas.width);
-      const amp = canvas.height / 2;
-      
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      ctx.beginPath();
-      ctx.moveTo(0, amp);
-      
-      for (let i = 0; i < canvas.width; i++) {
-        let min = 1.0;
-        let max = -1.0;
-        
-        for (let j = 0; j < step; j++) {
-          const index = Math.floor(i * step + j);
-          if (index < channelData.length) {
-            const datum = channelData[index];
-            if (datum < min) min = datum;
-            if (datum > max) max = datum;
-          }
-        }
-        
-        ctx.lineTo(i, (1 + min) * amp);
-        ctx.lineTo(i, (1 + max) * amp);
-      }
-      
-      ctx.strokeStyle = '#c0c0c0';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-
-    function showFallbackAudioPlayer(container, url, playButton, pauseButton, reason) {
-      container.innerHTML = '';
-      const audio = document.createElement('audio');
-      audio.controls = true;
-      audio.style.width = '100%';
-      audio.src = url;
-      audio.classList.add('mobile-audio-fallback');
-      
-      const fallbackDiv = document.createElement('div');
-      fallbackDiv.style.textAlign = 'center';
-      fallbackDiv.style.padding = '10px';
-      fallbackDiv.innerHTML = `<div>${reason || 'Using fallback audio player'}</div>`;
-      fallbackDiv.appendChild(audio);
-      container.appendChild(fallbackDiv);
-      
-      playButton.style.display = 'none';
-      pauseButton.style.display = 'none';
-      
-      audio.addEventListener('play', () => { 
-        updateStatus("Playing audio"); 
-      });
-      
-      audio.addEventListener('pause', () => { 
-        updateStatus("Playback paused"); 
-      });
-      
-      audio.addEventListener('ended', () => { 
-        updateStatus("Playback stopped"); 
-      });
-      
-      audio.addEventListener('error', function(e) {
-        console.error('Audio error:', audio.error);
-        fallbackDiv.innerHTML += `<div class="file-error">Playback error: ${audio.error?.message || 'Unknown error'}</div>`;
-      });
     }
 
     function updateProgressBar(progress) {
@@ -1348,10 +1240,10 @@
           const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
           for (let j = 0; j < leftChunk.length; j++) {
             const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? Math.round(sampleLeft * 32768) : Math.round(sampleLeft * 32767);
+            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
             if (this.channels > 1) {
               const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? Math.round(sampleRight * 32768) : Math.round(sampleRight * 32767);
+              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
             }
           }
           const mp3buf = this.lame.encodeBuffer(leftSamples.subarray(0, leftChunk.length), this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined);
@@ -1396,7 +1288,7 @@
     window.addEventListener('beforeunload', () => {
       createdObjectURLs.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
       if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} }
-      waveWindows.forEach(w => { if (w.wavesurfer) { try { w.wavesurfer.destroy(); safeRevoke(w.url); } catch (e) {} } });
+      waveWindows.forEach(w => { if (w.audioElement) { try { w.audioElement.pause(); safeRevoke(w.url); } catch (e) {} } });
     });
   </script>
 </body>
