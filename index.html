@@ -10,648 +10,129 @@
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
   <style>
     :root {
-      --glow-color: #ff3333; 
-      --primary-blue: #000080; 
-      --win-gray: #c0c0c0; 
-      --win-light: #fff; 
-      --win-dark: #808080;
-      --success-color: #4caf50; 
-      --error-color: #f44336; 
-      --warning-color: #ff9800; 
-      --info-color: #2196f3;
+      --glow-color: #ff3333; --primary-blue: #000080; --win-gray: #c0c0c0; --win-light: #fff; --win-dark: #808080;
+      --success-color: #4caf50; --error-color: #f44336; --warning-color: #ff9800; --info-color: #2196f3;
     }
-    
-    * {
-      box-sizing: border-box;
-    }
-    
-    body { 
-      background: #008080; 
-      font-family: 'Courier New', monospace; 
-      margin: 0; 
-      padding: 20px; 
-      display: flex; 
-      justify-content: center; 
-      align-items: flex-start; 
-      min-height: 100vh; 
-      overflow-x: hidden; 
-      touch-action: manipulation;
+    body { background: #008080; font-family: 'Courier New', monospace; margin: 0; padding: 20px; display: flex; 
+      justify-content: center; align-items: flex-start; min-height: 100vh; overflow-x: hidden; touch-action: manipulation;
       background-image: radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
-        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0); 
-      background-size: 4px 4px;
-      background-position: 0 0, 2px 2px; 
-      -webkit-tap-highlight-color: transparent; 
-    }
-    
-    .desktop-icon { 
-      position: absolute; 
-      width: 80px; 
-      text-align: center; 
-      color: white; 
-      text-shadow: 1px 1px 1px black;
-      cursor: pointer; 
-      padding: 4px; 
-      user-select: none; 
-      transition: transform 0.2s; 
-      z-index: 99;
-    }
-    
-    .desktop-icon:hover { 
-      background: rgba(255, 255, 255, 0.2); 
-      transform: scale(1.05); 
-    }
-    
-    .window { 
-      width: 100%; 
-      max-width: 480px; 
-      background: var(--win-gray); 
-      border: 2px solid; 
-      padding: 0; 
-      position: relative; 
-      z-index: 100; 
-      border-top-color: var(--win-light); 
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark); 
-      border-bottom-color: var(--win-dark); 
-      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); 
-    }
-    
-    .title-bar { 
-      background: var(--primary-blue); 
-      color: #fff; 
-      padding: 4px 8px; 
-      font-size: 14px; 
-      display: flex;
-      justify-content: space-between; 
-      align-items: center; 
-      border-bottom: 2px solid var(--win-gray); 
-      cursor: move; 
-      user-select: none; 
-    }
-    
-    .title-bar button { 
-      width: 20px; 
-      height: 20px; 
-      border: none; 
-      background: var(--win-gray); 
-      cursor: pointer; 
-      display: flex;
-      align-items: center; 
-      justify-content: center; 
-      font-weight: bold; 
-      font-family: Arial, sans-serif; 
-      margin-left: 4px;
-      border: 1px solid; 
-      border-top-color: var(--win-light); 
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark); 
-      border-bottom-color: var(--win-dark); 
-    }
-    
-    .title-bar button.minimize { 
-      font-size: 18px; 
-      line-height: 12px; 
-    }
-    
-    .title-bar button.close { 
-      font-size: 14px; 
-    }
-    
-    .title-bar button:active { 
-      border-top-color: var(--win-dark); 
-      border-left-color: var(--win-dark);
-      border-right-color: var(--win-light); 
-      border-bottom-color: var(--win-light); 
-    }
-    
-    .content { 
-      padding: 12px; 
-      font-size: 14px; 
-      color: #000; 
-    }
-    
-    .drop-zone { 
-      border: 2px dashed #000; 
-      padding: 20px; 
-      text-align: center; 
-      background: rgba(255, 255, 255, 0.3);
-      margin-top: 12px; 
-      position: relative; 
-      cursor: pointer; 
-      border-style: dotted; 
-      border-color: var(--win-dark); 
-      transition: all 0.3s ease; 
-    }
-    
-    .drop-zone.dragover { 
-      background: rgba(0, 128, 0, 0.3); 
-      animation: pulse 1.5s infinite; 
-    }
-    
-    .drop-zone input[type="file"] { 
-      position: absolute; 
-      width: 100%; 
-      height: 100%; 
-      opacity: 0; 
-      cursor: pointer; 
-      top: 0; 
-      left: 0; 
-    }
-    
-    .drop-zone span { 
-      pointer-events: none; 
-      font-size: 16px; 
-      display: block; 
-      margin-top: 10px; 
-    }
-    
-    #file-info { 
-      margin-top: 10px; 
-      font-size: 14px; 
-      text-align: left; 
-      background: #fff; 
-      border: 2px inset var(--win-dark);
-      padding: 10px; 
-      max-height: 200px; 
-      overflow-y: auto; 
-    }
-    
-    button { 
-      min-height: 44px; 
-      padding: 10px; 
-      cursor: pointer; 
-      font-family: 'Courier New', monospace; 
-      font-size: 16px;
-      border: 2px outset var(--win-gray); 
-      background: var(--win-gray); 
-      color: #000; 
-      transition: transform 0.1s; 
-    }
-    
-    button:active { 
-      border-style: inset; 
-      transform: scale(0.98); 
-    }
-    
-    #overlay { 
-      display: none; 
-      position: fixed; 
-      inset: 0; 
-      background: rgba(0, 0, 0, 0.4); 
-      z-index: 1000; 
-    }
-    
-    #win95-loader { 
-      position: absolute; 
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%); 
-      width: 320px; 
-      padding: 12px;
-      background: var(--win-gray); 
-      font-family: 'Courier New', monospace; 
-      font-size: 14px; 
-      color: #000; 
-      z-index: 1001;
-      border: 2px solid; 
-      border-top-color: var(--win-light); 
-      border-left-color: var(--win-light);
-      border-right-color: var(--win-dark); 
-      border-bottom-color: var(--win-dark); 
-    }
-    
-    .progress-bar-container { 
-      background: #fff; 
-      border: 2px inset var(--win-dark); 
-      height: 24px; 
-      margin-top: 8px;
-      position: relative; 
-      overflow: hidden; 
-    }
-    
-    .progress-fill { 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      height: 100%; 
-      width: 0%; 
-      background: var(--primary-blue); 
-      transition: width 0.3s ease; 
-    }
-    
-    .progress-text { 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      width: 100%; 
-      height: 100%; 
-      display: flex; 
-      align-items: center;
-      justify-content: center; 
-      font-size: 12px; 
-      color: #000; 
-      z-index: 2; 
-    }
-    
-    .win95-inset { 
-      border: 2px inset var(--win-dark); 
-      background: var(--win-gray); 
-      padding: 6px; 
-      margin-bottom: 6px; 
-    }
-    
-    .win95-list { 
-      border: 2px inset var(--win-dark); 
-      background: #fff; 
-      padding: 4px; 
-      font-family: 'Courier New', monospace;
-      height: 100px; 
-      overflow-y: auto; 
-    }
-    
-    .list-item { 
-      padding: 8px 6px; 
-      cursor: pointer; 
-      user-select: none; 
-      font-size: 13px; 
-    }
-    
-    .list-item:hover, .list-item.selected { 
-      background: var(--primary-blue); 
-      color: white; 
-      transition: background 0.2s ease; 
-    }
-    
-    .wave-container { 
-      margin-bottom: 20px; 
-      border: 2px inset var(--win-dark); 
-      padding: 10px; 
-      background: #e0e0e0; 
-      position: relative; 
-    }
-    
-    .wave-title { 
-      font-family: 'Courier New', monospace; 
-      font-size: 14px; 
-      margin-bottom: 6px; 
-      word-break: break-word;
-      font-weight: bold; 
-      text-align: center; 
-    }
-    
-    .wave-element-container { 
-      width: 100%; 
-      height: 150px; 
-      background: #000; 
-      margin-bottom: 10px; 
-      position: relative;
-      overflow: hidden; 
-      padding: 10px 0; 
-    }
-    
-    .wave-element { 
-      width: 100%; 
-      height: 100%; 
-    }
-    
-    .wave-button { 
-      font-family: 'Courier New', monospace; 
-      padding: 8px; 
-      background: var(--win-gray); 
-      border: 2px outset var(--win-gray);
-      cursor: pointer; 
-      min-width: 80px; 
-    }
-    
-    .wave-button:active { 
-      border-style: inset; 
-      transform: scale(0.98); 
-    }
-    
-    .render-error, .file-error, .memory-warning, .mobile-warning, .format-warning { 
-      padding: 8px; 
-      margin: 8px 0; 
-      border-radius: 2px;
-      font-size: 13px; 
-    }
-    
-    .render-error, .file-error { 
-      color: var(--error-color); 
-      background-color: #ffe6e6; 
-      border: 1px solid var(--error-color); 
-    }
-    
-    .memory-warning { 
-      color: var(--warning-color); 
-      background-color: #fff3e0; 
-      border: 极 solid var(--warning-color); 
-      display: none; 
-    }
-    
-    .mobile-warning { 
-      color: var(--info极lor); 
-      background-color: #bbdefb; 
-      border: 1px solid var(--info-color); 
-      display: none; 
-    }
-    
-    .format-warning { 
-      color: var(--warning-color); 
-      background-color: #fff3e0; 
-      border: 1px solid var(--warning-color); 
-    }
-    
-    .info-panel { 
-      background: #fff; 
-      border: 2px inset var(--win-dark); 
-      padding: 10极; 
-      margin-top: 10px; 
-      font-size: 13px;
-      max-height: 150px; 
-      overflow-y: auto; 
-    }
-    
-    .trim-control { 
-      display: flex; 
-      align-items: center; 
-      gap: 8px; 
-      margin-top: 10px; 
-      margin-bottom: 10px; 
-    }
-    
-    .wave-window { 
-      position: absolute; 
-      width: 500px; 
-      background: var(--win-gray); 
-      border: 2px solid; 
-      z-index: 101; 
-      top: 100px; 
-      left: 100px;
-      border-top-color: var(--win-light); 
-      border-left-color: var(--win-light); 
-      border-right-color: var(--win-dark);
-      border-bottom-color: var(--win-dark); 
-      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); 
-      padding: 0; 
-    }
-    
-    .preview-controls { 
-      display: flex; 
-      gap: 10px; 
-      justify-content: center; 
-      margin-top: 10px; 
-    }
-    
-    .wave-element-container:empty::after { 
-      content: "Loading..."; 
-      color: var(--win-dark); 
-      position: absolute;
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%); 
-    }
-    
-    .notification { 
-      position: fixed; 
-      top: 20px; 
-      right: 20px; 
-      padding: 12px 16px; 
-      border-radius: 4px; 
-      background: var(--primary-blue);
-      color: white; 
-      box-shadow: 0 2极 10px rgba(0,0,0,0.2); 
-      z-index: 2000; 
-      transform: translateX(200%); 
-      transition: transform 0.3s ease;
-      max-width: 300px; 
-    }
-    
-    .notification.show { 
-      transform: translateX(0); 
-    }
-    
-    .notification.success { 
-      background: var(--success-color); 
-    }
-    
-    .notification.error { 
-      background: var(--error-color); 
-    }
-    
-    .notification.warning { 
-      background: var(--warning-color); 
-    }
-    
-    .progress-info { 
-      display: flex; 
-      justify-content: space-between; 
-      font-size: 12px; 
-      margin-top: 4px; 
-    }
-    
-    .progress-time { 
-      color: #666; 
-    }
-    
-    .active-window { 
-      box-shadow: 0 0 0 2px var(--primary-blue); 
-    }
-    
-    .file-item { 
-      display: flex; 
-      flex-direction: column; 
-      padding: 6px 0; 
-      border-bottom: 1px solid #e0e0e0; 
-    }
-    
-    .file-header { 
-      display: flex; 
-      justify-content: space-between; 
-    }
-    
-    .file-progress { 
-      height: 4px; 
-      background: #e0e0e0; 
-      margin-top: 4px; 
-      position: relative; 
-      overflow: hidden; 
-    }
-    
-    .file-progress-fill { 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      height: 极%; 
-      width: 0%; 
-      background: var(--primary-blue); 
-      transition: width 0.3s ease; 
-    }
-    
-    .info-tabs { 
-      display: extreme; 
-      border-bottom: 1px solid var(--win-dark); 
-      margin-bottom: 8px; 
-    }
-    
-    .tab-button { 
-      padding: 6px 12px; 
-      background: var(--win-gray); 
-      border: none; 
-      cursor: pointer; 
-      border: 1px solid transparent;
-      border-bottom: none; 
-      margin-right: 2px; 
-    }
-    
-    .tab-button.active { 
-      background: #fff; 
-      border-color: var(--win-dark); 
-极    }
-    
-    .tab-content { 
-      display: none; 
-    }
-    
-    .tab-content.active { 
-      display: block; 
-    }
-    
-    .critical { 
-      font-weight: bold; 
-      color: var(--error-color); 
-      margin-top: 8px; 
-    }
-    
-    .error-dialog { 
-      position: fixed; 
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%); 
-      z-index: 2000; 
-    }
-    
-    .error-icon { 
-      font-size: 32px; 
-      text-align: center; 
-      margin: 10px 0; 
-    }
-    
-    .taskbar { 
-      position: fixed; 
-      bottom: 0; 
-      left: 0; 
-      right: 极; 
-      background: var(--win-gray); 
-      height: 36px; 
-      border-top: 2px solid var(--win-light);
-      display: flex; 
-      align-items: center; 
-      padding: 0 8px; 
-      z-index: 90; 
-    }
-    
-    .start-button { 
-      padding: 4px 8px; 
-      background: var(--win-gray); 
-      border: 2px outset var(--win-gray); 
-      font-weight: bold; 
-      cursor: pointer;
-      display: flex; 
-      align-items: center; 
-      gap: 4极; 
-    }
-    
-    .status-bar { 
-      margin-left: auto; 
-      padding: 0 8px; 
-      font-size: 14px; 
-      flex-grow: 1; 
-      text-align: right; 
-    }
-    
-    .window-control极 { 
-      display: flex; 
-    }
-    
-    .button-group { 
-      display: flex; 
-      gap: 10px; 
-      margin-top: 10px; 
-    }
-    
-    .button-group button { 
-      flex: 1; 
-    }
-    
-    #cancel-button { 
-      margin-top: 10px; 
-      width: 100%; 
-      padding: 10px; 
-      background: var(--win-gray); 
-      border: 2px outset var(--win-gray);
-      color: #000; 
-      font-family: 'Courier New', monospace; 
-      font-size: 16px; 
-      cursor: pointer; 
-    }
-    
-    #cancel-button:active { 
-      border-style: inset; 
-    }
-    
-    .supported-formats { 
-      margin-top: 8px; 
-      font-size: 12px; 
-      color: #666; 
-    }
-    
-    .mobile-fallback { 
-      text-align: center; 
-      padding: 15px; 
-      background: white; 
-    }
-    
-    .mobile-fallback audio { 
-      width: 100%; 
-      margin: 10px 0; 
-    }
-    
-    .processing { 
-      animation: pulse 1.5s infinite; 
-    }
-    
-    .wave-window.minimized { 
-      height: 36px; 
-      overflow: hidden; 
-    }
-    
-    .wave-window.minimized .content { 
-      display: none; 
-    }
-    
-    .wave-window.minimized .minimize i { 
-      transform: rotate(180deg); 
-    }
-    
-    .mobile-audio-fallback { 
-      width: 100%; 
-      margin-top: 10px; 
-    }
-    
-    @keyframes pulse { 
-      0% { box-shadow: 0 0 0 极 rgba(0, 200, 0, 0.4); } 
-      70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); } 
-      100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); } 
-    }
-    
-    @keyframes loading { 
-      0% { left: -100%; } 
-      100% { left: 100%; } 
-    }
+        radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0); background-size: 4px 4px;
+      background-position: 0 0, 2px 2px; -webkit-tap-highlight-color: transparent; }
+    .desktop-icon { position: absolute; width: 80px; text-align: center; color: white; text-shadow: 1px 1px 1px black;
+      cursor: pointer; padding: 4px; user-select: none; transition: transform 0.2s; }
+    .desktop-icon:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
+    .window { width: 100%; max-width: 480px; background: var(--win-gray); border: 2px solid; padding: 0; box-sizing: border-box;
+      position: relative; z-index: 100; border-top-color: var(--win-light); border-left-color: var(--win-light);
+      border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); }
+    .title-bar { background: var(--primary-blue); color: #fff; padding: 4px 8px; font-size: 14px; display: flex;
+      justify-content: space-between; align-items: center; border-bottom: 2px solid var(--win-gray); cursor: move; user-select: none; }
+    .title-bar button { width: 20px; height: 20px; border: none; background: var(--win-gray); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; font-weight: bold; font-family: Arial, sans-serif; margin-left: 4px;
+      border: 1px solid; border-top-color: var(--win-light); border-left-color: var(--win-light);
+      border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); }
+    .title-bar button.minimize { font-size: 18px; line-height: 12px; }
+    .title-bar button.close { font-size: 14px; }
+    .title-bar button:active { border-top-color: var(--win-dark); border-left-color: var(--win-dark);
+      border-right-color: var(--win-light); border-bottom-color: var(--win-light); }
+    .content { padding: 12px; font-size: 14px; color: #000; }
+    .drop-zone { border: 2px dashed #000; padding: 20px; text-align: center; background: rgba(255, 255, 255, 0.3);
+      margin-top: 12px; position: relative; cursor: pointer; border-style: dotted; border-color: var(--win-dark); transition: all 0.3s ease; }
+    .drop-zone.dragover { background: rgba(0, 128, 0, 0.3); animation: pulse 1.5s infinite; }
+    .drop-zone input[type="file"] { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; top: 0; left: 0; }
+    .drop-zone span { pointer-events: none; font-size: 16px; display: block; margin-top: 10px; }
+    #file-info { margin-top: 10px; font-size: 14px; text-align: left; background: #fff; border: 2px inset var(--win-dark);
+      padding: 10px; max-height: 200px; overflow-y: auto; }
+    button { min-height: 44px; padding: 10px; cursor: pointer; font-family: 'Courier New', monospace; font-size: 16px;
+      border: 2px outset var(--win-gray); background: var(--win-gray); color: #000; transition: transform 0.1s; }
+    button:active { border-style: inset; transform: scale(0.98); }
+    #overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 1000; }
+    #win95-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; padding: 12px;
+      background: var(--win-gray); font-family: 'Courier New', monospace; font-size: 14px; color: #000; z-index: 1001;
+      border: 2px solid; border-top-color: var(--win-light); border-left-color: var(--win-light);
+      border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); }
+    .progress-bar-container { background: #fff; border: 2px inset var(--win-dark); height: 24px; margin-top: 8px;
+      position: relative; overflow: hidden; }
+    .progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
+    .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; color: #000; z-index: 2; }
+    .win95-inset { border: 2px inset var(--win-dark); background: var(--win-gray); padding: 6px; margin-bottom: 6px; }
+    .win95-list { border: 2px inset var(--win-dark); background: #fff; padding: 4px; font-family: 'Courier New', monospace;
+      height: 100px; overflow-y: auto; }
+    .list-item { padding: 8px 6px; cursor: pointer; user-select: none; font-size: 13px; }
+    .list-item:hover, .list-item.selected { background: var(--primary-blue); color: white; transition: background 0.2s ease; }
+    .wave-container { margin-bottom: 20px; border: 2px inset var(--win-dark); padding: 10px; background: #e0e0e0; position: relative; }
+    .wave-title { font-family: 'Courier New', monospace; font-size: 14px; margin-bottom: 6px; word-break: break-word;
+      font-weight: bold; text-align: center; }
+    .wave-element-container { width: 100%; height: 150px; background: #000; margin-bottom: 10px; position: relative;
+      overflow: hidden; padding: 10px 0; box-sizing: border-box; }
+    .wave-element { width: 100%; height: 100%; }
+    .wave-button { font-family: 'Courier New', monospace; padding: 8px; background: var(--win-gray); border: 2px outset var(--win-gray);
+      cursor: pointer; min-width: 80px; }
+    .wave-button:active { border-style: inset; transform: scale(0.98); }
+    .render-error, .file-error, .memory-warning, .mobile-warning, .format-warning { padding: 8px; margin: 8px 0; border-radius: 2px;
+      font-size: 13px; }
+    .render-error, .file-error { color: var(--error-color); background-color: #ffe6e6; border: 1px solid var(--error-color); }
+    .memory-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); display: none; }
+    .mobile-warning { color: var(--info-color); background-color: #bbdefb; border: 1px solid var(--info-color); display: none; }
+    .format-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); }
+    .info-panel { background: #fff; border: 2px inset var(--win-dark); padding: 10px; margin-top: 10px; font-size: 13px;
+      max-height: 150px; overflow-y: auto; }
+    .trim-control { display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px; }
+    .wave-window { position: absolute; width: 500px; background: var(--win-gray); border: 2px solid; z-index: 101; top: 100px; left: 100px;
+      border-top-color: var(--win-light); border-left-color: var(--win-light); border-right-color: var(--win-dark);
+      border-bottom-color: var(--win-dark); box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); padding: 0; box-sizing: border-box; }
+    .preview-controls { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+    .wave-element-container:empty::after { content: "Loading..."; color: var(--win-dark); position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .notification { position: fixed; top: 20px; right: 20px; padding: 12px 16px; border-radius: 4px; background: var(--primary-blue);
+      color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 2000; transform: translateX(200%); transition: transform 0.3s ease;
+      max-width: 300px; }
+    .notification.show { transform: translateX(0); }
+    .notification.success { background: var(--success-color); }
+    .notification.error { background: var(--error-color); }
+    .notification.warning { background: var(--warning-color); }
+    .progress-info { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; }
+    .progress-time { color: #666; }
+    .active-window { box-shadow: 0 0 0 2px var(--primary-blue); }
+    .file-item { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid #e0e0e0; }
+    .file-header { display: flex; justify-content: space-between; }
+    .file-progress { height: 4px; background: #e0e0e0; margin-top: 4px; position: relative; overflow: hidden; }
+    .file-progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
+    .info-tabs { display: flex; border-bottom: 1px solid var(--win-dark); margin-bottom: 8px; }
+    .tab-button { padding: 6px 12px; background: var(--win-gray); border: none; cursor: pointer; border: 1px solid transparent;
+      border-bottom: none; margin-right: 2px; }
+    .tab-button.active { background: #fff; border-color: var(--win-dark); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .critical { font-weight: bold; color: var(--error-color); margin-top: 8px; }
+    .error-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; }
+    .error-icon { font-size: 32px; text-align: center; margin: 10px 0; }
+    .taskbar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--win-gray); height: 36px; border-top: 2px solid var(--win-light);
+      display: flex; align-items: center; padding: 0 8px; z-index: 90; }
+    .start-button { padding: 4px 8px; background: var(--win-gray); border: 2px outset var(--win-gray); font-weight: bold; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; }
+    .status-bar { margin-left: auto; padding: 0 8px; font-size: 14px; flex-grow: 1; text-align: right; }
+    .window-controls { display: flex; }
+    .button-group { display: flex; gap: 10px; margin-top: 10px; }
+    .button-group button { flex: 1; }
+    #cancel-button { margin-top: 10px; width: 100%; padding: 10px; background: var(--win-gray); border: 2px outset var(--win-gray);
+      color: #000; font-family: 'Courier New', monospace; font-size: 16px; cursor: pointer; }
+    #cancel-button:active { border-style: inset; }
+    .supported-formats { margin-top: 8px; font-size: 12px; color: #666; }
+    .mobile-fallback { text-align: center; padding: 15px; background: white; }
+    .mobile-fallback audio { width: 100%; margin: 10px 0; }
+    .processing { animation: pulse 1.5s infinite; }
+    .wave-window.minimized { height: 36px; overflow: hidden; }
+    .wave-window.minimized .content { display: none; }
+    .wave-window.minimized .minimize i { transform: rotate(180deg); }
+    .mobile-audio-fallback { width: 100%; margin-top: 10px; }
+    
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 200, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 200, 0, 0); } }
+    @keyframes loading { 0% { left: -100%; } 100% { left: 100%; } }
     
     @media (max-width: 768px) {
       body { padding: 10px; }
-      .window { width: 95vw; max-width: none; top: 10px; }
+      .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); }
       .wave-element-container { height: 100px !important; }
       .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; }
       .win95-list { height: 80px; }
@@ -661,15 +142,12 @@
       .wave-button { min-width: 150px; }
       button { min-height: 54px; font-size: 18px; }
     }
-    
-    @media (max-width: 768px) and (orientation: landscape) { 
-      .wave-element-container { height: 100px !important; } 
-    }
+    @media (max-width: 768px) and (orientation: landscape) { .wave-element-container { height: 100px !important; } }
   </style>
 </head>
 <body>
   <div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
-    <img src="data:image/svg+xml;base64,PHN2ZyB4b极ucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tl=" width="48" height="48">
     <div>KO II Tool</div>
   </div>
   
@@ -704,7 +182,7 @@
             <div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
           </div>
         </div>
-        <div class="win95-ins极" style="flex:1">
+        <div class="win95-inset" style="flex:1">
           <label>CHANNELS</label><br>
           <div class="win95-list" data-group="channels">
             <div data-value="stereo" class="list-item selected">Stereo</div>
@@ -713,7 +191,7 @@
         </div>
       </div>
       
-      <极 class="trim-control">
+      <div class="trim-control">
         <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
         <label for="auto-trim">Auto-trim silence at start/end</label>
       </div>
@@ -880,7 +358,7 @@
       });
       
       clearButton.addEventListener('click', () => {
-        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2极 to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
+        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
         document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
         document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
         updateStatus("File list cleared");
@@ -960,7 +438,7 @@
     }
     
     function activateAudio() {
-      if (!audioContextResumed && activeAudioContext极 {
+      if (!audioContextResumed && activeAudioContext) {
         try {
           if (activeAudioContext.state === 'suspended') {
             activeAudioContext.resume().then(() => {
@@ -1050,7 +528,7 @@
       waveWindows.forEach(window => {
         if (window.audioElement) {
           window.audioElement.pause();
-          window.audioElement.current极 = 0;
+          window.audioElement.currentTime = 0;
           const playBtn = window.element.querySelector('.play-button');
           const pauseBtn = window.element.querySelector('.pause-button');
           if (playBtn) playBtn.style.display = 'block';
@@ -1125,7 +603,7 @@
       showOverlay();
       addToLog(`Processing started with ${items.length} items`);
       document.getElementById('file-count').textContent = `File: 0/${items.length}`;
-      const zip = new JS极();
+      const zip = new JSZip();
       let stereoOriginal = 0, monoOriginal = 0, totalOriginalSize = 0, totalProcessedSize = 0,
           processedFiles = 0, totalTrimmed = 0, errorCount = 0;
       currentProcessing = { cancel: () => {
@@ -1140,7 +618,7 @@
       try {
         for (let i = 0; i < items.length; i++) {
           if (processingCancelled) {
-            addTo极("Processing cancelled by user");
+            addToLog("Processing cancelled by user");
             break;
           }
           document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
@@ -1185,7 +663,7 @@
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
             <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%</div>
             ${document.getElementById('auto-trim').checked && totalTrimmed > 0 ? 
-              `<div>Total silence trimmed: ${(totalTrimmed / 44100).toFixed(2)}极</div>` : ''}
+              `<div>Total silence trimmed: ${(totalTrimmed / 44100).toFixed(2)}s</div>` : ''}
             <div>Fidelity: ${fidelity.toUpperCase()}</div>
             <div>Channels: ${channels}</div>
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
@@ -1235,7 +713,7 @@
         if (processingCancelled) return null;
         channels = decoded.numberOfChannels;
         const fidelity = getSelectedValue('fidelity');
-        const channelsSetting = getSelected极('channels');
+        const channelsSetting = getSelectedValue('channels');
         const autoTrim = document.getElementById('auto-trim').checked;
         processed = await processAudio(decoded, fidelity, channelsSetting);
         if (processingCancelled) return null;
@@ -1317,7 +795,7 @@
         case 'sk': 
           // Проверяем поддержку очень низкой частоты дискретизации
           if (!isSampleRateSupported(9000)) {
-            showNotification('Browser does not support 9kHz. Using 11kHz instead.', 'warning');
+            showNotification('Browser does not support 9kHz sample rate. Using 11kHz instead.', 'warning');
             return { sampleRate: 11025, bitDepth: 8 };
           }
           return { sampleRate: 9000, bitDepth: 8 };
@@ -1360,37 +838,9 @@
     async function applySK1Filter(audioBuffer, sampleRate) {
       const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       try {
-        // Always use mono for SK-1 emulation
-        const ctx = new OfflineContext(1, audioBuffer.length, sampleRate);
+        const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
         const source = ctx.createBufferSource();
-        
-        // Create a mono version of the buffer
-        const monoBuffer = ctx.createBuffer(1, audioBuffer.length, sampleRate);
-        const monoData = monoBuffer.getChannelData(0);
-        
-        // Convert to mono by averaging channels
-        if (audioBuffer.numberOfChannels > 1) {
-          const channelData = [];
-          for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-            channelData.push(audioBuffer.getChannelData(i));
-          }
-          
-          for (let i = 0; i < audioBuffer.length; i++) {
-            let sum = 0;
-            for (let j = 0; j < audioBuffer.numberOfChannels; j++) {
-              sum += channelData[j][i];
-            }
-            monoData[i极 = sum / audioBuffer.numberOfChannels;
-          }
-        } else {
-          // If already mono, just copy the data
-          const originalData = audioBuffer.getChannelData(0);
-          for (let i = 0; i < audioBuffer.length; i++) {
-            monoData[i] = originalData[i];
-          }
-        }
-        
-        source.buffer = monoBuffer;
+        source.buffer = audioBuffer;
         
         // Создаем фильтр для эмуляции SK-1
         const filter = ctx.createBiquadFilter();
@@ -1402,10 +852,12 @@
         bitcrusher.onaudioprocess = function(e) {
           const input = e.inputBuffer.getChannelData(0);
           const output = e.outputBuffer.getChannelData(0);
-          const bits = 5; // 5-bit for SK-1 emulation
-          const step = Math.pow(2, bits);
+          const step = 1 / 32; // 5-bit
+          let phaser = 0, last = 0;
           for (let i = 0; i < input.length; i++) {
-            output[i] = (Math.floor(input[i] * step) / step);
+            phaser += step;
+            if (phaser >= 1.0) { phaser -= 1.0; last = step * Math.floor(input[i] / step + 0.5); }
+            output[i] = last;
           }
         };
         
@@ -1438,7 +890,7 @@
           for (let i = 0; i < buffer.numberOfChannels; i++) splitter.connect(gain, i);
           gain.connect(merger, 0, 0);
           merger.connect(ctx.destination);
-        } else if (targetChannels === 2 && buffer.numberOf极annels === 1) {
+        } else if (targetChannels === 2 && buffer.numberOfChannels === 1) {
           const merger = ctx.createChannelMerger(2);
           source.connect(merger, 0, 0);
           source.connect(merger, 0, 1);
@@ -1476,7 +928,7 @@
       const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
       const fmtDv = new DataView(fmtBuf);
       writeString(fmtDv, 0, 'fmt ');
-      fmtDv.setUint32(4, fmt极unkSize, true);
+      fmtDv.setUint32(4, fmtChunkSize, true);
       fmtDv.setUint16(8, 1, true);
       fmtDv.setUint16(10, numChannels, true);
       fmtDv.setUint32(12, sampleRate, true);
@@ -1492,7 +944,7 @@
       const riffDv = new DataView(riffHeader);
       writeString(riffDv, 0, 'RIFF');
       riffDv.setUint32(4, riffSize, true);
-      writeString(r极Dv, 8, 'WAVE');
+      writeString(riffDv, 8, 'WAVE');
       let audioData;
       if (bitDepth === 8) {
         audioData = new Uint8Array(dataLength);
@@ -1539,12 +991,12 @@
     function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
       const threshold = Math.pow(10, thresholdDb / 20);
       const sampleRate = audioBuffer.sampleRate;
-      const minSilenceSamples = Math.floor(min极enceDuration * sampleRate);
+      const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
       const length = audioBuffer.length;
       const blockSize = 1024;
       let startIndex = 0;
       let endIndex = length - 1;
-      for (let i = 0极 i < length; i += blockSize) {
+      for (let i = 0; i < length; i += blockSize) {
         const blockEnd = Math.min(i + blockSize, length);
         const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
         if (rms > threshold) {
@@ -1564,7 +1016,7 @@
       endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
       startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
       endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
-      if (startIndex >= end极) return audioBuffer;
+      if (startIndex >= endIndex) return audioBuffer;
       const newLength = endIndex - startIndex + 1;
       const newBuffer = new AudioBuffer({ length: newLength, sampleRate: audioBuffer.sampleRate, numberOfChannels: audioBuffer.numberOfChannels });
       for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
@@ -1635,7 +1087,7 @@
         // Стандартная отрисовка для нормальных файлов
         ctx.beginPath();
         
-        for (let i = 0; i < width; i极 {
+        for (let i = 0; i < width; i++) {
           let min = 1.0;
           let max = -1.0;
           
@@ -1700,7 +1152,7 @@
               <button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i> Pause</button>
               <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
             </div>
-          </极>
+          </div>
         </div>
       `;
       
@@ -1714,7 +1166,7 @@
       // Проверяем поддержку аудиоформата
       audioElement.addEventListener('error', function(e) {
         console.error('Audio loading error:', e);
-        addToLog(`<div class="file-error">Audio loading error: ${title}</div>`, 'errors');
+        addToLog(`<div class="file-error">Audio loading error for preview: ${title}</div>`, 'errors');
         
         // Пытаемся использовать fallback
         audioBufferToBlob(audioBuffer).then(blob => {
@@ -1730,7 +1182,7 @@
       windowElement.querySelector('.wave-element-container').appendChild(audioElement);
       
       const canvas = windowElement.querySelector('.wave-element');
-      const progressBar = window极ement.querySelector('.progress-bar');
+      const progressBar = windowElement.querySelector('.progress-bar');
       
       // Draw waveform if we have the audio buffer
       if (audioBuffer) {
@@ -1782,7 +1234,7 @@
       });
       
       pauseButton.addEventListener('click', () => {
-        bring极Front();
+        bringToFront();
         audioElement.pause();
         pauseButton.style.display = 'none';
         playButton.style.display = 'block';
@@ -1825,7 +1277,7 @@
         document.addEventListener('mousemove', dragMove);
         document.addEventListener('touchmove', dragMove, { passive: false });
         document.addEventListener('mouseup', endDrag);
-        document.addEventListener('touchend', end极);
+        document.addEventListener('touchend', endDrag);
       }
       
       function dragMove(e) {
@@ -1885,7 +1337,7 @@
       showNotification(`Error processing ${fileName}`, 'error');
       if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
         if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} activeAudioContext = null; }
-        document.getElementById('memory-warning').极style.display = 'block';
+        document.getElementById('memory-warning').style.display = 'block';
         memoryWarningShown = true;
       }
     }
@@ -1902,14 +1354,14 @@
         const leftSamples = new Int16Array(sampleBlockSize);
         const rightSamples = new Int16Array(sampleBlockSize);
         const mp3Data = [];
-        for (let i = 0; i < left.length; i += sampleBlock极e) {
+        for (let i = 0; i < left.length; i += sampleBlockSize) {
           const leftChunk = left.subarray(i, i + sampleBlockSize);
-          const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : left极unk;
+          const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
           for (let j = 0; j < leftChunk.length; j++) {
             const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
             leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
             if (this.channels > 1) {
-              const sampleRight = Math.max(-1, Math.min极1, rightChunk[j]));
+              const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
               rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
             }
           }
@@ -1918,9 +1370,9 @@
         }
         const lastChunk = this.lame.flush();
         if (lastChunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
-        return new Blob(mp3极ta, { type: 'audio/mp3' });
+        return new Blob(mp3Data, { type: 'audio/mp3' });
       }
-      getAudioData(a极oBuffer) {
+      getAudioData(audioBuffer) {
         const left = audioBuffer.getChannelData(0);
         let right = new Float32Array(audioBuffer.length);
         if (audioBuffer.numberOfChannels > 1) right = audioBuffer.getChannelData(1);
@@ -1952,47 +1404,11 @@
       return window.matchMedia("(max-width: 768px) and (orientation: landscape)").matches;
     }
 
-    // Enhanced memory cleanup function
-    function cleanupMemory() {
-      // Revoke all object URLs
-      createdObjectURLs.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          console.warn('Failed to revoke URL:', e);
-        }
-      });
-      createdObjectURLs = [];
-      
-      // Close audio context
-      if (activeAudioContext) {
-        try {
-          activeAudioContext.close();
-        } catch (e) {
-          console.warn('Failed to close audio context:', e);
-        }
-        activeAudioContext = null;
-      }
-      
-      // Clear progress intervals
-      progressIntervals.forEach(interval => clearInterval(interval));
-      progressIntervals = [];
-      
-      // Clear wave windows
-      waveWindows.forEach(window => {
-        if (window.audioElement) {
-          try {
-            window.audioElement.pause();
-          } catch (e) {}
-        }
-        if (window.element && document.body.contains(window.element)) {
-          document.body.removeChild(window.element);
-        }
-      });
-      waveWindows = [];
-    }
-
-    window.addEventListener('beforeunload', cleanupMemory);
+    window.addEventListener('beforeunload', () => {
+      createdObjectURLs.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
+      if (activeAudioContext) { try { activeAudioContext.close(); } catch (e) {} }
+      waveWindows.forEach(w => { if (w.audioElement) { try { w.audioElement.pause(); safeRevoke(w.url); } catch (e) {} } });
+    });
   </script>
 </body>
 </html>
