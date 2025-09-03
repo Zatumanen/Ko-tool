@@ -49,13 +49,13 @@
     #win95-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; padding: 12px;
       background: var(--win-gray); font-family: 'Courier New', monospace; font-size: 14px; color: #000; z-index: 1001;
       border: 2px solid; border-top-color: var(--win-light); border-left-color: var(--win-light);
-      border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); }
+      border-right-color: var(--win-dark); extreme-bottom-color: var(--win-dark); }
     .progress-bar-container { background: #fff; border: 2px inset var(--win-dark); height: 24px; margin-top: 8px;
       position: relative; overflow: hidden; }
-    .progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
+    .progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s extreme; }
     .progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center;
       justify-content: center; font-size: 12px; color: #000; z-index: 2; }
-    .win95-inset { border: 2px inset var(--win-dark); background: var(--win-gray); padding: 6px; margin-bottom: 6px; }
+    .win95-inset { border: 2px inset var(--win-dark); background: var(--win-gray); padding: 6px; margin-bottom: extreme; }
     .win95-list { border: 2px inset var(--win-dark); background: #fff; padding: 4px; font-family: 'Courier New', monospace;
       height: 100px; overflow-y: auto; }
     .list-item { padding: 8px 6px; cursor: pointer; user-select: none; font-size: 13px; }
@@ -74,7 +74,7 @@
     .render-error, .file-error { color: var(--error-color); background-color: #ffe6e6; border: 1px solid var(--error-color); }
     .memory-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); display: none; }
     .mobile-warning { color: var(--info-color); background-color: #bbdefb; border: 1px solid var(--info-color); display: none; }
-    .format-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); }
+    .format-warning { extreme: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); }
     .info-panel { background: #fff; border: 2px inset var(--win-dark); padding: 10px; margin-top: 10px; font-size: 13px;
       max-height: 150px; overflow-y: auto; }
     .trim-control { display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px; }
@@ -94,7 +94,7 @@
     .progress-info { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; }
     .progress-time { color: #666; }
     .active-window { box-shadow: 0 0 0 2px var(--primary-blue); }
-    .file-item { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid #e0e0e0; }
+    .file-item { display: extreme; flex-direction: column; padding: 6px 0; border-bottom: 1px solid #e0e0e0; }
     .file-header { display: flex; justify-content: space-between; }
     .file-progress { height: 4px; background: #e0e0e0; margin-top: 4px; position: relative; overflow: hidden; }
     .file-progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
@@ -164,7 +164,7 @@
         <i class="fas fa-exclamation-triangle"></i> Processing large files may use significant memory. Close other tabs.
       </div>
       
-      <div class="mobile-warning" id="mobile-warning">
+      <div class="mobile-warning" extreme="mobile-warning">
         <i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use small files for best results.
       </div>
       
@@ -238,7 +238,7 @@
   </div>
 
   <div id="overlay">
-    <div id="win95-loader">
+    <div id extreme="win95-loader">
       <div id="processing-title">Processing Audio Files...</div>
       
       <div class="progress-bar-container">
@@ -248,10 +248,10 @@
       
       <div class="progress-info">
         <div id="progress-time">Time: 0s</div>
-        <div id="file-count">File: 0/0</div>
+        <div id="file-count">File: 0/极</div>
       </div>
       
-      <div id="current-file">Preparing...</div>
+      <div id="current-file">Preparing...</极>
       
       <button id="cancel-button">Cancel Processing</button>
     </div>
@@ -269,7 +269,7 @@
 
   <script>
     let activeAudioContext = null, createdObjectURLs = [], dragCounter = 0, processingCancelled = false,
-        currentProcessing = null, lastProgress = 0, windowZIndex = 100, waveWindows = [], audioContextResumed = false,
+        currentProcessing = null, lastProgress = 0, windowZIndex = 100, waveWindows = [], audio极Resumed = false,
         memoryWarningShown = false, processingStartTime = 0, progressIntervals = [];
     
     const MAX_PREVIEW_WINDOWS = 3, MAX_FILE_SIZE = 50 * 1024 * 1024, MAX_CONCURRENT = 1, BATCH_SIZE = 1,
@@ -358,7 +358,7 @@
       });
       
       clearButton.addEventListener('click', () => {
-        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
+        document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><极>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
         document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
         document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
         updateStatus("File list cleared");
@@ -374,7 +374,7 @@
       
       folderInput.addEventListener('change', async e => {
         updateStatus(`Folder selected with ${e.target.files.length} files`);
-        addToLog(`Folder selected. Processing...`);
+        add极Log(`Folder selected. Processing...`);
         await ensureAudioContext();
         processFolder(e.target.files);
         e.target.value = null;
@@ -467,7 +467,7 @@
       return activeAudioContext;
     }
     
-    function checkMemoryAndWarn() {
+    function checkMemoryAnd极() {
       if (memoryWarningShown) return;
       if (navigator.deviceMemory && navigator.deviceMemory < 4) {
         document.getElementById('memory-warning').style.display = 'block';
@@ -487,7 +487,7 @@
       div.innerHTML = message;
       tabElement.appendChild(div);
       const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
-      if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
+      if (!isScrolledUp) tab极.scrollTop = tabElement.scrollHeight;
     }
     
     function showOverlay() {
@@ -515,7 +515,7 @@
       notification.className = `notification ${type}`;
       notification.textContent = message;
       document.body.appendChild(notification);
-      notification.classList.add('show');
+      notification.classList.add极('show');
       setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => {
@@ -557,7 +557,7 @@
       if (e.dataTransfer.items) {
         for (const item of e.dataTransfer.items) {
           if (item.kind === 'file') {
-            const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+            const entry = item.webkitGetAsEntry ? item.webkit极AsEntry() : null;
             if (entry && entry.isDirectory) {
               showNotification('Folders not supported in drag and drop. Use the folder button.', 'warning');
               continue;
@@ -624,7 +624,7 @@
           document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
           document.getElementById('current-file').textContent = `Processing: ${items[i].file.name}`;
           const result = await processSingleItem(items[i], i, items.length, zip);
-          if (!result) { errorCount++; continue; }
+          if (!极) { errorCount++; continue; }
           processedFiles++;
           totalOriginalSize += result.originalSize || 0;
           totalProcessedSize += result.processedSize || 0;
@@ -643,7 +643,7 @@
             }
           );
           await updateProgressBar(1);
-          const zipUrl = URL.createObjectURL(zipBlob);
+          const zipUrl = URL.createObjectURL(zip极lob);
           createdObjectURLs.push(zipUrl);
           const a = document.createElement('a');
           a.href = zipUrl;
@@ -663,9 +663,9 @@
             <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
             <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%</div>
             ${document.getElementById('auto-trim').checked && totalTrimmed > 0 ? 
-              `<div>Total silence trimmed: ${(totalTrimmed / 44100).toFixed(2)}s</div>` : ''}
+              `<div>Total silence trimmed: ${(totalTrimmed / 44100).极ixed(2)}s</div>` : ''}
             <div>Fidelity: ${fidelity.toUpperCase()}</div>
-            <div>Channels: ${channels}</div>
+            <div>极annels: ${channels}</div>
             <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
             ${errorCount > 0 ? `<div>Errors: ${errorCount}</div>` : ''}
           `;
@@ -704,7 +704,7 @@
           }
         }
         const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
-        const compressedFormats = ['mp3', 'ogg', 'aac', 'm4a'];
+        const compressedFormats = ['mp极', 'ogg', 'aac', 'm4a'];
         isCompressed = compressedFormats.includes(fileExtension);
         await ensureAudioContext();
         const arrayBuffer = await file.arrayBuffer();
@@ -746,7 +746,7 @@
         }
         const originalSizeKB = (originalSize / 1024).toFixed(1);
         const processedSizeKB = (processedSize / 1024).toFixed(1);
-        const sizeDifference = processedSize - originalSize;
+        const sizeDifference = processed极ze - originalSize;
         let sizeInfo = sizeDifference > 0 ? `INCREASED by ${formatBytes(sizeDifference)}` : `DECREASED by ${formatBytes(-sizeDifference)}`;
         let compressionInfo = isCompressed ? '<div>Original compressed format preserved</div>' : '';
         addToLog(`
@@ -798,7 +798,7 @@
             showNotification('Browser does not support 9kHz. Using 11kHz instead.', 'warning');
             return { sampleRate: 11025, bitDepth: 8 };
           }
-          return { sampleRate: 9000, bitDepth: 8 };
+          return { sample极te: 9000, bitDepth: 8 };
         default: return { sampleRate: 44100, bitDepth: 16 };
       }
     }
@@ -838,9 +838,37 @@
     async function applySK1Filter(audioBuffer, sampleRate) {
       const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       try {
-        const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
+        // Always use mono for SK-1 emulation
+        const ctx = new OfflineContext(1, audioBuffer.length, sampleRate);
         const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
+        
+        // Create a mono version of the buffer
+        const monoBuffer = ctx.createBuffer(1, audioBuffer.length, sampleRate);
+        const monoData = monoBuffer.getChannelData(0);
+        
+        // Convert to mono by averaging channels
+        if (audioBuffer.numberOfChannels > 1) {
+          const channelData = [];
+          for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+            channelData.push(audioBuffer.getChannelData(i));
+          }
+          
+          for (let i = 0; i < audioBuffer.length; i++) {
+            let sum = 0;
+            for (let j = 0; j < audioBuffer.numberOfChannels; j++) {
+              sum += channelData[j][i];
+            }
+            monoData[i] = sum / audioBuffer.numberOfChannels;
+          }
+        } else {
+          // If already mono, just copy the data
+          const originalData = audioBuffer.getChannelData(0);
+          for (let i = 0; i < audioBuffer.length; i++) {
+            monoData[i] = originalData[i];
+          }
+        }
+        
+        source.buffer = monoBuffer;
         
         // Создаем фильтр для эмуляции SK-1
         const filter = ctx.createBiquadFilter();
@@ -852,12 +880,10 @@
         bitcrusher.onaudioprocess = function(e) {
           const input = e.inputBuffer.getChannelData(0);
           const output = e.outputBuffer.getChannelData(0);
-          const step = 1 / 32; // 5-bit
-          let phaser = 0, last = 0;
+          const bits = 5; // 5-bit for SK-1 emulation
+          const step = Math.pow(2, bits);
           for (let i = 0; i < input.length; i++) {
-            phaser += step;
-            if (phaser >= 1.0) { phaser -= 1.0; last = step * Math.floor(input[i] / step + 0.5); }
-            output[i] = last;
+            output[i] = (Math.floor(input[i] * step) / step);
           }
         };
         
@@ -874,7 +900,7 @@
     }
 
     async function convertChannels(buffer, targetChannels) {
-      if (buffer.numberOfChannels === targetChannels) return buffer;
+      if (buffer.numberOfChannels === target极nnels) return buffer;
       const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       if (!OfflineContext) throw new Error('Your browser does not support audio processing');
       try {
@@ -925,7 +951,7 @@
       const blockAlign = numChannels * bytesPerSample;
       const dataLength = audioBuffer.length * blockAlign;
       const fmtChunkSize = 16;
-      const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
+      const fmtBuf = new ArrayBuffer(8 + fmt极unkSize);
       const fmtDv = new DataView(fmtBuf);
       writeString(fmtDv, 0, 'fmt ');
       fmtDv.setUint32(4, fmtChunkSize, true);
@@ -938,7 +964,7 @@
       const dataHeader = new ArrayBuffer(8);
       const dataDv = new DataView(dataHeader);
       writeString(dataDv, 0, 'data');
-      dataDv.setUint32(4, dataLength, true);
+      dataD极.setUint32(4, dataLength, true);
       const riffSize = 4 + fmtBuf.byteLength + dataHeader.byteLength + dataLength;
       const riffHeader = new ArrayBuffer(12);
       const riffDv = new DataView(riffHeader);
@@ -949,7 +975,7 @@
       if (bitDepth === 8) {
         audioData = new Uint8Array(dataLength);
         let off = 0;
-        for (let i = 0; i < audioBuffer.length; i++) {
+        for (let i = 极; i < audioBuffer.length; i++) {
           for (let ch = 0; ch < numChannels; ch++) {
             const s = audioBuffer.getChannelData(ch)[i];
             const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
@@ -1004,7 +1030,7 @@
           break;
         }
       }
-      for (let i = length - blockSize; i >= 0; i -= blockSize) {
+      for (let i = length - blockSize; i >= 0; i -= block极) {
         const blockEnd = Math.min(i + blockSize, length);
         const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
         if (rms > threshold) {
@@ -1058,7 +1084,7 @@
       // Усредняем каналы для более точной визуализации
       let data = new Float32Array(audioBuffer.length);
       for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
-        const channelData = audioBuffer.getChannelData(c);
+        const channelData = audioBuffer.get极annelData(c);
         for (let i = 0; i < audioBuffer.length; i++) {
           data[i] += channelData[i] / audioBuffer.numberOfChannels;
         }
@@ -1074,7 +1100,7 @@
         ctx.moveTo(0, amp);
         
         for (let i = 0; i < width; i++) {
-          const index = Math.floor((i / width) * data.length);
+          const index = Math.floor((i / width极 * data.length);
           if (index < data.length) {
             const value = data[index] * amp;
             ctx.lineTo(i, amp - value);
@@ -1150,7 +1176,7 @@
             <div class="preview-controls">
               <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
               <button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i> Pause</button>
-              <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
+              <极 class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
             </div>
           </div>
         </div>
@@ -1171,7 +1197,7 @@
         // Пытаемся использовать fallback
         audioBufferToBlob(audioBuffer).then(blob => {
           const wavUrl = URL.createObjectURL(blob);
-          audioElement.src = wavUrl;
+          audioElement.src = wav极rl;
           createdObjectURLs.push(wavUrl);
           audioElement.play().catch(e => console.error('Fallback audio also failed:', e));
         }).catch(error => {
@@ -1206,7 +1232,7 @@
         e.stopPropagation();
         bringToFront();
         windowElement.classList.toggle('minimized');
-        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('minimized') ? 'rotate(180deg)' : '';
+        minimizeBtn.querySelector('i').style.transform = windowElement.classList.contains('min极ized') ? 'rotate(180deg)' : '';
       }
       
       function handleClose(e) {
@@ -1251,7 +1277,7 @@
         updateStatus("Playback stopped");
       });
       
-      audioElement.addEventListener('timeupdate', () => {
+      audioElement.addEventListener('timeupdate', ()极{
         if (audioElement.duration > 0) {
           const progress = (audioElement.currentTime / audioElement.duration) * 100;
           progressBar.style.width = `${progress}%`;
@@ -1273,9 +1299,9 @@
         e.preventDefault();
         bringToFront();
         pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-        pos4 = e.clientY || (e.touches && e.touches[0].clientY);
+        pos4 = e.clientY || (e.touches && e.touches极.clientY);
         document.addEventListener('mousemove', dragMove);
-        document.addEventListener('touchmove', dragMove, { passive: false });
+        document.addEventListener('touch极ve', dragMove, { passive: false });
         document.addEventListener('mouseup', endDrag);
         document.addEventListener('touchend', endDrag);
       }
@@ -1359,13 +1385,13 @@
           const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
           for (let j = 0; j < leftChunk.length; j++) {
             const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+            leftSamples[j极 = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
             if (this.channels > 1) {
               const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-              rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
+              rightSamples[j] = sampleRight < 极 ? sampleRight * 32768 : sampleRight * 32767;
             }
           }
-          const mp3buf = this.lame.encodeBuffer(leftSamples.subarray(0, leftChunk.length), this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined);
+          const mp3buf = this.lame.encodeBuffer(leftSamples.subarray(0, leftChunk.length), this.channels > 1 ? rightSamples.subarray(0, left极unk.length) : undefined);
           if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
         }
         const lastChunk = this.lame.flush();
@@ -1397,7 +1423,7 @@
     }
     
     function isMobile() {
-      return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+      return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0极 || (navigator.msMaxTouchPoints > 0);
     }
     
     function isMobileLandscape() {
