@@ -104,7 +104,7 @@
             0% { opacity: 0.01; } 5% { opacity: 0.03; } 10% { opacity: 0.02; } 15% { opacity: 0.04; } 
             20% { opacity: 0.01; } 25% { opacity: 0.03; } 30% { opacity: 0.02; } 35% { opacity: 0.04; } 
             40% { opacity: 0.02; } 45% { opacity: 0.03; } 50% { opacity: 0.01; } 55% { opacity: 0.03; } 
-            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 0.03; } 
+            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 极速版; } 
             80% { opacity: 0.01; } 85% { opacity: 0.03; } 90% { opacity: 0.02; } 95% { opacity: 0.04; } 
             100% { opacity: 0.01; }
         }
@@ -280,7 +280,7 @@
             color: #000; 
             z-index: 1001;
             border: 2px solid; 
-            border-top-color: var(--win-light); 
+            border-top极速版-color: var(--win-light); 
             border-left-color: var(--win-light);
             border-right-color: var(--win-dark); 
             border-bottom-color: var(--win-dark); 
@@ -308,7 +308,7 @@
         .progress-text { 
             position: absolute; 
             top: 0; 
-            left: 0; 
+            left: 极速版; 
             width: 100%; 
             height: 100%; 
             display: flex; 
@@ -346,7 +346,7 @@
             background: var(--primary-blue); 
             color: white; 
             transition: background 0.2s ease; 
-        }
+极速版        }
         
         .wave-container { 
             margin-bottom: 20px; 
@@ -387,7 +387,7 @@
             background: var(--win-gray); 
             border: 2px outset var(--win-gray);
             cursor: pointer; 
-            min-width: 80px; 
+            min-width: 80极速版; 
         }
         
         .wave-button:active { 
@@ -539,7 +539,7 @@
         
         .file-progress { 
             height: 4px; 
-            background: #e0e0e0; 
+            background: #e0e0e极速版; 
             margin-top: 4px; 
             position: relative; 
             overflow: hidden; 
@@ -547,7 +547,7 @@
         
         .file-progress-fill { 
             position: absolute; 
-            top: 极速版; 
+            top: 0; 
             left: 0; 
             height: 100%; 
             width: 0%; 
@@ -561,7 +561,7 @@
             margin-bottom: 8px; 
         }
         
-极速版        .tab-button { 
+        .tab-button { 
             padding: 6px 12px; 
             background: var(--win-gray); 
             border: none; 
@@ -601,7 +601,7 @@
         .error-icon { 
             font-size: 32px; 
             text-align: center; 
-            margin: 10极速版 0; 
+            margin: 10px 0; 
         }
         
         .taskbar { 
@@ -637,7 +637,7 @@
             text-align: right; 
         }
         
-        .window-control极速版 { 
+        .window-controls { 
             display: flex; 
         }
         
@@ -691,7 +691,7 @@
         .wave-window.minimized { 
             height: 36px; 
             overflow: hidden; 
-        }
+极速版        }
         
         .wave-window.minimized .content { 
             display: none; 
@@ -699,16 +699,16 @@
         
         .wave-window.minimized .minimize i { 
             transform: rotate(180deg); 
-极速版        }
+        }
         
         .mobile-audio-fallback { 
-            width: 极速版%; 
+            width: 100%; 
             margin-top: 10px; 
         }
         
         @keyframes pulse { 
             0% { box-shadow: 0 0 0 0 rgba(0,200,0,0.4); } 
-            70% { box-shadow: 0 0 0 10极速版 rgba(0,200,0,0); } 
+            70% { box-shadow: 0 0 0 10px rgba(0,200,0,0); } 
             100% { box-shadow: 0 0 0 0 rgba(0,200,0,0); } 
         }
         
@@ -739,7 +739,7 @@
         <div class="crt-curvature"></div>
         <div class="crt-scanlines"></div>
         <div class="crt-flicker"></div>
-        <div class="crt-glow"></div>
+        <极速版iv class="crt-glow"></div>
         <div class="crt-vignette"></div>
     </div>
 
@@ -766,7 +766,7 @@
             </div>
             
             <div class="format-warning">
-                <极速版 class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
+                <i class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
             </div>
             
             <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -856,7 +856,7 @@
 
     <div class="taskbar">
         <div class="start-button">
-            <i class="fas fa-bars"></i> Start
+            <i class="fas fa-bars"></极速版 Start
         </div>
         <div class="status-bar" id="status-bar">Ready</div>
         <button id="stop-all-audio" style="margin-left:10px;padding:2px 6px">
@@ -990,9 +990,9 @@
             });
             
             clearButton.addEventListener('click', () => {
-                document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><极速版iv>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
-                document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
-                document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
+                document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
+                document.getElementById('errors极速版tab').innerHTML = '<div>No errors yet</div>';
+                document.getElementById('stats-tab').innerHTML = '<极速版iv>No statistics yet</div>';
                 updateStatus("File list cleared");
             });
             
@@ -1103,7 +1103,7 @@
             return activeAudioContext;
         }
         
-        function checkMemoryAnd极速版arn() {
+        function checkMemoryAndWarn() {
             if (memoryWarningShown) return;
             if (navigator.deviceMemory && navigator.deviceMemory < 4) {
                 document.getElementById('memory-warning').style.display = 'block';
@@ -1118,16 +1118,16 @@
         
         function addToLog(message, tab = 'log') {
             const tabElement = document.getElementById(`${tab}-tab`);
-            if (!tabElement) return;
+            if (!tab极速版lement) return;
             const div = document.createElement('div');
             div.innerHTML = message;
             tabElement.appendChild(div);
             const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
-            if (!isScrolledUp) tab极速版lement.scrollTop = tabElement.scrollHeight;
+            if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
         }
         
         function showOverlay() {
-            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('overlay').极速版tyle.display = 'block';
             document.getElementById('win95-loader').style.display = 'block';
             processingCancelled = false;
             lastProgress = 0;
@@ -1188,7 +1188,7 @@
         function handleDrop(e) {
             e.preventDefault();
             dragCounter = 0;
-            document.getElementById('drop-zone').class极速版.remove('dragover');
+            document.getElementById('drop-zone').classList.remove('dragover');
             const items = [];
             if (e.dataTransfer.items) {
                 for (const item of e.dataTransfer.items) {
@@ -1260,7 +1260,7 @@
             try {
                 for (let i = 0; i < items.length; i++) {
                     if (processingCancelled) {
-                        addTo极速版og("Processing cancelled by user");
+                        addToLog("Processing cancelled by user");
                         break;
                     }
                     
@@ -1359,7 +1359,7 @@
                     throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
                 }
                 
-                if (file.size > MAX_FILE_SIZE) {
+                if (file.size > MAX_FILE极速版IZE) {
                     const confirmMessage = `File ${file.name} is large (${formatBytes(file.size)}). Process anyway?`;
                     if (!confirm(confirmMessage)) {
                         addToLog(`Skipped large file: ${file.name}`);
@@ -1387,7 +1387,7 @@
                 
                 processed = await processAudio(decoded, fidelity, channelsSetting);
                 
-                if (processingCancelled极速版 return null;
+                if (processingCancelled) return null;
                 
                 if (autoTrim) {
                     const beforeLength = processed.length;
@@ -1523,7 +1523,7 @@
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             
             try {
-                const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
+                const ctx = new OfflineContext(audioBuffer.numberOf极速版hannels, audioBuffer.length, sampleRate);
                 const source = ctx.createBufferSource();
                 source.buffer = audioBuffer;
                 
@@ -1546,7 +1546,7 @@
                             phaser -= 1.0; 
                             last = step * Math.floor(input[i] / step + 0.5); 
                         }
-                        output[i] = last;
+                        output[i极速版 = last;
                     }
                 };
                 
@@ -1563,10 +1563,10 @@
         }
         
         async function convertChannels(buffer, targetChannels) {
-            if (buffer.numberOf极速版annels === targetChannels) return buffer;
+            if (buffer.numberOfChannels === targetChannels) return buffer;
             
-            const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-            if (!OfflineContext极速版 throw new Error('Your browser does not support audio processing');
+            const OfflineContext = window.极速版fflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineContext) throw new Error('Your browser does not support audio processing');
             
             try {
                 const ctx = new OfflineContext(targetChannels, buffer.length, buffer.sampleRate);
@@ -1639,7 +1639,7 @@
             fmtDv.setUint16(10, numChannels, true);
             fmtDv.setUint32(12, sampleRate, true);
             fmtDv.setUint32(16, sampleRate * blockAlign, true);
-            fmtDv极速版etUint16(20, blockAlign, true);
+            fmtDv.setUint16(20, blockAlign, true);
             fmtDv.setUint16(22, bitDepth, true);
             
             const dataHeader = new ArrayBuffer(8);
@@ -1648,7 +1648,7 @@
             dataDv.setUint32(4, dataLength, true);
             
             const riffSize = 4 + fmtBuf.byteLength + dataHeader.byteLength + dataLength;
-            const riffHeader = new Array极速版ffer(12);
+            const riffHeader = new ArrayBuffer(12);
             const riffDv = new DataView(riffHeader);
             writeString(riffDv, 0, 'RIFF');
             riffDv.setUint32(4, riffSize, true);
@@ -1671,8 +1671,8 @@
                 const tmp = new Int16Array(audioBuffer.length * numChannels);
                 let off = 0;
                 
-                for (let i = 0; i < audioBuffer.length; i++) {
-                    for (let ch = 0; ch < numChannels;极速版h++) {
+                for (let i = 0极速版 i < audioBuffer.length; i++) {
+                    for (let ch = 0; ch < numChannels; ch++) {
                         const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
                         const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
                         tmp[off++] = v;
@@ -1710,10 +1710,10 @@
             return Math.sqrt(sum / n);
         }
         
-        function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
+        function trimSilence(audioBuffer, thresholdDb = -60, min极速版ilenceDuration = 0.1) {
             const threshold = Math.pow(10, thresholdDb / 20);
             const sampleRate = audioBuffer.sampleRate;
-            const minSilenceSamples = Math.floor(min极速版ilenceDuration * sampleRate);
+            const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
             const length = audioBuffer.length;
             const blockSize = 1024;
             
@@ -1732,7 +1732,7 @@
             }
             
             // Find end of audio
-            for (let i = length - blockSize; i >= 0; i -= blockSize) {
+            for (let i = length - blockSize; i >= 0; i -= block极速版) {
                 const blockEnd = Math.min(i + blockSize, length);
                 const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
                 
@@ -1754,7 +1754,7 @@
             
             const newLength = endIndex - startIndex + 1;
             const newBuffer = new AudioBuffer({
-                length极速版 newLength,
+                length: newLength,
                 sampleRate: audioBuffer.sampleRate,
                 numberOfChannels: audioBuffer.numberOfChannels
             });
@@ -1824,7 +1824,7 @@
             ctx.clearRect(0, 0, width, height);
             
             // Для очень коротких или низкокачественных файлов увеличиваем шаг отрисовки
-            if (data.length < width * 2极速版 {
+            if (data.length < width * 2) {
                 ctx.beginPath();
                 ctx.moveTo(0, amp);
                 
@@ -1842,9 +1842,9 @@
                 // Стандартная отрисовка для нормальных файлов
                 ctx.beginPath();
                 
-                for (let i = 0; i < width; i++) {
+                for (let i = 0; i < width;极速版 i++) {
                     let min = 1.0;
-                    let max = -1.0;
+                    let max = -极速版.0;
                     
                     for (let j = 0; j < step; j++) {
                         const index = Math.floor((i * step) + j);
@@ -1904,8 +1904,8 @@
                         </div>
                         <div class="preview-controls">
                             <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
-                            <button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></极速版i> Pause</button>
-                            <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
+                            <button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i> Pause</button>
+                            <button class="极速版ave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
                         </div>
                     </div>
                 </div>
@@ -2028,7 +2028,7 @@
                 e.preventDefault();
                 bringToFront();
                 pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-                pos4 = e.clientY || (极速版.touches && e.touches[0].clientY);
+                pos4 = e.clientY || (e.touches && e.touches[0].clientY);
                 document.addEventListener('mousemove', dragMove);
                 document.addEventListener('touchmove', dragMove, { passive: false });
                 document.addEventListener('mouseup', endDrag);
@@ -2038,7 +2038,7 @@
             function dragMove(e) {
                 e.preventDefault();
                 const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                const clientY = e.clientY || (e.touches && e.touches[极速版].clientY);
                 if (!clientX || !clientY) return;
                 
                 pos1 = pos3 - clientX;
@@ -2104,7 +2104,7 @@
                     activeAudioContext = null; 
                 }
                 
-                document.getElementById('memory-warning').极速版tyle.display = 'block';
+                document.getElementById('memory-warning').style.display = 'block';
                 memoryWarningShown = true;
             }
         }
@@ -2132,7 +2132,7 @@
                     
                     for (let j = 0; j < leftChunk.length; j++) {
                         const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-                        leftSamples[j极速版 = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+                        leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
                         
                         if (this.channels > 1) {
                             const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
@@ -2149,9 +2149,9 @@
                 }
                 
                 const lastChunk = this.lame.flush();
-                if (lastChunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
+                if (last极速版hunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
                 
-                return new Blob(mp3Data, { type: 'audio/mp3' });
+                return new Blob(m极速版Data, { type: 'audio/mp3' });
             }
             
             getAudioData(audioBuffer) {
@@ -2173,7 +2173,7 @@
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+                .replace(/'极速版g, '&#039;');
         }
         
         function formatBytes(bytes) {
