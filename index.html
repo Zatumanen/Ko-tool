@@ -1,1380 +1,1094 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>SpeedUpperCut</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
-<style>
-:root {
---glow-color: #ff3333; --primary-blue: #000080; --win-gray: #c0c0c0; --win-light: #fff; --win-dark: #808080;
---success-color: #4caf50; --error-color: #f44336; --warning-color: #ff9800; --info-color: #2196f3;
-}
-body { 
-background: #008080; 
-font-family: 'Courier New', monospace; 
-margin: 0; 
-padding: 20px; 
-display: flex; 
-justify-content: center; 
-align-items: flex-start; 
-min-height: 100vh; 
-overflow-x: hidden; 
-touch-action: manipulation;
-background-image: radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
-radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0); 
-background-size: 4px 4px;
-background-position: 0 0, 2px 2px; 
--webkit-tap-highlight-color: transparent; 
-position: relative;
-}
-.crt-overlay {
-position: fixed;
-top: 0;
-left: 0;
-width: 100%;
-height: 100%;
-pointer-events: none;
-z-index: 9999;
-overflow: hidden;
-}
-.crt-scanlines {
-position: absolute;
-width: 100%;
-height: 100%;
-background: linear-gradient(to bottom, rgba(255,255,255,0.03) 50%, rgba(0,0,0,0.1) 50%);
-background-size: 100% 4px;
-opacity: 0.2;
-pointer-events: none;
-}
-.crt-flicker {
-position: absolute;
-width: 100%;
-height: 100%;
-background: transparent;
-animation: flicker 0.15s infinite;
-pointer-events: none;
-opacity: 0.02;
-}
-.crt-glow {
-position: absolute;
-width: 100%;
-height: 100%;
-box-shadow: inset 0 0 60px rgba(0,0,128,0.4);
-pointer-events: none;
-}
-.crt-vignette {
-position: absolute;
-width: 100%;
-height: 100%;
-box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
-pointer-events: none;
-}
-.crt-curvature {
-position: absolute;
-width: 100%;
-height: 100%;
-border-radius: 10px;
-box-shadow: 0 0 0 10px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.6);
-pointer-events: none;
-overflow: hidden;
-}
-.crt-curvature::before {
-content: '';
-position: absolute;
-top: 0;
-left: 0;
-right: 0;
-bottom: 0;
-box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
-border-radius: 10px;
-pointer-events: none;
-}
-@keyframes flicker {
-0% { opacity: 0.01; } 5% { opacity: 0.03; } 10% { opacity: 0.02; } 15% { opacity: 0.04; } 20% { opacity: 0.01; } 25% { opacity: 0.03; } 30% { opacity: 0.02; } 35% { opacity: 0.04; } 40% { opacity: 0.02; } 45% { opacity: 0.03; } 50% { opacity: 0.01; } 55% { opacity: 0.03; } 60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 0.03; } 80% { opacity: 0.01; } 85% { opacity: 0.03; } 90% { opacity: 0.02; } 95% { opacity: 0.04; } 100% { opacity: 0.01; }
-}
-.desktop-icon { position: absolute; width: 80px; text-align: center; color: white; text-shadow: 1px 1px 1px black;
-cursor: pointer; padding: 4px; user-select: none; transition: transform 0.2s; }
-.desktop-icon:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
-.window { width: 100%; max-width: 480px; background: var(--win-gray); border: 2px solid; padding: 0; box-sizing: border-box;
-position: relative; z-index: 100; border-top-color: var(--win-light); border-left-color: var(--win-light);
-border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
-.title-bar { background: var(--primary-blue); color: #fff; padding: 4px 8px; font-size: 14px; display: flex;
-justify-content: space-between; align-items: center; border-bottom: 2px solid var(--win-gray); cursor: move; user-select: none; }
-.title-bar button { width: 20px; height: 20px; border: none; background: var(--win-gray); cursor: pointer; display: flex;
-align-items: center; justify-content: center; font-weight: bold; font-family: Arial, sans-serif; margin-left: 4px;
-border: 1px solid; border-top-color: var(--win-light); border-left-color: var(--win-light);
-border-right-color: extreme(--win-dark); border-bottom-color: var(--win-dark); }
-.title-bar button.minimize { font-size: 18px; line-height: 12px; }
-.title-bar button.close { font-size: 14px; }
-.title-bar button:active { border-top-color: var(--win-dark); border-left-color: var(--win-dark);
-border-right-color: var(--win-light); border-bottom-color: var(--win-light); }
-.content { padding: 12px; font-size: 14px; color: #000; }
-.drop-zone { border: 2px dashed #000; padding: 20px; text-align: center; background: rgba(255,255,255,0.3);
-margin-top: 12px; position: relative; cursor: pointer; border-style: dotted; border-color: var(--win-dark); transition: all 0.3s ease; }
-.drop-zone.dragover { background: rgba(0,128,0,0.3); animation: pulse 1.5s infinite; }
-.drop-zone input[type="file"] { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; top: 0; left: 0; }
-.drop-zone span { pointer-events: none; font-size: 16px; display: block; margin-top: 10px; }
-#file-info { margin-top: 10px; font-size: 14px; text-align: left; background: #fff; border: 2px inset var(--win-dark);
-padding: 10px; max-height: 200px; overflow-y: auto; }
-button { min-height: 44px; padding: 10px; cursor: extreme; font-family: 'Courier New', monospace; font-size: 16px;
-border: 2px outset var(--win-gray); background: var(--win-gray); color: #000; transition: transform 0.1s; }
-button:active { border-style: inset; transform: scale(0.98); }
-#overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; }
-#win95-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 320px; padding: 12px;
-background: var(--win-gray); font-family: 'Courier New', monospace; font-size: 14px; color: #000; z-index: 1001;
-border: 2px solid; border-top-color: var(--win-light); border-left-color: var(--win-light);
-border-right-color: var(--win-dark); border-bottom-color: var(--win-dark); }
-.progress-bar-container { background: #fff; border: 2px inset var(--win-dark); height: 24px; margin-top: 8px;
-position: relative; overflow: hidden; }
-.progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
-.progress-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center;
-justify-content: center; font-size: 12px; color: #000; z-index: 2; }
-.win95-inset { border: 2px inset var(--win-dark); background: var(--win-gray); padding: 6px; margin-bottom: 6px; }
-.win95-list { border: 2px inset var(--win-dark); background: #fff; padding: 4px; font-family: 'Courier New', monospace;
-height: 100px; overflow-y: auto; }
-.list-item { padding: 8px 6px; cursor: pointer; user-select: none; font-size: 13px; }
-.list-item:hover, .list-item.selected { background: var(--primary-blue); color: white; transition: background 0.2s ease; }
-.wave-container { margin-bottom: 20px; border: 2px inset var(--win-dark); padding: 10px; background: #e0e0e0; position: relative; }
-.wave-title { font-family: 'Courier New', monospace; font-size: 14px; margin-bottom: 6px; word-break: break-word;
-font-weight: bold; text-align: center; }
-.wave-element-container { width: 100%; height: 150px; background: #000; margin-bottom: 10px; position: relative;
-overflow: hidden; padding: 10px 0; box-sizing: border-box; }
-.wave-element { width: 100%; height: 100%; }
-.wave-button { font-family: 'Courier New', monospace; padding: 8px; background: var(--win-gray); border: 2px outset var(--win-gray);
-cursor: pointer; min-width: 80px; }
-.wave-button:active { border-style: inset; transform: scale(0.98); }
-.render-error, .file-error, .memory-warning, .mobile-warning, .format-warning { padding: 8px; margin: 8px 0; border-radius: 2px;
-font-size: 13px; }
-.render-error, .file-error { color: var(--error-color); background-color: #ffe6e6; border: 1px solid var(--error-color); }
-.memory-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); display: none; }
-.mobile-warning { color: var(--info-color); background-color: #bbdefb; border: 1px solid var(--info-color); display: none; }
-.format-warning { color: var(--warning-color); background-color: #fff3e0; border: 1px solid var(--warning-color); }
-.info-panel { background: #fff; border: 2px inset var(--win-dark); padding: 10px; margin-top: 10px; font-size: 13px;
-max-height: 150px; overflow-y: auto; }
-.trim-control { display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 10px; }
-.wave-window { position: absolute; width: 500px; background: var(--win-gray); border: 2px solid; z-index: 101; top: 100px; left: 100px;
-border-top-color: var(--win-light); border-left-color: var(--win-light); border-right-color: var(--win-dark);
-border-bottom-color: var(--win-dark); box-shadow: 2px 2px 4px rgba(0,0,0,0.5); padding: 0; box-sizing: border-box; }
-.preview-controls { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-.wave-element-container:empty::after { content: "Loading..."; color: var(--win-dark); position: absolute;
-top: 50%; left: 50%; transform: translate(-50%,-50%); }
-.notification { position: fixed; top: 20px; right: 20px; padding: 12px 16px; border-radius: 4px; background: var(--primary-blue);
-color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 2000; transform: translateX(200%); transition: transform 0.3s ease;
-max-width: 300px; }
-.notification.show { transform: translateX(0); }
-.notification.success { background: var(--success-color); }
-.notification.error { background: var(--error-color); }
-.notification.warning { background: var(--warning-color); }
-.progress-info { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; }
-.progress-time { color: #666; }
-.active-window { box-shadow: 0 0 0 2px var(--primary-blue); }
-.file-item { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid #e0e0e0; }
-.file-header { display: flex; justify-content: space-between; }
-.file-progress { height: 4px; background: #e0e0e0; margin-top: 4px; position: relative; overflow: hidden; }
-.file-progress-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--primary-blue); transition: width 0.3s ease; }
-.info-tabs { display: flex; border-bottom: 1px solid var(--win-dark); margin-bottom: 8px; }
-.tab-button { padding: 6px 12px; background: var(--win-gray); border: none; cursor: pointer; border: 1px solid transparent;
-border-bottom: none; margin-right: 2px; }
-.tab-button.active { background: #fff; border-color: var(--win-dark); }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.critical { font-weight: bold; color: var(--error-color); margin-top: 8px; }
-.error-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 2000; }
-.error-icon { font-size: 32px; text-align: center; margin: 10px 0; }
-.taskbar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--win-gray); height: 36px; border-top: 2px solid var(--win-light);
-display: flex; align-items: center; padding: 0 8px; z-index: 90; }
-.start-button { padding: 4px 8px; background: var(--win-gray); border: 2px outset var(--win-gray); font-weight: bold; cursor: pointer;
-display: flex; align-items: center; gap: 4px; }
-.status-bar { margin-left: auto; padding: 0 8px; font-size: 14px; flex-grow: 1; text-align: right; }
-.window-controls { display: flex; }
-.button-group { display: flex; gap: 10px; margin-top: 10px; }
-.button-group button { flex: 1; }
-#cancel-button { margin-top: 10px; width: 100%; padding: 10px; background: var(--win-gray); border: 2px outset var(--win-gray);
-color: #000; font-family: 'Courier New', monospace; font-size: 16px; cursor: pointer; }
-#cancel-button:active { border-style: inset; }
-.supported-formats { margin-top: 8px; font-size: 12px; color: #666; }
-.mobile-fallback { text-align: center; padding: 15px; background: white; }
-.mobile-fallback audio { width: 100%; margin: 10px 0; }
-.processing { animation: pulse 1.5s infinite; }
-.wave-window.minimized { height: 36px; overflow: hidden; }
-.wave-window.minimized .content { display: none; }
-.wave-window.minimized .minimize i { transform: rotate(180deg); }
-.mobile-audio-fallback { width: 100%; margin-top: 10px; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0,200,0,0.4); } 70% { box-shadow: 0 0 0 10px rgba(0,200,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,200,0,0); } }
-@keyframes loading { 0% { left: -100%; } 100% { left: 100%; } }
-@media (max-width: 768px) {
-body { padding: 10px; }
-.window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); }
-.wave-element-container { height: 100px !important; }
-.desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; }
-.win95-list { height: 80px; }
-.list-item { padding: 6px 4px; font-size: 12px; }
-.wave-window { width: 90vw; left: 5vw; top: 20px; }
-.preview-controls { flex-direction: column; align-items: center; }
-.wave-button { min-width: 150px; }
-button { min-height: 54px; font-size: 18px; }
-.crt-scanlines { opacity: 0.1; }
-.crt-flicker { animation: flicker 0.3s infinite; opacity: 0.01; }
-.crt-glow { box-shadow: inset 0 0 30px rgba(0,0,128,0.3); }
-.crt-vignette { box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
-}
-@media (max-width: 768px) and (orientation: landscape) { .wave-element-container { height: 100px !important; } }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SpeedUpperCut</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+    <style>
+        :root {
+            --glow-color: #ff3333; 
+            --primary-blue: #000080; 
+            --win-gray: #c0c0c0; 
+            --win-light: #fff; 
+            --win-dark: #808080;
+            --success-color: #4caf50; 
+            --error-color: #f44336; 
+            --warning-color: #ff9800; 
+            --info-color: #2196f3;
+        }
+        
+        body { 
+            background: #008080; 
+            font-family: 'Courier New', monospace; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            min-height: 100vh; 
+            overflow-x: hidden; 
+            touch-action: manipulation;
+            background-image: radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
+                            radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0); 
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        
+        .crt-scanlines {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.03) 50%, rgba(0,0,0,0.1) 50%);
+            background-size: 100% 4px;
+            opacity: 0.2;
+        }
+        
+        .crt-flicker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            animation: flicker 0.15s infinite;
+            opacity: 0.02;
+        }
+        
+        .crt-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 60px rgba(0,0,128,0.4);
+        }
+        
+        .crt-vignette {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
+        }
+        
+        .crt-curvature {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            box-shadow: 0 0 0 10px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        
+        .crt-curvature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            border-radius: 10px;
+        }
+        
+        @keyframes flicker {
+            0% { opacity: 0.01; } 5% { opacity: 0.03; } 10% { opacity: 0.02; } 15% { opacity: 0.04; } 
+            20% { opacity: 0.01; } 25% { opacity: 0.03; } 30% { opacity: 0.02; } 35% { opacity: 0.04; } 
+            40% { opacity: 0.02; } 45% { opacity: 0.03; } 50% { opacity: 0.01; } 55% { opacity: 0.03; } 
+            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 0.03; } 
+            80% { opacity: 0.01; } 85% { opacity: 0.03; } 90% { opacity: 0.02; } 95% { opacity: 0.04; } 
+            100% { opacity: 0.01; }
+        }
+        
+        .desktop-icon { 
+            position: absolute; 
+            width: 80px; 
+            text-align: center; 
+            color: white; 
+            text-shadow: 1px 1px 1px black;
+            cursor: pointer; 
+            padding: 4px; 
+            user-select: none; 
+            transition: transform 0.2s; 
+        }
+        
+        .desktop-icon:hover { 
+            background: rgba(255,255,255,0.2); 
+            transform: scale(1.05); 
+        }
+        
+        .window { 
+            width: 100%; 
+            max-width: 480px; 
+            background: var(--win-gray); 
+            border: 2px solid; 
+            padding: 0; 
+            box-sizing: border-box;
+            position: relative; 
+            z-index: 100; 
+            border-top-color: var(--win-light); 
+            border-left-color: var(--win-light);
+            border-right-color: var(--win-dark); 
+            border-bottom-color: var(--win-dark); 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+        }
+        
+        .title-bar { 
+            background: var(--primary-blue); 
+            color: #fff; 
+            padding: 4px 8px; 
+            font-size: 14px; 
+            display: flex;
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid var(--win-gray); 
+            cursor: move; 
+            user-select: none; 
+        }
+        
+        .title-bar button { 
+            width: 20px; 
+            height: 20px; 
+            border: none; 
+            background: var(--win-gray); 
+            cursor: pointer; 
+            display: flex;
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-family: Arial, sans-serif; 
+            margin-left: 4px;
+            border: 1px solid; 
+            border-top-color: var(--win-light); 
+            border-left-color: var(--win-light);
+            border-right-color: var(--win-dark); 
+            border-bottom-color: var(--win-dark); 
+        }
+        
+        .title-bar button.minimize { 
+            font-size: 18px; 
+            line-height: 12px; 
+        }
+        
+        .title-bar button.close { 
+            font-size: 14px; 
+        }
+        
+        .title-bar button:active { 
+            border-top-color: var(--win-dark); 
+            border-left-color: var(--win-dark);
+            border-right-color: var(--win-light); 
+            border-bottom-color: var(--win-light); 
+        }
+        
+        .content { 
+            padding: 12px; 
+            font-size: 14px; 
+            color: #000; 
+        }
+        
+        .drop-zone { 
+            border: 2px dashed #000; 
+            padding: 20px; 
+            text-align: center; 
+            background: rgba(255,255,255,0.3);
+            margin-top: 12px; 
+            position: relative; 
+            cursor: pointer; 
+            border-style: dotted; 
+            border-color: var(--win-dark); 
+            transition: all 0.3s ease; 
+        }
+        
+        .drop-zone.dragover { 
+            background: rgba(0,128,0,0.3); 
+            animation: pulse 1.5s infinite; 
+        }
+        
+        .drop-zone input[type="file"] { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            opacity: 0; 
+            cursor: pointer; 
+            top: 0; 
+            left: 0; 
+        }
+        
+        .drop-zone span { 
+            pointer-events: none; 
+            font-size: 16px; 
+            display: block; 
+            margin-top: 10px; 
+        }
+        
+        #file-info { 
+            margin-top: 10px; 
+            font-size: 14px; 
+            text-align: left; 
+            background: #fff; 
+            border: 2px inset var(--win-dark);
+            padding: 10px; 
+            max-height: 200px; 
+            overflow-y: auto; 
+        }
+        
+        button { 
+            min-height: 44px; 
+            padding: 10px; 
+            cursor: pointer; 
+            font-family: 'Courier New', monospace; 
+            font-size: 16px;
+            border: 2px outset var(--win-gray); 
+            background: var(--win-gray); 
+            color: #000; 
+            transition: transform 0.1s; 
+        }
+        
+        button:active { 
+            border-style: inset; 
+            transform: scale(0.98); 
+        }
+        
+        #overlay { 
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.4); 
+            z-index: 1000; 
+        }
+        
+        #win95-loader { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%,-50%); 
+            width: 320px; 
+            padding: 12px;
+            background: var(--win-gray); 
+            font-family: 'Courier New', monospace; 
+            font-size: 14px; 
+            color: #000; 
+            z-index: 1001;
+            border: 2px solid; 
+            border-top-color: var(--win-light); 
+            border-left-color: var(--win-light);
+            border-right-color: var(--win-dark); 
+            border-bottom-color: extreme(--win-dark); 
+        }
+        
+        .progress-bar-container { 
+            background: #fff; 
+            border: 2px inset var(--win-dark); 
+            height: 24px; 
+            margin-top: 8px;
+            position: relative; 
+            overflow: hidden; 
+        }
+        
+        .progress-fill { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            height: 100%; 
+            width: 0%; 
+            background: var(--primary-blue); 
+            transition: width 0.3s ease; 
+        }
+        
+        .progress-text { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            align-items: center;
+            justify-content: center; 
+            font-size: 12px; 
+            color: #000; 
+            z-index: 2; 
+        }
+        
+        .win95-inset { 
+            border: 2px inset var(--win-dark); 
+            background: var(--win-gray); 
+            padding: 6px; 
+            margin-bottom: 6px; 
+        }
+        
+        .win95-list { 
+            border: 2px inset var(--win-dark); 
+            background: #fff; 
+            padding: 4px; 
+            font-family: 'Courier New', monospace;
+            height: 100px; 
+            overflow-y: auto; 
+        }
+        
+        .list-item { 
+            padding: 8px 6px; 
+            cursor: pointer; 
+            user-select: none; 
+            font-size: 13px; 
+        }
+        
+        .list-item:hover, .list-item.selected { 
+            background: var(--primary-blue); 
+            color: white; 
+            transition: background 0.2s ease; 
+        }
+        
+        .wave-container { 
+            margin-bottom: 20px; 
+            border: 2px inset var(--win-dark); 
+            padding: 10px; 
+            background: #e0e0e0; 
+            position: relative; 
+        }
+        
+        .wave-title { 
+            font-family: 'Courier New', monospace; 
+            font-size: 14px; 
+            margin-bottom: 6px; 
+            word-break: break-word;
+            font-weight: bold; 
+            text-align: center; 
+        }
+        
+        .wave-element-container { 
+            width: 100%; 
+            height: 150px; 
+            background: #000; 
+            margin-bottom: 10px; 
+            position: relative;
+            overflow: hidden; 
+            padding: 极速版 0; 
+            box-sizing: border-box; 
+        }
+        
+        .wave-element { 
+            width: 100%; 
+            height: 100%; 
+        }
+        
+        .wave-button { 
+            font-family: 'Courier New', monospace; 
+            padding: 8px; 
+            background: var(--win-gray); 
+            border: 2px outset var(--win-gray);
+            cursor: pointer; 
+            min-width: 80px; 
+        }
+        
+        .wave-button:active { 
+            border-style: inset; 
+            transform: scale(0.98); 
+        }
+        
+        .render-error, .file-error, .memory-warning, .mobile-warning, .format-warning { 
+            padding: 8px; 
+            margin: 8px 0; 
+            border-radius: 2px;
+            font-size: 13px; 
+        }
+        
+        .render-error, .file-error { 
+            color: var(--error-color); 
+            background-color: #ffe6e6; 
+            border: 1px solid var(--error-color); 
+        }
+        
+        .memory-warning { 
+            color: var(--warning-color); 
+            background-color: #fff3e0; 
+            border: 1px solid var(--warning-color); 
+            display: none; 
+        }
+        
+        .mobile-warning { 
+            color: var(--info-color); 
+            background-color: #bbdefb; 
+            border: 1px solid var(--info-color); 
+            display: none; 
+        }
+        
+        .format-warning { 
+            color: var(--warning-color); 
+            background-color: #fff3e0; 
+            border: 1px solid var(--warning-color); 
+        }
+        
+        .info-panel { 
+            background: #fff; 
+            border: 2px inset var(--win-dark); 
+            padding: 10px; 
+            margin-top: 10px; 
+            font-size: 13px;
+            max-height: 150px; 
+            overflow-y: auto; 
+        }
+        
+        .trim-control { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-top: 10px; 
+            margin-bottom: 10px; 
+        }
+        
+        .wave-window { 
+            position: absolute; 
+            width: 500px; 
+            background: var(--win-gray); 
+            border: 2px solid; 
+            z-index: 101; 
+            top: 100px; 
+            left: 100px;
+            border-top-color: var(--win-light); 
+            border-left-color: var(--win-light); 
+            border-right-color: var(--win-dark);
+            border-bottom-color: var(--win-dark); 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        .preview-controls { 
+            display: flex; 
+            gap: 10px; 
+            justify-content: center; 
+            margin-top: 10px; 
+        }
+        
+        .wave-element-container:empty::after { 
+            content: "Loading..."; 
+            color: var(--win-dark); 
+            position: absolute;
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%,-50%); 
+        }
+        
+        .notification { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            padding: 12px 16px; 
+            extreme-radius: 4px; 
+            background: var(--primary-blue);
+            color: white; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); 
+            z-index: 2000; 
+            transform: translateX(200%); 
+            transition: transform 0.3s ease;
+            max-width: 300px; 
+        }
+        
+        .notification.show { 
+            transform: translateX(0); 
+        }
+        
+        .notification.success { 
+            background: var(--success-color); 
+        }
+        
+        .notification.error { 
+            background: var(--error-color); 
+        }
+        
+        .notification.warning { 
+            background: var(--warning-color); 
+        }
+        
+        .progress-info { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 12px; 
+            margin-top: 4px; 
+        }
+        
+        .progress-time { 
+            color: #666; 
+        }
+        
+        .active-window { 
+            box-shadow: 0 0 0 2px var(--primary-blue); 
+        }
+        
+        .file-item { 
+            display: flex; 
+            flex-direction: column; 
+            padding: 6px 极速版; 
+            border-bottom: 1px solid #e0e0e0; 
+        }
+        
+        .file-header { 
+            display: flex; 
+            justify-content: space-between; 
+        }
+        
+        .file-progress { 
+            height: 4px; 
+            background: #e0e0e极速版; 
+            margin-top: 4px; 
+            position: relative; 
+            overflow: hidden; 
+        }
+        
+        .file-progress-fill { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            height: 100%; 
+            width: 0%; 
+            background: var(--primary-blue); 
+            transition: width 0.3s ease; 
+        }
+        
+        .info-tabs { 
+            display: flex; 
+            border-bottom: 1px solid var(--win-dark); 
+            margin-bottom: 8极速版; 
+        }
+        
+        .tab-button { 
+            padding: 6px 12px; 
+            background: var(--win-gray); 
+            border: none; 
+            cursor: pointer; 
+            border: 1px solid transparent;
+            border-bottom: none; 
+            margin-right: 2px; 
+        }
+        
+        .tab-button.active { 
+            background: #fff; 
+            border-color: var(--win-dark); 
+        }
+        
+        .tab-content { 
+            display: none; 
+        }
+        
+        .tab-content.active { 
+            display: block; 
+        }
+        
+        .critical { 
+            font-weight: bold; 
+            color: var(--error-color); 
+            margin-top: 8px; 
+        }
+        
+        .error-dialog { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%,-50%); 
+            z-index: 2000; 
+        }
+        
+        .error-icon { 
+            font-size: 32px; 
+            text-align: center; 
+            margin: 10px 0; 
+        }
+        
+        .taskbar { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: var(--win-gray); 
+            height: 36px; 
+            border-top: 2px solid var(--win-light);
+            display: flex; 
+            align-items: center; 
+            padding: 0 8px; 
+            z-index: 90; 
+        }
+        
+        .start-button { 
+            padding: 4px 8px; 
+            background: var(--win-gray); 
+            border: 2px outset var(--win-gray); 
+            font-weight: bold; 
+            cursor: pointer;
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+        }
+        
+        .status-bar { 
+            margin-left: auto; 
+            padding: 0 8px; 
+            font-size: 14px; 
+            flex-grow: 1; 
+            text-align: right; 
+        }
+        
+        .window-controls { 
+            display: flex; 
+        }
+        
+        .button-group { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 10px; 
+        }
+        
+        .button-group button { 
+            flex: 1; 
+        }
+        
+        #cancel-button { 
+            margin-top: 10px; 
+            width: 100%; 
+            padding: 10px; 
+            background: var(--win-gray); 
+            border: 2px outset var(--win-gray);
+            color: #000; 
+            font-family: 'Courier New', monospace; 
+            font-size: 16px; 
+            cursor: pointer; 
+        }
+        
+        #cancel-button:active { 
+            border-style: inset; 
+        }
+        
+        .supported-formats { 
+            margin-top: 8px; 
+            font-size: 12px; 
+            color: #666; 
+        }
+        
+        .mobile-fallback { 
+            text-align: center; 
+            padding: 15px; 
+            background: white; 
+        }
+        
+        .mobile-fallback audio { 
+            width: 100%; 
+            margin: 10px 0; 
+        }
+        
+        .processing { 
+            animation: pulse 1.5s infinite; 
+        }
+        
+        .wave-window.minimized { 
+            height: 36px; 
+            overflow: hidden; 
+        }
+        
+        .wave-window.minimized .content { 
+            display: none; 
+        }
+        
+        .wave-window.minimized .minimize i { 
+            transform: rotate(180deg); 
+        }
+        
+        .mobile-audio-fallback { 
+            width: 100%; 
+            margin-top: 10px; 
+        }
+        
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(0,200,0,0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(0,200,0,0); } 
+            100% { box-shadow: 0 0 0 0 rgba(0,200,0,0); } 
+        }
+        
+        @keyframes loading { 
+            0% { left: -100%; } 
+            100% { left: 100%; } 
+        }
+        
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); }
+            .wave-element-container { height: 100px !important; }
+            .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; }
+            .win95-list { height: 80px; }
+            .list-item { padding: 6px 4px; font-size: 12px; }
+            .wave-window { width: 90vw; left: 5vw; top: 20px; }
+            .preview-controls { flex-direction: column; align-items: center; }
+            .wave-button { min-width: 150px; }
+            button { min-height: 54px; font-size: 18px; }
+            .crt-scanlines { opacity: 0.1; }
+            .crt-flicker { animation: flicker 0.3s infinite; opacity: 0.01; }
+            .crt-glow { box-shadow: inset 0 0 30px rgba(0,0,128,0.3); }
+            .crt-vignette { box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
+        }
+        
+        @media (max-width: 768px) and (orientation: landscape) { 
+            .wave-element-container { height: 100px !important; } 
+        }
+    </style>
 </head>
 <body>
-<div class="crt-overlay">
-<div class="crt-curvature"></div>
-<div class="crt-scanlines"></div>
-<div class="crt-flicker"></div>
-<div class="crt-glow"></div>
-<div class="crt-vignette"></div>
-</div>
+    <div class="crt-overlay">
+        <div class="crt-curvature"></div>
+        <div class="crt-s极速版nlines"></div>
+        <div class="crt-flicker"></div>
+        <div class="crt-glow"></div>
+        <div class="crt-vignette"></div>
+    </div>
 
-<div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
-<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tl=" width="48" height="48">
-<div>KO II Tool</div>
-</div>
+    <div class="desktop-icon" style="top:20px;left:30px" onclick="document.querySelector('.window').style.display='block'">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tl=" width="48" height="48">
+        <div>KO II Tool</div>
+    </div>
+    
+    <div class="window">
+        <div class="title-bar">
+            <span>SpeedUpperCut</span>
+            <div class="window-controls">
+                <button class="minimize" title="Minimize">_</button>
+                <button class="close" title="Close">×</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="memory-warning" id="memory-warning">
+                <i class="fas fa-exclamation-triangle"></i> Processing large files may use significant memory. Close other tabs.
+            </div>
+            
+            <div class="mobile-warning" id="mobile-warning">
+                <i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use small files for best results.
+            </div>
+            
+            <div class="format-warning">
+                <i class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
+            </div>
+            
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+                <div class="win95-inset" style="flex:1">
+                    <label>FIDELITY</label><br>
+                    <div class="win95-list" data-group="fidelity">
+                        <div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
+                        <div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
+                        <div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
+                        <极速版 data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
+                    </div>
+                </div>
+                <div class="win95-ins极速版t" style="flex:1">
+                    <label>CHANNELS</label><br>
+                    <div class="win95-list" data-group="channels">
+                        <div data-value="stereo" class="list-item selected">Stereo</div>
+                        <div data-value="mono" class="list-item">Mono</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="trim-control">
+                <input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
+                <label for="auto-trim">Auto-trim silence at start/end</label>
+            </div>
+            
+            <div class="drop-zone" id="drop-zone">
+                <i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
+                <input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple>
+                <input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none">
+                <span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
+                <div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div>
+            </div>
+            
+            <div class="button-group">
+                <button id="select-file-button">Select Files</button>
+                <button id="select-folder-button">Select Folder</button>
+                <button id="clear-button">Clear List</button>
+            </div>
+            
+            <div class="info-panel" id="file-info">
+                <div class="info-tabs">
+                    <button class="tab-button active" data-tab="log">Processing Log</button>
+                    <button class="tab-button" data-tab="errors">Errors</button>
+                    <button class="tab-button" data-tab="stats">Statistics</button>
+                </div>
+                
+                <div id="log-tab" class="tab-content active">
+                    <div>Drop or select audio files/folders to process</div>
+                    <div>Files will be sped up 2x to save space</极速版v>
+                    <div>Auto-trim removes silence at start and end</div>
+                    <div>Folder structure will be preserved in output</div>
+                    <div>Files will be saved in their original format</div>
+                    <div>KO II will convert files during import</div>
+                </div>
+                
+                <div id="errors-tab" class="tab-content">
+                    <div>No errors yet</div>
+                </div>
+                
+                <div id="stats-tab" class="tab-content">
+                    <div>No statistics yet</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div class="window">
-<div class="title-bar">
-<span>SpeedUpperCut</span>
-<div class="window-controls">
-<button class="minimize" title="Minimize">_</button>
-<button class="close" title="Close">×</button>
-</div>
-</div>
-<div class="content">
-<div class="memory-warning" id="memory-warning">
-<i class="fas fa-exclamation-triangle"></i> Processing large files may use significant memory. Close other tabs.
-</div>
+    <div id="overlay">
+        <div id="win95-loader">
+            <div id="processing-title">Processing Audio Files...</div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-fill" id="progress-fill"></div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
+            
+            <div class="progress-info">
+                <div id="progress-time">Time: 0s</div>
+                <div id="file-count">File: 0/0</div>
+            </div>
+            
+            <div id="current-file">Preparing...</div>
+            
+            <button id="cancel-button">Cancel Processing</button>
+        </div>
+    </div>
 
-<div class="mobile-warning" id="mobile-warning">
-<i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use small files for best results.
-</div>
+    <div class="taskbar">
+        <div class="start-button">
+            <i class="fas fa-bars"></i> Start
+        </div>
+        <div class="status-bar" id="status-bar">Ready</div>
+        <button id="stop-all-audio" style="margin-left:10px;padding:2px 6px">
+            <i class="fas fa-stop"></i> Stop All
+        </button>
+    </div>
 
-<div class="format-warning">
-<i class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
-</div>
+    <script>
+        // Класс для управления состоянием приложения
+        class AppState {
+            constructor() {
+                this.activeAudioContext = null;
+                this.createdObjectURLs = [];
+                this.dragCounter = 0;
+                this.processingCancelled = false;
+                this.currentProcessing = null;
+                this.lastProgress = 0;
+                this.windowZIndex = 100;
+                this.waveWindows = [];
+                this.audioContextResumed = false;
+                this.memoryWarningShown = false;
+                this.processingStartTime = 0;
+                this.progressIntervals = [];
+            }
+        }
 
-<div style="display:flex;gap:8px;margin-bottom:10px">
-<div class="win95-inset" style="flex:1">
-<label>FIDELITY</label><br>
-<div class="win95-list" data-group="fidelity">
-<div data-value="cd" class="list-item selected">CD (16-bit, 44.1kHz)</div>
-<div data-value="sp8" class="list-item">SP-1200 (8-bit, 22kHz)</div>
-<div data-value="sp16" class="list-item">SP-1200 (16-bit, 22kHz)</div>
-<div data-value="sk" class="list-item">SK-1 (8-bit, 9kHz)</div>
-</div>
-</div>
-<div class="win95-inset" style="flex:1">
-<label>CHANNELS</label><br>
-<div class="win95-list" data-group="channels">
-<div data-value="stereo" class="list-item selected">Stereo</div>
-<div data-value="mono" class="list-item">Mono</div>
-</div>
-</div>
-</div>
+        // Константы приложения
+        const AppConstants = {
+            MAX_PREVIEW_WINDOWS: 3,
+            MAX_FILE_SIZE: 50 * 1024 * 1024,
+            MAX_CONCURRENT: 1,
+            BATCH_SIZE: 1,
+            MAX_TOTAL_FILES: 100,
+            SUPPORTED_FORMATS: ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a']
+        };
 
-<div class="trim-control">
-<input type="checkbox" id="auto-trim" checked style="width:16px;height:16px">
-<label for="auto-trim">Auto-trim silence at start/end</label>
-</div>
+        // Основной класс приложения
+        class SpeedUpperCut {
+            constructor() {
+                this.state = new AppState();
+                this.constants = AppConstants;
+            }
 
-<div class="drop-zone" id="drop-zone">
-<i class="fas fa-cloud-upload-alt" style="font-size:36px"></i>
-<input type="file" id="audio-upload" accept=".wav,.mp3,.aac,.ogg,.flac,audio/*" multiple>
-<input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none">
-<span>DRAG AND DROP OR SELECT AUDIO FILES/FOLDERS</span>
-<div class="supported-formats">Supported: WAV, MP3, AAC, OGG, FLAC</div>
-</div>
+            // Инициализация приложения
+            init() {
+                this.checkWebAudioSupport();
+                this.setupEventListeners();
+                this.setupTabNavigation();
+                this.showFirstVisitNotification();
+            }
 
-<div class="button-group">
-<button id="select-file-button">Select Files</button>
-<button id="select-folder-button">Select Folder</button>
-<button id="clear-button">Clear List</button>
-</div>
+            // Проверка поддержки Web Audio API
+            checkWebAudioSupport() {
+                if (!window.AudioContext && !window.webkitAudioContext) {
+                    this.showNotification('Your browser does not support Web Audio API. Some features may be unavailable.', 'error');
+                    this.addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
+                    return false;
+                }
+                return true;
+            }
 
-<div class="info-panel" id="file-info">
-<div class="info-tabs">
-<button class="tab-button active" data-tab="log">Processing Log</button>
-<button class="tab-button" data-tab="errors">Errors</button>
-<button class="tab-button" data-tab="stats">Statistics</button>
-</div>
+            // Показать уведомление о первом посещении
+            showFirstVisitNotification() {
+                if (localStorage.getItem('firstVisit') === null) {
+                    this.showNotification('Drag audio files here or use buttons above');
+                    localStorage.setItem('firstVisit', '1');
+                }
+            }
 
-<div id="log-tab" class="tab-content active">
-<div>Drop or select audio files/folders to process</div>
-<div>Files will be sped up 2x to save space</div>
-<div>Auto-trim removes silence at start and end</div>
-<div>Folder structure will be preserved in output</div>
-<div>Files will be saved in their original format</div>
-<div>KO II will convert files during import</div>
-</div>
+            // Настройка навигации по вкладкам
+            setupTabNavigation() {
+                const tabs = document.querySelectorAll('.tab-button');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const tabId = tab.dataset.tab;
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                        document.getElementById(`${tabId}-tab`).classList.add('active');
+                    });
+                });
+            }
 
-<div id="errors-tab" class="tab-content">
-<div>No errors yet</div>
-</div>
+            // Настройка обработчиков событий
+            setupEventListeners() {
+                // Обработчики для групп выбора
+                document.querySelectorAll('.win95-list').forEach(group => {
+                    group.addEventListener('click', e => {
+                        if (e.target.classList.contains('list-item')) {
+                            group.querySelectorAll('.list-item').forEach(item => item.classList.remove('selected'));
+                            e.target.classList.add('selected');
+                        }
+                    });
+                });
 
-<div id="stats-tab" extreme="tab-content">
-<div>No statistics yet</div>
-</div>
-</div>
-</div>
-</div>
+                // Получение элементов DOM
+                const dropZone = document.getElementById('drop-zone');
+                const fileInput = document.getElementById('audio-upload');
+                const folderInput = document.getElementById('folder-upload');
+                const selectFileButton = document.getElementById('select-file-button');
+                const selectFolderButton = document.getElementById('select-folder-button');
+                const clearButton = document.getElementById('clear-button');
+                const cancelButton = document.getElementById('cancel-button');
+                const stopAllButton = document.getElementById('stop-all-audio');
 
-<div id="overlay">
-<div id="win95-loader">
-<div id="processing-title">Processing Audio Files...</div>
+                // Обработчики событий drag and drop
+                dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
+                dropZone.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                dropZone.addEventListener('drop', this.handleDrop.bind(this));
+                
+                // Обработчики касаний для мобильных устройств
+                dropZone.addEventListener('touchmove', e => {
+                    e.preventDefault();
+                    this.state.dragCounter++;
+                    dropZone.classList.add('dragover');
+                }, { passive: false });
+                
+                dropZone.addEventListener('touchend', this.handleDragLeave.bind(this));
 
-<div class="progress-bar-container">
-<div class="progress-fill" id="progress-fill"></div>
-<div class="progress-text" id="progress-text">0%</div>
-</div>
+                // Обработчики кнопок
+                selectFileButton.addEventListener('click', () => {
+                    fileInput.click();
+                    this.activateAudio();
+                });
+                
+                selectFolderButton.addEventListener('click', () => {
+                    if (!this.isFolderSelectionSupported()) {
+                        this.showNotification('Folder selection is not supported in this browser', 'warning');
+                        return;
+                    }
+                    folderInput.click();
+                    this.activateAudio();
+                });
+                
+                clearButton.addEventListener('click', () => {
+                    this.clearFileList();
+                });
+                
+                // Обработчики изменений в input[type="file"]
+                fileInput.addEventListener('change', async e => {
+                    this.updateStatus(`Files selected: ${e.target.files.length}`);
+                    this.addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
+                    await this.ensureAudioContext();
+                    this.processFiles(e.target.files);
+                    e.target.value = null;
+                });
+                
+                folderInput.addEventListener('change', async e => {
+                    this.updateStatus(`Folder selected with ${e.target.files.length} files`);
+                    this.addToLog(`Folder selected. Processing...`);
+                    await this.ensureAudioContext();
+                    this.processFolder(e.target.files);
+                    e.target.value = null;
+                });
 
-<div class="progress-info">
-<div id="progress-time">Time: 0s</div>
-<div id="file-count">File: 0/0</div>
-</div>
+                // Обработчики кнопок управления окном
+                document.querySelector('.title-bar .minimize').addEventListener('click', () => {
+                    document.querySelector('.window').classList.toggle('minimized');
+                });
+                
+                document.querySelector('.title-bar .close').addEventListener('click', () => {
+                    document.querySelector('.window').classList.toggle('minimized');
+                });
 
-<div id="current-file">Preparing...</div>
+                // Обработчики кнопок отмены и остановки
+                cancelButton.addEventListener('click', () => {
+                    this.cancelProcessing();
+                });
+                
+                stopAllButton.addEventListener('click', this.stopAllPlayback.bind(this));
 
-<button id="cancel-button">Cancel Processing</button>
-</div>
-</div>
+                // Активация аудио при взаимодействии с элементами
+                ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => {
+                        el.addEventListener('click', this.activateAudio.bind(this));
+                        el.addEventListener('touchstart', this.activateAudio.bind(this));
+                    });
+                });
+            }
 
-<div class="taskbar">
-<div class="start-button">
-<i class="fas fa-bars"></i> Start
-</div>
-<div class="status-bar" id="status-bar">Ready</div>
-<button id="stop-all-audio" style="margin-left:10px;padding:2px 6px">
-<i class="fas fa-stop"></i> Stop All
-</button>
-</div>
+            // Остальные методы класса (handleDragOver, handleDragLeave, handleDrop, processFiles, etc.)
+            // должны быть реализованы здесь...
 
-<script>
-let activeAudioContext=null,createdObjectURLs=[],dragCounter=0,processingCancelled=false,
-currentProcessing=null,lastProgress=0,windowZIndex=100,waveWindows=[],audioContextResumed=false,
-memoryWarningShown=false,processingStartTime=0,progressIntervals=[];
-const MAX_PREVIEW_WINDOWS=3,MAX_FILE_SIZE=50*1024*1024,MAX_CONCURRENT=1,BATCH_SIZE=1,
-MAX_TOTAL_FILES=100,SUPPORTED_FORMATS=['wav','mp3','ogg','aac','flac','m4a'];
-document.addEventListener('DOMContentLoaded',initApp);
-function initApp(){
-if(!window.AudioContext&&!window.webkitAudioContext){
-showNotification('Your browser does not support Web Audio API. Some features may be unavailable.','error');
-addToLog('<div class="file-error">Browser does not support Web Audio API</div>','errors');
-return;
-}
-if(isMobile()){
-document.getElementById('mobile-warning').style.display='block';
-document.querySelectorAll('button').forEach(b=>{
-b.style.minHeight='54px';
-b.style.fontSize='18px';
-});
-}
-checkMemoryAndWarn();
-setupEventListeners();
-updateStatus("Ready to process files");
-setupTabNavigation();
-if(localStorage.getItem('firstVisit')===null){
-showNotification('Drag audio files here or use buttons above');
-localStorage.setItem('firstVisit','1');
-}
-}
-function setupTabNavigation(){
-const tabs=document.querySelectorAll('.tab-button');
-tabs.forEach(tab=>{
-tab.addEventListener('click',()=>{
-const tabId=tab.dataset.tab;
-tabs.forEach(t=>t.classList.remove('active'));
-tab.classList.add('active');
-document.querySelectorAll('.tab-content').forEach(content=>content.classList.remove('active'));
-document.getElementById(`${tabId}-tab`).classList.add('active');
-});
-});
-}
-function setupEventListeners(){
-document.querySelectorAll('.win95-list').forEach(group=>{
-group.addEventListener('click',e=>{
-if(e.target.classList.contains('list-item')){
-group.querySelectorAll('.list-item').forEach(item=>item.classList.remove('selected'));
-e.target.classList.add('selected');
-}
-});
-});
-const dropZone=document.getElementById('drop-zone'),fileInput=document.getElementById('audio-upload'),
-folderInput=document.getElementById('folder-upload'),selectFileButton=document.getElementById('select-file-button'),
-selectFolderButton=document.getElementById('select-folder-button'),clearButton=document.getElementById('clear-button'),
-cancelButton=document.getElementById('cancel-button'),stopAllButton=document.getElementById('stop-all-audio');
-dropZone.addEventListener('dragover',handleDragOver);
-dropZone.addEventListener('dragleave',handleDragLeave);
-dropZone.addEventListener('drop',handleDrop);
-dropZone.addEventListener('touchmove',e=>{
-e.preventDefault();
-dragCounter++;
-dropZone.classList.add('dragover');
-},{passive:false});
-dropZone.addEventListener('touchend',handleDragLeave);
-selectFileButton.addEventListener('click',()=>{
-fileInput.click();
-activateAudio();
-});
-selectFolderButton.addEventListener('click',()=>{
-if(!isFolderSelectionSupported()){
-showNotification('Folder selection is not supported in this browser','warning');
-return;
-}
-folderInput.click();
-activateAudio();
-});
-clearButton.addEventListener('click',()=>{
-document.getElementById('log-tab').innerHTML='<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
-document.getElementById('errors-tab').innerHTML='<div>No errors yet</div>';
-document.getElementById('stats-tab').innerHTML='<div>No statistics yet</div>';
-updateStatus("File list cleared");
-});
-fileInput.addEventListener('change',async e=>{
-updateStatus(`Files selected: ${e.target.files.length}`);
-addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
-await ensureAudioContext();
-processFiles(e.target.files);
-e.target.value=null;
-});
-folderInput.addEventListener('change',async e=>{
-updateStatus(`Folder selected with ${e.target.files.length} files`);
-addToLog(`Folder selected. Processing...`);
-await ensureAudioContext();
-processFolder(e.target.files);
-e.target.value=null;
-});
-document.querySelector('.title-bar .minimize').addEventListener('click',()=>{
-document.querySelector('.window').classList.toggle('minimized');
-});
-document.querySelector('.title-bar .close').addEventListener('click',()=>{
-document.querySelector('.window').classList.toggle('minimized');
-});
-cancelButton.addEventListener('click',()=>{
-processingCancelled=true;
-if(currentProcessing)currentProcessing.cancel();
-progressIntervals.forEach(interval=>clearInterval(interval));
-progressIntervals=[];
-createdObjectURLs.forEach(url=>{
-try{URL.revokeObjectURL(url);}catch(e){}
-});
-createdObjectURLs=[];
-hideOverlay();
-updateStatus("Processing cancelled");
-showNotification('Processing cancelled','warning');
-if(activeAudioContext){
-try{activeAudioContext.close();}catch(e){}
-activeAudioContext=null;
-}
-});
-stopAllButton.addEventListener('click',stopAllPlayback);
-['#select-file-button','#select-folder-button','.wave-button','.wave-window','#drop-zone'].forEach(selector=>{
-document.querySelectorAll(selector).forEach(el=>{
-el.addEventListener('click',activateAudio);
-el.addEventListener('touchstart',activateAudio);
-});
-});
-}
-function isFolderSelectionSupported(){
-return 'webkitdirectory' in document.createElement('input')||'directory' in document.createElement('input');
-}
-async function ensureAudioContext(){
-if(!activeAudioContext){
-if(!initAudioContext())throw new Error("AudioContext initialization failed");
-}
-if(activeAudioContext&&activeAudioContext.state==='suspended'){
-try{
-await activeAudioContext.resume();
-audioContextResumed=true;
-return true;
-}catch(e){
-console.error("Failed to resume AudioContext:",e);
-return false;
-}
-}
-return true;
-}
-function activateAudio(){
-if(!audioContextResumed&&activeAudioContext){
-try{
-if(activeAudioContext.state==='suspended'){
-activeAudioContext.resume().then(()=>{
-audioContextResumed=true;
-}).catch(e=>{
-console.error("Failed to resume AudioContext:",e);
-});
-}
-}catch(e){
-console.error("Error activating audio:",e);
-}
-}
-}
-function initAudioContext(){
-if(!activeAudioContext){
-try{
-const ContextClass=window.AudioContext||window.webkitAudioContext;
-activeAudioContext=new ContextClass();
-return activeAudioContext;
-}catch(e){
-addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`,'errors');
-return null;
-}
-}
-return activeAudioContext;
-}
-function checkMemoryAndWarn(){
-if(memoryWarningShown)return;
-if(navigator.deviceMemory&&navigator.deviceMemory<4){
-document.getElementById('memory-warning').style.display='block';
-memoryWarningShown=true;
-}
-}
-function updateStatus(message){
-const el=document.getElementById('status-bar');
-if(el)el.textContent=message;
-}
-function addToLog(message,tab='log'){
-const tabElement=document.getElementById(`${tab}-tab`);
-if(!tabElement)return;
-const div=document.createElement('div');
-div.innerHTML=message;
-tabElement.appendChild(div);
-const isScrolledUp=tabElement.scrollTop<tabElement.scrollHeight-tabElement.clientHeight-20;
-if(!isScrolledUp)tabElement.scrollTop=tabElement.scrollHeight;
-}
-function showOverlay(){
-document.getElementById('overlay').style.display='block';
-document.getElementById('win95-loader').style.display='block';
-processingCancelled=false;
-lastProgress=0;
-processingStartTime=Date.now();
-updateProgressBar(0);
-progressIntervals.push(setInterval(()=>{
-const elapsedSeconds=Math.floor((Date.now()-processingStartTime)/1000);
-document.getElementById('progress-time').textContent=`Time: ${elapsedSeconds}s`;
-},1000));
-}
-function hideOverlay(){
-document.getElementById('overlay').style.display='none';
-document.getElementById('win95-loader').style.display='none';
-progressIntervals.forEach(interval=>clearInterval(interval));
-progressIntervals=[];
-}
-function showNotification(message,type='info'){
-const notification=document.createElement('div');
-notification.className=`notification ${type}`;
-notification.textContent=message;
-document.body.appendChild(notification);
-notification.classList.add('show');
-setTimeout(()=>{
-notification.classList.remove('show');
-setTimeout(()=>{
-if(document.body.contains(notification))document.body.removeChild(notification);
-},300);
-},3000);
-}
-function stopAllPlayback(){
-waveWindows.forEach(window=>{
-if(window.audioElement){
-window.audioElement.pause();
-window.audioElement.currentTime=0;
-const playBtn=window.element.querySelector('.play-button');
-const pauseBtn=window.element.querySelector('.pause-button');
-if(playBtn)playBtn.style.display='block';
-if(pauseBtn)pauseBtn.style.display='none';
-}
-});
-updateStatus("All playback stopped");
-}
-function handleDragOver(e){
-e.preventDefault();
-dragCounter++;
-document.getElementById('drop-zone').classList.add('dragover');
-}
-function handleDragLeave(){
-dragCounter--;
-if(dragCounter<=0)document.getElementById('drop-zone').classList.remove('dragover');
-}
-function handleDrop(e){
-e.preventDefault();
-dragCounter=0;
-document.getElementById('drop-zone').classList.remove('dragover');
-const items=[];
-if(e.dataTransfer.items){
-for(const item of e.dataTransfer.items){
-if(item.kind==='file'){
-const entry=item.webkitGetAsEntry?item.webkitGetAsEntry():null;
-if(entry&&entry.isDirectory){
-showNotification('Folders not supported in drag and drop. Use the folder button.','warning');
-continue;
-}
-const file=item.getAsFile();
-if(file)items.push({file,path:file.name});
-}
-}
-}else if(e.dataTransfer.files.length>0){
-for(const file of e.dataTransfer.files)items.push({file,path:file.name});
-}
-processItems(items);
-}
-async function processFiles(files){
-if(!files||files.length===0)return;
-const items=Array.from(files).map(file=>({file,path:file.name}));
-await processItems(items);
-}
-async function processFolder(files){
-if(!files||files.length===0)return;
-const items=[];
-for(const file of files){
-const path=file.webkitRelativePath||file.name;
-items.push({file,path});
-}
-await processItems(items);
-}
-async function processItems(items){
-if(!items||items.length===0){
-updateStatus("No files to process");
-return;
-}
-if(items.length>MAX_TOTAL_FILES){
-addToLog(`<div class="file-error">Too many files (max ${MAX_TOTAL_FILES})</div>`,'errors');
-updateStatus("File limit exceeded");
-showNotification(`Too many files (max ${MAX_TOTAL_FILES})`,'error');
-return;
-}
-processingCancelled=false;
-showOverlay();
-addToLog(`Processing started with ${items.length} items`);
-document.getElementById('file-count').textContent=`File: 0/${items.length}`;
-const zip=new JSZip();
-let stereoOriginal=0,monoOriginal=0,totalOriginalSize=0,totalProcessedSize=0,
-processedFiles=0,totalTrimmed=0,errorCount=0;
-currentProcessing={cancel:()=>{
-processingCancelled=true;
-if(activeAudioContext){
-try{activeAudioContext.close();}catch(e){}
-activeAudioContext=null;
-}
-cancelButton.disabled=true;
-updateStatus("Processing cancelled");
-}};
-try{
-for(let i=0;i<items.length;i++){
-if(processingCancelled){
-addToLog("Processing cancelled by user");
-break;
-}
-document.getElementById('file-count').textContent=`File: ${i+1}/${items.length}`;
-document.getElementById('current-file').textContent=`Processing: ${items[i].file.name}`;
-const result=await processSingleItem(items[i],i,items.length,zip);
-if(!result){errorCount++;continue;}
-processedFiles++;
-totalOriginalSize+=result.originalSize||0;
-totalProcessedSize+=result.processedSize||0;
-totalTrimmed+=result.trimmedSamples||0;
-if(result.channels===1)monoOriginal++;
-else if(result.channels===2)stereoOriginal++;
-await updateProgressBar((i+1)/items.length);
-}
-if(!processingCancelled&&processedFiles>0){
-addToLog(`Compressing files into ZIP archive...`);
-const zipBlob=await zip.generateAsync(
-{type:"blob",compression:"DEFLATE",compressionOptions:{level:6}},
-metadata=>{
-const percent=metadata.percent.toFixed(1);
-updateStatus(`Compressing: ${percent}%`);
-}
-);
-await updateProgressBar(1);
-const zipUrl=URL.createObjectURL(zipBlob);
-createdObjectURLs.push(zipUrl);
-const a=document.createElement('a');
-a.href=zipUrl;
-a.download="ko2_processed_audio.zip";
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
-setTimeout(()=>{
-try{URL.revokeObjectURL(zipUrl);}catch(e){}
-createdObjectURLs=createdObjectURLs.filter(url=>url!==zipUrl);
-},2000);
-const fidelity=getSelectedValue('fidelity');
-const channels=getSelectedValue('channels');
-const statsHtml=`
-<div><b>Processed ${processedFiles} files</b></div>
-<div>Original size: ${formatBytes(totalOriginalSize)}</div>
-<div>Processed size: ${formatBytes(totalProcessedSize)}</div>
-<div>Space saved: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%</div>
-${document.getElementById('auto-trim').checked&&totalTrimmed>0?
-`<div>Total silence trimmed: ${(totalTrimmed/44100).toFixed(2)}s</div>`:''}
-<div>Fidelity: ${fidelity.toUpperCase()}</div>
-<div>Channels: ${channels}</div>
-<div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-${errorCount>0?`<div>Errors: ${errorCount}</div>`:''}
-`;
-addToLog(statsHtml,'stats');
-updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize>0?(100-(totalProcessedSize/totalOriginalSize*100)).toFixed(1):0}%`);
-showNotification(`Processed ${processedFiles} files!`,'success');
-}
-}catch(error){
-if(!processingCancelled)handleProcessingError(error);
-}finally{
-if(!processingCancelled)hideOverlay();
-if(activeAudioContext){
-try{activeAudioContext.close();}catch(e){}
-activeAudioContext=null;
-audioContextResumed=false;
-}
-currentProcessing=null;
-}
-}
-async function processSingleItem(item,index,total,zip){
-const file=item.file;
-let decoded,processed;
-let originalSize=file.size,processedSize=0,trimmedSamples=0,fileName='',channels=0,isCompressed=false;
-try{
-updateStatus(`Processing: ${item.path}`);
-addToLog(`Processing: ${escapeHtml(item.path)}`);
-if(!isSupportedAudioType(file.type,file.name)){
-throw new Error(`Unsupported file type: ${file.type||file.name.split('.').pop()}`);
-}
-if(file.size>MAX_FILE_SIZE){
-const confirmMessage=`File ${file.name} is large (${formatBytes(file.size)}). Process anyway?`;
-if(!confirm(confirmMessage)){
-addToLog(`Skipped large file: ${file.name}`);
-return null;
-}
-}
-const fileExtension=(file.name.split('.').pop()||'wav').toLowerCase();
-const compressedFormats=['mp3','ogg','aac','m4a'];
-isCompressed=compressedFormats.includes(fileExtension);
-await ensureAudioContext();
-const arrayBuffer=await file.arrayBuffer();
-if(processingCancelled)return null;
-decoded=await decodeAudioSafe(arrayBuffer);
-if(processingCancelled)return null;
-channels=decoded.numberOfChannels;
-const fidelity=getSelectedValue('fidelity');
-const channelsSetting=getSelectedValue('channels');
-const autoTrim=document.getElementById('auto-trim').checked;
-processed=await processAudio(decoded,fidelity,channelsSetting);
-if(processingCancelled)return null;
-if(autoTrim){
-const beforeLength=processed.length;
-processed=trimSilence(processed);
-const afterLength=processed.length;
-trimmedSamples=Math.max(0,beforeLength-afterLength);
-addToLog(`Trimmed: ${(trimmedSamples/processed.sampleRate).toFixed(2)}s silence`);
-}
-const pathParts=item.path.split('/');
-const origFilename=pathParts.pop();
-const safeFilename=origFilename.replace(/[^\w\.\-]/gi,'');
-const newFilename=safeFilename.replace(/\.[^/.]+$/,'')+'_ko2.'+fileExtension;
-fileName=[...pathParts,newFilename].join('/');
-let outputBlob;
-try{
-if(fileExtension==='mp3'){
-if(typeof lamejs==='undefined')throw new Error('LameJS not loaded');
-const encoder=new Mp3Encoder(processed.numberOfChannels,processed.sampleRate,192);
-outputBlob=encoder.encode(processed);
-}else outputBlob=await audioBufferToBlob(processed);
-}catch(encodeError){
-addToLog(`<div class="file-error">Encoding error: ${encodeError.message}. Using WAV fallback.</div>`,'errors');
-outputBlob=await audioBufferToBlob(processed);
-}
-processedSize=outputBlob.size;
-try{zip.file(fileName,outputBlob);}catch(zipError){
-throw new Error(`Failed to add to ZIP: ${zipError.message}`);
-}
-const originalSizeKB=(originalSize/1024).toFixed(1);
-const processedSizeKB=(processedSize/1024).toFixed(1);
-const sizeDifference=processedSize-originalSize;
-let sizeInfo=sizeDifference>0?`INCREASED by ${formatBytes(sizeDifference)}`:`DECREASED by ${formatBytes(-sizeDifference)}`;
-let compressionInfo=isCompressed?'<div>Original compressed format preserved</div>':'';
-addToLog(`
-<div>Processed: ${escapeHtml(fileName)}</div>
-<div>Original: ${formatBytes(originalSize)} → Processed: ${formatBytes(processedSize)}</div>
-<div>${sizeInfo}</div>
-${compressionInfo}
-`);
-const url=URL.createObjectURL(outputBlob);
-createdObjectURLs.push(url);
-createWaveWindow(fileName,url,processed);
-return{fileName,url,originalSize,processedSize,trimmedSamples,channels,isCompressed};
-}catch(error){
-if(!processingCancelled)handleProcessingError(error,item);
-return null;
-}finally{
-decoded=null;
-processed=null;
-await new Promise(resolve=>setTimeout(resolve,0));
-}
-}
-function isSupportedAudioType(mimeType,fileName){
-const ext=fileName.split('.').pop().toLowerCase();
-return SUPPORTED_FORMATS.includes(ext);
-}
-async function decodeAudioSafe(arrayBuffer){
-if(!activeAudioContext)throw new Error("AudioContext not available");
-try{
-return await activeAudioContext.decodeAudioData(arrayBuffer.slice(0));
-}catch(e){
-throw new Error('Audio decoding failed: '+(e?.message?e.message:String(e)));
-}
-}
-function getSelectedValue(name){
-const group=document.querySelector(`.win95-list[data-group="${name}"]`);
-return group?.querySelector('.list-item.selected')?.dataset.value||'cd';
-}
-function getFidelitySettings(fidelity){
-switch(fidelity){
-case 'sp8':return{sampleRate:22050,bitDepth:8};
-case 'sp16':return{sampleRate:22050,bitDepth:16};
-case 'sk':
-if(!isSampleRateSupported(9000)){
-showNotification('Browser does not support 9kHz sample rate. Using 11kHz instead.','warning');
-return{sampleRate:11025,bitDepth:8};
-}
-return{sampleRate:9000,bitDepth:8};
-default:return{sampleRate:44100,bitDepth:16};
-}
-}
-function isSampleRateSupported(sampleRate){
-const audioContext=window.AudioContext||window.webkitAudioContext;
-if(!audioContext)return false;
-try{
-const context=new audioContext();
-const supported=context.sampleRate===sampleRate||
-(typeof context.createBuffer!=='undefined'&&
-context.createBuffer(1,1,sampleRate));
-context.close();
-return supported;
-}catch(e){
-return false;
-}
-}
-async function processAudio(buffer,fidelity,channels){
-const fidelitySettings=getFidelitySettings(fidelity);
-const targetChannels=channels==='mono'?1:2;
-const speedFactor=2.0;
-if(fidelity==='sk'){
-const converted=await convertChannels(buffer,targetChannels);
-const spedUp=await applySpeedAndFidelity(converted,speedFactor,fidelitySettings.sampleRate);
-return await applySK1Filter(spedUp,fidelitySettings.sampleRate);
-}
-const converted=await convertChannels(buffer,targetChannels);
-return await applySpeedAndFidelity(converted,speedFactor,fidelitySettings.sampleRate);
-}
-async function applySK1Filter(audioBuffer,sampleRate){
-const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-try{
-const ctx=new OfflineContext(audioBuffer.numberOfChannels,audioBuffer.length,sampleRate);
-const source=ctx.createBufferSource();
-source.buffer=audioBuffer;
-const filter=ctx.createBiquadFilter();
-filter.type='lowpass';
-filter.frequency.value=4000;
-const bitcrusher=ctx.createScriptProcessor(4096,1,1);
-bitcrusher.onaudioprocess=function(e){
-const input=e.inputBuffer.getChannelData(0);
-const output=e.outputBuffer.getChannelData(0);
-const step=1/32;
-let phaser=0,last=0;
-for(let i=0;i<input.length;i++){
-phaser+=step;
-if(phaser>=1.0){phaser-=1.0;last=step*Math.floor(input[i]/step+0.5);}
-output[i]=last;
-}
-};
-source.connect(filter);
-filter.connect(bitcrusher);
-bitcrusher.connect(ctx.destination);
-source.start();
-return await ctx.startRendering();
-}catch(e){
-console.error('SK-1 filter error:',e);
-return audioBuffer;
-}
-}
-async function convertChannels(buffer,targetChannels){
-if(buffer.numberOfChannels===targetChannels)return buffer;
-const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-if(!OfflineContext)throw new Error('Your browser does not support audio processing');
-try{
-const ctx=new OfflineContext(targetChannels,buffer.length,buffer.sampleRate);
-const source=ctx.createBufferSource();
-source.buffer=buffer;
-if(targetChannels===1&&buffer.numberOfChannels>1){
-const merger=ctx.createChannelMerger(1);
-const splitter=ctx.createChannelSplitter(buffer.numberOfChannels);
-const gain=ctx.createGain();
-source.connect(splitter);
-gain.gain.value=1/buffer.numberOfChannels;
-for(let i=0;i<buffer.numberOfChannels;i++)splitter.connect(gain,i);
-gain.connect(merger,0,0);
-merger.connect(ctx.destination);
-}else if(targetChannels===2&&buffer.numberOfChannels===1){
-const merger=ctx.createChannelMerger(2);
-source.connect(merger,0,0);
-source.connect(merger,0,1);
-merger.connect(ctx.destination);
-}else source.connect(ctx.destination);
-source.start();
-return await ctx.startRendering();
-}catch(e){throw new Error('Channel conversion failed: '+e.message);}
-}
-async function applySpeedAndFidelity(buffer,speed,sampleRate){
-const duration=buffer.duration/speed;
-const OfflineContext=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-try{
-const ctx=new OfflineContext(buffer.numberOfChannels,Math.ceil(duration*sampleRate),sampleRate);
-const source=ctx.createBufferSource();
-source.buffer=buffer;
-source.playbackRate.value=speed;
-source.connect(ctx.destination);
-source.start();
-return await ctx.startRendering();
-}catch(e){throw new Error('Speed/fidelity processing failed: '+e.message);}
-}
-function audioBufferToWav(audioBuffer){
-const fidelity=getSelectedValue('fidelity');
-const fidelitySettings=getFidelitySettings(fidelity);
-const bitDepth=fidelitySettings.bitDepth;
-const numChannels=audioBuffer.numberOfChannels;
-const sampleRate=audioBuffer.sampleRate;
-const bytesPerSample=bitDepth===8?1:2;
-const blockAlign=numChannels*bytesPerSample;
-const dataLength=audioBuffer.length*blockAlign;
-const fmtChunkSize=16;
-const fmtBuf=new ArrayBuffer(8+fmtChunkSize);
-const fmtDv=new DataView(fmtBuf);
-writeString(fmtDv,0,'fmt ');
-fmtDv.setUint32(4,fmtChunkSize,true);
-fmtDv.setUint16(8,1,true);
-fmtDv.setUint16(10,numChannels,true);
-fmtDv.setUint32(12,sampleRate,true);
-fmtDv.setUint32(16,sampleRate*blockAlign,true);
-fmtDv.setUint16(20,blockAlign,true);
-fmtDv.setUint16(22,bitDepth,true);
-const dataHeader=new ArrayBuffer(8);
-const dataDv=new DataView(dataHeader);
-writeString(dataDv,0,'data');
-dataDv.setUint32(4,dataLength,true);
-const riffSize=4+fmtBuf.byteLength+dataHeader.byteLength+dataLength;
-const riffHeader=new ArrayBuffer(12);
-const riffDv=new DataView(riffHeader);
-writeString(riffDv,0,'RIFF');
-riffDv.setUint32(4,riffSize,true);
-writeString(riffDv,8,'WAVE');
-let audioData;
-if(bitDepth===8){
-audioData=new Uint8Array(dataLength);
-let off=0;
-for(let i=0;i<audioBuffer.length;i++){
-for(let ch=0;ch<numChannels;ch++){
-const s=audioBuffer.getChannelData(ch)[i];
-const u=Math.max(0,Math.min(255,Math.round((s+1)*127.5)));
-audioData[off++]=u;
-}
-}
-}else{
-const tmp=new Int16Array(audioBuffer.length*numChannels);
-let off=0;
-for(let i=0;i<audioBuffer.length;i++){
-for(let ch=0;ch<numChannels;ch++){
-const s=Math.max(-1,Math.min(1,audioBuffer.getChannelData(ch)[i]));
-const v=s<0?Math.round(s*32768):Math.round(s*32767);
-tmp[off++]=v;
-}
-}
-audioData=tmp.buffer;
-}
-return new Blob([riffHeader,fmtBuf,dataHeader,audioData],{type:'audio/wav'});
-}
-function writeString(view,offset,str){
-for(let i=0;i<str.length;i++)view.setUint8(offset+i,str.charCodeAt(i));
-}
-async function audioBufferToBlob(audioBuffer){return audioBufferToWav(audioBuffer);}
-function calculateRMSMulti(buffer,start,end){
-const ch=buffer.numberOfChannels;
-let sum=0;
-const n=(end-start)*ch;
-for(let c=0;c<ch;c++){
-const data=buffer.getChannelData(c);
-for(let i=start;i<end;i++)sum+=data[i]*data[i];
-}
-return Math.sqrt(sum/n);
-}
-function trimSilence(audioBuffer,thresholdDb=-60,minSilenceDuration=0.1){
-const threshold=Math.pow(10,thresholdDb/20);
-const sampleRate=audioBuffer.sampleRate;
-const minSilenceSamples=Math.floor(minSilenceDuration*sampleRate);
-const length=audioBuffer.length;
-const blockSize=1024;
-let startIndex=0;
-let endIndex=length-1;
-for(let i=0;i<length;i+=blockSize){
-const blockEnd=Math.min(i+blockSize,length);
-const rms=calculateRMSMulti(audioBuffer,i,blockEnd);
-if(rms>threshold){
-startIndex=Math.max(0,i-blockSize);
-break;
-}
-}
-for(let i=length-blockSize;i>=0;i-=blockSize){
-const blockEnd=Math.min(i+blockSize,length);
-const rms=calculateRMSMulti(audioBuffer,i,blockEnd);
-if(rms>threshold){
-endIndex=Math.min(length-1,i+blockSize);
-break;
-}
-}
-startIndex=findExactStartMulti(audioBuffer,startIndex,threshold);
-endIndex=findExactEndMulti(audioBuffer,endIndex,threshold);
-startIndex=Math.max(0,startIndex-Math.floor(0.05*sampleRate));
-endIndex=Math.min(length-1,endIndex+Math.floor(0.05*sampleRate));
-if(startIndex>=endIndex)return audioBuffer;
-const newLength=endIndex-startIndex+1;
-const newBuffer=new AudioBuffer({length:newLength,sampleRate:audioBuffer.sampleRate,numberOfChannels:audioBuffer.numberOfChannels});
-for(let ch=0;ch<audioBuffer.numberOf极速版Channels;ch++){
-const sourceData=audioBuffer.getChannelData(ch);
-const targetData=newBuffer.getChannelData(ch);
-targetData.set(sourceData.subarray(startIndex,endIndex+1));
-}
-return newBuffer;
-}
-function findExactStartMulti(buffer,roughStart,threshold){
-for(let i=roughStart;i>=0;i--){
-let found=false;
-for(let c=0;c<buffer.numberOfChannels;c++){
-if(Math.abs(buffer.getChannelData(c)[i])>threshold){found=true;break;}
-}
-if(found)return i;
-}
-return roughStart;
-}
-function findExactEndMulti(buffer,roughEnd,threshold){
-for(let i=roughEnd;i<buffer.length;i++){
-let found=false;
-for(let c=0;c<buffer.numberOfChannels;c++){
-if(Math.abs(buffer.getChannelData(c)[i])>threshold){found=true;break;}
-}
-if(found)return i;
-}
-return roughEnd;
-}
-function drawWaveform(canvas,audioBuffer,color){
-const ctx=canvas.getContext('2d');
-const width=canvas.width;
-const height=canvas.height;
-let data=new Float32Array(audioBuffer.length);
-for(let c=0;c<audioBuffer.numberOfChannels;c++){
-const channelData=audioBuffer.getChannelData(c);
-for(let i=0;i<audioBuffer.length;i++){
-data[i]+=channelData[i]/audioBuffer.numberOfChannels;
-}
-}
-const step=Math.ceil(data.length/width);
-const amp=height/2;
-ctx.clearRect(0,0,width,height);
-if(data.length<width*2){
-ctx.beginPath();
-ctx.moveTo(0,amp);
-for(let i=0;i<width;i++){
-const index=Math.floor((i/width)*data.length);
-if(index<data.length){
-const value=data[index]*amp;
-ctx.lineTo(i,amp-value);
-}
-}
-ctx.strokeStyle=color;
-ctx.stroke();
-}else{
-ctx.beginPath();
-for(let i=0;i<width;i++){
-let min=1.0;
-let max=-1.0;
-for(let j=0;j<step;j++){
-const index=Math.floor((i*step)+j);
-if(index<data.length){
-const value=data[index];
-if(value<min)min=value;
-if(value>max)max=value;
-}
-}
-ctx.moveTo(i,amp*(1-min));
-ctx.lineTo(i,amp*(1-max));
-}
-ctx.strokeStyle=color;
-ctx.stroke();
-}
-}
-function createWaveWindow(title,url,audioBuffer){
-if(waveWindows.length>=MAX_PREVIEW_WINDOWS){
-const oldestWindow=waveWindows.shift();
-if(oldestWindow&&oldestWindow.element){
-try{
-safeRevoke(oldestWindow.url);
-document.body.removeChild(oldestWindow.element);
-}catch(e){}
-}
-}
-windowZIndex+=2;
-const windowId='wave-window-'+Date.now();
-const top=80+(waveWindows.length*30);
-const left=100+(waveWindows.length*30);
-const windowElement=document.createElement('div');
-windowElement.className='wave-window window';
-windowElement.id=windowId;
-windowElement.style.zIndex=windowZIndex;
-windowElement.style.top=top+'px';
-windowElement.style.left=left+'px';
-windowElement.innerHTML=`
-<div class="title-bar">
-<span>${escapeHtml(title)}</span>
-<div class="window-controls">
-<button class="minimize" title="Minimize"><i class="fas fa-window-minimize"></i></button>
-<button class="close" title="Close"><i class="fas fa-times"></i></button>
-</div>
-</div>
-<div class="content">
-<div class="wave-container">
-<div class="wave-title">${escapeHtml(title)}</div>
-<div class="wave-element-container">
-<canvas class="wave-element" width="480" height="128"></canvas>
-<div class="progress-bar" style="position:absolute; top:0; left:0; height:100%; width:0; background:rgba(0,0,128,0.3); z-index:2; pointer-events:none;"></div>
-</div>
-<div class="preview-controls">
-<button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
-<button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i> Pause</button>
-<button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
-</div>
-</div>
-</div>
-`;
-document.body.appendChild(windowElement);
-const audioElement=document.createElement('audio');
-audioElement.src=url;
-audioElement.style.display='none';
-audioElement.preload='metadata';
-audioElement.addEventListener('error',function(e){
-console.error('Audio loading error:',e);
-addToLog(`<div class="file-error">Audio loading error for preview: ${title}</div>`,'errors');
-audioBufferToBlob(audioBuffer).then(blob=>{
-const wavUrl=URL.createObjectURL(blob);
-audioElement.src=wavUrl;
-createdObjectURLs.push(wavUrl);
-audioElement.play().catch(e=>console.error('Fallback audio also failed:',e));
-}).catch(error=>{
-console.error('Failed to create fallback audio:',error);
-});
-});
-windowElement.querySelector('.wave-element-container').appendChild(audioElement);
-const canvas=windowElement.querySelector('.wave-element');
-const progressBar=windowElement.querySelector('.progress-bar');
-if(audioBuffer){
-drawWaveform(canvas,audioBuffer,'#c0c0c0');
-}
-const playButton=windowElement.querySelector('.play-button');
-const pauseButton=windowElement.querySelector('.pause-button');
-const stopButton=windowElement.querySelector('.stop-button');
-const minimizeBtn=windowElement.querySelector('.minimize');
-const closeBtn=windowElement.querySelector('.close');
-function bringToFront(){
-windowZIndex+=2;
-windowElement.style.zIndex=windowZIndex;
-document.querySelectorAll('.wave-window').forEach(w=>w.classList.remove('active-window'));
-windowElement.classList.add('active-window');
-}
-function handleMinimize(e){
-e.stopPropagation();
-bringToFront();
-windowElement.classList.toggle('minimized');
-minimizeBtn.querySelector('i').style.transform=windowElement.classList.contains('minimized')?'rotate(180deg)':'';
-}
-function handleClose(e){
-e.stopPropagation();
-bringToFront();
-audioElement.pause();
-safeRevoke(url);
-if(document.body.contains(windowElement))document.body.removeChild(windowElement);
-waveWindows=waveWindows.filter(w=>w.id!==windowId);
-}
-minimizeBtn.addEventListener('click',handleMinimize);
-minimizeBtn.addEventListener('touchstart',handleMinimize);
-closeBtn.addEventListener('click',handleClose);
-closeBtn.addEventListener('touchstart',handleClose);
-playButton.addEventListener('click',()=>{
-bringToFront();
-activateAudio();
-stopAllPlayback();
-audioElement.play();
-playButton.style.display='none';
-pauseButton.style.display='block';
-updateStatus("Playing audio");
-});
-pauseButton.addEventListener('click',()=>{
-bringToFront();
-audioElement.pause();
-pauseButton.style.display='none';
-playButton.style.display='block';
-updateStatus("Playback paused");
-});
-stopButton.addEventListener('click',()=>{
-bringToFront();
-audioElement.pause();
-audioElement.currentTime=0;
-pauseButton.style.display='none';
-playButton.style.display='block';
-progressBar.style.width='0';
-updateStatus("Playback stopped");
-});
-audioElement.addEventListener('timeupdate',()=>{
-if(audioElement.duration>0){
-const progress=(audioElement.currentTime/audioElement.duration)*100;
-progressBar.style.width=`${progress}%`;
-}
-});
-audioElement.addEventListener('ended',()=>{
-pauseButton.style.display='none';
-playButton.style.display='block';
-progressBar.style.width='0';
-updateStatus("Playback completed");
-});
-let pos1=0,pos2=0,pos3=0,pos4=0;
-const titleBar=windowElement.querySelector('.title-bar');
-function startDrag(e){
-e.preventDefault();
-bringToFront();
-pos3=e.clientX||(e.touches&&e.touches[0].clientX);
-pos4=e.clientY||(e.touches&&e.touches[0].clientY);
-document.addEventListener('mousemove',dragMove);
-document.addEventListener('touchmove',dragMove,{passive:false});
-document.addEventListener('mouseup',endDrag);
-document.addEventListener('touchend',endDrag);
-}
-function dragMove(e){
-e.preventDefault();
-const clientX=e.clientX||(e.touches&&e.touches[0].clientX);
-const clientY=e.clientY||(e.touches&&e.touches[极速版Y]);
-if(!clientX||!clientY)return;
-pos1=pos3-clientX;
-pos2=pos4-clientY;
-pos3=clientX;
-pos4=clientY;
-windowElement.style.top=(windowElement.offsetTop-pos2)+"px";
-windowElement.style.left=(windowElement.offsetLeft-pos1)+"px";
-}
-function endDrag(){
-document.removeEventListener('mousemove',dragMove);
-document.removeEventListener('touchmove',dragMove);
-document.removeEventListener('mouseup',endDrag);
-document.removeEventListener('touchend',极速版Drag);
-}
-titleBar.addEventListener('mousedown',startDrag);
-titleBar.addEventListener('touchstart',startDrag,{passive:false});
-windowElement.addEventListener('mousedown',bringToFront);
-windowElement.addEventListener('touchstart',bringToFront);
-const windowObj={ 
-id:windowId, 
-element:windowElement, 
-url:url, 
-audioElement:audioElement 
-};
-waveWindows.push(windowObj);
-return windowElement;
-}
-function updateProgressBar(progress){
-return new Promise(resolve=>{
-progress=Math.max(0,Math.min(1,progress));
-const progressFill=document.getElementById('progress-fill');
-const progressText=document.getElementById('progress-text');
-const percent=Math.round(progress*100);
-progressFill.style.width=`${percent}%`;
-progressText.textContent=`${percent}%`;
-setTimeout(resolve,20);
-});
-}
-function handleProcessingError(error,item){
-const errorMessage=error?.message?error.message:String(error);
-const fileName=item?.file?.name||'unknown file';
-console.error(`Processing error for ${fileName}:`,error);
-addToLog(`<div class="file-error"><strong>Error processing:</strong> ${escapeHtml(fileName)}<br>${escapeHtml(errorMessage)}</div>`,'errors');
-updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
-showNotification(`Error processing ${fileName}`,'error');
-if(errorMessage.toLowerCase().includes('memory')||errorMessage.toLowerCase().includes('allocation')){
-if(activeAudioContext){try{activeAudioContext.close();}catch(e){}activeAudioContext=null;}
-document.getElementById('memory-warning').style.display='block';
-memoryWarningShown=true;
-}
-}
-class Mp3Encoder {
-constructor(channels,sampleRate,bitrate){
-if(typeof lamejs==='undefined')throw new Error('LameJS library not loaded! MP3 encoding unavailable.');
-this.channels=channels;this.sampleRate=sampleRate;this.bitrate=bitrate;
-this.lame=new lamejs.Mp3Encoder(channels,sampleRate,bitrate);
-}
-encode(audioBuffer){
-const[left,right]=this.getAudioData(audioBuffer);
-const sampleBlockSize=1152;
-const leftSamples=new Int16Array(sampleBlockSize);
-const rightSamples=new Int16Array(sampleBlockSize);
-const mp3Data=[];
-for(let i=0;i<left.length;i+=sample极速版Size){
-const leftChunk=left.subarray(i,i+sampleBlockSize);
-const rightChunk=this.channels>1?right.subarray(i,i+sampleBlockSize):leftChunk;
-for(let j=0;j<leftChunk.length;j++){
-const sampleLeft=Math.max(-1,Math.min(1,leftChunk[j]));
-leftSamples[j]=sampleLeft<0?sampleLeft*32768:sampleLeft*32767;
-if(this.channels>1){
-const sampleRight=Math.max(-1,Math.min(1,rightCh极速版]));
-rightSamples[j]=sampleRight<0?sampleRight*32768:sampleRight*32767;
-}
-}
-const mp3buf=this.lame.encodeBuffer(leftSamples.subarray(0,leftChunk.length),this.channels>1?rightSamples.subarray(0,leftChunk.length):undefined);
-if(mp3buf.length>0)mp3Data.push(new Uint8Array(mp3buf));
-}
-const lastChunk=this.lame.flush();
-if(last极速版.length>0)mp3Data.push(new Uint8Array(lastChunk));
-return new Blob(mp3Data,{type:'audio/mp3'});
-}
-getAudioData(audioBuffer){
-const left=audioBuffer.getChannelData(0);
-let right=new Float32Array(audioBuffer.length);
-if(audioBuffer.numberOfChannels>1)right=audioBuffer.getChannelData(1);
-return[left,right];
-}
-}
-function escapeHtml(str){
-if(!str)return'';
-return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-}
-function formatBytes(bytes){
-if(!bytes)return'0 B';
-if(bytes<1024)return bytes+' B';
-else if(bytes<1048576)return(bytes/1024).toFixed(1)+' KB';
-else return(bytes/1048576).toFixed(1)+' MB';
-}
-function safeRevoke(url){
-try{URL.revokeObjectURL(url);createdObjectURLs=createdObjectURLs.filter(u=>u!==url);}catch(e){}
-}
-function isMobile(){
-return('ontouchstart' in window)||(navigator.maxTouchPoints>0)||(navigator.msMaxTouchPoints>0);
-}
-function isMobileLandscape(){
-return window.matchMedia("(max-width: 768px) and (orientation: landscape)").matches;
-}
-window.addEventListener('beforeunload',()=>{
-createdObjectURLs.forEach(url=>{try{URL.revokeObjectURL(url);}catch(e){}});
-if(activeAudioContext){try{activeAudioContext.close();}catch(e){}}
-waveWindows.forEach(w=>{if(w.audioElement){try{w.audioElement.pause();safeRevoke(w.url);}catch(e){}}});
-});
-</script>
+            // Вспомогательные методы
+            isFolderSelectionSupported() {
+                return 'webkitdirectory' in document.createElement('input') || 'directory' in document.createElement('input');
+            }
+
+            updateStatus(message) {
+                const el = document.getElementById('status-bar');
+                if (el) el.textContent = message;
+            }
+
+            addToLog(message, tab = 'log') {
+                const tabElement = document.getElementById(`${tab}-tab`);
+                if (!tabElement) return;
+                const div = document.createElement('div');
+                div.innerHTML = message;
+                tabElement.appendChild(div);
+                const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
+                if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (document.body.contains(notification)) document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+
+            // ... другие методы
+        }
+
+        // Инициализация приложения после загрузки DOM
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new SpeedUpperCut();
+            app.init();
+        });
+    </script>
 </body>
 </html>
