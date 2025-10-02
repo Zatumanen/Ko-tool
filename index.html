@@ -104,7 +104,7 @@
             0% { opacity: 0.01; } 5% { opacity: 0.03; } 10% { opacity: 0.02; } 15% { opacity: 0.04; } 
             20% { opacity: 0.01; } 25% { opacity: 0.03; } 30% { opacity: 0.02; } 35% { opacity: 0.04; } 
             40% { opacity: 0.02; } 45% { opacity: 0.03; } 50% { opacity: 0.01; } 55% { opacity: 0.03; } 
-            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 极速版; } 
+            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 0.03; } 
             80% { opacity: 0.01; } 85% { opacity: 0.03; } 90% { opacity: 0.02; } 95% { opacity: 0.04; } 
             100% { opacity: 0.01; }
         }
@@ -172,15 +172,6 @@
             border-left-color: var(--win-light);
             border-right-color: var(--win-dark); 
             border-bottom-color: var(--win-dark); 
-        }
-        
-        .title-bar button.minimize { 
-            font-size: 18px; 
-            line-height: 12px; 
-        }
-        
-        .title-bar button.close { 
-            font-size: 14px; 
         }
         
         .title-bar button:active { 
@@ -280,7 +271,7 @@
             color: #000; 
             z-index: 1001;
             border: 2px solid; 
-            border-top极速版-color: var(--win-light); 
+            border-top-color: var(--win-light); 
             border-left-color: var(--win-light);
             border-right-color: var(--win-dark); 
             border-bottom-color: var(--win-dark); 
@@ -308,7 +299,7 @@
         .progress-text { 
             position: absolute; 
             top: 0; 
-            left: 极速版; 
+            left: 0; 
             width: 100%; 
             height: 100%; 
             display: flex; 
@@ -346,7 +337,7 @@
             background: var(--primary-blue); 
             color: white; 
             transition: background 0.2s ease; 
-极速版        }
+        }
         
         .wave-container { 
             margin-bottom: 20px; 
@@ -387,7 +378,7 @@
             background: var(--win-gray); 
             border: 2px outset var(--win-gray);
             cursor: pointer; 
-            min-width: 80极速版; 
+            min-width: 80px; 
         }
         
         .wave-button:active { 
@@ -517,42 +508,8 @@
             margin-top: 4px; 
         }
         
-        .progress-time { 
-            color: #666; 
-        }
-        
         .active-window { 
             box-shadow: 0 0 0 2px var(--primary-blue); 
-        }
-        
-        .file-item { 
-            display: flex; 
-            flex-direction: column; 
-            padding: 6px 0; 
-            border-bottom: 1px solid #e0e0e0; 
-        }
-        
-        .file-header { 
-            display: flex; 
-            justify-content: space-between; 
-        }
-        
-        .file-progress { 
-            height: 4px; 
-            background: #e0e0e极速版; 
-            margin-top: 4px; 
-            position: relative; 
-            overflow: hidden; 
-        }
-        
-        .file-progress-fill { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            height: 100%; 
-            width: 0%; 
-            background: var(--primary-blue); 
-            transition: width 0.3s ease; 
         }
         
         .info-tabs { 
@@ -582,26 +539,6 @@
         
         .tab-content.active { 
             display: block; 
-        }
-        
-        .critical { 
-            font-weight: bold; 
-            color: var(--error-color); 
-            margin-top: 8px; 
-        }
-        
-        .error-dialog { 
-            position: fixed; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%,-50%); 
-            z-index: 2000; 
-        }
-        
-        .error-icon { 
-            font-size: 32px; 
-            text-align: center; 
-            margin: 10px 0; 
         }
         
         .taskbar { 
@@ -673,17 +610,6 @@
             color: #666; 
         }
         
-        .mobile-fallback { 
-            text-align: center; 
-            padding: 15px; 
-            background: white; 
-        }
-        
-        .mobile-fallback audio { 
-            width: 100%; 
-            margin: 10px 0; 
-        }
-        
         .processing { 
             animation: pulse 1.5s infinite; 
         }
@@ -691,7 +617,7 @@
         .wave-window.minimized { 
             height: 36px; 
             overflow: hidden; 
-极速版        }
+        }
         
         .wave-window.minimized .content { 
             display: none; 
@@ -699,11 +625,6 @@
         
         .wave-window.minimized .minimize i { 
             transform: rotate(180deg); 
-        }
-        
-        .mobile-audio-fallback { 
-            width: 100%; 
-            margin-top: 10px; 
         }
         
         @keyframes pulse { 
@@ -739,7 +660,7 @@
         <div class="crt-curvature"></div>
         <div class="crt-scanlines"></div>
         <div class="crt-flicker"></div>
-        <极速版iv class="crt-glow"></div>
+        <div class="crt-glow"></div>
         <div class="crt-vignette"></div>
     </div>
 
@@ -856,7 +777,7 @@
 
     <div class="taskbar">
         <div class="start-button">
-            <i class="fas fa-bars"></极速版 Start
+            <i class="fas fa-bars"></i> Start
         </div>
         <div class="status-bar" id="status-bar">Ready</div>
         <button id="stop-all-audio" style="margin-left:10px;padding:2px 6px">
@@ -865,7 +786,6 @@
     </div>
 
     <script>
-        // Глобальные переменные
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -879,26 +799,20 @@
         let processingStartTime = 0;
         let progressIntervals = [];
         
-        // Константы
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
-        const MAX_CONCURRENT = 1;
-        const BATCH_SIZE = 1;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
-        // Инициализация приложения
         document.addEventListener('DOMContentLoaded', initApp);
         
         function initApp() {
-            // Проверяем поддержку Web Audio API
             if (!window.AudioContext && !window.webkitAudioContext) {
                 showNotification('Your browser does not support Web Audio API. Some features may be unavailable.', 'error');
                 addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
                 return;
             }
             
-            // Показываем предупреждение для мобильных устройств
             if (isMobile()) {
                 document.getElementById('mobile-warning').style.display = 'block';
                 document.querySelectorAll('button').forEach(b => {
@@ -907,19 +821,11 @@
                 });
             }
             
-            // Проверяем память и показываем предупреждение
             checkMemoryAndWarn();
-            
-            // Настраиваем обработчики событий
             setupEventListeners();
-            
-            // Настраиваем навигацию по вкладкам
             setupTabNavigation();
-            
-            // Обновляем статус
             updateStatus("Ready to process files");
             
-            // Показываем уведомление о первом посещении
             if (localStorage.getItem('firstVisit') === null) {
                 showNotification('Drag audio files here or use buttons above');
                 localStorage.setItem('firstVisit', '1');
@@ -940,7 +846,6 @@
         }
         
         function setupEventListeners() {
-            // Обработчики для групп выбора
             document.querySelectorAll('.win95-list').forEach(group => {
                 group.addEventListener('click', e => {
                     if (e.target.classList.contains('list-item')) {
@@ -950,7 +855,6 @@
                 });
             });
             
-            // Получаем элементы DOM
             const dropZone = document.getElementById('drop-zone');
             const fileInput = document.getElementById('audio-upload');
             const folderInput = document.getElementById('folder-upload');
@@ -960,12 +864,10 @@
             const cancelButton = document.getElementById('cancel-button');
             const stopAllButton = document.getElementById('stop-all-audio');
             
-            // Обработчики событий drag and drop
             dropZone.addEventListener('dragover', handleDragOver);
             dropZone.addEventListener('dragleave', handleDragLeave);
             dropZone.addEventListener('drop', handleDrop);
             
-            // Обработчики касаний для мобильных устройств
             dropZone.addEventListener('touchmove', e => {
                 e.preventDefault();
                 dragCounter++;
@@ -974,7 +876,6 @@
             
             dropZone.addEventListener('touchend', handleDragLeave);
             
-            // Обработчики кнопок
             selectFileButton.addEventListener('click', () => {
                 fileInput.click();
                 activateAudio();
@@ -991,12 +892,11 @@
             
             clearButton.addEventListener('click', () => {
                 document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
-                document.getElementById('errors极速版tab').innerHTML = '<div>No errors yet</div>';
-                document.getElementById('stats-tab').innerHTML = '<极速版iv>No statistics yet</div>';
+                document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
+                document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
                 updateStatus("File list cleared");
             });
             
-            // Обработчики изменений в input[type="file"]
             fileInput.addEventListener('change', async e => {
                 updateStatus(`Files selected: ${e.target.files.length}`);
                 addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
@@ -1013,7 +913,6 @@
                 e.target.value = null;
             });
             
-            // Обработчики кнопок управления окном
             document.querySelector('.title-bar .minimize').addEventListener('click', () => {
                 document.querySelector('.window').classList.toggle('minimized');
             });
@@ -1022,7 +921,6 @@
                 document.querySelector('.window').classList.toggle('minimized');
             });
             
-            // Обработчики кнопок отмены и остановки
             cancelButton.addEventListener('click', () => {
                 processingCancelled = true;
                 if (currentProcessing) currentProcessing.cancel();
@@ -1043,7 +941,6 @@
             
             stopAllButton.addEventListener('click', stopAllPlayback);
             
-            // Активация аудио при взаимодействии с элементами
             ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
                     el.addEventListener('click', activateAudio);
@@ -1118,7 +1015,7 @@
         
         function addToLog(message, tab = 'log') {
             const tabElement = document.getElementById(`${tab}-tab`);
-            if (!tab极速版lement) return;
+            if (!tabElement) return;
             const div = document.createElement('div');
             div.innerHTML = message;
             tabElement.appendChild(div);
@@ -1127,7 +1024,7 @@
         }
         
         function showOverlay() {
-            document.getElementById('overlay').极速版tyle.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
             document.getElementById('win95-loader').style.display = 'block';
             processingCancelled = false;
             lastProgress = 0;
@@ -1359,7 +1256,7 @@
                     throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
                 }
                 
-                if (file.size > MAX_FILE极速版IZE) {
+                if (file.size > MAX_FILE_SIZE) {
                     const confirmMessage = `File ${file.name} is large (${formatBytes(file.size)}). Process anyway?`;
                     if (!confirm(confirmMessage)) {
                         addToLog(`Skipped large file: ${file.name}`);
@@ -1508,7 +1405,6 @@
             const targetChannels = channels === 'mono' ? 1 : 2;
             const speedFactor = 2.0;
             
-            // Для режима SK-1 применяем дополнительную обработку
             if (fidelity === 'sk') {
                 const converted = await convertChannels(buffer, targetChannels);
                 const spedUp = await applySpeedAndFidelity(converted, speedFactor, fidelitySettings.sampleRate);
@@ -1523,21 +1419,19 @@
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             
             try {
-                const ctx = new OfflineContext(audioBuffer.numberOf极速版hannels, audioBuffer.length, sampleRate);
+                const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
                 const source = ctx.createBufferSource();
                 source.buffer = audioBuffer;
                 
-                // Создаем фильтр для эмуляции SK-1
                 const filter = ctx.createBiquadFilter();
                 filter.type = 'lowpass';
-                filter.frequency.value = 4000; // Ограничиваем частотный диапазон
+                filter.frequency.value = 4000;
                 
-                // Добавляем bitcrusher эффект
                 const bitcrusher = ctx.createScriptProcessor(4096, 1, 1);
                 bitcrusher.onaudioprocess = function(e) {
                     const input = e.inputBuffer.getChannelData(0);
                     const output = e.outputBuffer.getChannelData(0);
-                    const step = 1 / 32; // 5-bit
+                    const step = 1 / 32;
                     let phaser = 0, last = 0;
                     
                     for (let i = 0; i < input.length; i++) {
@@ -1546,7 +1440,7 @@
                             phaser -= 1.0; 
                             last = step * Math.floor(input[i] / step + 0.5); 
                         }
-                        output[i极速版 = last;
+                        output[i] = last;
                     }
                 };
                 
@@ -1558,14 +1452,14 @@
                 return await ctx.startRendering();
             } catch (e) {
                 console.error('SK-1 filter error:', e);
-                return audioBuffer; // Возвращаем оригинальный буфер в случае ошибки
+                return audioBuffer;
             }
         }
         
         async function convertChannels(buffer, targetChannels) {
             if (buffer.numberOfChannels === targetChannels) return buffer;
             
-            const OfflineContext = window.极速版fflineAudioContext || window.webkitOfflineAudioContext;
+            const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             if (!OfflineContext) throw new Error('Your browser does not support audio processing');
             
             try {
@@ -1671,7 +1565,7 @@
                 const tmp = new Int16Array(audioBuffer.length * numChannels);
                 let off = 0;
                 
-                for (let i = 0极速版 i < audioBuffer.length; i++) {
+                for (let i = 0; i < audioBuffer.length; i++) {
                     for (let ch = 0; ch < numChannels; ch++) {
                         const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
                         const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
@@ -1710,7 +1604,7 @@
             return Math.sqrt(sum / n);
         }
         
-        function trimSilence(audioBuffer, thresholdDb = -60, min极速版ilenceDuration = 0.1) {
+        function trimSilence(audioBuffer, thresholdDb = -60, minSilenceDuration = 0.1) {
             const threshold = Math.pow(10, thresholdDb / 20);
             const sampleRate = audioBuffer.sampleRate;
             const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate);
@@ -1720,7 +1614,6 @@
             let startIndex = 0;
             let endIndex = length - 1;
             
-            // Find start of audio
             for (let i = 0; i < length; i += blockSize) {
                 const blockEnd = Math.min(i + blockSize, length);
                 const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
@@ -1731,8 +1624,7 @@
                 }
             }
             
-            // Find end of audio
-            for (let i = length - blockSize; i >= 0; i -= block极速版) {
+            for (let i = length - blockSize; i >= 0; i -= blockSize) {
                 const blockEnd = Math.min(i + blockSize, length);
                 const rms = calculateRMSMulti(audioBuffer, i, blockEnd);
                 
@@ -1742,11 +1634,9 @@
                 }
             }
             
-            // Find exact start and end points
             startIndex = findExactStartMulti(audioBuffer, startIndex, threshold);
             endIndex = findExactEndMulti(audioBuffer, endIndex, threshold);
             
-            // Add a small buffer (50ms) to avoid cutting off transients
             startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
             endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
             
@@ -1807,8 +1697,6 @@
             const width = canvas.width;
             const height = canvas.height;
             
-            // Используем первый канал для простоты
-            // Усредняем каналы для более точной визуализации
             let data = new Float32Array(audioBuffer.length);
             
             for (let c = 0; c < audioBuffer.numberOfChannels; c++) {
@@ -1823,7 +1711,6 @@
             
             ctx.clearRect(0, 0, width, height);
             
-            // Для очень коротких или низкокачественных файлов увеличиваем шаг отрисовки
             if (data.length < width * 2) {
                 ctx.beginPath();
                 ctx.moveTo(0, amp);
@@ -1839,12 +1726,11 @@
                 ctx.strokeStyle = color;
                 ctx.stroke();
             } else {
-                // Стандартная отрисовка для нормальных файлов
                 ctx.beginPath();
                 
-                for (let i = 0; i < width;极速版 i++) {
+                for (let i = 0; i < width; i++) {
                     let min = 1.0;
-                    let max = -极速版.0;
+                    let max = -1.0;
                     
                     for (let j = 0; j < step; j++) {
                         const index = Math.floor((i * step) + j);
@@ -1905,7 +1791,7 @@
                         <div class="preview-controls">
                             <button class="wave-button play-button"><i class="fas fa-play"></i> Play</button>
                             <button class="wave-button pause-button" style="display:none"><i class="fas fa-pause"></i> Pause</button>
-                            <button class="极速版ave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
+                            <button class="wave-button stop-button"><i class="fas fa-stop"></i> Stop</button>
                         </div>
                     </div>
                 </div>
@@ -1918,12 +1804,10 @@
             audioElement.style.display = 'none';
             audioElement.preload = 'metadata';
             
-            // Проверяем поддержку аудиоформата
             audioElement.addEventListener('error', function(e) {
                 console.error('Audio loading error:', e);
                 addToLog(`<div class="file-error">Audio loading error for preview: ${title}</div>`, 'errors');
                 
-                // Пытаемся использовать fallback
                 audioBufferToBlob(audioBuffer).then(blob => {
                     const wavUrl = URL.createObjectURL(blob);
                     audioElement.src = wavUrl;
@@ -1939,7 +1823,6 @@
             const canvas = windowElement.querySelector('.wave-element');
             const progressBar = windowElement.querySelector('.progress-bar');
             
-            // Draw waveform if we have the audio buffer
             if (audioBuffer) {
                 drawWaveform(canvas, audioBuffer, '#c0c0c0');
             }
@@ -2020,7 +1903,6 @@
                 updateStatus("Playback completed");
             });
             
-            // Make window draggable
             let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
             const titleBar = windowElement.querySelector('.title-bar');
             
@@ -2038,7 +1920,7 @@
             function dragMove(e) {
                 e.preventDefault();
                 const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[极速版].clientY);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
                 if (!clientX || !clientY) return;
                 
                 pos1 = pos3 - clientX;
@@ -2149,9 +2031,9 @@
                 }
                 
                 const lastChunk = this.lame.flush();
-                if (last极速版hunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
+                if (lastChunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
                 
-                return new Blob(m极速版Data, { type: 'audio/mp3' });
+                return new Blob(mp3Data, { type: 'audio/mp3' });
             }
             
             getAudioData(audioBuffer) {
@@ -2173,7 +2055,7 @@
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
-                .replace(/'极速版g, '&#039;');
+                .replace(/'/g, '&#039;');
         }
         
         function formatBytes(bytes) {
@@ -2196,11 +2078,6 @@
                    (navigator.msMaxTouchPoints > 0);
         }
         
-        function isMobileLandscape() {
-            return window.matchMedia("(max-width: 768px) and (orientation: landscape)").matches;
-        }
-        
-        // Очистка при закрытии страницы
         window.addEventListener('beforeunload', () => {
             createdObjectURLs.forEach(url => { 
                 try { URL.revokeObjectURL(url); } catch (e) {} 
