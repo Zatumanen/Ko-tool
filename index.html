@@ -804,6 +804,9 @@
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
+        // Web Worker для обработки аудио
+        let audioWorker = null;
+        
         document.addEventListener('DOMContentLoaded', initApp);
         
         function initApp() {
@@ -926,10 +929,10 @@
                 if (currentProcessing) currentProcessing.cancel();
                 progressIntervals.forEach(interval => clearInterval(interval));
                 progressIntervals = [];
-                createdObjectURLs.forEach(url => {
-                    try { URL.revokeObjectURL(url); } catch (e) {}
-                });
-                createdObjectURLs = [];
+                
+                // Освобождение памяти
+                cleanupMemory();
+                
                 hideOverlay();
                 updateStatus("Processing cancelled");
                 showNotification('Processing cancelled', 'warning');
@@ -1102,13 +1105,61 @@
             } else if (e.dataTransfer.files.length > 0) {
                 for (const file of e.dataTransfer.files) items.push({ file, path: file.name });
             }
-            processItems(items);
+            
+            // Валидация файлов перед обработкой
+            const validatedItems = validateFiles(items);
+            if (validatedItems.length > 0) {
+                processItems(validatedItems);
+            }
+        }
+        
+        function validateFiles(items) {
+            const validated = [];
+            let errorCount = 0;
+            
+            for (const item of items) {
+                try {
+                    validateFile(item.file);
+                    validated.push(item);
+                } catch (error) {
+                    errorCount++;
+                    addToLog(`<div class="file-error">${error.message}</div>`, 'errors');
+                }
+            }
+            
+            if (errorCount > 0) {
+                showNotification(`${errorCount} files were skipped due to errors`, 'warning');
+            }
+            
+            return validated;
+        }
+        
+        function validateFile(file) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            if (file.size > maxSize) {
+                throw new Error(`File too large: ${file.name} (${formatBytes(file.size)})`);
+            }
+            
+            if (!SUPPORTED_FORMATS.includes(ext)) {
+                throw new Error(`Unsupported format: ${file.name}`);
+            }
+            
+            if (file.size === 0) {
+                throw new Error(`Empty file: ${file.name}`);
+            }
+            
+            return true;
         }
         
         async function processFiles(files) {
             if (!files || files.length === 0) return;
             const items = Array.from(files).map(file => ({ file, path: file.name }));
-            await processItems(items);
+            const validatedItems = validateFiles(items);
+            if (validatedItems.length > 0) {
+                await processItems(validatedItems);
+            }
         }
         
         async function processFolder(files) {
@@ -1118,7 +1169,10 @@
                 const path = file.webkitRelativePath || file.name;
                 items.push({ file, path });
             }
-            await processItems(items);
+            const validatedItems = validateFiles(items);
+            if (validatedItems.length > 0) {
+                await processItems(validatedItems);
+            }
         }
         
         async function processItems(items) {
@@ -1145,20 +1199,23 @@
             currentProcessing = { 
                 cancel: () => {
                     processingCancelled = true;
-                    if (activeAudioContext) {
-                        try { activeAudioContext.close(); } catch (e) {}
-                        activeAudioContext = null;
-                    }
+                    cleanupMemory();
                     document.getElementById('cancel-button').disabled = true;
                     updateStatus("Processing cancelled");
                 }
             };
             
             try {
+                // Обработка файлов с паузой для предотвращения блокировки UI
                 for (let i = 0; i < items.length; i++) {
                     if (processingCancelled) {
                         addToLog("Processing cancelled by user");
                         break;
+                    }
+                    
+                    // Пауза для освобождения UI
+                    if (i > 0 && i % 5 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 10));
                     }
                     
                     document.getElementById('file-count').textContent = `File: ${i + 1}/${items.length}`;
@@ -1179,6 +1236,11 @@
                     else if (result.channels === 2) stereoOriginal++;
                     
                     await updateProgressBar((i + 1) / items.length);
+                    
+                    // Периодическая очистка памяти
+                    if (i % 10 === 0) {
+                        cleanupMemory();
+                    }
                 }
                 
                 if (!processingCancelled && processedFiles > 0) {
@@ -1205,8 +1267,7 @@
                     document.body.removeChild(a);
                     
                     setTimeout(() => {
-                        try { URL.revokeObjectURL(zipUrl); } catch (e) {}
-                        createdObjectURLs = createdObjectURLs.filter(url => url !== zipUrl);
+                        safeRevoke(zipUrl);
                     }, 2000);
                     
                     const fidelity = getSelectedValue('fidelity');
@@ -1234,11 +1295,7 @@
                 if (!processingCancelled) handleProcessingError(error);
             } finally {
                 if (!processingCancelled) hideOverlay();
-                if (activeAudioContext) {
-                    try { activeAudioContext.close(); } catch (e) {}
-                    activeAudioContext = null;
-                    audioContextResumed = false;
-                }
+                cleanupMemory();
                 currentProcessing = null;
             }
         }
@@ -1345,8 +1402,12 @@
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
             } finally {
+                // Явное освобождение памяти
                 decoded = null;
                 processed = null;
+                if (window.gc) {
+                    window.gc();
+                }
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
@@ -1981,13 +2042,34 @@
             showNotification(`Error processing ${fileName}`, 'error');
             
             if (errorMessage.toLowerCase().includes('memory') || errorMessage.toLowerCase().includes('allocation')) {
-                if (activeAudioContext) { 
-                    try { activeAudioContext.close(); } catch (e) {} 
-                    activeAudioContext = null; 
-                }
-                
+                cleanupMemory();
                 document.getElementById('memory-warning').style.display = 'block';
                 memoryWarningShown = true;
+            }
+        }
+        
+        // Функция для очистки памяти
+        function cleanupMemory() {
+            // Освобождение ObjectURL
+            createdObjectURLs.forEach(url => {
+                try { 
+                    URL.revokeObjectURL(url); 
+                } catch (e) {}
+            });
+            createdObjectURLs = [];
+            
+            // Закрытие AudioContext
+            if (activeAudioContext) {
+                try { 
+                    activeAudioContext.close(); 
+                } catch (e) {}
+                activeAudioContext = null;
+                audioContextResumed = false;
+            }
+            
+            // Принудительный вызов сборщика мусора если доступен
+            if (window.gc) {
+                window.gc();
             }
         }
         
@@ -2079,13 +2161,7 @@
         }
         
         window.addEventListener('beforeunload', () => {
-            createdObjectURLs.forEach(url => { 
-                try { URL.revokeObjectURL(url); } catch (e) {} 
-            });
-            
-            if (activeAudioContext) { 
-                try { activeAudioContext.close(); } catch (e) {} 
-            }
+            cleanupMemory();
             
             waveWindows.forEach(w => { 
                 if (w.audioElement) { 
@@ -2095,6 +2171,20 @@
                     } catch (e) {} 
                 } 
             });
+        });
+        
+        // Обработка ошибок памяти
+        window.addEventListener('error', (e) => {
+            if (e.error && (
+                e.error.message.includes('memory') || 
+                e.error.message.includes('allocation') ||
+                e.error.message.includes('AudioContext')
+            )) {
+                cleanupMemory();
+                document.getElementById('memory-warning').style.display = 'block';
+                memoryWarningShown = true;
+                showNotification('Memory error detected. Try processing fewer files.', 'error');
+            }
         });
     </script>
 </body>
