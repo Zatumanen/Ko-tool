@@ -6,14 +6,20 @@
     <title>SpeedUpperCut</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14' font-size='14'>🎵</text></svg>'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <style>
         :root {
+            --glow-color: #ff3333; 
             --primary-blue: #000080; 
             --win-gray: #c0c0c0; 
             --win-light: #fff; 
             --win-dark: #808080;
+            --success-color: #4caf50; 
+            --error-color: #f44336; 
+            --warning-color: #ff9800; 
+            --info-color: #2196f3;
         }
         
         body { 
@@ -26,6 +32,99 @@
             align-items: flex-start; 
             min-height: 100vh; 
             overflow-x: hidden; 
+            touch-action: manipulation;
+            background-image: radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0),
+                            radial-gradient(circle at 1px 1px, var(--win-dark) 1px, transparent 0); 
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px; 
+        }
+        
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        
+        .crt-scanlines {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.03) 50%, rgba(0,0,0,0.1) 50%);
+            background-size: 100% 4px;
+            opacity: 0.2;
+        }
+        
+        .crt-flicker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            animation: flicker 0.15s infinite;
+            opacity: 0.02;
+        }
+        
+        .crt-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 60px rgba(0,0,128,0.4);
+        }
+        
+        .crt-vignette {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 80px rgba(0,0,0,0.8);
+        }
+        
+        .crt-curvature {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            box-shadow: 0 0 0 10px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        
+        .crt-curvature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            border-radius: 10px;
+        }
+        
+        @keyframes flicker {
+            0% { opacity: 0.01; } 5% { opacity: 0.03; } 10% { opacity: 0.02; } 15% { opacity: 0.04; } 
+            20% { opacity: 0.01; } 25% { opacity: 0.03; } 30% { opacity: 0.02; } 35% { opacity: 0.04; } 
+            40% { opacity: 0.02; } 45% { opacity: 0.03; } 50% { opacity: 0.01; } 55% { opacity: 0.03; } 
+            60% { opacity: 0.02; } 65% { opacity: 0.04; } 70% { opacity: 0.02; } 75% { opacity: 0.03; } 
+            80% { opacity: 0.01; } 85% { opacity: 0.03; } 90% { opacity: 0.02; } 95% { opacity: 0.04; } 
+            100% { opacity: 0.01; }
+        }
+        
+        .desktop-icon { 
+            position: absolute; 
+            width: 80px; 
+            text-align: center; 
+            color: white; 
+            text-shadow: 1px 1px 1px black;
+            cursor: pointer; 
+            padding: 4px; 
+            user-select: none; 
+            transition: transform 0.2s; 
+        }
+        
+        .desktop-icon:hover { 
+            background: rgba(255,255,255,0.2); 
+            transform: scale(1.05); 
         }
         
         .window { 
@@ -76,6 +175,13 @@
             border-bottom-color: var(--win-dark); 
         }
         
+        .title-bar button:active { 
+            border-top-color: var(--win-dark); 
+            border-left-color: var(--win-dark);
+            border-right-color: var(--win-light); 
+            border-bottom-color: var(--win-light); 
+        }
+        
         .content { 
             padding: 12px; 
             font-size: 14px; 
@@ -97,6 +203,7 @@
         
         .drop-zone.dragover { 
             background: rgba(0,128,0,0.3); 
+            animation: pulse 1.5s infinite; 
         }
         
         .drop-zone input[type="file"] { 
@@ -107,6 +214,41 @@
             cursor: pointer; 
             top: 0; 
             left: 0; 
+        }
+        
+        .drop-zone span { 
+            pointer-events: none; 
+            font-size: 16px; 
+            display: block; 
+            margin-top: 10px; 
+        }
+        
+        #file-info { 
+            margin-top: 10px; 
+            font-size: 14px; 
+            text-align: left; 
+            background: #fff; 
+            border: 2px inset var(--win-dark);
+            padding: 10px; 
+            max-height: 200px; 
+            overflow-y: auto; 
+        }
+        
+        button { 
+            min-height: 44px; 
+            padding: 10px; 
+            cursor: pointer; 
+            font-family: 'Courier New', monospace; 
+            font-size: 16px;
+            border: 2px outset var(--win-gray); 
+            background: var(--win-gray); 
+            color: #000; 
+            transition: transform 0.1s; 
+        }
+        
+        button:active { 
+            border-style: inset; 
+            transform: scale(0.98); 
         }
         
         #overlay { 
@@ -146,33 +288,40 @@
             margin-top: 8px;
             position: relative; 
             overflow: hidden; 
+            display: flex;
+            align-items: center;
+            padding: 2px;
         }
         
-        .progress-bar-win98 {
+        .progress-segments {
+            display: flex;
+            width: 100%;
             height: 100%;
-            background: repeating-linear-gradient(
-                90deg,
-                #000080 0px,
-                #000080 8px,
-                transparent 8px,
-                transparent 16px
-            );
-            width: 0%;
-            transition: width 0.3s ease;
+            gap: 1px;
+        }
+        
+        .progress-segment {
+            flex: 1;
+            background: var(--win-gray);
+            border: 1px outset var(--win-gray);
+        }
+        
+        .progress-segment.active {
+            background: var(--primary-blue);
+            border: 1px inset var(--win-dark);
         }
         
         .progress-text { 
             position: absolute; 
             top: 0; 
-            left: 0; 
-            width: 100%; 
+            right: 8px;
             height: 100%; 
             display: flex; 
             align-items: center;
-            justify-content: center; 
             font-size: 12px; 
             color: #000; 
             z-index: 2; 
+            font-weight: bold;
         }
         
         .win95-inset { 
@@ -201,6 +350,7 @@
         .list-item:hover, .list-item.selected { 
             background: var(--primary-blue); 
             color: white; 
+            transition: background 0.2s ease; 
         }
         
         .wave-container { 
@@ -209,6 +359,15 @@
             padding: 10px; 
             background: #e0e0e0; 
             position: relative; 
+        }
+        
+        .wave-title { 
+            font-family: 'Courier New', monospace; 
+            font-size: 14px; 
+            margin-bottom: 6px; 
+            word-break: break-word;
+            font-weight: bold; 
+            text-align: center; 
         }
         
         .wave-element-container { 
@@ -236,11 +395,93 @@
             min-width: 80px; 
         }
         
+        .wave-button:active { 
+            border-style: inset; 
+            transform: scale(0.98); 
+        }
+        
+        .render-error, .file-error, .memory-warning, .mobile-warning, .format-warning { 
+            padding: 8px; 
+            margin: 8px 0; 
+            border-radius: 2px;
+            font-size: 13px; 
+        }
+        
+        .render-error, .file-error { 
+            color: var(--error-color); 
+            background-color: #ffe6e6; 
+            border: 1px solid var(--error-color); 
+        }
+        
+        .memory-warning { 
+            color: var(--warning-color); 
+            background-color: #fff3e0; 
+            border: 1px solid var(--warning-color); 
+            display: none; 
+        }
+        
+        .mobile-warning { 
+            color: var(--info-color); 
+            background-color: #bbdefb; 
+            border: 1px solid var(--info-color); 
+            display: none; 
+        }
+        
+        .format-warning { 
+            color: var(--warning-color); 
+            background-color: #fff3e0; 
+            border: 1px solid var(--warning-color); 
+        }
+        
+        .info-panel { 
+            background: #fff; 
+            border: 2px inset var(--win-dark); 
+            padding: 10px; 
+            margin-top: 10px; 
+            font-size: 13px;
+            max-height: 150px; 
+            overflow-y: auto; 
+        }
+        
+        .trim-control { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            margin-top: 10px; 
+            margin-bottom: 10px; 
+        }
+        
+        .wave-window { 
+            position: absolute; 
+            width: 500px; 
+            background: var(--win-gray); 
+            border: 2px solid; 
+            z-index: 101; 
+            top: 100px; 
+            left: 100px;
+            border-top-color: var(--win-light); 
+            border-left-color: var(--win-light); 
+            border-right-color: var(--win-dark);
+            border-bottom-color: var(--win-dark); 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
         .preview-controls { 
             display: flex; 
             gap: 10px; 
             justify-content: center; 
             margin-top: 10px; 
+        }
+        
+        .wave-element-container:empty::after { 
+            content: "Loading..."; 
+            color: var(--win-dark); 
+            position: absolute;
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%,-50%); 
         }
         
         .notification { 
@@ -262,11 +503,27 @@
             transform: translateX(0); 
         }
         
+        .notification.success { 
+            background: var(--success-color); 
+        }
+        
+        .notification.error { 
+            background: var(--error-color); 
+        }
+        
+        .notification.warning { 
+            background: var(--warning-color); 
+        }
+        
         .progress-info { 
             display: flex; 
             justify-content: space-between; 
             font-size: 12px; 
             margin-top: 4px; 
+        }
+        
+        .active-window { 
+            box-shadow: 0 0 0 2px var(--primary-blue); 
         }
         
         .info-tabs { 
@@ -312,12 +569,27 @@
             z-index: 90; 
         }
         
+        .start-button { 
+            padding: 4px 8px; 
+            background: var(--win-gray); 
+            border: 2px outset var(--win-gray); 
+            font-weight: bold; 
+            cursor: pointer;
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+        }
+        
         .status-bar { 
             margin-left: auto; 
             padding: 0 8px; 
             font-size: 14px; 
             flex-grow: 1; 
             text-align: right; 
+        }
+        
+        .window-controls { 
+            display: flex; 
         }
         
         .button-group { 
@@ -342,25 +614,86 @@
             cursor: pointer; 
         }
         
-        .wave-window { 
-            position: absolute; 
-            width: 500px; 
-            background: var(--win-gray); 
-            border: 2px solid; 
-            z-index: 101; 
-            top: 100px; 
-            left: 100px;
-            border-top-color: var(--win-light); 
-            border-left-color: var(--win-light); 
-            border-right-color: var(--win-dark);
-            border-bottom-color: var(--win-dark); 
-            box-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
-            padding: 0; 
-            box-sizing: border-box; 
+        #cancel-button:active { 
+            border-style: inset; 
+        }
+        
+        .supported-formats { 
+            margin-top: 8px; 
+            font-size: 12px; 
+            color: #666; 
+        }
+        
+        .processing { 
+            animation: pulse 1.5s infinite; 
+        }
+        
+        .wave-window.minimized { 
+            height: 36px; 
+            overflow: hidden; 
+        }
+        
+        .wave-window.minimized .content { 
+            display: none; 
+        }
+        
+        .wave-window.minimized .minimize i { 
+            transform: rotate(180deg); 
+        }
+        
+        .window.minimized {
+            height: 36px;
+            overflow: hidden;
+        }
+        
+        .window.minimized .content {
+            display: none;
+        }
+        
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(0,200,0,0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(0,200,0,0); } 
+            100% { box-shadow: 0 0 0 0 rgba(0,200,0,0); } 
+        }
+        
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); }
+            .wave-element-container { height: 100px !important; }
+            .desktop-icon { transform: scale(1.3); top: 10px !important; left: 5px !important; }
+            .win95-list { height: 80px; }
+            .list-item { padding: 6px 4px; font-size: 12px; }
+            .wave-window { width: 90vw; left: 5vw; top: 20px; }
+            .preview-controls { flex-direction: column; align-items: center; }
+            .wave-button { min-width: 150px; }
+            button { min-height: 54px; font-size: 18px; }
+            .crt-scanlines { opacity: 0.1; }
+            .crt-flicker { animation: flicker 0.3s infinite; opacity: 0.01; }
+            .crt-glow { box-shadow: inset 0 0 30px rgba(0,0,128,0.3); }
+            .crt-vignette { box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
+            .progress-bar-container { height: 32px; }
+            .progress-text { font-size: 14px; font-weight: bold; }
+        }
+        
+        @media (max-width: 768px) and (orientation: landscape) { 
+            .wave-element-container { height: 80px !important; } 
         }
     </style>
 </head>
 <body>
+    <div class="crt-overlay">
+        <div class="crt-curvature"></div>
+        <div class="crt-scanlines"></div>
+        <div class="crt-flicker"></div>
+        <div class="crt-glow"></div>
+        <div class="crt-vignette"></div>
+    </div>
+
+    <div class="desktop-icon" style="top:20px;left:30px" onclick="openMainWindow()">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
+        <div>KO II Tool</div>
+    </div>
+    
     <div class="window" id="main-window">
         <div class="title-bar" id="main-title-bar">
             <span>SpeedUpperCut</span>
@@ -370,6 +703,18 @@
             </div>
         </div>
         <div class="content">
+            <div class="memory-warning" id="memory-warning">
+                <i class="fas fa-exclamation-triangle"></i> Processing large files may use significant memory. Close other tabs.
+            </div>
+            
+            <div class="mobile-warning" id="mobile-warning">
+                <i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use small files for best results.
+            </div>
+            
+            <div class="format-warning">
+                <i class="fas fa-info-circle"></i> Files will be saved in their original format (MP3, WAV, etc.)
+            </div>
+            
             <div style="display:flex;gap:8px;margin-bottom:10px">
                 <div class="win95-inset" style="flex:1">
                     <label>FIDELITY</label><br>
@@ -417,6 +762,11 @@
                 
                 <div id="log-tab" class="tab-content active">
                     <div>Drop or select audio files/folders to process</div>
+                    <div>Files will be sped up 2x to save space</div>
+                    <div>Auto-trim removes silence at start and end</div>
+                    <div>Folder structure will be preserved in output</div>
+                    <div>Files will be saved in their original format</div>
+                    <div>KO II will convert files during import</div>
                 </div>
                 
                 <div id="errors-tab" class="tab-content">
@@ -435,7 +785,8 @@
             <div id="processing-title">Processing Audio Files...</div>
             
             <div class="progress-bar-container">
-                <div class="progress-bar-win98" id="progress-fill"></div>
+                <div class="progress-segments" id="progress-segments">
+                </div>
                 <div class="progress-text" id="progress-text">0%</div>
             </div>
             
@@ -463,16 +814,21 @@
     <script>
         let activeAudioContext = null;
         let createdObjectURLs = [];
+        let dragCounter = 0;
         let processingCancelled = false;
         let currentProcessing = null;
+        let lastProgress = 0;
         let windowZIndex = 100;
         let waveWindows = [];
+        let audioContextResumed = false;
+        let memoryWarningShown = false;
         let processingStartTime = 0;
         let progressInterval = null;
         let userInteracted = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
+        const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
         document.addEventListener('DOMContentLoaded', initApp);
@@ -483,12 +839,51 @@
             setupListSelectors();
             setupTabNavigation();
             setupEventListeners();
+            setupNetworkEvents();
+            checkBrowserSupport();
+            setupProgressBar();
             
             document.addEventListener('click', () => {
                 userInteracted = true;
+                activateAudio();
             });
             
+            if (isMobile()) {
+                document.getElementById('mobile-warning').style.display = 'block';
+            }
+            
             updateStatus("Ready to process files");
+            
+            if (localStorage.getItem('firstVisit') === null) {
+                showNotification('Drag audio files here or use buttons above');
+                localStorage.setItem('firstVisit', '1');
+            }
+        }
+        
+        function setupProgressBar() {
+            const segmentsContainer = document.getElementById('progress-segments');
+            segmentsContainer.innerHTML = '';
+            
+            for (let i = 0; i < 20; i++) {
+                const segment = document.createElement('div');
+                segment.className = 'progress-segment';
+                segmentsContainer.appendChild(segment);
+            }
+        }
+        
+        function updateProgressBar(percent) {
+            const segments = document.querySelectorAll('.progress-segment');
+            const activeSegments = Math.floor(percent / 5);
+            
+            segments.forEach((segment, index) => {
+                if (index < activeSegments) {
+                    segment.classList.add('active');
+                } else {
+                    segment.classList.remove('active');
+                }
+            });
+            
+            document.getElementById('progress-text').textContent = `${Math.round(percent)}%`;
         }
         
         function setupWindowDrag() {
@@ -498,6 +893,7 @@
             let dragOffset = { x: 0, y: 0 };
             
             titleBar.addEventListener('mousedown', startDrag);
+            titleBar.addEventListener('touchstart', startDragTouch);
             
             function startDrag(e) {
                 isDragging = true;
@@ -508,16 +904,35 @@
                 e.preventDefault();
             }
             
+            function startDragTouch(e) {
+                isDragging = true;
+                const touch = e.touches[0];
+                dragOffset.x = touch.clientX - window.offsetLeft;
+                dragOffset.y = touch.clientY - window.offsetTop;
+                document.addEventListener('touchmove', dragTouch);
+                document.addEventListener('touchend', stopDrag);
+                e.preventDefault();
+            }
+            
             function drag(e) {
                 if (!isDragging) return;
                 window.style.left = (e.clientX - dragOffset.x) + 'px';
                 window.style.top = (e.clientY - dragOffset.y) + 'px';
             }
             
+            function dragTouch(e) {
+                if (!isDragging) return;
+                const touch = e.touches[0];
+                window.style.left = (touch.clientX - dragOffset.x) + 'px';
+                window.style.top = (touch.clientY - dragOffset.y) + 'px';
+            }
+            
             function stopDrag() {
                 isDragging = false;
                 document.removeEventListener('mousemove', drag);
                 document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchmove', dragTouch);
+                document.removeEventListener('touchend', stopDrag);
             }
         }
         
@@ -532,6 +947,14 @@
             closeBtn.addEventListener('click', () => {
                 document.getElementById('main-window').style.display = 'none';
             });
+        }
+        
+        function openMainWindow() {
+            const window = document.getElementById('main-window');
+            window.style.display = 'block';
+            window.classList.remove('minimized');
+            window.style.left = '50px';
+            window.style.top = '50px';
         }
         
         function setupListSelectors() {
@@ -562,6 +985,31 @@
             });
         }
         
+        function setupNetworkEvents() {
+            window.addEventListener('online', () => {
+                showNotification('Connection restored', 'success');
+            });
+
+            window.addEventListener('offline', () => {
+                showNotification('Working offline - some features may be limited', 'warning');
+            });
+        }
+        
+        function checkBrowserSupport() {
+            const support = {
+                audioContext: !!(window.AudioContext || window.webkitAudioContext),
+                offlineContext: !!(window.OfflineAudioContext || window.webkitOfflineAudioContext),
+                fileSystem: !!window.showDirectoryPicker
+            };
+            
+            if (!support.audioContext) {
+                showNotification('Your browser does not support Web Audio API', 'error');
+                addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
+            }
+            
+            return support;
+        }
+        
         function setupEventListeners() {
             const dropZone = document.getElementById('drop-zone');
             const fileInput = document.getElementById('audio-upload');
@@ -579,78 +1027,148 @@
             selectFileButton.addEventListener('click', () => {
                 fileInput.click();
                 userInteracted = true;
+                activateAudio();
             });
             
             selectFolderButton.addEventListener('click', () => {
+                if (!isFolderSelectionSupported()) {
+                    showNotification('Folder selection is not supported in this browser', 'warning');
+                    return;
+                }
                 folderInput.click();
                 userInteracted = true;
+                activateAudio();
             });
             
             fileInput.addEventListener('change', async e => {
+                updateStatus(`Files selected: ${e.target.files.length}`);
+                addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
                 await ensureAudioContext();
                 processFiles(e.target.files);
                 e.target.value = '';
             });
             
             folderInput.addEventListener('change', async e => {
+                updateStatus(`Folder selected with ${e.target.files.length} files`);
+                addToLog(`Folder selected. Processing...`);
                 await ensureAudioContext();
                 processFiles(e.target.files);
                 e.target.value = '';
             });
             
             clearButton.addEventListener('click', () => {
-                document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div>';
+                document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
                 document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
                 document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
                 updateStatus("File list cleared");
+                showNotification('File list cleared', 'info');
             });
             
             cancelButton.addEventListener('click', cancelProcessing);
+            
             stopAllButton.addEventListener('click', stopAllPlayback);
+            
+            ['#select-file-button', '#select-folder-button', '.wave-button', '#drop-zone'].forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => {
+                    el.addEventListener('click', () => {
+                        userInteracted = true;
+                        activateAudio();
+                    });
+                });
+            });
         }
         
         async function ensureAudioContext() {
             if (!activeAudioContext) {
-                try {
-                    const ContextClass = window.AudioContext || window.webkitAudioContext;
-                    activeAudioContext = new ContextClass();
-                } catch (e) {
-                    return null;
-                }
+                if (!initAudioContext()) throw new Error("AudioContext initialization failed");
             }
             if (activeAudioContext.state === 'suspended') {
                 try {
                     await activeAudioContext.resume();
+                    audioContextResumed = true;
                 } catch (e) {
+                    console.error("Failed to resume AudioContext:", e);
                     return false;
                 }
             }
             return true;
         }
         
+        function initAudioContext() {
+            try {
+                const ContextClass = window.AudioContext || window.webkitAudioContext;
+                activeAudioContext = new ContextClass();
+                return activeAudioContext;
+            } catch (e) {
+                addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`, 'errors');
+                return null;
+            }
+        }
+        
+        function activateAudio() {
+            if (!userInteracted) return;
+            
+            if (!audioContextResumed && activeAudioContext) {
+                try {
+                    if (activeAudioContext.state === 'suspended') {
+                        activeAudioContext.resume().then(() => {
+                            audioContextResumed = true;
+                        }).catch(e => {
+                            console.error("Failed to resume AudioContext:", e);
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error activating audio:", e);
+                }
+            }
+        }
+        
         function handleDragOver(e) {
             e.preventDefault();
+            dragCounter++;
             document.getElementById('drop-zone').classList.add('dragover');
         }
         
         function handleDragLeave() {
-            document.getElementById('drop-zone').classList.remove('dragover');
+            dragCounter--;
+            if (dragCounter <= 0) {
+                document.getElementById('drop-zone').classList.remove('dragover');
+            }
         }
         
         function handleDrop(e) {
             e.preventDefault();
+            dragCounter = 0;
             document.getElementById('drop-zone').classList.remove('dragover');
-            const files = Array.from(e.dataTransfer.files);
-            if (files.length > 0) {
-                userInteracted = true;
-                processFiles(files);
+            
+            const items = [];
+            if (e.dataTransfer.items) {
+                for (const item of e.dataTransfer.items) {
+                    if (item.kind === 'file') {
+                        const file = item.getAsFile();
+                        if (file) items.push({ file, path: file.name });
+                    }
+                }
+            } else if (e.dataTransfer.files.length > 0) {
+                for (const file of e.dataTransfer.files) {
+                    items.push({ file, path: file.name });
+                }
             }
+            
+            if (items.length > 0) {
+                userInteracted = true;
+                processFiles(items.map(item => item.file));
+            }
+        }
+        
+        function isFolderSelectionSupported() {
+            return 'webkitdirectory' in document.createElement('input');
         }
         
         function validateFile(file) {
             if (!file) throw new Error('No file');
             if (file.size === 0) throw new Error(`Empty file: ${file.name}`);
-            if (file.size > MAX_FILE_SIZE) throw new Error(`File too large: ${file.name}`);
+            if (file.size > MAX_FILE_SIZE) throw new Error(`File too large: ${file.name} (${formatBytes(file.size)})`);
             
             const ext = (file.name.split('.').pop() || '').toLowerCase();
             if (!SUPPORTED_FORMATS.includes(ext)) {
@@ -671,11 +1189,19 @@
                     validateFile(item.file);
                     validatedItems.push(item);
                 } catch (error) {
-                    addToLog(`${error.message}`, 'errors');
+                    addToLog(`<div class="file-error">${error.message}</div>`, 'errors');
                 }
             }
             
-            if (validatedItems.length === 0) return;
+            if (validatedItems.length === 0) {
+                showNotification('No valid files to process', 'warning');
+                return;
+            }
+            
+            if (validatedItems.length > MAX_TOTAL_FILES) {
+                showNotification(`Too many files (max ${MAX_TOTAL_FILES})`, 'error');
+                return;
+            }
             
             await processItems(validatedItems);
         }
@@ -683,20 +1209,25 @@
         async function processItems(items) {
             processingCancelled = false;
             showOverlay(items.length);
-            addToLog(`Processing ${items.length} items`);
+            addToLog(`Processing started with ${items.length} items`);
             
             const zip = new JSZip();
             let processedCount = 0;
+            let errorCount = 0;
             
             currentProcessing = { 
                 cancel: () => {
                     processingCancelled = true;
+                    cleanupMemory();
                 }
             };
             
             try {
                 for (let i = 0; i < items.length; i++) {
-                    if (processingCancelled) break;
+                    if (processingCancelled) {
+                        addToLog("Processing cancelled by user");
+                        break;
+                    }
                     
                     updateProgress(i, items.length, `Processing: ${items[i].file.name}`);
                     
@@ -705,9 +1236,12 @@
                         if (result) {
                             zip.file(result.fileName, result.blob);
                             processedCount++;
+                        } else {
+                            errorCount++;
                         }
                     } catch (error) {
-                        addToLog(`Error processing ${items[i].file.name}: ${error.message}`, 'errors');
+                        errorCount++;
+                        addToLog(`<div class="file-error">Error processing ${items[i].file.name}: ${error.message}</div>`, 'errors');
                     }
                     
                     await new Promise(resolve => setTimeout(resolve, 10));
@@ -715,6 +1249,7 @@
                 
                 if (!processingCancelled && processedCount > 0) {
                     addToLog('Creating ZIP archive...');
+                    updateProgress(items.length, items.length, 'Creating ZIP archive...');
                     
                     const zipBlob = await zip.generateAsync({
                         type: "blob",
@@ -735,13 +1270,18 @@
                         safeRevoke(url);
                     }, 5000);
                     
-                    showNotification(`Processed ${processedCount} files!`);
-                    addToLog(`Processed ${processedCount} files`, 'stats');
+                    showNotification(`Processed ${processedCount} files!`, 'success');
+                    addToLog(`<div><b>Successfully processed ${processedCount} files</b></div>`, 'stats');
+                    if (errorCount > 0) {
+                        addToLog(`<div>${errorCount} files had errors</div>`, 'stats');
+                    }
                 }
             } catch (error) {
-                addToLog(`Processing error: ${error.message}`, 'errors');
+                addToLog(`<div class="file-error">Processing error: ${error.message}</div>`, 'errors');
+                showNotification('Processing failed', 'error');
             } finally {
                 hideOverlay();
+                cleanupMemory();
                 currentProcessing = null;
             }
         }
@@ -759,6 +1299,8 @@
                 
                 const audioBuffer = await decodeAudioData(arrayBuffer);
                 if (!audioBuffer) throw new Error('Failed to decode audio');
+                
+                if (processingCancelled) return null;
                 
                 const fidelity = getSelectedValue('fidelity');
                 const channels = getSelectedValue('channels');
@@ -791,7 +1333,7 @@
                 return { fileName: newName, blob: outputBlob };
                 
             } catch (error) {
-                addToLog(`Failed to process ${file.name}: ${error.message}`, 'errors');
+                addToLog(`<div class="file-error">Failed to process ${file.name}: ${error.message}</div>`, 'errors');
                 return null;
             }
         }
@@ -900,6 +1442,7 @@
             const filter = ctx.createBiquadFilter();
             filter.type = 'lowpass';
             filter.frequency.value = 4000;
+            filter.Q.value = 1;
             
             source.connect(filter);
             filter.connect(ctx.destination);
@@ -1073,7 +1616,7 @@
             
             windowElement.innerHTML = `
                 <div class="title-bar">
-                    <span>${title}</span>
+                    <span>${escapeHtml(title)}</span>
                     <div class="window-controls">
                         <button class="minimize" title="Minimize">_</button>
                         <button class="close" title="Close">×</button>
@@ -1081,7 +1624,7 @@
                 </div>
                 <div class="content">
                     <div class="wave-container">
-                        <div class="wave-title">${title}</div>
+                        <div class="wave-title">${escapeHtml(title)}</div>
                         <div class="wave-element-container">
                             <canvas class="wave-element" width="480" height="128"></canvas>
                         </div>
@@ -1111,13 +1654,18 @@
             
             function handlePlay() {
                 if (!userInteracted) {
-                    userInteracted = true;
+                    showNotification('Please click anywhere on the page first to enable audio', 'warning');
+                    return;
                 }
+                
+                activateAudio();
+                
                 audioElement.play().then(() => {
                     playBtn.style.display = 'none';
                     pauseBtn.style.display = 'inline-block';
                 }).catch(e => {
                     console.error('Playback failed:', e);
+                    showNotification('Playback failed. Please try again.', 'error');
                 });
             }
             
@@ -1258,8 +1806,7 @@
         
         function updateProgress(current, total, message) {
             const percent = total > 0 ? (current / total) * 100 : 0;
-            document.getElementById('progress-fill').style.width = `${percent}%`;
-            document.getElementById('progress-text').textContent = `${Math.round(percent)}%`;
+            updateProgressBar(percent);
             document.getElementById('file-count').textContent = `File: ${current}/${total}`;
             document.getElementById('current-file').textContent = message;
         }
@@ -1271,6 +1818,7 @@
             }
             hideOverlay();
             updateStatus("Processing cancelled");
+            showNotification('Processing cancelled', 'warning');
         }
         
         function stopAllPlayback() {
@@ -1301,9 +1849,9 @@
             }
         }
         
-        function showNotification(message) {
+        function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
-            notification.className = `notification`;
+            notification.className = `notification ${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
             
@@ -1325,6 +1873,23 @@
             }
         }
         
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
         function safeRevoke(url) {
             try {
                 URL.revokeObjectURL(url);
@@ -1333,8 +1898,30 @@
                     createdObjectURLs.splice(index, 1);
                 }
             } catch (e) {
+                console.warn('Failed to revoke URL:', e);
             }
         }
+        
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        function cleanupMemory() {
+            createdObjectURLs.forEach(url => safeRevoke(url));
+            createdObjectURLs = [];
+            
+            if (activeAudioContext) {
+                try {
+                    activeAudioContext.close();
+                } catch (e) {
+                }
+                activeAudioContext = null;
+                audioContextResumed = false;
+            }
+        }
+        
+        window.addEventListener('beforeunload', cleanupMemory);
+        window.addEventListener('pagehide', cleanupMemory);
     </script>
 </body>
 </html>
