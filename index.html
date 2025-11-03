@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14' font-size='14'>🎵</text></svg>'>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <style>
         :root {
             --glow-color: #ff3333; 
@@ -810,31 +812,6 @@
     </div>
 
     <script>
-        // Загружаем необходимые библиотеки динамически
-        function loadScript(src) {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-
-        // Инициализация библиотек
-        async function initializeLibraries() {
-            try {
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-                await loadScript('https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js');
-                console.log('All libraries loaded successfully');
-                return true;
-            } catch (error) {
-                console.error('Failed to load libraries:', error);
-                showNotification('Failed to load required libraries. Please refresh the page.', 'error');
-                return false;
-            }
-        }
-
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -848,7 +825,6 @@
         let processingStartTime = 0;
         let progressInterval = null;
         let userInteracted = false;
-        let librariesLoaded = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -857,13 +833,7 @@
         
         document.addEventListener('DOMContentLoaded', initApp);
         
-        async function initApp() {
-            // Загружаем библиотеки сначала
-            librariesLoaded = await initializeLibraries();
-            if (!librariesLoaded) {
-                return;
-            }
-            
+        function initApp() {
             setupWindowDrag();
             setupWindowControls();
             setupListSelectors();
@@ -1055,20 +1025,12 @@
             dropZone.addEventListener('drop', handleDrop);
             
             selectFileButton.addEventListener('click', () => {
-                if (!librariesLoaded) {
-                    showNotification('Libraries still loading, please wait...', 'warning');
-                    return;
-                }
                 fileInput.click();
                 userInteracted = true;
                 activateAudio();
             });
             
             selectFolderButton.addEventListener('click', () => {
-                if (!librariesLoaded) {
-                    showNotification('Libraries still loading, please wait...', 'warning');
-                    return;
-                }
                 if (!isFolderSelectionSupported()) {
                     showNotification('Folder selection is not supported in this browser', 'warning');
                     return;
@@ -1079,10 +1041,6 @@
             });
             
             fileInput.addEventListener('change', async e => {
-                if (!librariesLoaded) {
-                    showNotification('Libraries still loading, please wait...', 'warning');
-                    return;
-                }
                 updateStatus(`Files selected: ${e.target.files.length}`);
                 addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
                 await ensureAudioContext();
@@ -1091,10 +1049,6 @@
             });
             
             folderInput.addEventListener('change', async e => {
-                if (!librariesLoaded) {
-                    showNotification('Libraries still loading, please wait...', 'warning');
-                    return;
-                }
                 updateStatus(`Folder selected with ${e.target.files.length} files`);
                 addToLog(`Folder selected. Processing...`);
                 await ensureAudioContext();
@@ -1202,10 +1156,6 @@
             }
             
             if (items.length > 0) {
-                if (!librariesLoaded) {
-                    showNotification('Libraries still loading, please wait...', 'warning');
-                    return;
-                }
                 userInteracted = true;
                 processFiles(items.map(item => item.file));
             }
@@ -1263,7 +1213,7 @@
             
             // Проверяем, что JSZip доступен
             if (typeof JSZip === 'undefined') {
-                addToLog('<div class="file-error">JSZip library not available</div>', 'errors');
+                addToLog('<div class="file-error">JSZip library not available. Please refresh the page.</div>', 'errors');
                 showNotification('JSZip library not available', 'error');
                 hideOverlay();
                 return;
