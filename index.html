@@ -6,6 +6,7 @@
     <title>SpeedUpperCut</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14' font-size='14'>🎵</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <style>
@@ -648,10 +649,12 @@
             .crt-flicker { animation: flicker 0.3s infinite; opacity: 0.01; }
             .crt-glow { box-shadow: inset 0 0 30px rgba(0,0,128,0.3); }
             .crt-vignette { box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
+            .progress-bar-container { height: 32px; }
+            .progress-text { font-size: 14px; font-weight: bold; }
         }
         
         @media (max-width: 768px) and (orientation: landscape) { 
-            .wave-element-container { height: 100px !important; } 
+            .wave-element-container { height: 80px !important; } 
         }
     </style>
 </head>
@@ -810,7 +813,8 @@
         document.addEventListener('DOMContentLoaded', initApp);
         
         function initApp() {
-            if (!window.AudioContext && !window.webkitAudioContext) {
+            const browserSupport = checkBrowserSupport();
+            if (!browserSupport.audioContext) {
                 showNotification('Your browser does not support Web Audio API. Some features may be unavailable.', 'error');
                 addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
                 return;
@@ -827,12 +831,38 @@
             checkMemoryAndWarn();
             setupEventListeners();
             setupTabNavigation();
+            setupNetworkEvents();
             updateStatus("Ready to process files");
             
             if (localStorage.getItem('firstVisit') === null) {
                 showNotification('Drag audio files here or use buttons above');
                 localStorage.setItem('firstVisit', '1');
             }
+        }
+        
+        function checkBrowserSupport() {
+            const support = {
+                audioContext: !!(window.AudioContext || window.webkitAudioContext),
+                offlineContext: !!(window.OfflineAudioContext || window.webkitOfflineAudioContext),
+                webWorkers: !!window.Worker,
+                fileSystem: !!window.showDirectoryPicker
+            };
+            
+            if (!support.audioContext) {
+                showNotification('Your browser does not support Web Audio API', 'error');
+            }
+            
+            return support;
+        }
+        
+        function setupNetworkEvents() {
+            window.addEventListener('online', () => {
+                showNotification('Connection restored', 'success');
+            });
+
+            window.addEventListener('offline', () => {
+                showNotification('Working offline - some features may be limited', 'warning');
+            });
         }
         
         function setupTabNavigation() {
@@ -1308,6 +1338,11 @@
             try {
                 updateStatus(`Processing: ${item.path}`);
                 addToLog(`Processing: ${escapeHtml(item.path)}`);
+                
+                // Предупреждение о больших файлах
+                if (file.size > 10 * 1024 * 1024) {
+                    addToLog(`<div class="format-warning">Large file detected: ${file.name} (${formatBytes(file.size)}) - Processing may take longer</div>`);
+                }
                 
                 if (!isSupportedAudioType(file.type, file.name)) {
                     throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
@@ -2084,38 +2119,47 @@
             }
             
             encode(audioBuffer) {
-                const [left, right] = this.getAudioData(audioBuffer);
-                const sampleBlockSize = 1152;
-                const leftSamples = new Int16Array(sampleBlockSize);
-                const rightSamples = new Int16Array(sampleBlockSize);
-                const mp3Data = [];
-                
-                for (let i = 0; i < left.length; i += sampleBlockSize) {
-                    const leftChunk = left.subarray(i, i + sampleBlockSize);
-                    const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
-                    
-                    for (let j = 0; j < leftChunk.length; j++) {
-                        const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
-                        leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
-                        
-                        if (this.channels > 1) {
-                            const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
-                            rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
-                        }
+                try {
+                    if (typeof lamejs === 'undefined') {
+                        throw new Error('LameJS not loaded');
                     }
                     
-                    const mp3buf = this.lame.encodeBuffer(
-                        leftSamples.subarray(0, leftChunk.length), 
-                        this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
-                    );
+                    const [left, right] = this.getAudioData(audioBuffer);
+                    const sampleBlockSize = 1152;
+                    const leftSamples = new Int16Array(sampleBlockSize);
+                    const rightSamples = new Int16Array(sampleBlockSize);
+                    const mp3Data = [];
                     
-                    if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
+                    for (let i = 0; i < left.length; i += sampleBlockSize) {
+                        const leftChunk = left.subarray(i, i + sampleBlockSize);
+                        const rightChunk = this.channels > 1 ? right.subarray(i, i + sampleBlockSize) : leftChunk;
+                        
+                        for (let j = 0; j < leftChunk.length; j++) {
+                            const sampleLeft = Math.max(-1, Math.min(1, leftChunk[j]));
+                            leftSamples[j] = sampleLeft < 0 ? sampleLeft * 32768 : sampleLeft * 32767;
+                            
+                            if (this.channels > 1) {
+                                const sampleRight = Math.max(-1, Math.min(1, rightChunk[j]));
+                                rightSamples[j] = sampleRight < 0 ? sampleRight * 32768 : sampleRight * 32767;
+                            }
+                        }
+                        
+                        const mp3buf = this.lame.encodeBuffer(
+                            leftSamples.subarray(0, leftChunk.length), 
+                            this.channels > 1 ? rightSamples.subarray(0, leftChunk.length) : undefined
+                        );
+                        
+                        if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
+                    }
+                    
+                    const lastChunk = this.lame.flush();
+                    if (lastChunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
+                    
+                    return new Blob(mp3Data, { type: 'audio/mp3' });
+                } catch (error) {
+                    console.error('MP3 encoding error:', error);
+                    throw new Error(`MP3 encoding failed: ${error.message}`);
                 }
-                
-                const lastChunk = this.lame.flush();
-                if (lastChunk.length > 0) mp3Data.push(new Uint8Array(lastChunk));
-                
-                return new Blob(mp3Data, { type: 'audio/mp3' });
             }
             
             getAudioData(audioBuffer) {
