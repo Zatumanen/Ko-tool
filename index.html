@@ -6,7 +6,7 @@
     <title>SpeedUpperCut</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="24" y="40" width="16" height="16" fill="#e53935" stroke="black" stroke-width="2"/><rect x="26" y="44" width="12" height="4" fill="#b71c1c"/><polygon points="32,32 28,28 30,24 34,26 36,22 38,30" fill="orange" stroke="black" stroke-width="1"/></svg>'>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14' font-size='14'>🎵</text></svg>'>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14' font-size='14'>🎵</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <style>
@@ -288,40 +288,30 @@
             margin-top: 8px;
             position: relative; 
             overflow: hidden; 
-            display: flex;
-            align-items: center;
-            padding: 2px;
         }
         
-        .progress-segments {
-            display: flex;
-            width: 100%;
-            height: 100%;
-            gap: 1px;
-        }
-        
-        .progress-segment {
-            flex: 1;
-            background: var(--win-gray);
-            border: 1px outset var(--win-gray);
-        }
-        
-        .progress-segment.active {
-            background: var(--primary-blue);
-            border: 1px inset var(--win-dark);
+        .progress-fill { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            height: 100%; 
+            width: 0%; 
+            background: var(--primary-blue); 
+            transition: width 0.3s ease; 
         }
         
         .progress-text { 
             position: absolute; 
             top: 0; 
-            right: 8px;
+            left: 0; 
+            width: 100%; 
             height: 100%; 
             display: flex; 
             align-items: center;
+            justify-content: center; 
             font-size: 12px; 
             color: #000; 
             z-index: 2; 
-            font-weight: bold;
         }
         
         .win95-inset { 
@@ -785,8 +775,7 @@
             <div id="processing-title">Processing Audio Files...</div>
             
             <div class="progress-bar-container">
-                <div class="progress-segments" id="progress-segments">
-                </div>
+                <div class="progress-fill" id="progress-fill"></div>
                 <div class="progress-text" id="progress-text">0%</div>
             </div>
             
@@ -812,6 +801,7 @@
     </div>
 
     <script>
+        // Global state
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -824,13 +814,15 @@
         let memoryWarningShown = false;
         let processingStartTime = 0;
         let progressInterval = null;
-        let userInteracted = false;
+        let existingFileNames = new Set();
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
+        const PROCESSING_TIMEOUT = 30000; // 30 seconds per file
         
+        // Initialize app
         document.addEventListener('DOMContentLoaded', initApp);
         
         function initApp() {
@@ -841,12 +833,6 @@
             setupEventListeners();
             setupNetworkEvents();
             checkBrowserSupport();
-            setupProgressBar();
-            
-            document.addEventListener('click', () => {
-                userInteracted = true;
-                activateAudio();
-            });
             
             if (isMobile()) {
                 document.getElementById('mobile-warning').style.display = 'block';
@@ -860,32 +846,7 @@
             }
         }
         
-        function setupProgressBar() {
-            const segmentsContainer = document.getElementById('progress-segments');
-            segmentsContainer.innerHTML = '';
-            
-            for (let i = 0; i < 20; i++) {
-                const segment = document.createElement('div');
-                segment.className = 'progress-segment';
-                segmentsContainer.appendChild(segment);
-            }
-        }
-        
-        function updateProgressBar(percent) {
-            const segments = document.querySelectorAll('.progress-segment');
-            const activeSegments = Math.floor(percent / 5);
-            
-            segments.forEach((segment, index) => {
-                if (index < activeSegments) {
-                    segment.classList.add('active');
-                } else {
-                    segment.classList.remove('active');
-                }
-            });
-            
-            document.getElementById('progress-text').textContent = `${Math.round(percent)}%`;
-        }
-        
+        // Window management
         function setupWindowDrag() {
             const titleBar = document.getElementById('main-title-bar');
             const window = document.getElementById('main-window');
@@ -937,6 +898,7 @@
         }
         
         function setupWindowControls() {
+            // Main window controls
             const minimizeBtn = document.querySelector('#main-window .minimize');
             const closeBtn = document.querySelector('#main-window .close');
             
@@ -957,6 +919,7 @@
             window.style.top = '50px';
         }
         
+        // Basic UI setup
         function setupListSelectors() {
             document.querySelectorAll('.win95-list').forEach(group => {
                 group.addEventListener('click', e => {
@@ -975,8 +938,10 @@
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     const tabId = tab.dataset.tab;
+                    // Update tab buttons
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
+                    // Update tab content
                     document.querySelectorAll('.tab-content').forEach(content => {
                         content.classList.remove('active');
                     });
@@ -1007,9 +972,14 @@
                 addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
             }
             
+            if (!support.offlineContext) {
+                addToLog('<div class="file-error">Browser does not support OfflineAudioContext</div>', 'errors');
+            }
+            
             return support;
         }
         
+        // Event listeners for main functionality
         function setupEventListeners() {
             const dropZone = document.getElementById('drop-zone');
             const fileInput = document.getElementById('audio-upload');
@@ -1020,13 +990,14 @@
             const cancelButton = document.getElementById('cancel-button');
             const stopAllButton = document.getElementById('stop-all-audio');
             
+            // Drag and drop
             dropZone.addEventListener('dragover', handleDragOver);
             dropZone.addEventListener('dragleave', handleDragLeave);
             dropZone.addEventListener('drop', handleDrop);
             
+            // File selection
             selectFileButton.addEventListener('click', () => {
                 fileInput.click();
-                userInteracted = true;
                 activateAudio();
             });
             
@@ -1036,7 +1007,6 @@
                     return;
                 }
                 folderInput.click();
-                userInteracted = true;
                 activateAudio();
             });
             
@@ -1044,7 +1014,7 @@
                 updateStatus(`Files selected: ${e.target.files.length}`);
                 addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
                 await ensureAudioContext();
-                await processFiles(e.target.files);
+                processFiles(e.target.files);
                 e.target.value = '';
             });
             
@@ -1052,32 +1022,36 @@
                 updateStatus(`Folder selected with ${e.target.files.length} files`);
                 addToLog(`Folder selected. Processing...`);
                 await ensureAudioContext();
-                await processFiles(e.target.files);
+                processFiles(e.target.files);
                 e.target.value = '';
             });
             
+            // Clear button
             clearButton.addEventListener('click', () => {
                 document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
                 document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
                 document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
+                existingFileNames.clear();
                 updateStatus("File list cleared");
                 showNotification('File list cleared', 'info');
             });
             
+            // Cancel button
             cancelButton.addEventListener('click', cancelProcessing);
             
+            // Stop all audio
             stopAllButton.addEventListener('click', stopAllPlayback);
             
+            // Audio activation
             ['#select-file-button', '#select-folder-button', '.wave-button', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
-                    el.addEventListener('click', () => {
-                        userInteracted = true;
-                        activateAudio();
-                    });
+                    el.addEventListener('click', activateAudio);
+                    el.addEventListener('touchstart', activateAudio);
                 });
             });
         }
         
+        // Audio context management
         async function ensureAudioContext() {
             if (!activeAudioContext) {
                 if (!initAudioContext()) throw new Error("AudioContext initialization failed");
@@ -1097,6 +1071,9 @@
         function initAudioContext() {
             try {
                 const ContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!ContextClass) {
+                    throw new Error("Web Audio API not supported in this browser");
+                }
                 activeAudioContext = new ContextClass();
                 return activeAudioContext;
             } catch (e) {
@@ -1106,15 +1083,11 @@
         }
         
         function activateAudio() {
-            if (!userInteracted) return;
-            
             if (!audioContextResumed && activeAudioContext) {
                 try {
                     if (activeAudioContext.state === 'suspended') {
                         activeAudioContext.resume().then(() => {
                             audioContextResumed = true;
-                        }).catch(e => {
-                            console.error("Failed to resume AudioContext:", e);
                         });
                     }
                 } catch (e) {
@@ -1123,6 +1096,7 @@
             }
         }
         
+        // File processing
         function handleDragOver(e) {
             e.preventDefault();
             dragCounter++;
@@ -1156,7 +1130,6 @@
             }
             
             if (items.length > 0) {
-                userInteracted = true;
                 processFiles(items.map(item => item.file));
             }
         }
@@ -1170,12 +1143,31 @@
             if (file.size === 0) throw new Error(`Empty file: ${file.name}`);
             if (file.size > MAX_FILE_SIZE) throw new Error(`File too large: ${file.name} (${formatBytes(file.size)})`);
             
-            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            const ext = getFileExtension(file.name);
             if (!SUPPORTED_FORMATS.includes(ext)) {
                 throw new Error(`Unsupported format: ${file.name}`);
             }
             
             return true;
+        }
+        
+        function getFileExtension(filename) {
+            return (filename.split('.').pop() || '').toLowerCase();
+        }
+        
+        function generateUniqueName(originalName) {
+            let baseName = originalName.replace(/\.[^/.]+$/, '');
+            let extension = getFileExtension(originalName);
+            let newName = baseName + '_ko2.' + extension;
+            let counter = 1;
+            
+            while (existingFileNames.has(newName)) {
+                newName = baseName + `_ko2_${counter}.` + extension;
+                counter++;
+            }
+            
+            existingFileNames.add(newName);
+            return newName;
         }
         
         async function processFiles(files) {
@@ -1211,11 +1203,11 @@
             showOverlay(items.length);
             addToLog(`Processing started with ${items.length} items`);
             
-            // Проверяем, что JSZip доступен
+            // Check JSZip availability
             if (typeof JSZip === 'undefined') {
-                addToLog('<div class="file-error">JSZip library not available. Please refresh the page.</div>', 'errors');
-                showNotification('JSZip library not available', 'error');
+                addToLog('<div class="file-error">JSZip library not loaded</div>', 'errors');
                 hideOverlay();
+                showNotification('JSZip library not available', 'error');
                 return;
             }
             
@@ -1240,8 +1232,12 @@
                     updateProgress(i, items.length, `Processing: ${items[i].file.name}`);
                     
                     try {
-                        const result = await processSingleItem(items[i]);
+                        const result = await processSingleItemWithTimeout(items[i]);
                         if (result) {
+                            // Check output file size
+                            if (result.blob.size > MAX_FILE_SIZE) {
+                                throw new Error(`Output file too large: ${formatBytes(result.blob.size)}`);
+                            }
                             zip.file(result.fileName, result.blob);
                             processedCount++;
                         } else {
@@ -1252,6 +1248,7 @@
                         addToLog(`<div class="file-error">Error processing ${items[i].file.name}: ${error.message}</div>`, 'errors');
                     }
                     
+                    // Small delay to prevent UI blocking
                     await new Promise(resolve => setTimeout(resolve, 10));
                 }
                 
@@ -1283,7 +1280,7 @@
                     if (errorCount > 0) {
                         addToLog(`<div>${errorCount} files had errors</div>`, 'stats');
                     }
-                } else if (!processingCancelled && processedCount === 0) {
+                } else if (processedCount === 0) {
                     showNotification('No files were successfully processed', 'warning');
                 }
             } catch (error) {
@@ -1293,6 +1290,25 @@
                 hideOverlay();
                 cleanupMemory();
                 currentProcessing = null;
+            }
+        }
+        
+        async function processSingleItemWithTimeout(item) {
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Processing timeout')), PROCESSING_TIMEOUT);
+            });
+            
+            try {
+                const result = await Promise.race([
+                    processSingleItem(item),
+                    timeoutPromise
+                ]);
+                return result;
+            } catch (error) {
+                if (error.message === 'Processing timeout') {
+                    addToLog(`<div class="file-error">Timeout processing ${item.file.name}</div>`, 'errors');
+                }
+                throw error;
             }
         }
         
@@ -1312,32 +1328,36 @@
                 
                 if (processingCancelled) return null;
                 
+                // Get processing settings
                 const fidelity = getSelectedValue('fidelity');
                 const channels = getSelectedValue('channels');
                 const autoTrim = document.getElementById('auto-trim').checked;
                 
+                // Process audio
                 let processedBuffer = await processAudio(audioBuffer, fidelity, channels);
                 
                 if (autoTrim) {
                     processedBuffer = trimSilence(processedBuffer);
                 }
                 
-                const fileExtension = (file.name.split('.').pop() || 'wav').toLowerCase();
+                // Create output blob
+                const fileExtension = getFileExtension(file.name);
                 let outputBlob;
                 
                 if (fileExtension === 'mp3') {
                     try {
                         outputBlob = await encodeToMp3(processedBuffer);
                     } catch (e) {
-                        console.warn('MP3 encoding failed, falling back to WAV:', e);
+                        console.warn('MP3 encoding failed, using WAV:', e);
                         outputBlob = audioBufferToWav(processedBuffer);
                     }
                 } else {
                     outputBlob = audioBufferToWav(processedBuffer);
                 }
                 
-                const newName = file.name.replace(/\.[^/.]+$/, '') + '_ko2.' + fileExtension;
+                const newName = generateUniqueName(file.name);
                 
+                // Create preview
                 createWaveWindow(newName, URL.createObjectURL(outputBlob), processedBuffer);
                 
                 addToLog(`Completed: ${newName}`);
@@ -1349,14 +1369,10 @@
             }
         }
         
+        // Audio processing functions
         async function decodeAudioData(arrayBuffer) {
             if (!activeAudioContext) throw new Error("AudioContext not available");
-            try {
-                return await activeAudioContext.decodeAudioData(arrayBuffer.slice(0));
-            } catch (error) {
-                console.error('Error decoding audio data:', error);
-                throw new Error(`Failed to decode audio: ${error.message}`);
-            }
+            return await activeAudioContext.decodeAudioData(arrayBuffer.slice(0));
         }
         
         function getSelectedValue(groupName) {
@@ -1369,14 +1385,17 @@
             const targetChannels = channels === 'mono' ? 1 : 2;
             const speedFactor = 2.0;
             
+            // Convert channels if needed
             let processedBuffer = audioBuffer;
             if (audioBuffer.numberOfChannels !== targetChannels) {
                 processedBuffer = await convertChannels(audioBuffer, targetChannels);
             }
             
+            // Apply speed and resample based on fidelity
             const sampleRate = getSampleRateForFidelity(fidelity);
             processedBuffer = await applySpeedAndResample(processedBuffer, speedFactor, sampleRate);
             
+            // Apply fidelity-specific processing
             if (fidelity === 'sk') {
                 processedBuffer = await applySK1Filter(processedBuffer);
             }
@@ -1397,6 +1416,10 @@
             if (audioBuffer.numberOfChannels === targetChannels) return audioBuffer;
             
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineContext) {
+                throw new Error("OfflineAudioContext not supported");
+            }
+            
             const ctx = new OfflineContext(targetChannels, audioBuffer.length, audioBuffer.sampleRate);
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
@@ -1429,6 +1452,10 @@
         async function applySpeedAndResample(audioBuffer, speed, targetSampleRate) {
             const duration = audioBuffer.duration / speed;
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineContext) {
+                throw new Error("OfflineAudioContext not supported");
+            }
+            
             const ctx = new OfflineContext(
                 audioBuffer.numberOfChannels,
                 Math.ceil(duration * targetSampleRate),
@@ -1445,7 +1472,12 @@
         }
         
         async function applySK1Filter(audioBuffer) {
+            // Simple low-pass filter simulation
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineContext) {
+                return audioBuffer; // Return original if not supported
+            }
+            
             const ctx = new OfflineContext(
                 audioBuffer.numberOfChannels,
                 audioBuffer.length,
@@ -1468,6 +1500,10 @@
         }
         
         function trimSilence(audioBuffer, threshold = 0.01) {
+            if (!audioBuffer || audioBuffer.length === 0) {
+                return audioBuffer;
+            }
+            
             const channels = [];
             for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
                 channels.push(audioBuffer.getChannelData(i));
@@ -1476,6 +1512,7 @@
             let start = 0;
             let end = audioBuffer.length - 1;
             
+            // Find start
             for (let i = 0; i < audioBuffer.length; i++) {
                 let hasSound = false;
                 for (let ch = 0; ch < channels.length; ch++) {
@@ -1485,11 +1522,12 @@
                     }
                 }
                 if (hasSound) {
-                    start = Math.max(0, i - 2205);
+                    start = Math.max(0, i - 2205); // 50ms pre-roll
                     break;
                 }
             }
             
+            // Find end
             for (let i = audioBuffer.length - 1; i >= 0; i--) {
                 let hasSound = false;
                 for (let ch = 0; ch < channels.length; ch++) {
@@ -1499,12 +1537,15 @@
                     }
                 }
                 if (hasSound) {
-                    end = Math.min(audioBuffer.length - 1, i + 2205);
+                    end = Math.min(audioBuffer.length - 1, i + 2205); // 50ms post-roll
                     break;
                 }
             }
             
-            if (start >= end) return audioBuffer;
+            // Check if we have a valid segment (at least 100ms)
+            if (start >= end || (end - start) < 4410) {
+                return audioBuffer;
+            }
             
             const length = end - start + 1;
             const newBuffer = new AudioBuffer({
@@ -1520,10 +1561,11 @@
             return newBuffer;
         }
         
+        // Encoding functions
         function audioBufferToWav(audioBuffer) {
             const numChannels = audioBuffer.numberOfChannels;
             const sampleRate = audioBuffer.sampleRate;
-            const format = 1;
+            const format = 1; // PCM
             const bitDepth = 16;
             
             const bytesPerSample = bitDepth / 8;
@@ -1534,20 +1576,34 @@
             const buffer = new ArrayBuffer(44 + dataSize);
             const view = new DataView(buffer);
             
+            // RIFF identifier
             writeString(view, 0, 'RIFF');
+            // file length
             view.setUint32(4, 36 + dataSize, true);
+            // RIFF type
             writeString(view, 8, 'WAVE');
+            // format chunk identifier
             writeString(view, 12, 'fmt ');
+            // format chunk length
             view.setUint32(16, 16, true);
+            // sample format (raw)
             view.setUint16(20, format, true);
+            // channel count
             view.setUint16(22, numChannels, true);
+            // sample rate
             view.setUint32(24, sampleRate, true);
+            // byte rate (sample rate * block align)
             view.setUint32(28, byteRate, true);
+            // block align (channel count * bytes per sample)
             view.setUint16(32, blockAlign, true);
+            // bits per sample
             view.setUint16(34, bitDepth, true);
+            // data chunk identifier
             writeString(view, 36, 'data');
+            // data chunk length
             view.setUint32(40, dataSize, true);
             
+            // write PCM samples
             const offset = 44;
             if (bitDepth === 16) {
                 for (let i = 0; i < audioBuffer.length; i++) {
@@ -1563,55 +1619,64 @@
         }
         
         async function encodeToMp3(audioBuffer) {
-            if (typeof lamejs === 'undefined') {
-                throw new Error('MP3 encoding not available');
+            // Improved LameJS check
+            if (typeof lamejs === 'undefined' || !lamejs.Mp3Encoder) {
+                throw new Error('MP3 encoding not available - LameJS not loaded');
             }
             
-            const MP3 = lamejs.Mp3Encoder;
-            const numChannels = audioBuffer.numberOfChannels;
-            const sampleRate = audioBuffer.sampleRate;
-            const kbps = 128;
-            const encoder = new MP3(numChannels, sampleRate, kbps);
-            
-            const left = audioBuffer.getChannelData(0);
-            const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
-            
-            const sampleBlockSize = 1152;
-            const mp3Data = [];
-            
-            for (let i = 0; i < left.length; i += sampleBlockSize) {
-                const leftChunk = left.subarray(i, i + sampleBlockSize);
-                const rightChunk = right.subarray(i, i + sampleBlockSize);
+            try {
+                const MP3 = lamejs.Mp3Encoder;
+                const numChannels = audioBuffer.numberOfChannels;
+                const sampleRate = audioBuffer.sampleRate;
+                const kbps = 128;
+                const encoder = new MP3(numChannels, sampleRate, kbps);
                 
-                const leftInt = new Int16Array(leftChunk.length);
-                const rightInt = new Int16Array(rightChunk.length);
+                const left = audioBuffer.getChannelData(0);
+                const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
                 
-                for (let j = 0; j < leftChunk.length; j++) {
-                    leftInt[j] = leftChunk[j] * 32767;
-                    rightInt[j] = rightChunk[j] * 32767;
+                const sampleBlockSize = 1152;
+                const mp3Data = [];
+                
+                for (let i = 0; i < left.length; i += sampleBlockSize) {
+                    if (processingCancelled) break;
+                    
+                    const leftChunk = left.subarray(i, i + sampleBlockSize);
+                    const rightChunk = right.subarray(i, i + sampleBlockSize);
+                    
+                    const leftInt = new Int16Array(leftChunk.length);
+                    const rightInt = new Int16Array(rightChunk.length);
+                    
+                    for (let j = 0; j < leftChunk.length; j++) {
+                        leftInt[j] = leftChunk[j] * 32767;
+                        rightInt[j] = rightChunk[j] * 32767;
+                    }
+                    
+                    const mp3buf = encoder.encodeBuffer(leftInt, rightInt);
+                    if (mp3buf.length > 0) {
+                        mp3Data.push(new Uint8Array(mp3buf));
+                    }
                 }
                 
-                const mp3buf = encoder.encodeBuffer(leftInt, rightInt);
-                if (mp3buf.length > 0) {
-                    mp3Data.push(new Uint8Array(mp3buf));
+                const finalBuffer = encoder.flush();
+                if (finalBuffer.length > 0) {
+                    mp3Data.push(new Uint8Array(finalBuffer));
                 }
+                
+                const combined = new Uint8Array(mp3Data.reduce((acc, arr) => acc + arr.length, 0));
+                let offset = 0;
+                mp3Data.forEach(arr => {
+                    combined.set(arr, offset);
+                    offset += arr.length;
+                });
+                
+                return new Blob([combined], { type: 'audio/mp3' });
+            } catch (error) {
+                console.error('MP3 encoding failed:', error);
+                throw new Error('MP3 encoding failed: ' + error.message);
             }
-            
-            const finalBuffer = encoder.flush();
-            if (finalBuffer.length > 0) {
-                mp3Data.push(new Uint8Array(finalBuffer));
-            }
-            
-            const combined = new Uint8Array(mp3Data.reduce((acc, arr) => acc + arr.length, 0));
-            let offset = 0;
-            mp3Data.forEach(arr => {
-                combined.set(arr, offset);
-                offset += arr.length;
-            });
-            
-            return new Blob([combined], { type: 'audio/mp3' });
         }
         
+        // Wave window management
         function createWaveWindow(title, url, audioBuffer) {
             if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
                 const oldWindow = waveWindows.shift();
@@ -1655,37 +1720,36 @@
             
             document.body.appendChild(windowElement);
             
+            // Setup audio element
             const audioElement = new Audio();
             audioElement.src = url;
             audioElement.preload = 'metadata';
             
+            // Handle audio errors
+            audioElement.addEventListener('error', (e) => {
+                console.error('Audio element error:', e);
+                safeRevoke(url);
+            });
+            
+            // Setup canvas
             const canvas = windowElement.querySelector('.wave-element');
             drawWaveform(canvas, audioBuffer);
             
+            // Setup controls
             const playBtn = windowElement.querySelector('.play-button');
             const pauseBtn = windowElement.querySelector('.pause-button');
             const stopBtn = windowElement.querySelector('.stop-button');
             const minimizeBtn = windowElement.querySelector('.minimize');
             const closeBtn = windowElement.querySelector('.close');
             
-            function handlePlay() {
-                if (!userInteracted) {
-                    showNotification('Please click anywhere on the page first to enable audio', 'warning');
-                    return;
-                }
-                
-                activateAudio();
-                
-                audioElement.play().then(() => {
-                    playBtn.style.display = 'none';
-                    pauseBtn.style.display = 'inline-block';
-                }).catch(e => {
+            playBtn.addEventListener('click', () => {
+                audioElement.play().catch(e => {
                     console.error('Playback failed:', e);
-                    showNotification('Playback failed. Please try again.', 'error');
+                    showNotification('Playback failed. Click to activate audio.', 'error');
                 });
-            }
-            
-            playBtn.addEventListener('click', handlePlay);
+                playBtn.style.display = 'none';
+                pauseBtn.style.display = 'inline-block';
+            });
             
             pauseBtn.addEventListener('click', () => {
                 audioElement.pause();
@@ -1706,12 +1770,14 @@
             
             closeBtn.addEventListener('click', () => {
                 audioElement.pause();
+                audioElement.src = ''; // Important for memory cleanup
                 safeRevoke(url);
                 windowElement.remove();
                 const index = waveWindows.findIndex(w => w.id === windowId);
                 if (index > -1) waveWindows.splice(index, 1);
             });
             
+            // Setup dragging
             setupWaveWindowDrag(windowElement);
             
             waveWindows.push({
@@ -1762,6 +1828,7 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, width, height);
             
+            // Mix down to mono for display
             const data = new Float32Array(audioBuffer.length);
             for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
                 const channelData = audioBuffer.getChannelData(ch);
@@ -1801,6 +1868,7 @@
             ctx.stroke();
         }
         
+        // UI helpers
         function showOverlay(totalFiles) {
             document.getElementById('overlay').style.display = 'block';
             processingStartTime = Date.now();
@@ -1822,16 +1890,21 @@
         
         function updateProgress(current, total, message) {
             const percent = total > 0 ? (current / total) * 100 : 0;
-            updateProgressBar(percent);
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+            document.getElementById('progress-text').textContent = `${Math.round(percent)}%`;
             document.getElementById('file-count').textContent = `File: ${current}/${total}`;
             document.getElementById('current-file').textContent = message;
         }
         
         function cancelProcessing() {
             processingCancelled = true;
+            if (activeAudioContext) {
+                activeAudioContext.suspend().catch(console.error);
+            }
             if (currentProcessing) {
                 currentProcessing.cancel();
             }
+            stopAllPlayback();
             hideOverlay();
             updateStatus("Processing cancelled");
             showNotification('Processing cancelled', 'warning');
@@ -1842,10 +1915,6 @@
                 if (win.audioElement) {
                     win.audioElement.pause();
                     win.audioElement.currentTime = 0;
-                    const playBtn = win.element.querySelector('.play-button');
-                    const pauseBtn = win.element.querySelector('.pause-button');
-                    if (playBtn) playBtn.style.display = 'inline-block';
-                    if (pauseBtn) pauseBtn.style.display = 'none';
                 }
             });
             updateStatus("All playback stopped");
@@ -1883,6 +1952,7 @@
             }, 3000);
         }
         
+        // Utility functions
         function writeString(view, offset, string) {
             for (let i = 0; i < string.length; i++) {
                 view.setUint8(offset + i, string.charCodeAt(i));
@@ -1923,25 +1993,43 @@
         }
         
         function cleanupMemory() {
+            // Revoke object URLs
             createdObjectURLs.forEach(url => safeRevoke(url));
             createdObjectURLs = [];
             
+            // Close audio context
             if (activeAudioContext) {
                 try {
                     activeAudioContext.close();
                 } catch (e) {
+                    // Ignore
                 }
                 activeAudioContext = null;
                 audioContextResumed = false;
             }
+            
+            // Clear file names set
+            existingFileNames.clear();
         }
         
+        // Cleanup on page unload
         window.addEventListener('beforeunload', cleanupMemory);
         window.addEventListener('pagehide', cleanupMemory);
         
-        window.addEventListener('unhandledrejection', function(event) {
-            console.error('Unhandled promise rejection:', event.reason);
-            showNotification('An unexpected error occurred: ' + event.reason, 'error');
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'z':
+                        e.preventDefault();
+                        stopAllPlayback();
+                        break;
+                    case 'o':
+                        e.preventDefault();
+                        document.getElementById('audio-upload').click();
+                        break;
+                }
+            }
         });
     </script>
 </body>
