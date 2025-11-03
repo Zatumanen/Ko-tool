@@ -668,6 +668,37 @@
         @media (max-width: 768px) and (orientation: landscape) { 
             .wave-element-container { height: 80px !important; } 
         }
+        
+        .audio-activation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+            border-radius: 4px;
+        }
+        
+        .audio-activation-button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            border: 2px outset var(--win-gray);
+        }
+        
+        .audio-activation-button:active {
+            border-style: inset;
+        }
     </style>
 </head>
 <body>
@@ -815,6 +846,7 @@
         let processingStartTime = 0;
         let progressInterval = null;
         let existingFileNames = new Set();
+        let audioActivated = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -844,6 +876,9 @@
                 showNotification('Drag audio files here or use buttons above');
                 localStorage.setItem('firstVisit', '1');
             }
+            
+            // Add global click handler for audio activation
+            document.addEventListener('click', globalAudioActivation, { once: true });
         }
         
         // Window management
@@ -1042,13 +1077,21 @@
             // Stop all audio
             stopAllButton.addEventListener('click', stopAllPlayback);
             
-            // Audio activation
-            ['#select-file-button', '#select-folder-button', '.wave-button', '#drop-zone'].forEach(selector => {
+            // Audio activation for all interactive elements
+            ['#select-file-button', '#select-folder-button', '.wave-button', '#drop-zone', '#clear-button', '#stop-all-audio'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
                     el.addEventListener('click', activateAudio);
                     el.addEventListener('touchstart', activateAudio);
                 });
             });
+        }
+        
+        // Audio activation functions
+        function globalAudioActivation() {
+            if (!audioActivated) {
+                activateAudio();
+                audioActivated = true;
+            }
         }
         
         // Audio context management
@@ -1060,6 +1103,7 @@
                 try {
                     await activeAudioContext.resume();
                     audioContextResumed = true;
+                    console.log("AudioContext resumed successfully");
                 } catch (e) {
                     console.error("Failed to resume AudioContext:", e);
                     return false;
@@ -1075,6 +1119,12 @@
                     throw new Error("Web Audio API not supported in this browser");
                 }
                 activeAudioContext = new ContextClass();
+                
+                // Add event listeners for audio context state changes
+                activeAudioContext.addEventListener('statechange', () => {
+                    console.log("AudioContext state changed to:", activeAudioContext.state);
+                });
+                
                 return activeAudioContext;
             } catch (e) {
                 addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`, 'errors');
@@ -1083,11 +1133,18 @@
         }
         
         function activateAudio() {
+            if (!audioActivated) {
+                audioActivated = true;
+            }
+            
             if (!audioContextResumed && activeAudioContext) {
                 try {
                     if (activeAudioContext.state === 'suspended') {
                         activeAudioContext.resume().then(() => {
                             audioContextResumed = true;
+                            console.log("Audio activated via user interaction");
+                        }).catch(e => {
+                            console.error("Error activating audio:", e);
                         });
                     }
                 } catch (e) {
@@ -1676,7 +1733,7 @@
             }
         }
         
-        // Wave window management
+        // Wave window management with improved audio playback
         function createWaveWindow(title, url, audioBuffer) {
             if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
                 const oldWindow = waveWindows.shift();
@@ -1720,35 +1777,78 @@
             
             document.body.appendChild(windowElement);
             
-            // Setup audio element
+            // Setup audio element with improved error handling
             const audioElement = new Audio();
             audioElement.src = url;
             audioElement.preload = 'metadata';
             
+            // Add audio activation overlay for first play
+            const audioActivationOverlay = document.createElement('div');
+            audioActivationOverlay.className = 'audio-activation-overlay';
+            audioActivationOverlay.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div style="margin-bottom: 10px;">Audio playback requires activation</div>
+                    <button class="audio-activation-button">Activate Audio</button>
+                </div>
+            `;
+            
+            const waveContainer = windowElement.querySelector('.wave-container');
+            waveContainer.style.position = 'relative';
+            waveContainer.appendChild(audioActivationOverlay);
+            
             // Handle audio errors
             audioElement.addEventListener('error', (e) => {
                 console.error('Audio element error:', e);
-                safeRevoke(url);
+                showNotification('Audio playback error. Click to activate audio.', 'error');
+                audioActivationOverlay.style.display = 'flex';
             });
             
             // Setup canvas
             const canvas = windowElement.querySelector('.wave-element');
             drawWaveform(canvas, audioBuffer);
             
-            // Setup controls
+            // Setup controls with improved audio activation
             const playBtn = windowElement.querySelector('.play-button');
             const pauseBtn = windowElement.querySelector('.pause-button');
             const stopBtn = windowElement.querySelector('.stop-button');
             const minimizeBtn = windowElement.querySelector('.minimize');
             const closeBtn = windowElement.querySelector('.close');
+            const activateBtn = audioActivationOverlay.querySelector('.audio-activation-button');
             
-            playBtn.addEventListener('click', () => {
-                audioElement.play().catch(e => {
-                    console.error('Playback failed:', e);
-                    showNotification('Playback failed. Click to activate audio.', 'error');
-                });
-                playBtn.style.display = 'none';
-                pauseBtn.style.display = 'inline-block';
+            // Audio activation button
+            activateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await activateAudio();
+                audioActivationOverlay.style.display = 'none';
+                
+                // Try playing after activation
+                try {
+                    await audioElement.play();
+                    playBtn.style.display = 'none';
+                    pauseBtn.style.display = 'inline-block';
+                } catch (playError) {
+                    console.error('Playback failed after activation:', playError);
+                    showNotification('Playback still blocked. Try clicking play button.', 'error');
+                }
+            });
+            
+            // Play button with improved error handling
+            playBtn.addEventListener('click', async () => {
+                await activateAudio();
+                
+                try {
+                    // Ensure audio context is ready
+                    await ensureAudioContext();
+                    
+                    await audioElement.play();
+                    playBtn.style.display = 'none';
+                    pauseBtn.style.display = 'inline-block';
+                    audioActivationOverlay.style.display = 'none';
+                } catch (playError) {
+                    console.error('Playback failed:', playError);
+                    audioActivationOverlay.style.display = 'flex';
+                    showNotification('Playback failed. Click "Activate Audio" above.', 'error');
+                }
             });
             
             pauseBtn.addEventListener('click', () => {
