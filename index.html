@@ -646,6 +646,48 @@
             100% { box-shadow: 0 0 0 0 rgba(0,200,0,0); } 
         }
         
+        .audio-activation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+            border-radius: 4px;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .audio-activation-button {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 15px 0;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            border: 2px outset var(--win-gray);
+            min-width: 160px;
+        }
+        
+        .audio-activation-button:active {
+            border-style: inset;
+        }
+        
+        .audio-activation-text {
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
         @media (max-width: 768px) {
             body { padding: 10px; }
             .window { width: 95vw; max-width: none; top: 10px; transform: scale(0.98); }
@@ -663,41 +705,18 @@
             .crt-vignette { box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
             .progress-bar-container { height: 32px; }
             .progress-text { font-size: 14px; font-weight: bold; }
+            .audio-activation-button { 
+                min-width: 200px; 
+                padding: 15px 20px;
+                font-size: 18px;
+            }
+            .audio-activation-text {
+                font-size: 16px;
+            }
         }
         
         @media (max-width: 768px) and (orientation: landscape) { 
             .wave-element-container { height: 80px !important; } 
-        }
-        
-        .audio-activation-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 10;
-            border-radius: 4px;
-        }
-        
-        .audio-activation-button {
-            background: var(--primary-blue);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 10px;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            border: 2px outset var(--win-gray);
-        }
-        
-        .audio-activation-button:active {
-            border-style: inset;
         }
     </style>
 </head>
@@ -847,6 +866,7 @@
         let progressInterval = null;
         let existingFileNames = new Set();
         let audioActivated = false;
+        let globalAudioUnlocked = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -879,6 +899,7 @@
             
             // Add global click handler for audio activation
             document.addEventListener('click', globalAudioActivation, { once: true });
+            document.addEventListener('touchstart', globalAudioActivation, { once: true });
         }
         
         // Window management
@@ -1733,7 +1754,7 @@
             }
         }
         
-        // Wave window management with improved audio playback
+        // Wave window management with completely rewritten audio playback
         function createWaveWindow(title, url, audioBuffer) {
             if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
                 const oldWindow = waveWindows.shift();
@@ -1782,13 +1803,19 @@
             audioElement.src = url;
             audioElement.preload = 'metadata';
             
-            // Add audio activation overlay for first play
+            // Add audio activation overlay
             const audioActivationOverlay = document.createElement('div');
             audioActivationOverlay.className = 'audio-activation-overlay';
             audioActivationOverlay.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <div style="margin-bottom: 10px;">Audio playback requires activation</div>
-                    <button class="audio-activation-button">Activate Audio</button>
+                <div class="audio-activation-text">
+                    <i class="fas fa-volume-mute" style="font-size: 24px; margin-bottom: 10px;"></i><br>
+                    Audio playback requires activation
+                </div>
+                <button class="audio-activation-button">
+                    <i class="fas fa-volume-up"></i> Unlock Audio
+                </button>
+                <div class="audio-activation-text" style="font-size: 12px; margin-top: 10px;">
+                    Click to enable audio playback for this page
                 </div>
             `;
             
@@ -1799,7 +1826,6 @@
             // Handle audio errors
             audioElement.addEventListener('error', (e) => {
                 console.error('Audio element error:', e);
-                showNotification('Audio playback error. Click to activate audio.', 'error');
                 audioActivationOverlay.style.display = 'flex';
             });
             
@@ -1807,7 +1833,7 @@
             const canvas = windowElement.querySelector('.wave-element');
             drawWaveform(canvas, audioBuffer);
             
-            // Setup controls with improved audio activation
+            // Setup controls with completely rewritten audio activation
             const playBtn = windowElement.querySelector('.play-button');
             const pauseBtn = windowElement.querySelector('.pause-button');
             const stopBtn = windowElement.querySelector('.stop-button');
@@ -1815,39 +1841,95 @@
             const closeBtn = windowElement.querySelector('.close');
             const activateBtn = audioActivationOverlay.querySelector('.audio-activation-button');
             
-            // Audio activation button
-            activateBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await activateAudio();
-                audioActivationOverlay.style.display = 'none';
-                
-                // Try playing after activation
+            // Unified audio activation function
+            async function unlockAudioPlayback() {
                 try {
+                    // First try to unlock using silent audio
+                    await unlockWithSilentAudio();
+                    
+                    // Then try to play the actual audio
                     await audioElement.play();
+                    
+                    // If successful, hide activation overlay and show pause button
+                    audioActivationOverlay.style.display = 'none';
                     playBtn.style.display = 'none';
                     pauseBtn.style.display = 'inline-block';
-                } catch (playError) {
-                    console.error('Playback failed after activation:', playError);
-                    showNotification('Playback still blocked. Try clicking play button.', 'error');
+                    globalAudioUnlocked = true;
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Audio unlock failed:', error);
+                    return false;
+                }
+            }
+            
+            // Silent audio unlock method
+            async function unlockWithSilentAudio() {
+                return new Promise((resolve) => {
+                    const silentAudio = new Audio();
+                    // Create a silent audio buffer
+                    const arrayBuffer = new ArrayBuffer(44);
+                    const view = new DataView(arrayBuffer);
+                    
+                    // Write WAV header for silent audio
+                    writeString(view, 0, 'RIFF');
+                    view.setUint32(4, 36, true);
+                    writeString(view, 8, 'WAVE');
+                    writeString(view, 12, 'fmt ');
+                    view.setUint32(16, 16, true);
+                    view.setUint16(20, 1, true);
+                    view.setUint16(22, 1, true);
+                    view.setUint32(24, 22050, true);
+                    view.setUint32(28, 22050 * 2, true);
+                    view.setUint16(32, 2, true);
+                    view.setUint16(34, 16, true);
+                    writeString(view, 36, 'data');
+                    view.setUint32(40, 0, true);
+                    
+                    const blob = new Blob([view], { type: 'audio/wav' });
+                    silentAudio.src = URL.createObjectURL(blob);
+                    silentAudio.volume = 0;
+                    
+                    const playPromise = silentAudio.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            silentAudio.pause();
+                            URL.revokeObjectURL(silentAudio.src);
+                            resolve(true);
+                        }).catch(() => {
+                            URL.revokeObjectURL(silentAudio.src);
+                            resolve(false);
+                        });
+                    } else {
+                        URL.revokeObjectURL(silentAudio.src);
+                        resolve(false);
+                    }
+                });
+            }
+            
+            // Audio activation button - single unified handler
+            activateBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                activateBtn.disabled = true;
+                activateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unlocking...';
+                
+                const success = await unlockAudioPlayback();
+                
+                if (!success) {
+                    activateBtn.disabled = false;
+                    activateBtn.innerHTML = '<i class="fas fa-volume-up"></i> Try Again';
+                    showNotification('Audio unlock failed. Try clicking the Play button.', 'error');
                 }
             });
             
-            // Play button with improved error handling
+            // Play button - uses the same unified unlock function
             playBtn.addEventListener('click', async () => {
-                await activateAudio();
+                const success = await unlockAudioPlayback();
                 
-                try {
-                    // Ensure audio context is ready
-                    await ensureAudioContext();
-                    
-                    await audioElement.play();
-                    playBtn.style.display = 'none';
-                    pauseBtn.style.display = 'inline-block';
-                    audioActivationOverlay.style.display = 'none';
-                } catch (playError) {
-                    console.error('Playback failed:', playError);
+                if (!success) {
                     audioActivationOverlay.style.display = 'flex';
-                    showNotification('Playback failed. Click "Activate Audio" above.', 'error');
+                    showNotification('Playback failed. Click "Unlock Audio" above.', 'error');
                 }
             });
             
@@ -1870,12 +1952,17 @@
             
             closeBtn.addEventListener('click', () => {
                 audioElement.pause();
-                audioElement.src = ''; // Important for memory cleanup
+                audioElement.src = '';
                 safeRevoke(url);
                 windowElement.remove();
                 const index = waveWindows.findIndex(w => w.id === windowId);
                 if (index > -1) waveWindows.splice(index, 1);
             });
+            
+            // Auto-hide activation overlay if audio is already unlocked globally
+            if (globalAudioUnlocked) {
+                audioActivationOverlay.style.display = 'none';
+            }
             
             // Setup dragging
             setupWaveWindowDrag(windowElement);
