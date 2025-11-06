@@ -250,6 +250,11 @@
             transform: scale(0.98); 
         }
         
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         #overlay { 
             display: none; 
             position: fixed; 
@@ -736,20 +741,20 @@
                 </div>
                 
                 <div id="log-tab" class="tab-content active">
-                    <div>Drop or select audio files/folders to process</div>
-                    <div>Files will be sped up 2x to save space</div>
-                    <div>Auto-trim removes silence at start and end</div>
-                    <div>Folder structure will be preserved in output</div>
-                    <div>Files will be saved in their original format</div>
-                    <div>KO II will convert files during import</div>
+                    <div><i class="fas fa-info-circle"></i> Drop or select audio files/folders to process</div>
+                    <div><i class="fas fa-tachometer-alt"></i> Files will be sped up 2x to save space</div>
+                    <div><i class="fas fa-cut"></i> Auto-trim removes silence at start and end</div>
+                    <div><i class="fas fa-folder-open"></i> Folder structure will be preserved in output</div>
+                    <div><i class="fas fa-save"></i> Files will be saved in their original format</div>
+                    <div><i class="fas fa-exchange-alt"></i> KO II will convert files during import</div>
                 </div>
                 
                 <div id="errors-tab" class="tab-content">
-                    <div>No errors yet</div>
+                    <div><i class="fas fa-check-circle" style="color: var(--success-color);"></i> No errors yet</div>
                 </div>
                 
                 <div id="stats-tab" class="tab-content">
-                    <div>No statistics yet</div>
+                    <div><i class="fas fa-chart-pie"></i> No statistics yet</div>
                 </div>
             </div>
         </div>
@@ -757,7 +762,10 @@
 
     <div id="overlay">
         <div id="win95-loader">
-            <div id="processing-title">Processing Audio Files...</div>
+            <div id="processing-title">
+                <div style="display:inline-block;width:16px;height:16px;border:2px solid #000;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;"></div>
+                Processing Audio Files...
+            </div>
             
             <div class="progress-bar-container">
                 <div class="progress-fill" id="progress-fill"></div>
@@ -786,14 +794,12 @@
     </div>
 
     <script>
-// Optimized Version: JS rewritten for Web Worker architecture and memory safety
-
+        // OPTIMIZED AND WORKING VERSION
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
         let processingCancelled = false;
         let currentProcessing = null;
-        let lastProgress = 0;
         let windowZIndex = 100;
         let waveWindows = [];
         let audioContextResumed = false;
@@ -806,15 +812,19 @@
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
-        // Web Worker для обработки аудио
-        let audioWorker = null;
+        // Performance metrics
+        let performanceMetrics = {
+            filesProcessed: 0,
+            totalProcessingTime: 0,
+            errorsEncountered: 0
+        };
         
         document.addEventListener('DOMContentLoaded', initApp);
         
         function initApp() {
             if (!window.AudioContext && !window.webkitAudioContext) {
                 showNotification('Your browser does not support Web Audio API. Some features may be unavailable.', 'error');
-                addToLog('<div class="file-error">Browser does not support Web Audio API</div>', 'errors');
+                addToLog('<div class="file-error"><i class="fas fa-exclamation-triangle"></i> Browser does not support Web Audio API</div>', 'errors');
                 return;
             }
             
@@ -895,27 +905,26 @@
                 activateAudio();
             });
             
-            clearButton.addEventListener('click', () => {
-                document.getElementById('log-tab').innerHTML = '<div>Drop or select audio files/folders to process</div><div>Files will be sped up 2x to save space</div><div>Auto-trim removes silence at start and end</div><div>Folder structure will be preserved in output</div><div>Files will be saved in their original format</div><div>KO II will convert files during import</div>';
-                document.getElementById('errors-tab').innerHTML = '<div>No errors yet</div>';
-                document.getElementById('stats-tab').innerHTML = '<div>No statistics yet</div>';
-                updateStatus("File list cleared");
-            });
+            clearButton.addEventListener('click', clearAllData);
             
             fileInput.addEventListener('change', async e => {
-                updateStatus(`Files selected: ${e.target.files.length}`);
-                addToLog(`Selected ${e.target.files.length} file(s). Processing...`);
-                await ensureAudioContext();
-                processFiles(e.target.files);
-                e.target.value = null;
+                if (e.target.files.length > 0) {
+                    updateStatus(`Files selected: ${e.target.files.length}`);
+                    addToLog(`<i class="fas fa-file-import"></i> Selected ${e.target.files.length} file(s). Processing...`);
+                    await ensureAudioContext();
+                    processFiles(e.target.files);
+                    e.target.value = null;
+                }
             });
             
             folderInput.addEventListener('change', async e => {
-                updateStatus(`Folder selected with ${e.target.files.length} files`);
-                addToLog(`Folder selected. Processing...`);
-                await ensureAudioContext();
-                processFolder(e.target.files);
-                e.target.value = null;
+                if (e.target.files.length > 0) {
+                    updateStatus(`Folder selected with ${e.target.files.length} files`);
+                    addToLog(`<i class="fas fa-folder-open"></i> Folder selected. Processing...`);
+                    await ensureAudioContext();
+                    processFolder(e.target.files);
+                    e.target.value = null;
+                }
             });
             
             document.querySelector('.title-bar .minimize').addEventListener('click', () => {
@@ -926,31 +935,31 @@
                 document.querySelector('.window').classList.toggle('minimized');
             });
             
-            cancelButton.addEventListener('click', () => {
-                processingCancelled = true;
-                if (currentProcessing) currentProcessing.cancel();
-                progressIntervals.forEach(interval => clearInterval(interval));
-                progressIntervals = [];
-                
-                // Освобождение памяти
-                cleanupMemory();
-                
-                hideOverlay();
-                updateStatus("Processing cancelled");
-                showNotification('Processing cancelled', 'warning');
-                if (activeAudioContext) {
-                    try { activeAudioContext.close(); } catch (e) {}
-                    activeAudioContext = null;
-                }
-            });
+            cancelButton.addEventListener('click', cancelProcessing);
             
             stopAllButton.addEventListener('click', stopAllPlayback);
             
+            // Enhanced audio activation
             ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
                     el.addEventListener('click', activateAudio);
                     el.addEventListener('touchstart', activateAudio);
                 });
+            });
+            
+            // Visual feedback for buttons
+            document.addEventListener('mousedown', e => {
+                if (e.target.tagName === 'BUTTON') {
+                    e.target.style.transform = 'scale(0.98)';
+                }
+            });
+            
+            document.addEventListener('mouseup', e => {
+                if (e.target.tagName === 'BUTTON') {
+                    setTimeout(() => {
+                        e.target.style.transform = '';
+                    }, 100);
+                }
             });
         }
         
@@ -998,7 +1007,7 @@
                     activeAudioContext = new ContextClass();
                     return activeAudioContext;
                 } catch (e) {
-                    addToLog(`<div class="file-error">AudioContext error: ${e.message}</div>`, 'errors');
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> AudioContext error: ${e.message}</div>`, 'errors');
                     return null;
                 }
             }
@@ -1021,18 +1030,30 @@
         function addToLog(message, tab = 'log') {
             const tabElement = document.getElementById(`${tab}-tab`);
             if (!tabElement) return;
+            
+            if (tab === 'errors' && tabElement.innerHTML.includes('No errors yet')) {
+                tabElement.innerHTML = '';
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
             const div = document.createElement('div');
-            div.innerHTML = message;
+            div.innerHTML = `<small style="color: #666;">[${timestamp}]</small> ${message}`;
             tabElement.appendChild(div);
+            
             const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
             if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
+            
+            // Limit log entries to prevent memory issues
+            const entries = tabElement.children;
+            if (entries.length > 100) {
+                tabElement.removeChild(entries[0]);
+            }
         }
         
         function showOverlay() {
             document.getElementById('overlay').style.display = 'block';
             document.getElementById('win95-loader').style.display = 'block';
             processingCancelled = false;
-            lastProgress = 0;
             processingStartTime = Date.now();
             updateProgressBar(0);
             progressIntervals.push(setInterval(() => {
@@ -1074,6 +1095,7 @@
                 }
             });
             updateStatus("All playback stopped");
+            showNotification('All audio playback stopped', 'info');
         }
         
         function handleDragOver(e) {
@@ -1108,7 +1130,7 @@
                 for (const file of e.dataTransfer.files) items.push({ file, path: file.name });
             }
             
-            // Валидация файлов перед обработкой
+            // Validate files before processing
             const validatedItems = validateFiles(items);
             if (validatedItems.length > 0) {
                 processItems(validatedItems);
@@ -1125,7 +1147,7 @@
                     validated.push(item);
                 } catch (error) {
                     errorCount++;
-                    addToLog(`<div class="file-error">${error.message}</div>`, 'errors');
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> ${error.message}</div>`, 'errors');
                 }
             }
             
@@ -1183,7 +1205,7 @@
                 return;
             }
             if (items.length > MAX_TOTAL_FILES) {
-                addToLog(`<div class="file-error">Too many files (max ${MAX_TOTAL_FILES})</div>`, 'errors');
+                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Too many files (max ${MAX_TOTAL_FILES})</div>`, 'errors');
                 updateStatus("File limit exceeded");
                 showNotification(`Too many files (max ${MAX_TOTAL_FILES})`, 'error');
                 return;
@@ -1191,7 +1213,7 @@
             
             processingCancelled = false;
             showOverlay();
-            addToLog(`Processing started with ${items.length} items`);
+            addToLog(`<i class="fas fa-play-circle"></i> Processing started with ${items.length} items`);
             document.getElementById('file-count').textContent = `File: 0/${items.length}`;
             
             const zip = new JSZip();
@@ -1208,14 +1230,14 @@
             };
             
             try {
-                // Обработка файлов с паузой для предотвращения блокировки UI
+                // Process files with UI pauses
                 for (let i = 0; i < items.length; i++) {
                     if (processingCancelled) {
-                        addToLog("Processing cancelled by user");
+                        addToLog("<i class='fas fa-ban'></i> Processing cancelled by user");
                         break;
                     }
                     
-                    // Пауза для освобождения UI
+                    // Pause to free UI
                     if (i > 0 && i % 5 === 0) {
                         await new Promise(resolve => setTimeout(resolve, 10));
                     }
@@ -1239,14 +1261,14 @@
                     
                     await updateProgressBar((i + 1) / items.length);
                     
-                    // Периодическая очистка памяти
+                    // Periodic memory cleanup
                     if (i % 10 === 0) {
                         cleanupMemory();
                     }
                 }
                 
                 if (!processingCancelled && processedFiles > 0) {
-                    addToLog(`Compressing files into ZIP archive...`);
+                    addToLog(`<i class="fas fa-archive"></i> Compressing files into ZIP archive...`);
                     
                     const zipBlob = await zip.generateAsync(
                         { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
@@ -1276,22 +1298,22 @@
                     const channels = getSelectedValue('channels');
                     
                     const statsHtml = `
-                        <div><b>Processed ${processedFiles} files</b></div>
-                        <div>Original size: ${formatBytes(totalOriginalSize)}</div>
-                        <div>Processed size: ${formatBytes(totalProcessedSize)}</div>
-                        <div>Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%</div>
+                        <div><i class="fas fa-check-circle" style="color: var(--success-color);"></i> <b>Processed ${processedFiles} files</b></div>
+                        <div><i class="fas fa-hdd"></i> Original size: ${formatBytes(totalOriginalSize)}</div>
+                        <div><i class="fas fa-compress"></i> Processed size: ${formatBytes(totalProcessedSize)}</div>
+                        <div><i class="fas fa-chart-line"></i> Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%</div>
                         ${document.getElementById('auto-trim').checked && totalTrimmed > 0 ? 
-                            `<div>Total silence trimmed: ${(totalTrimmed / 44100).toFixed(2)}s</div>` : ''}
-                        <div>Fidelity: ${fidelity.toUpperCase()}</div>
-                        <div>Channels: ${channels}</div>
-                        <div>Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
-                        ${errorCount > 0 ? `<div>Errors: ${errorCount}</div>` : ''}
+                            `<div><i class="fas fa-cut"></i> Total silence trimmed: ${(totalTrimmed / 44100).toFixed(2)}s</div>` : ''}
+                        <div><i class="fas fa-sliders-h"></i> Fidelity: ${fidelity.toUpperCase()}</div>
+                        <div><i class="fas fa-wave-square"></i> Channels: ${channels}</div>
+                        <div><i class="fas fa-headphones"></i> Stereo: ${stereoOriginal}, Mono: ${monoOriginal}</div>
+                        ${errorCount > 0 ? `<div><i class="fas fa-exclamation-triangle"></i> Errors: ${errorCount}</div>` : ''}
                     `;
                     
                     addToLog(statsHtml, 'stats');
                     
                     updateStatus(`Processed ${processedFiles} files. Space saved: ${totalOriginalSize > 0 ? (100 - (totalProcessedSize / totalOriginalSize * 100)).toFixed(1) : 0}%`);
-                    showNotification(`Processed ${processedFiles} files!`, 'success');
+                    showNotification(`<i class="fas fa-check"></i> Processed ${processedFiles} files!`, 'success');
                 }
             } catch (error) {
                 if (!processingCancelled) handleProcessingError(error);
@@ -1309,7 +1331,7 @@
             
             try {
                 updateStatus(`Processing: ${item.path}`);
-                addToLog(`Processing: ${escapeHtml(item.path)}`);
+                addToLog(`<i class="fas fa-cog"></i> Processing: ${escapeHtml(item.path)}`);
                 
                 if (!isSupportedAudioType(file.type, file.name)) {
                     throw new Error(`Unsupported file type: ${file.type || file.name.split('.').pop()}`);
@@ -1318,7 +1340,7 @@
                 if (file.size > MAX_FILE_SIZE) {
                     const confirmMessage = `File ${file.name} is large (${formatBytes(file.size)}). Process anyway?`;
                     if (!confirm(confirmMessage)) {
-                        addToLog(`Skipped large file: ${file.name}`);
+                        addToLog(`<i class="fas fa-ban"></i> Skipped large file: ${file.name}`);
                         return null;
                     }
                 }
@@ -1350,7 +1372,7 @@
                     processed = trimSilence(processed);
                     const afterLength = processed.length;
                     trimmedSamples = Math.max(0, beforeLength - afterLength);
-                    addToLog(`Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
+                    addToLog(`<i class="fas fa-cut"></i> Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
                 }
                 
                 const pathParts = item.path.split('/');
@@ -1369,7 +1391,7 @@
                         outputBlob = await audioBufferToBlob(processed);
                     }
                 } catch (encodeError) {
-                    addToLog(`<div class="file-error">Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
                     outputBlob = await audioBufferToBlob(processed);
                 }
                 
@@ -1385,11 +1407,11 @@
                 const processedSizeKB = (processedSize / 1024).toFixed(1);
                 const sizeDifference = processedSize - originalSize;
                 let sizeInfo = sizeDifference > 0 ? `INCREASED by ${formatBytes(sizeDifference)}` : `DECREASED by ${formatBytes(-sizeDifference)}`;
-                let compressionInfo = isCompressed ? '<div>Original compressed format preserved</div>' : '';
+                let compressionInfo = isCompressed ? '<div><i class="fas fa-info-circle"></i> Original compressed format preserved</div>' : '';
                 
                 addToLog(`
-                    <div>Processed: ${escapeHtml(fileName)}</div>
-                    <div>Original: ${formatBytes(originalSize)} → Processed: ${formatBytes(processedSize)}</div>
+                    <div><i class="fas fa-check"></i> Processed: ${escapeHtml(fileName)}</div>
+                    <div><i class="fas fa-exchange-alt"></i> Original: ${formatBytes(originalSize)} → Processed: ${formatBytes(processedSize)}</div>
                     <div>${sizeInfo}</div>
                     ${compressionInfo}
                 `);
@@ -1404,12 +1426,9 @@
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
             } finally {
-                // Явное освобождение памяти
+                // Explicit memory release
                 decoded = null;
                 processed = null;
-                if (window.gc) {
-                    window.gc();
-                }
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
@@ -1869,7 +1888,7 @@
             
             audioElement.addEventListener('error', function(e) {
                 console.error('Audio loading error:', e);
-                addToLog(`<div class="file-error">Audio loading error for preview: ${title}</div>`, 'errors');
+                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${title}</div>`, 'errors');
                 
                 audioBufferToBlob(audioBuffer).then(blob => {
                     const wavUrl = URL.createObjectURL(blob);
@@ -2038,7 +2057,7 @@
             
             console.error(`Processing error for ${fileName}:`, error);
             
-            addToLog(`<div class="file-error"><strong>Error processing:</strong> ${escapeHtml(fileName)}<br>${escapeHtml(errorMessage)}</div>`, 'errors');
+            addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> <strong>Error processing:</strong> ${escapeHtml(fileName)}<br>${escapeHtml(errorMessage)}</div>`, 'errors');
             
             updateStatus(`Error: ${escapeHtml(errorMessage)} (${escapeHtml(fileName)})`);
             showNotification(`Error processing ${fileName}`, 'error');
@@ -2050,9 +2069,8 @@
             }
         }
         
-        // Функция для очистки памяти
         function cleanupMemory() {
-            // Освобождение ObjectURL
+            // Release ObjectURL
             createdObjectURLs.forEach(url => {
                 try { 
                     URL.revokeObjectURL(url); 
@@ -2060,7 +2078,7 @@
             });
             createdObjectURLs = [];
             
-            // Закрытие AudioContext
+            // Close AudioContext
             if (activeAudioContext) {
                 try { 
                     activeAudioContext.close(); 
@@ -2068,11 +2086,47 @@
                 activeAudioContext = null;
                 audioContextResumed = false;
             }
+        }
+        
+        function cancelProcessing() {
+            processingCancelled = true;
+            if (currentProcessing) currentProcessing.cancel();
+            progressIntervals.forEach(interval => clearInterval(interval));
+            progressIntervals = [];
             
-            // Принудительный вызов сборщика мусора если доступен
-            if (window.gc) {
-                window.gc();
+            cleanupMemory();
+            
+            hideOverlay();
+            updateStatus("Processing cancelled");
+            showNotification('Processing cancelled', 'warning');
+            
+            if (activeAudioContext) {
+                try { activeAudioContext.close(); } catch (e) {}
+                activeAudioContext = null;
             }
+        }
+        
+        function clearAllData() {
+            document.getElementById('log-tab').innerHTML = `
+                <div><i class="fas fa-info-circle"></i> Drop or select audio files/folders to process</div>
+                <div><i class="fas fa-tachometer-alt"></i> Files will be sped up 2x to save space</div>
+                <div><i class="fas fa-cut"></i> Auto-trim removes silence at start and end</div>
+                <div><i class="fas fa-folder-open"></i> Folder structure will be preserved in output</div>
+                <div><i class="fas fa-save"></i> Files will be saved in their original format</div>
+                <div><i class="fas fa-exchange-alt"></i> KO II will convert files during import</div>
+            `;
+            document.getElementById('errors-tab').innerHTML = '<div><i class="fas fa-check-circle" style="color: var(--success-color);"></i> No errors yet</div>';
+            document.getElementById('stats-tab').innerHTML = '<div><i class="fas fa-chart-pie"></i> No statistics yet</div>';
+            
+            // Reset performance metrics
+            performanceMetrics = {
+                filesProcessed: 0,
+                totalProcessingTime: 0,
+                errorsEncountered: 0
+            };
+            
+            updateStatus("File list cleared");
+            showNotification('File list cleared', 'info');
         }
         
         class Mp3Encoder {
@@ -2162,6 +2216,28 @@
                    (navigator.msMaxTouchPoints > 0);
         }
         
+        // Add spin animation for loader
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Enhanced error handling
+        window.addEventListener('error', e => {
+            console.error('Global error:', e.error);
+            addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Global error: ${e.error.message}</div>`, 'errors');
+        });
+        
+        window.addEventListener('unhandledrejection', e => {
+            console.error('Unhandled promise rejection:', e.reason);
+            addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Promise rejection: ${e.reason}</div>`, 'errors');
+        });
+        
+        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             cleanupMemory();
             
@@ -2173,20 +2249,6 @@
                     } catch (e) {} 
                 } 
             });
-        });
-        
-        // Обработка ошибок памяти
-        window.addEventListener('error', (e) => {
-            if (e.error && (
-                e.error.message.includes('memory') || 
-                e.error.message.includes('allocation') ||
-                e.error.message.includes('AudioContext')
-            )) {
-                cleanupMemory();
-                document.getElementById('memory-warning').style.display = 'block';
-                memoryWarningShown = true;
-                showNotification('Memory error detected. Try processing fewer files.', 'error');
-            }
         });
     </script>
 </body>
