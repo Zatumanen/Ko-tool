@@ -794,7 +794,6 @@
     </div>
 
     <script>
-        // OPTIMIZED AND WORKING VERSION
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -806,13 +805,13 @@
         let memoryWarningShown = false;
         let processingStartTime = 0;
         let progressIntervals = [];
+        let currentlyProcessingFiles = new Set();
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
-        // Performance metrics
         let performanceMetrics = {
             filesProcessed: 0,
             totalProcessingTime: 0,
@@ -939,7 +938,6 @@
             
             stopAllButton.addEventListener('click', stopAllPlayback);
             
-            // Enhanced audio activation
             ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
                     el.addEventListener('click', activateAudio);
@@ -947,7 +945,6 @@
                 });
             });
             
-            // Visual feedback for buttons
             document.addEventListener('mousedown', e => {
                 if (e.target.tagName === 'BUTTON') {
                     e.target.style.transform = 'scale(0.98)';
@@ -1043,7 +1040,6 @@
             const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
             if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
             
-            // Limit log entries to prevent memory issues
             const entries = tabElement.children;
             if (entries.length > 100) {
                 tabElement.removeChild(entries[0]);
@@ -1130,7 +1126,6 @@
                 for (const file of e.dataTransfer.files) items.push({ file, path: file.name });
             }
             
-            // Validate files before processing
             const validatedItems = validateFiles(items);
             if (validatedItems.length > 0) {
                 processItems(validatedItems);
@@ -1159,7 +1154,7 @@
         }
         
         function validateFile(file) {
-            const maxSize = 50 * 1024 * 1024; // 50MB
+            const maxSize = 50 * 1024 * 1024;
             const ext = file.name.split('.').pop().toLowerCase();
             
             if (file.size > maxSize) {
@@ -1230,14 +1225,12 @@
             };
             
             try {
-                // Process files with UI pauses
                 for (let i = 0; i < items.length; i++) {
                     if (processingCancelled) {
                         addToLog("<i class='fas fa-ban'></i> Processing cancelled by user");
                         break;
                     }
                     
-                    // Pause to free UI
                     if (i > 0 && i % 5 === 0) {
                         await new Promise(resolve => setTimeout(resolve, 10));
                     }
@@ -1261,7 +1254,6 @@
                     
                     await updateProgressBar((i + 1) / items.length);
                     
-                    // Periodic memory cleanup
                     if (i % 10 === 0) {
                         cleanupMemory();
                     }
@@ -1326,6 +1318,14 @@
         
         async function processSingleItem(item, index, total, zip) {
             const file = item.file;
+            
+            if (currentlyProcessingFiles.has(file.name)) {
+                addToLog(`<i class="fas fa-info-circle"></i> Skipping already processing file: ${file.name}`);
+                return null;
+            }
+            
+            currentlyProcessingFiles.add(file.name);
+            
             let decoded, processed;
             let originalSize = file.size, processedSize = 0, trimmedSamples = 0, fileName = '', channels = 0, isCompressed = false;
             
@@ -1426,7 +1426,7 @@
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
             } finally {
-                // Explicit memory release
+                currentlyProcessingFiles.delete(file.name);
                 decoded = null;
                 processed = null;
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -1837,6 +1837,10 @@
                 const oldestWindow = waveWindows.shift();
                 if (oldestWindow && oldestWindow.element) {
                     try {
+                        if (oldestWindow.audioElement) {
+                            oldestWindow.audioElement.pause();
+                            oldestWindow.audioElement.src = '';
+                        }
                         safeRevoke(oldestWindow.url);
                         document.body.removeChild(oldestWindow.element);
                     } catch (e) {}
@@ -1882,23 +1886,35 @@
             document.body.appendChild(windowElement);
             
             const audioElement = document.createElement('audio');
-            audioElement.src = url;
             audioElement.style.display = 'none';
             audioElement.preload = 'metadata';
             
-            audioElement.addEventListener('error', function(e) {
-                console.error('Audio loading error:', e);
-                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${title}</div>`, 'errors');
+            let errorHandled = false;
+            const errorHandler = function(e) {
+                if (errorHandled) return;
+                errorHandled = true;
                 
-                audioBufferToBlob(audioBuffer).then(blob => {
-                    const wavUrl = URL.createObjectURL(blob);
-                    audioElement.src = wavUrl;
-                    createdObjectURLs.push(wavUrl);
-                    audioElement.play().catch(e => console.error('Fallback audio also failed:', e));
-                }).catch(error => {
-                    console.error('Failed to create fallback audio:', error);
-                });
-            });
+                console.error('Audio loading error for preview:', title, e);
+                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${escapeHtml(title)}</div>`, 'errors');
+                
+                if (audioBuffer) {
+                    audioBufferToBlob(audioBuffer).then(blob => {
+                        const wavUrl = URL.createObjectURL(blob);
+                        audioElement.removeEventListener('error', errorHandler);
+                        audioElement.src = wavUrl;
+                        createdObjectURLs.push(wavUrl);
+                        
+                        audioElement.play().catch(fallbackError => {
+                            console.error('Fallback audio also failed:', fallbackError);
+                        });
+                    }).catch(error => {
+                        console.error('Failed to create fallback audio:', error);
+                    });
+                }
+            };
+            
+            audioElement.addEventListener('error', errorHandler);
+            audioElement.src = url;
             
             windowElement.querySelector('.wave-element-container').appendChild(audioElement);
             
@@ -2070,7 +2086,13 @@
         }
         
         function cleanupMemory() {
-            // Release ObjectURL
+            waveWindows.forEach(w => {
+                if (w.audioElement) {
+                    w.audioElement.pause();
+                    w.audioElement.src = '';
+                }
+            });
+            
             createdObjectURLs.forEach(url => {
                 try { 
                     URL.revokeObjectURL(url); 
@@ -2078,32 +2100,40 @@
             });
             createdObjectURLs = [];
             
-            // Close AudioContext
-            if (activeAudioContext) {
+            if (activeAudioContext && activeAudioContext.state !== 'closed') {
                 try { 
                     activeAudioContext.close(); 
                 } catch (e) {}
                 activeAudioContext = null;
                 audioContextResumed = false;
             }
+            
+            if (window.gc) {
+                try {
+                    window.gc();
+                } catch (e) {}
+            }
         }
         
         function cancelProcessing() {
             processingCancelled = true;
+            currentlyProcessingFiles.clear();
+            
+            waveWindows.forEach(window => {
+                if (window.audioElement) {
+                    window.audioElement.pause();
+                    window.audioElement.src = '';
+                }
+            });
+            
             if (currentProcessing) currentProcessing.cancel();
             progressIntervals.forEach(interval => clearInterval(interval));
             progressIntervals = [];
             
             cleanupMemory();
-            
             hideOverlay();
             updateStatus("Processing cancelled");
             showNotification('Processing cancelled', 'warning');
-            
-            if (activeAudioContext) {
-                try { activeAudioContext.close(); } catch (e) {}
-                activeAudioContext = null;
-            }
         }
         
         function clearAllData() {
@@ -2118,7 +2148,6 @@
             document.getElementById('errors-tab').innerHTML = '<div><i class="fas fa-check-circle" style="color: var(--success-color);"></i> No errors yet</div>';
             document.getElementById('stats-tab').innerHTML = '<div><i class="fas fa-chart-pie"></i> No statistics yet</div>';
             
-            // Reset performance metrics
             performanceMetrics = {
                 filesProcessed: 0,
                 totalProcessingTime: 0,
@@ -2216,7 +2245,6 @@
                    (navigator.msMaxTouchPoints > 0);
         }
         
-        // Add spin animation for loader
         const style = document.createElement('style');
         style.textContent = `
             @keyframes spin {
@@ -2226,7 +2254,6 @@
         `;
         document.head.appendChild(style);
         
-        // Enhanced error handling
         window.addEventListener('error', e => {
             console.error('Global error:', e.error);
             addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Global error: ${e.error.message}</div>`, 'errors');
@@ -2237,7 +2264,6 @@
             addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Promise rejection: ${e.reason}</div>`, 'errors');
         });
         
-        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             cleanupMemory();
             
