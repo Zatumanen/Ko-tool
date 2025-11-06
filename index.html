@@ -1416,12 +1416,13 @@
                     ${compressionInfo}
                 `);
                 
-                const url = URL.createObjectURL(outputBlob);
-                createdObjectURLs.push(url);
+                const previewBlob = await audioBufferToBlob(processed);
+                const previewUrl = URL.createObjectURL(previewBlob);
+                createdObjectURLs.push(previewUrl);
                 
-                createWaveWindow(fileName, url, processed);
+                createWaveWindow(fileName, previewUrl, processed);
                 
-                return { fileName, url, originalSize, processedSize, trimmedSamples, channels, isCompressed };
+                return { fileName, previewUrl, originalSize, processedSize, trimmedSamples, channels, isCompressed };
             } catch (error) {
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
@@ -1597,74 +1598,51 @@
         }
         
         function audioBufferToWav(audioBuffer) {
-            const fidelity = getSelectedValue('fidelity');
-            const fidelitySettings = getFidelitySettings(fidelity);
-            const bitDepth = fidelitySettings.bitDepth;
             const numChannels = audioBuffer.numberOfChannels;
             const sampleRate = audioBuffer.sampleRate;
-            const bytesPerSample = bitDepth === 8 ? 1 : 2;
+            const format = 1;
+            const bitDepth = 16;
+            
+            const bytesPerSample = bitDepth / 8;
             const blockAlign = numChannels * bytesPerSample;
-            const dataLength = audioBuffer.length * blockAlign;
-            const fmtChunkSize = 16;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = audioBuffer.length * blockAlign;
             
-            const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-            const fmtDv = new DataView(fmtBuf);
-            writeString(fmtDv, 0, 'fmt ');
-            fmtDv.setUint32(4, fmtChunkSize, true);
-            fmtDv.setUint16(8, 1, true);
-            fmtDv.setUint16(10, numChannels, true);
-            fmtDv.setUint32(12, sampleRate, true);
-            fmtDv.setUint32(16, sampleRate * blockAlign, true);
-            fmtDv.setUint16(20, blockAlign, true);
-            fmtDv.setUint16(22, bitDepth, true);
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
             
-            const dataHeader = new ArrayBuffer(8);
-            const dataDv = new DataView(dataHeader);
-            writeString(dataDv, 0, 'data');
-            dataDv.setUint32(4, dataLength, true);
-            
-            const riffSize = 4 + fmtBuf.byteLength + dataHeader.byteLength + dataLength;
-            const riffHeader = new ArrayBuffer(12);
-            const riffDv = new DataView(riffHeader);
-            writeString(riffDv, 0, 'RIFF');
-            riffDv.setUint32(4, riffSize, true);
-            writeString(riffDv, 8, 'WAVE');
-            
-            let audioData;
-            
-            if (bitDepth === 8) {
-                audioData = new Uint8Array(dataLength);
-                let off = 0;
-                
-                for (let i = 0; i < audioBuffer.length; i++) {
-                    for (let ch = 0; ch < numChannels; ch++) {
-                        const s = audioBuffer.getChannelData(ch)[i];
-                        const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
-                        audioData[off++] = u;
-                    }
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
                 }
-            } else {
-                const tmp = new Int16Array(audioBuffer.length * numChannels);
-                let off = 0;
-                
-                for (let i = 0; i < audioBuffer.length; i++) {
-                    for (let ch = 0; ch < numChannels; ch++) {
-                        const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
-                        const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
-                        tmp[off++] = v;
-                    }
-                }
-                
-                audioData = tmp.buffer;
             }
             
-            return new Blob([riffHeader, fmtBuf, dataHeader, audioData], { type: 'audio/wav' });
-        }
-        
-        function writeString(view, offset, str) {
-            for (let i = 0; i < str.length; i++) {
-                view.setUint8(offset + i, str.charCodeAt(i));
+            let offset = 0;
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, 36 + dataSize, true); offset += 4;
+            writeString(view, offset, 'WAVE'); offset += 4;
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4;
+            view.setUint16(offset, format, true); offset += 2;
+            view.setUint16(offset, numChannels, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, byteRate, true); offset += 4;
+            view.setUint16(offset, blockAlign, true); offset += 2;
+            view.setUint16(offset, bitDepth, true); offset += 2;
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, dataSize, true); offset += 4;
+            
+            if (bitDepth === 16) {
+                for (let i = 0; i < audioBuffer.length; i++) {
+                    for (let channel = 0; channel < numChannels; channel++) {
+                        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
+                        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                        offset += 2;
+                    }
+                }
             }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
         }
         
         async function audioBufferToBlob(audioBuffer) { 
@@ -1896,21 +1874,6 @@
                 
                 console.error('Audio loading error for preview:', title, e);
                 addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${escapeHtml(title)}</div>`, 'errors');
-                
-                if (audioBuffer) {
-                    audioBufferToBlob(audioBuffer).then(blob => {
-                        const wavUrl = URL.createObjectURL(blob);
-                        audioElement.removeEventListener('error', errorHandler);
-                        audioElement.src = wavUrl;
-                        createdObjectURLs.push(wavUrl);
-                        
-                        audioElement.play().catch(fallbackError => {
-                            console.error('Fallback audio also failed:', fallbackError);
-                        });
-                    }).catch(error => {
-                        console.error('Failed to create fallback audio:', error);
-                    });
-                }
             };
             
             audioElement.addEventListener('error', errorHandler);
@@ -1959,14 +1922,20 @@
             closeBtn.addEventListener('click', handleClose);
             closeBtn.addEventListener('touchstart', handleClose);
             
-            playButton.addEventListener('click', () => {
+            playButton.addEventListener('click', async () => {
                 bringToFront();
-                activateAudio();
+                await activateAudio();
                 stopAllPlayback();
-                audioElement.play();
-                playButton.style.display = 'none';
-                pauseButton.style.display = 'block';
-                updateStatus("Playing audio");
+                
+                try {
+                    await audioElement.play();
+                    playButton.style.display = 'none';
+                    pauseButton.style.display = 'block';
+                    updateStatus("Playing audio");
+                } catch (error) {
+                    console.error('Playback error:', error);
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error: ${error.message}</div>`, 'errors');
+                }
             });
             
             pauseButton.addEventListener('click', () => {
