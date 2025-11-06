@@ -1910,34 +1910,7 @@
             };
             
             audioElement.addEventListener('error', errorHandler);
-            
-            const loadAudio = () => {
-                return new Promise((resolve) => {
-                    const loadHandler = () => {
-                        audioElement.removeEventListener('canplaythrough', loadHandler);
-                        resolve(true);
-                    };
-                    
-                    const errorLoadHandler = (e) => {
-                        audioElement.removeEventListener('error', errorLoadHandler);
-                        resolve(false);
-                    };
-                    
-                    audioElement.addEventListener('canplaythrough', loadHandler, { once: true });
-                    audioElement.addEventListener('error', errorLoadHandler, { once: true });
-                    audioElement.src = url;
-                });
-            };
-            
-            loadAudio().then(success => {
-                if (!success && audioBuffer) {
-                    audioBufferToBlob(audioBuffer).then(blob => {
-                        const wavUrl = URL.createObjectURL(blob);
-                        audioElement.src = wavUrl;
-                        createdObjectURLs.push(wavUrl);
-                    });
-                }
-            });
+            audioElement.src = url;
             
             windowElement.querySelector('.wave-element-container').appendChild(audioElement);
             
