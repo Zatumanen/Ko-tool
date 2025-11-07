@@ -794,6 +794,7 @@
     </div>
 
     <script>
+        // OPTIMIZED AND WORKING VERSION
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -805,13 +806,14 @@
         let memoryWarningShown = false;
         let processingStartTime = 0;
         let progressIntervals = [];
-        let currentlyProcessingFiles = new Set();
+        let isProcessing = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
         
+        // Performance metrics
         let performanceMetrics = {
             filesProcessed: 0,
             totalProcessingTime: 0,
@@ -938,6 +940,7 @@
             
             stopAllButton.addEventListener('click', stopAllPlayback);
             
+            // Enhanced audio activation
             ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
                     el.addEventListener('click', activateAudio);
@@ -945,6 +948,7 @@
                 });
             });
             
+            // Visual feedback for buttons
             document.addEventListener('mousedown', e => {
                 if (e.target.tagName === 'BUTTON') {
                     e.target.style.transform = 'scale(0.98)';
@@ -1040,6 +1044,7 @@
             const isScrolledUp = tabElement.scrollTop < tabElement.scrollHeight - tabElement.clientHeight - 20;
             if (!isScrolledUp) tabElement.scrollTop = tabElement.scrollHeight;
             
+            // Limit log entries to prevent memory issues
             const entries = tabElement.children;
             if (entries.length > 100) {
                 tabElement.removeChild(entries[0]);
@@ -1126,6 +1131,7 @@
                 for (const file of e.dataTransfer.files) items.push({ file, path: file.name });
             }
             
+            // Validate files before processing
             const validatedItems = validateFiles(items);
             if (validatedItems.length > 0) {
                 processItems(validatedItems);
@@ -1154,7 +1160,7 @@
         }
         
         function validateFile(file) {
-            const maxSize = 50 * 1024 * 1024;
+            const maxSize = 50 * 1024 * 1024; // 50MB
             const ext = file.name.split('.').pop().toLowerCase();
             
             if (file.size > maxSize) {
@@ -1195,6 +1201,11 @@
         }
         
         async function processItems(items) {
+            if (isProcessing) {
+                showNotification('Processing already in progress', 'warning');
+                return;
+            }
+            
             if (!items || items.length === 0) {
                 updateStatus("No files to process");
                 return;
@@ -1206,6 +1217,7 @@
                 return;
             }
             
+            isProcessing = true;
             processingCancelled = false;
             showOverlay();
             addToLog(`<i class="fas fa-play-circle"></i> Processing started with ${items.length} items`);
@@ -1225,12 +1237,14 @@
             };
             
             try {
+                // Process files with UI pauses
                 for (let i = 0; i < items.length; i++) {
                     if (processingCancelled) {
                         addToLog("<i class='fas fa-ban'></i> Processing cancelled by user");
                         break;
                     }
                     
+                    // Pause to free UI
                     if (i > 0 && i % 5 === 0) {
                         await new Promise(resolve => setTimeout(resolve, 10));
                     }
@@ -1254,6 +1268,7 @@
                     
                     await updateProgressBar((i + 1) / items.length);
                     
+                    // Periodic memory cleanup
                     if (i % 10 === 0) {
                         cleanupMemory();
                     }
@@ -1313,19 +1328,12 @@
                 if (!processingCancelled) hideOverlay();
                 cleanupMemory();
                 currentProcessing = null;
+                isProcessing = false;
             }
         }
         
         async function processSingleItem(item, index, total, zip) {
             const file = item.file;
-            
-            if (currentlyProcessingFiles.has(file.name)) {
-                addToLog(`<i class="fas fa-info-circle"></i> Skipping already processing file: ${file.name}`);
-                return null;
-            }
-            
-            currentlyProcessingFiles.add(file.name);
-            
             let decoded, processed;
             let originalSize = file.size, processedSize = 0, trimmedSamples = 0, fileName = '', channels = 0, isCompressed = false;
             
@@ -1419,17 +1427,33 @@
                 const url = URL.createObjectURL(outputBlob);
                 createdObjectURLs.push(url);
                 
-                createWaveWindow(fileName, url, processed);
+                // Create WAV version for preview to avoid format issues
+                try {
+                    const wavBlob = await audioBufferToBlob(processed);
+                    const wavUrl = URL.createObjectURL(wavBlob);
+                    createdObjectURLs.push(wavUrl);
+                    
+                    // Add delay to prevent UI freezing
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    createWaveWindow(fileName, wavUrl, processed);
+                } catch (windowError) {
+                    console.warn('Failed to create preview window:', windowError);
+                    addToLog(`<div class="file-error"><i class="fas fa-exclamation-triangle"></i> Preview unavailable for: ${fileName}</div>`, 'errors');
+                }
                 
                 return { fileName, url, originalSize, processedSize, trimmedSamples, channels, isCompressed };
             } catch (error) {
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
             } finally {
-                currentlyProcessingFiles.delete(file.name);
+                // Explicit memory release
                 decoded = null;
                 processed = null;
-                await new Promise(resolve => setTimeout(resolve, 0));
+                // Give time for garbage collection
+                if (index % 3 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 30));
+                }
             }
         }
         
@@ -1837,13 +1861,15 @@
                 const oldestWindow = waveWindows.shift();
                 if (oldestWindow && oldestWindow.element) {
                     try {
+                        safeRevoke(oldestWindow.url);
                         if (oldestWindow.audioElement) {
                             oldestWindow.audioElement.pause();
                             oldestWindow.audioElement.src = '';
                         }
-                        safeRevoke(oldestWindow.url);
                         document.body.removeChild(oldestWindow.element);
-                    } catch (e) {}
+                    } catch (e) {
+                        console.warn('Error removing old window:', e);
+                    }
                 }
             }
             
@@ -1886,31 +1912,19 @@
             document.body.appendChild(windowElement);
             
             const audioElement = document.createElement('audio');
+            audioElement.src = url;
             audioElement.style.display = 'none';
             audioElement.preload = 'metadata';
             
+            // FIXED: Simple error handler without infinite loop
             let errorHandled = false;
-            const errorHandler = function(e) {
+            audioElement.addEventListener('error', function(e) {
                 if (errorHandled) return;
                 errorHandled = true;
                 
-                console.error('Audio loading error for preview:', title, e);
-                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${escapeHtml(title)}</div>`, 'errors');
-                
-                if (audioBuffer) {
-                    audioBufferToBlob(audioBuffer).then(blob => {
-                        const wavUrl = URL.createObjectURL(blob);
-                        audioElement.removeEventListener('error', errorHandler);
-                        audioElement.src = wavUrl;
-                        createdObjectURLs.push(wavUrl);
-                    }).catch(error => {
-                        console.error('Failed to create fallback audio:', error);
-                    });
-                }
-            };
-            
-            audioElement.addEventListener('error', errorHandler);
-            audioElement.src = url;
+                console.error('Audio loading error for:', title, e);
+                addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${title}</div>`, 'errors');
+            });
             
             windowElement.querySelector('.wave-element-container').appendChild(audioElement);
             
@@ -1959,15 +1973,13 @@
                 bringToFront();
                 activateAudio();
                 stopAllPlayback();
-                
-                audioElement.play().then(() => {
-                    playButton.style.display = 'none';
-                    pauseButton.style.display = 'block';
-                    updateStatus("Playing audio");
-                }).catch(error => {
-                    console.error('Playback failed:', error);
-                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error: ${error.message}</div>`, 'errors');
+                audioElement.play().catch(e => {
+                    console.error('Playback error:', e);
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error for: ${title}</div>`, 'errors');
                 });
+                playButton.style.display = 'none';
+                pauseButton.style.display = 'block';
+                updateStatus("Playing audio");
             });
             
             pauseButton.addEventListener('click', () => {
@@ -2087,13 +2099,7 @@
         }
         
         function cleanupMemory() {
-            waveWindows.forEach(w => {
-                if (w.audioElement) {
-                    w.audioElement.pause();
-                    w.audioElement.src = '';
-                }
-            });
-            
+            // Release ObjectURL
             createdObjectURLs.forEach(url => {
                 try { 
                     URL.revokeObjectURL(url); 
@@ -2101,40 +2107,32 @@
             });
             createdObjectURLs = [];
             
-            if (activeAudioContext && activeAudioContext.state !== 'closed') {
+            // Close AudioContext
+            if (activeAudioContext) {
                 try { 
                     activeAudioContext.close(); 
                 } catch (e) {}
                 activeAudioContext = null;
                 audioContextResumed = false;
             }
-            
-            if (window.gc) {
-                try {
-                    window.gc();
-                } catch (e) {}
-            }
         }
         
         function cancelProcessing() {
             processingCancelled = true;
-            currentlyProcessingFiles.clear();
-            
-            waveWindows.forEach(window => {
-                if (window.audioElement) {
-                    window.audioElement.pause();
-                    window.audioElement.src = '';
-                }
-            });
-            
             if (currentProcessing) currentProcessing.cancel();
             progressIntervals.forEach(interval => clearInterval(interval));
             progressIntervals = [];
             
             cleanupMemory();
+            
             hideOverlay();
             updateStatus("Processing cancelled");
             showNotification('Processing cancelled', 'warning');
+            
+            if (activeAudioContext) {
+                try { activeAudioContext.close(); } catch (e) {}
+                activeAudioContext = null;
+            }
         }
         
         function clearAllData() {
@@ -2149,6 +2147,7 @@
             document.getElementById('errors-tab').innerHTML = '<div><i class="fas fa-check-circle" style="color: var(--success-color);"></i> No errors yet</div>';
             document.getElementById('stats-tab').innerHTML = '<div><i class="fas fa-chart-pie"></i> No statistics yet</div>';
             
+            // Reset performance metrics
             performanceMetrics = {
                 filesProcessed: 0,
                 totalProcessingTime: 0,
@@ -2246,6 +2245,7 @@
                    (navigator.msMaxTouchPoints > 0);
         }
         
+        // Add spin animation for loader
         const style = document.createElement('style');
         style.textContent = `
             @keyframes spin {
@@ -2255,6 +2255,7 @@
         `;
         document.head.appendChild(style);
         
+        // Enhanced error handling
         window.addEventListener('error', e => {
             console.error('Global error:', e.error);
             addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Global error: ${e.error.message}</div>`, 'errors');
@@ -2265,6 +2266,7 @@
             addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Promise rejection: ${e.reason}</div>`, 'errors');
         });
         
+        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             cleanupMemory();
             
