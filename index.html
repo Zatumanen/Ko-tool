@@ -794,7 +794,7 @@
     </div>
 
     <script>
-        // OPTIMIZED AND WORKING VERSION
+        // FIXED VERSION - устранены зависания и повторяющиеся ошибки превью
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -806,7 +806,6 @@
         let memoryWarningShown = false;
         let processingStartTime = 0;
         let progressIntervals = [];
-        let isProcessing = false;
         
         const MAX_PREVIEW_WINDOWS = 3;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -1201,11 +1200,6 @@
         }
         
         async function processItems(items) {
-            if (isProcessing) {
-                showNotification('Processing already in progress', 'warning');
-                return;
-            }
-            
             if (!items || items.length === 0) {
                 updateStatus("No files to process");
                 return;
@@ -1217,7 +1211,6 @@
                 return;
             }
             
-            isProcessing = true;
             processingCancelled = false;
             showOverlay();
             addToLog(`<i class="fas fa-play-circle"></i> Processing started with ${items.length} items`);
@@ -1328,7 +1321,6 @@
                 if (!processingCancelled) hideOverlay();
                 cleanupMemory();
                 currentProcessing = null;
-                isProcessing = false;
             }
         }
         
@@ -1424,25 +1416,18 @@
                     ${compressionInfo}
                 `);
                 
-                const url = URL.createObjectURL(outputBlob);
-                createdObjectURLs.push(url);
-                
-                // Create WAV version for preview to avoid format issues
-                try {
-                    const wavBlob = await audioBufferToBlob(processed);
-                    const wavUrl = URL.createObjectURL(wavBlob);
-                    createdObjectURLs.push(wavUrl);
-                    
-                    // Add delay to prevent UI freezing
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    
-                    createWaveWindow(fileName, wavUrl, processed);
-                } catch (windowError) {
-                    console.warn('Failed to create preview window:', windowError);
-                    addToLog(`<div class="file-error"><i class="fas fa-exclamation-triangle"></i> Preview unavailable for: ${fileName}</div>`, 'errors');
+                // FIXED: Создаем превью только если не превышен лимит окон и файл достаточно мал
+                if (waveWindows.length < MAX_PREVIEW_WINDOWS && processed.duration < 30) {
+                    try {
+                        const previewUrl = URL.createObjectURL(outputBlob);
+                        createdObjectURLs.push(previewUrl);
+                        createWaveWindow(fileName, previewUrl, processed);
+                    } catch (previewError) {
+                        console.warn('Failed to create preview:', previewError);
+                    }
                 }
                 
-                return { fileName, url, originalSize, processedSize, trimmedSamples, channels, isCompressed };
+                return { fileName, originalSize, processedSize, trimmedSamples, channels, isCompressed };
             } catch (error) {
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
@@ -1450,10 +1435,7 @@
                 // Explicit memory release
                 decoded = null;
                 processed = null;
-                // Give time for garbage collection
-                if (index % 3 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 30));
-                }
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
         
@@ -1857,6 +1839,7 @@
         }
         
         function createWaveWindow(title, url, audioBuffer) {
+            // FIXED: Проверяем, не превышен ли лимит окон
             if (waveWindows.length >= MAX_PREVIEW_WINDOWS) {
                 const oldestWindow = waveWindows.shift();
                 if (oldestWindow && oldestWindow.element) {
@@ -1916,14 +1899,34 @@
             audioElement.style.display = 'none';
             audioElement.preload = 'metadata';
             
-            // FIXED: Simple error handler without infinite loop
+            // FIXED: Улучшенная обработка ошибок аудио с защитой от повторных вызовов
             let errorHandled = false;
             audioElement.addEventListener('error', function(e) {
                 if (errorHandled) return;
                 errorHandled = true;
                 
-                console.error('Audio loading error for:', title, e);
+                console.error('Audio loading error:', e);
                 addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${title}</div>`, 'errors');
+                
+                // Пытаемся создать WAV как fallback
+                if (audioBuffer) {
+                    try {
+                        audioBufferToBlob(audioBuffer).then(blob => {
+                            const wavUrl = URL.createObjectURL(blob);
+                            audioElement.src = wavUrl;
+                            createdObjectURLs.push(wavUrl);
+                        }).catch(error => {
+                            console.error('Failed to create fallback audio:', error);
+                        });
+                    } catch (error) {
+                        console.error('Error creating fallback:', error);
+                    }
+                }
+            });
+            
+            // FIXED: Обработчик loadeddata для подтверждения успешной загрузки
+            audioElement.addEventListener('loadeddata', function() {
+                console.log('Audio loaded successfully:', title);
             });
             
             windowElement.querySelector('.wave-element-container').appendChild(audioElement);
@@ -1932,7 +1935,11 @@
             const progressBar = windowElement.querySelector('.progress-bar');
             
             if (audioBuffer) {
-                drawWaveform(canvas, audioBuffer, '#c0c0c0');
+                try {
+                    drawWaveform(canvas, audioBuffer, '#c0c0c0');
+                } catch (e) {
+                    console.error('Error drawing waveform:', e);
+                }
             }
             
             const playButton = windowElement.querySelector('.play-button');
@@ -1959,9 +1966,18 @@
                 e.stopPropagation();
                 bringToFront();
                 audioElement.pause();
+                audioElement.src = '';
                 safeRevoke(url);
-                if (document.body.contains(windowElement)) document.body.removeChild(windowElement);
-                waveWindows = waveWindows.filter(w => w.id !== windowId);
+                
+                // Удаляем из массива waveWindows
+                const index = waveWindows.findIndex(w => w.id === windowId);
+                if (index > -1) {
+                    waveWindows.splice(index, 1);
+                }
+                
+                if (document.body.contains(windowElement)) {
+                    document.body.removeChild(windowElement);
+                }
             }
             
             minimizeBtn.addEventListener('click', handleMinimize);
@@ -1973,13 +1989,15 @@
                 bringToFront();
                 activateAudio();
                 stopAllPlayback();
-                audioElement.play().catch(e => {
+                
+                audioElement.play().then(() => {
+                    playButton.style.display = 'none';
+                    pauseButton.style.display = 'block';
+                    updateStatus("Playing audio");
+                }).catch(e => {
                     console.error('Playback error:', e);
-                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error for: ${title}</div>`, 'errors');
+                    addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error: ${e.message}</div>`, 'errors');
                 });
-                playButton.style.display = 'none';
-                pauseButton.style.display = 'block';
-                updateStatus("Playing audio");
             });
             
             pauseButton.addEventListener('click', () => {
@@ -2114,6 +2132,11 @@
                 } catch (e) {}
                 activeAudioContext = null;
                 audioContextResumed = false;
+            }
+            
+            // Принудительный вызов сборщика мусора если доступен
+            if (window.gc) {
+                window.gc();
             }
         }
         
