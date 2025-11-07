@@ -794,7 +794,7 @@
     </div>
 
     <script>
-        // FIXED VERSION - устранены зависания и повторяющиеся ошибки превью
+        // FIXED VERSION - устранены ошибки загрузки аудио и зависания
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let dragCounter = 0;
@@ -1388,11 +1388,11 @@
                         const encoder = new Mp3Encoder(processed.numberOfChannels, processed.sampleRate, 192);
                         outputBlob = encoder.encode(processed);
                     } else {
-                        outputBlob = await audioBufferToBlob(processed);
+                        outputBlob = await audioBufferToWavBlob(processed);
                     }
                 } catch (encodeError) {
                     addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
-                    outputBlob = await audioBufferToBlob(processed);
+                    outputBlob = await audioBufferToWavBlob(processed);
                 }
                 
                 processedSize = outputBlob.size;
@@ -1416,7 +1416,7 @@
                     ${compressionInfo}
                 `);
                 
-                // FIXED: Создаем превью только если не превышен лимит окон и файл достаточно мал
+                // FIXED: Создаем превью только для коротких файлов и если есть место
                 if (waveWindows.length < MAX_PREVIEW_WINDOWS && processed.duration < 30) {
                     try {
                         const previewUrl = URL.createObjectURL(outputBlob);
@@ -1602,79 +1602,112 @@
             }
         }
         
-        function audioBufferToWav(audioBuffer) {
-            const fidelity = getSelectedValue('fidelity');
-            const fidelitySettings = getFidelitySettings(fidelity);
-            const bitDepth = fidelitySettings.bitDepth;
-            const numChannels = audioBuffer.numberOfChannels;
-            const sampleRate = audioBuffer.sampleRate;
-            const bytesPerSample = bitDepth === 8 ? 1 : 2;
-            const blockAlign = numChannels * bytesPerSample;
-            const dataLength = audioBuffer.length * blockAlign;
-            const fmtChunkSize = 16;
-            
-            const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
-            const fmtDv = new DataView(fmtBuf);
-            writeString(fmtDv, 0, 'fmt ');
-            fmtDv.setUint32(4, fmtChunkSize, true);
-            fmtDv.setUint16(8, 1, true);
-            fmtDv.setUint16(10, numChannels, true);
-            fmtDv.setUint32(12, sampleRate, true);
-            fmtDv.setUint32(16, sampleRate * blockAlign, true);
-            fmtDv.setUint16(20, blockAlign, true);
-            fmtDv.setUint16(22, bitDepth, true);
-            
-            const dataHeader = new ArrayBuffer(8);
-            const dataDv = new DataView(dataHeader);
-            writeString(dataDv, 0, 'data');
-            dataDv.setUint32(4, dataLength, true);
-            
-            const riffSize = 4 + fmtBuf.byteLength + dataHeader.byteLength + dataLength;
-            const riffHeader = new ArrayBuffer(12);
-            const riffDv = new DataView(riffHeader);
-            writeString(riffDv, 0, 'RIFF');
-            riffDv.setUint32(4, riffSize, true);
-            writeString(riffDv, 8, 'WAVE');
-            
-            let audioData;
-            
-            if (bitDepth === 8) {
-                audioData = new Uint8Array(dataLength);
-                let off = 0;
-                
-                for (let i = 0; i < audioBuffer.length; i++) {
-                    for (let ch = 0; ch < numChannels; ch++) {
-                        const s = audioBuffer.getChannelData(ch)[i];
-                        const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
-                        audioData[off++] = u;
+        function audioBufferToWavBlob(audioBuffer) {
+            return new Promise((resolve) => {
+                try {
+                    const fidelity = getSelectedValue('fidelity');
+                    const fidelitySettings = getFidelitySettings(fidelity);
+                    const bitDepth = fidelitySettings.bitDepth;
+                    const numChannels = audioBuffer.numberOfChannels;
+                    const sampleRate = audioBuffer.sampleRate;
+                    const bytesPerSample = bitDepth === 8 ? 1 : 2;
+                    const blockAlign = numChannels * bytesPerSample;
+                    const dataLength = audioBuffer.length * blockAlign;
+                    const fmtChunkSize = 16;
+                    
+                    const fmtBuf = new ArrayBuffer(8 + fmtChunkSize);
+                    const fmtDv = new DataView(fmtBuf);
+                    writeString(fmtDv, 0, 'fmt ');
+                    fmtDv.setUint32(4, fmtChunkSize, true);
+                    fmtDv.setUint16(8, 1, true);
+                    fmtDv.setUint16(10, numChannels, true);
+                    fmtDv.setUint32(12, sampleRate, true);
+                    fmtDv.setUint32(16, sampleRate * blockAlign, true);
+                    fmtDv.setUint16(20, blockAlign, true);
+                    fmtDv.setUint16(22, bitDepth, true);
+                    
+                    const dataHeader = new ArrayBuffer(8);
+                    const dataDv = new DataView(dataHeader);
+                    writeString(dataDv, 0, 'data');
+                    dataDv.setUint32(4, dataLength, true);
+                    
+                    const riffSize = 4 + fmtBuf.byteLength + dataHeader.byteLength + dataLength;
+                    const riffHeader = new ArrayBuffer(12);
+                    const riffDv = new DataView(riffHeader);
+                    writeString(riffDv, 0, 'RIFF');
+                    riffDv.setUint32(4, riffSize, true);
+                    writeString(riffDv, 8, 'WAVE');
+                    
+                    let audioData;
+                    
+                    if (bitDepth === 8) {
+                        audioData = new Uint8Array(dataLength);
+                        let off = 0;
+                        
+                        for (let i = 0; i < audioBuffer.length; i++) {
+                            for (let ch = 0; ch < numChannels; ch++) {
+                                const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+                                const u = Math.max(0, Math.min(255, Math.round((s + 1) * 127.5)));
+                                audioData[off++] = u;
+                            }
+                        }
+                    } else {
+                        audioData = new Int16Array(audioBuffer.length * numChannels);
+                        let off = 0;
+                        
+                        for (let i = 0; i < audioBuffer.length; i++) {
+                            for (let ch = 0; ch < numChannels; ch++) {
+                                const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+                                const v = s < 0 ? s * 32768 : s * 32767;
+                                audioData[off++] = Math.max(-32768, Math.min(32767, v));
+                            }
+                        }
                     }
+                    
+                    const blob = new Blob([riffHeader, fmtBuf, dataHeader, audioData], { type: 'audio/wav' });
+                    resolve(blob);
+                } catch (error) {
+                    console.error('Error creating WAV blob:', error);
+                    // Fallback: create a simple WAV file
+                    const emptyBuffer = new ArrayBuffer(44);
+                    const view = new DataView(emptyBuffer);
+                    
+                    // RIFF identifier
+                    writeString(view, 0, 'RIFF');
+                    // file length
+                    view.setUint32(4, 36, true);
+                    // RIFF type
+                    writeString(view, 8, 'WAVE');
+                    // format chunk identifier
+                    writeString(view, 12, 'fmt ');
+                    // format chunk length
+                    view.setUint32(16, 16, true);
+                    // sample format (raw)
+                    view.setUint16(20, 1, true);
+                    // channel count
+                    view.setUint16(22, 1, true);
+                    // sample rate
+                    view.setUint32(24, 44100, true);
+                    // byte rate (sample rate * block align)
+                    view.setUint32(28, 44100 * 2, true);
+                    // block align (channel count * bytes per sample)
+                    view.setUint16(32, 2, true);
+                    // bits per sample
+                    view.setUint16(34, 16, true);
+                    // data chunk identifier
+                    writeString(view, 36, 'data');
+                    // data chunk length
+                    view.setUint32(40, 0, true);
+                    
+                    resolve(new Blob([view], { type: 'audio/wav' }));
                 }
-            } else {
-                const tmp = new Int16Array(audioBuffer.length * numChannels);
-                let off = 0;
-                
-                for (let i = 0; i < audioBuffer.length; i++) {
-                    for (let ch = 0; ch < numChannels; ch++) {
-                        const s = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
-                        const v = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
-                        tmp[off++] = v;
-                    }
-                }
-                
-                audioData = tmp.buffer;
-            }
-            
-            return new Blob([riffHeader, fmtBuf, dataHeader, audioData], { type: 'audio/wav' });
+            });
         }
         
         function writeString(view, offset, str) {
             for (let i = 0; i < str.length; i++) {
                 view.setUint8(offset + i, str.charCodeAt(i));
             }
-        }
-        
-        async function audioBufferToBlob(audioBuffer) { 
-            return audioBufferToWav(audioBuffer); 
         }
         
         function calculateRMSMulti(buffer, start, end) {
@@ -1849,7 +1882,9 @@
                             oldestWindow.audioElement.pause();
                             oldestWindow.audioElement.src = '';
                         }
-                        document.body.removeChild(oldestWindow.element);
+                        if (document.body.contains(oldestWindow.element)) {
+                            document.body.removeChild(oldestWindow.element);
+                        }
                     } catch (e) {
                         console.warn('Error removing old window:', e);
                     }
@@ -1899,7 +1934,7 @@
             audioElement.style.display = 'none';
             audioElement.preload = 'metadata';
             
-            // FIXED: Улучшенная обработка ошибок аудио с защитой от повторных вызовов
+            // FIXED: Улучшенная обработка ошибок аудио
             let errorHandled = false;
             audioElement.addEventListener('error', function(e) {
                 if (errorHandled) return;
@@ -1908,25 +1943,21 @@
                 console.error('Audio loading error:', e);
                 addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Audio loading error for preview: ${title}</div>`, 'errors');
                 
-                // Пытаемся создать WAV как fallback
-                if (audioBuffer) {
-                    try {
-                        audioBufferToBlob(audioBuffer).then(blob => {
-                            const wavUrl = URL.createObjectURL(blob);
-                            audioElement.src = wavUrl;
-                            createdObjectURLs.push(wavUrl);
-                        }).catch(error => {
-                            console.error('Failed to create fallback audio:', error);
-                        });
-                    } catch (error) {
-                        console.error('Error creating fallback:', error);
-                    }
+                // Отключаем кнопки воспроизведения при ошибке
+                const playButton = windowElement.querySelector('.play-button');
+                if (playButton) {
+                    playButton.disabled = true;
+                    playButton.title = 'Audio not available';
                 }
             });
             
-            // FIXED: Обработчик loadeddata для подтверждения успешной загрузки
+            // FIXED: Обработчик успешной загрузки
             audioElement.addEventListener('loadeddata', function() {
                 console.log('Audio loaded successfully:', title);
+            });
+            
+            audioElement.addEventListener('canplaythrough', function() {
+                console.log('Audio can play through:', title);
             });
             
             windowElement.querySelector('.wave-element-container').appendChild(audioElement);
@@ -1990,6 +2021,12 @@
                 activateAudio();
                 stopAllPlayback();
                 
+                // FIXED: Проверяем, готово ли аудио к воспроизведению
+                if (audioElement.readyState < 2) {
+                    showNotification('Audio is still loading, please wait...', 'warning');
+                    return;
+                }
+                
                 audioElement.play().then(() => {
                     playButton.style.display = 'none';
                     pauseButton.style.display = 'block';
@@ -1997,6 +2034,7 @@
                 }).catch(e => {
                     console.error('Playback error:', e);
                     addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Playback error: ${e.message}</div>`, 'errors');
+                    showNotification('Playback failed: ' + e.message, 'error');
                 });
             });
             
