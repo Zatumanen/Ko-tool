@@ -1977,7 +1977,10 @@
             const audioElement = document.createElement('audio');
             audioElement.src = url;
             audioElement.style.display = 'none';
-            audioElement.preload = 'metadata';
+            // On some browsers (esp. mobile Safari) blob audio may not fire readiness
+            // events until load()/play() is attempted.
+            audioElement.preload = 'auto';
+            try { audioElement.load(); } catch (e) {}
             
             // FIXED: Улучшенная обработка аудио с проверкой готовности
             let audioReady = false;
@@ -2067,9 +2070,10 @@
                 activateAudio();
                 stopAllPlayback();
                 
+                // Don't block playback behind "audioReady": some browsers only become
+                // ready after play() or load() is attempted.
                 if (!audioReady) {
-                    showNotification('Audio is still loading, please wait...', 'warning');
-                    return;
+                    try { audioElement.load(); } catch (e) {}
                 }
                 
                 audioElement.play().then(() => {
