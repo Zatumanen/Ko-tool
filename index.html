@@ -756,7 +756,7 @@
                     <div><i class="fas fa-tachometer-alt"></i> Files will be sped up 2x to save space</div>
                     <div><i class="fas fa-cut"></i> Auto-trim removes silence at start and end</div>
                     <div><i class="fas fa-folder-open"></i> Folder structure will be preserved in output</div>
-                    <div><i class="fas fa-save"></i> Files will be saved in their original format</div>
+                    <div><i class="fas fa-save"></i> All files will be saved as WAV with KO II metadata</div>
                     <div><i class="fas fa-exchange-alt"></i> KO II will convert files during import</div>
                 </div>
                 
@@ -1083,7 +1083,8 @@
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
-            notification.textContent = message;
+            // Используем innerHTML для поддержки HTML (иконки), но экранируем текст
+            notification.innerHTML = message;
             document.body.appendChild(notification);
             notification.classList.add('show');
             setTimeout(() => {
@@ -1439,7 +1440,7 @@
                 const processedSizeKB = (processedSize / 1024).toFixed(1);
                 const sizeDifference = processedSize - originalSize;
                 let sizeInfo = sizeDifference > 0 ? `INCREASED by ${formatBytes(sizeDifference)}` : `DECREASED by ${formatBytes(-sizeDifference)}`;
-                let compressionInfo = isCompressed ? '<div><i class="fas fa-info-circle"></i> Original compressed format preserved</div>' : '';
+                let compressionInfo = isCompressed ? '<div><i class="fas fa-info-circle"></i> Converted from compressed format to WAV (file size may increase)</div>' : '';
                 
                 addToLog(`
                     <div><i class="fas fa-check"></i> Processed: ${escapeHtml(fileName)}</div>
@@ -1813,28 +1814,39 @@
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             
             try {
-                const ctx = new OfflineContext(audioBuffer.numberOfChannels, audioBuffer.length, sampleRate);
+                const numChannels = audioBuffer.numberOfChannels;
+                const ctx = new OfflineContext(numChannels, audioBuffer.length, sampleRate);
                 const source = ctx.createBufferSource();
                 source.buffer = audioBuffer;
                 
+                // Lowpass filter для эмуляции ограниченной полосы пропускания SK-1
                 const filter = ctx.createBiquadFilter();
                 filter.type = 'lowpass';
-                filter.frequency.value = 4000;
+                filter.frequency.value = 4000; // SK-1 имеет ограниченную полосу пропускания
+                filter.Q.value = 1;
                 
-                const bitcrusher = ctx.createScriptProcessor(4096, 1, 1);
+                // Bitcrusher для эмуляции 8-bit квантования SK-1
+                // 8-bit = 256 уровней, диапазон от -1 до 1
+                const bitcrusher = ctx.createScriptProcessor(4096, numChannels, numChannels);
                 bitcrusher.onaudioprocess = function(e) {
-                    const input = e.inputBuffer.getChannelData(0);
-                    const output = e.outputBuffer.getChannelData(0);
-                    const step = 1 / 32;
-                    let phaser = 0, last = 0;
+                    // 8-bit квантование: 256 уровней для диапазона -1.0 до 1.0
+                    // Шаг = 2.0 / 256 = 0.0078125
+                    const bits = 8;
+                    const levels = Math.pow(2, bits);
+                    const step = 2.0 / levels; // 0.0078125 для 8-bit
                     
-                    for (let i = 0; i < input.length; i++) {
-                        phaser += step;
-                        if (phaser >= 1.0) { 
-                            phaser -= 1.0; 
-                            last = step * Math.floor(input[i] / step + 0.5); 
+                    for (let ch = 0; ch < numChannels; ch++) {
+                        const input = e.inputBuffer.getChannelData(ch);
+                        const output = e.outputBuffer.getChannelData(ch);
+                        
+                        for (let i = 0; i < input.length; i++) {
+                            // Ограничиваем входное значение
+                            let sample = Math.max(-1, Math.min(1, input[i]));
+                            // Квантуем: округляем до ближайшего уровня
+                            sample = step * Math.floor(sample / step + 0.5);
+                            // Ограничиваем результат
+                            output[i] = Math.max(-1, Math.min(1, sample));
                         }
-                        output[i] = last;
                     }
                 };
                 
