@@ -819,7 +819,10 @@
         let processingStartTime = 0;
         let progressIntervals = [];
         
-        const MAX_PREVIEW_WINDOWS = 3;
+        // QA: set to 0 later to полностью отключить превью
+        const MAX_PREVIEW_WINDOWS = 10;
+        // QA: превью всегда создаётся, но для длинных файлов берём только первые N секунд
+        const PREVIEW_MAX_SECONDS = 30;
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
@@ -1220,7 +1223,10 @@
             addToLog(`<i class="fas fa-play-circle"></i> Processing started with ${items.length} items`);
             document.getElementById('file-count').textContent = `File: 0/${items.length}`;
             
-            const zip = new JSZip();
+            const useZip = items.length >= 2;
+            const zip = useZip ? new JSZip() : null;
+            let singleOutputBlob = null;
+            let singleOutputName = null;
             let stereoOriginal = 0, monoOriginal = 0, totalOriginalSize = 0, totalProcessedSize = 0,
                 processedFiles = 0, totalTrimmed = 0, errorCount = 0;
             
@@ -1257,6 +1263,10 @@
                     totalOriginalSize += result.originalSize || 0;
                     totalProcessedSize += result.processedSize || 0;
                     totalTrimmed += result.trimmedSamples || 0;
+                    if (!useZip && result.outputBlob && result.fileName) {
+                        singleOutputBlob = result.outputBlob;
+                        singleOutputName = result.fileName;
+                    }
                     
                     if (result.channels === 1) monoOriginal++;
                     else if (result.channels === 2) stereoOriginal++;
@@ -1269,31 +1279,42 @@
                 }
                 
                 if (!processingCancelled && processedFiles > 0) {
-                    addToLog(`<i class="fas fa-archive"></i> Compressing files into ZIP archive...`);
-                    
-                    const zipBlob = await zip.generateAsync(
-                        { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
-                        metadata => {
-                            const percent = metadata.percent.toFixed(1);
-                            updateStatus(`Compressing: ${percent}%`);
+                    if (useZip) {
+                        addToLog(`<i class="fas fa-archive"></i> Compressing files into ZIP archive...`);
+                        
+                        const zipBlob = await zip.generateAsync(
+                            { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
+                            metadata => {
+                                const percent = metadata.percent.toFixed(1);
+                                updateStatus(`Compressing: ${percent}%`);
+                            }
+                        );
+                        
+                        await updateProgressBar(1);
+                        
+                        const zipUrl = URL.createObjectURL(zipBlob);
+                        trackObjectURL(zipUrl, { pinned: true });
+                        
+                        const a = document.createElement('a');
+                        a.href = zipUrl;
+                        a.download = "ko2_processed_audio.zip";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        
+                        setTimeout(() => {
+                            safeRevoke(zipUrl);
+                        }, 2000);
+                    } else {
+                        // Single file: download directly, no ZIP
+                        if (singleOutputBlob) {
+                            const downloadName = (singleOutputName || 'ko2_processed_audio').split('/').pop().replace(/\//g, '_');
+                            addToLog(`<i class="fas fa-download"></i> Downloading processed file: ${escapeHtml(downloadName)}`);
+                            downloadBlob(singleOutputBlob, downloadName);
+                        } else {
+                            addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Nothing to download</div>`, 'errors');
                         }
-                    );
-                    
-                    await updateProgressBar(1);
-                    
-                    const zipUrl = URL.createObjectURL(zipBlob);
-                    trackObjectURL(zipUrl, { pinned: true });
-                    
-                    const a = document.createElement('a');
-                    a.href = zipUrl;
-                    a.download = "ko2_processed_audio.zip";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    
-                    setTimeout(() => {
-                        safeRevoke(zipUrl);
-                    }, 2000);
+                    }
                     
                     const fidelity = getSelectedValue('fidelity');
                     const channels = getSelectedValue('channels');
@@ -1398,10 +1419,12 @@
                 
                 processedSize = outputBlob.size;
                 
-                try { 
-                    zip.file(fileName, outputBlob); 
-                } catch (zipError) {
-                    throw new Error(`Failed to add to ZIP: ${zipError.message}`);
+                if (zip) {
+                    try { 
+                        zip.file(fileName, outputBlob); 
+                    } catch (zipError) {
+                        throw new Error(`Failed to add to ZIP: ${zipError.message}`);
+                    }
                 }
                 
                 const originalSizeKB = (originalSize / 1024).toFixed(1);
@@ -1417,22 +1440,29 @@
                     ${compressionInfo}
                 `);
                 
-                // FIXED: Создаем превью с гарантированно совместимым WAV
-                if (waveWindows.length < MAX_PREVIEW_WINDOWS && processed.duration < 30 && processed.length > 0) {
+                // QA: превью создаём всегда (для длинных файлов — только первые PREVIEW_MAX_SECONDS секунд)
+                if (MAX_PREVIEW_WINDOWS > 0 && processed && processed.length > 0) {
                     try {
-                        const previewBlob = await createCompatibleWavBlob(processed);
+                        const previewBuffer = processed.duration > PREVIEW_MAX_SECONDS
+                            ? sliceAudioBuffer(processed, 0, PREVIEW_MAX_SECONDS)
+                            : processed;
+                        const previewBlob = await createCompatibleWavBlob(previewBuffer);
                         // Проверяем что blob не пустой
                         if (previewBlob && previewBlob.size > 100) {
                             const previewUrl = URL.createObjectURL(previewBlob);
                             trackObjectURL(previewUrl, { pinned: true });
-                            createWaveWindow(fileName, previewUrl, processed);
+                            createWaveWindow(fileName, previewUrl, previewBuffer);
                         }
                     } catch (previewError) {
                         console.warn('Failed to create preview:', previewError);
                     }
                 }
                 
-                return { fileName, originalSize, processedSize, trimmedSamples, channels, isCompressed };
+                const result = { fileName, originalSize, processedSize, trimmedSamples, channels, isCompressed };
+                if (!zip) {
+                    result.outputBlob = outputBlob;
+                }
+                return result;
             } catch (error) {
                 if (!processingCancelled) handleProcessingError(error, item);
                 return null;
@@ -1447,6 +1477,39 @@
             if (!url) return;
             createdObjectURLs.push(url);
             if (pinned) pinnedObjectURLs.add(url);
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            trackObjectURL(url, { pinned: true });
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => safeRevoke(url), 2000);
+        }
+
+        function sliceAudioBuffer(audioBuffer, startSeconds, durationSeconds) {
+            if (!audioBuffer) return audioBuffer;
+            if (!durationSeconds || durationSeconds <= 0) return audioBuffer;
+            const sr = audioBuffer.sampleRate;
+            const start = Math.max(0, Math.floor((startSeconds || 0) * sr));
+            const maxLen = Math.max(1, Math.floor(durationSeconds * sr));
+            const end = Math.min(audioBuffer.length, start + maxLen);
+            const length = Math.max(1, end - start);
+            
+            const out = createAudioBuffer({
+                length,
+                sampleRate: sr,
+                numberOfChannels: audioBuffer.numberOfChannels
+            });
+            
+            for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+                out.getChannelData(ch).set(audioBuffer.getChannelData(ch).subarray(start, end));
+            }
+            return out;
         }
         
         // НОВАЯ ФУНКЦИЯ: Создание совместимого WAV файла
