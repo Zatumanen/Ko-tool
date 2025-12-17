@@ -9,7 +9,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <style>
-        /* Все стили остаются без изменений */
         :root {
             --glow-color: #ff3333; 
             --primary-blue: #000080; 
@@ -633,7 +632,6 @@
             transform: rotate(180deg); 
         }
 
-        /* Main window minimize support */
         .window.minimized {
             height: 36px;
             overflow: hidden;
@@ -805,7 +803,6 @@
     </div>
 
     <script>
-        // COMPLETELY FIXED VERSION - рабочая кнопка воспроизведения
         let activeAudioContext = null;
         let createdObjectURLs = [];
         let pinnedObjectURLs = new Set();
@@ -819,13 +816,9 @@
         let processingStartTime = 0;
         let progressIntervals = [];
         
-        // QA: set to 0 later to полностью отключить превью
         const MAX_PREVIEW_WINDOWS = 10;
-        // QA: превью всегда создаётся, но для длинных файлов берём только первые N секунд
         const PREVIEW_MAX_SECONDS = 30;
-        // Soft limit: above this we warn/confirm (but allow)
         const MAX_FILE_SIZE = 50 * 1024 * 1024;
-        // Hard limit: above this we refuse (to avoid crashes)
         const MAX_FILE_SIZE_HARD = 250 * 1024 * 1024;
         const MAX_TOTAL_FILES = 100;
         const SUPPORTED_FORMATS = ['wav', 'mp3', 'ogg', 'aac', 'flac', 'm4a'];
@@ -1083,7 +1076,6 @@
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
-            // Используем innerHTML для поддержки HTML (иконки), но экранируем текст
             notification.innerHTML = message;
             document.body.appendChild(notification);
             notification.classList.add('show');
@@ -1177,7 +1169,6 @@
                 throw new Error(`File too large: ${file.name} (${formatBytes(file.size)}). Max: ${formatBytes(MAX_FILE_SIZE_HARD)}`);
             }
             
-            // Soft warning; actual confirmation happens later in processSingleItem()
             if (file.size > maxSize) {
                 try {
                     document.getElementById('memory-warning').style.display = 'block';
@@ -1318,7 +1309,6 @@
                             safeRevoke(zipUrl);
                         }, 2000);
                     } else {
-                        // Single file: download directly, no ZIP
                         if (singleOutputBlob) {
                             const downloadName = (singleOutputName || 'ko2_processed_audio').split('/').pop().replace(/\//g, '_');
                             addToLog(`<i class="fas fa-download"></i> Downloading processed file: ${escapeHtml(downloadName)}`);
@@ -1409,21 +1399,17 @@
                     addToLog(`<i class="fas fa-cut"></i> Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
                 }
                 
-                // Нормализация всегда применяется (перманентная функция как ускорение в 2 раза)
                 processed = normalizeAudio(processed, -0.1);
                 addToLog(`<i class="fas fa-volume-up"></i> Normalized to -0.1 dB`);
                 
                 const pathParts = item.path.split('/');
                 const origFilename = pathParts.pop();
                 const safeFilename = origFilename.replace(/[^\w\.\-]/gi, '');
-                // Всегда сохраняем как WAV с метаданными KO II для совместимости
                 const newFilename = safeFilename.replace(/\.[^/.]+$/, '') + '_ko2.wav';
                 fileName = [...pathParts, newFilename].join('/');
                 
                 let outputBlob;
                 try {
-                    // Всегда создаём WAV с метаданными KO II для всех файлов
-                    // KO II читает метаданные только из WAV файлов
                     outputBlob = await createCompatibleWavBlob(processed, true);
                 } catch (encodeError) {
                     addToLog(`<div class="file-error"><i class="fas fa-times-circle"></i> Encoding error: ${encodeError.message}. Using WAV fallback.</div>`, 'errors');
@@ -1453,14 +1439,12 @@
                     ${compressionInfo}
                 `);
                 
-                // QA: превью создаём всегда (для длинных файлов — только первые PREVIEW_MAX_SECONDS секунд)
                 if (MAX_PREVIEW_WINDOWS > 0 && processed && processed.length > 0) {
                     try {
                         const previewBuffer = processed.duration > PREVIEW_MAX_SECONDS
                             ? sliceAudioBuffer(processed, 0, PREVIEW_MAX_SECONDS)
                             : processed;
                         const previewBlob = await createCompatibleWavBlob(previewBuffer);
-                        // Проверяем что blob не пустой
                         if (previewBlob && previewBlob.size > 100) {
                             const previewUrl = URL.createObjectURL(previewBlob);
                             trackObjectURL(previewUrl, { pinned: true });
@@ -1525,13 +1509,11 @@
             return out;
         }
         
-        // НОВАЯ ФУНКЦИЯ: Создание совместимого WAV файла с метаданными KO II
         async function createCompatibleWavBlob(audioBuffer, addKO2Metadata = false) {
             try {
                 const targetSampleRate = 44100;
                 let sourceBuffer = audioBuffer;
                 
-                // Resample for compatibility (avoid incorrect WAV headers)
                 if (audioBuffer.sampleRate !== targetSampleRate) {
                     const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
                     if (OfflineContext) {
@@ -1559,44 +1541,34 @@
                 const byteRate = sampleRate * blockAlign;
                 const dataSize = sourceBuffer.length * blockAlign;
                 
-                // Calculate metadata chunk size if needed
                 let metadataSize = 0;
                 if (addKO2Metadata) {
-                    // LIST chunk structure for KO II metadata
-                    // Format: LIST (4) + size (4) + "adtl" (4) + metadata data
-                    // KO II использует специальный формат, но мы создадим минимальную структуру
-                    metadataSize = 4 + 4 + 4; // "LIST" + size + "adtl"
-                    // Минимальный размер для базовых метаданных KO II
-                    metadataSize += 32; // Базовые параметры KO II
+                    metadataSize = 4 + 4 + 4;
+                    metadataSize += 32;
                 }
                 
                 const buffer = new ArrayBuffer(44 + dataSize + metadataSize);
                 const view = new DataView(buffer);
                 
-                // RIFF header (update size to include metadata)
                 writeString(view, 0, 'RIFF');
                 view.setUint32(4, 36 + dataSize + metadataSize, true);
                 writeString(view, 8, 'WAVE');
                 
-                // fmt chunk
                 writeString(view, 12, 'fmt ');
                 view.setUint32(16, 16, true);
-                view.setUint16(20, 1, true); // PCM format
+                view.setUint16(20, 1, true);
                 view.setUint16(22, numChannels, true);
                 view.setUint32(24, sampleRate, true);
                 view.setUint32(28, byteRate, true);
                 view.setUint16(32, blockAlign, true);
                 view.setUint16(34, bitsPerSample, true);
                 
-                // data chunk
                 writeString(view, 36, 'data');
                 view.setUint32(40, dataSize, true);
                 
-                // Cache channels for performance
                 const chData = [];
                 for (let c = 0; c < numChannels; c++) chData.push(sourceBuffer.getChannelData(c));
                 
-                // PCM16 interleaved
                 let writeOffset = 44;
                 for (let i = 0; i < sourceBuffer.length; i++) {
                     for (let c = 0; c < numChannels; c++) {
@@ -1609,7 +1581,6 @@
                     }
                 }
                 
-                // Add KO II metadata if requested
                 if (addKO2Metadata) {
                     writeOffset = addKO2MetadataChunk(view, writeOffset);
                 }
@@ -1621,93 +1592,56 @@
             }
         }
         
-        // Добавление метаданных KO II в WAV файл
-        // KO II использует специальный формат метаданных
-        // Формат основан на структуре, используемой repitch и другими инструментами для KO II
         function addKO2MetadataChunk(view, offset) {
             const startOffset = offset;
             
-            // LIST header
             writeString(view, offset, 'LIST');
             offset += 4;
             
-            // LIST size (будет обновлено в конце)
             const listSizePos = offset;
             offset += 4;
             
-            // LIST type: "adtl" (Associated Data List) - стандартный формат для метаданных
             writeString(view, offset, 'adtl');
             offset += 4;
             
-            // KO II метаданные структура
-            // Параметры согласно требованиям пользователя:
-            // - Playmode: Oneshot = 0 (Key=1, Legato=2)
-            // - Attack: минимальное = 0
-            // - Release: максимальное = 127
-            // - Time stretch: Off = 0
-            // - Volume: 100 (по умолчанию, 0-200, но в метаданных обычно 0-127)
-            // - Pan: Center = 64 (L=0, C=64, R=127)
-            // - Pitch: 0 (без сдвига, -12 to +12, в метаданных обычно 0-24 с offset 12)
-            // - Rootnote: 0 (C = 0)
-            
-            // KO II использует специальный бинарный формат метаданных
-            // Структура может варьироваться, но обычно это последовательность байтов
-            // с параметрами в определённом порядке
-            
-            // Базовые метаданные KO II (бинарный формат)
-            // Порядок параметров может быть специфичным для KO II
-            
-            // Playmode: Oneshot = 0 (1 byte: 0=Oneshot, 1=Key, 2=Legato)
             view.setUint8(offset, 0);
             offset += 1;
             
-            // Attack: минимальное = 0 (1 byte, 0-127)
             view.setUint8(offset, 0);
             offset += 1;
             
-            // Release: максимальное = 127 (1 byte, 0-127)
             view.setUint8(offset, 127);
             offset += 1;
             
-            // Time stretch: Off = 0 (1 byte: 0=Off, 1=BPM, 2=Bar)
             view.setUint8(offset, 0);
             offset += 1;
             
-            // Volume: 100 (1 byte, 0-200, но в метаданных обычно 0-127, масштабируем)
-            view.setUint8(offset, Math.round(100 * 127 / 200)); // 100 из 200 -> ~63 из 127
+            view.setUint8(offset, Math.round(100 * 127 / 200));
             offset += 1;
             
-            // Pan: Center = 64 (1 byte, L=0, C=64, R=127)
             view.setUint8(offset, 64);
             offset += 1;
             
-            // Pitch: 0 (1 byte, -12 to +12, в метаданных обычно 0-24 с offset 12)
-            // 12 = 0 (center), 0 = -12, 24 = +12
-            view.setUint8(offset, 12); // 12 = 0 (center pitch)
+            view.setUint8(offset, 12);
             offset += 1;
             
-            // Rootnote: 0 (1 byte, обычно C = 0, 0-11 для C-B)
             view.setUint8(offset, 0);
             offset += 1;
             
-            // Reserved/padding bytes для совместимости с форматом KO II
-            // KO II может ожидать определённый размер структуры метаданных
             for (let i = 0; i < 24; i++) {
                 view.setUint8(offset, 0);
                 offset += 1;
             }
             
-            // Обновляем размер LIST chunk (размер данных после "LIST" и размера, включая "adtl")
             const listSize = offset - (listSizePos + 4);
             view.setUint32(listSizePos, listSize, true);
             
             return offset;
         }
         
-        // Функция для создания простого тонового WAV (заглушка)
         function createSimpleToneWav() {
             const sampleRate = 44100;
-            const duration = 1; // 1 секунда
+            const duration = 1;
             const numSamples = sampleRate * duration;
             const numChannels = 1;
             const bitsPerSample = 16;
@@ -1718,12 +1652,10 @@
             const buffer = new ArrayBuffer(44 + dataSize);
             const view = new DataView(buffer);
             
-            // RIFF header
             writeString(view, 0, 'RIFF');
             view.setUint32(4, 36 + dataSize, true);
             writeString(view, 8, 'WAVE');
             
-            // fmt chunk
             writeString(view, 12, 'fmt ');
             view.setUint32(16, 16, true);
             view.setUint16(20, 1, true);
@@ -1733,11 +1665,9 @@
             view.setUint16(32, blockAlign, true);
             view.setUint16(34, bitsPerSample, true);
             
-            // data chunk
             writeString(view, 36, 'data');
             view.setUint32(40, dataSize, true);
             
-            // Write simple tone (440Hz)
             const offset = 44;
             for (let i = 0; i < numSamples; i++) {
                 const sample = 0.3 * Math.sin(2 * Math.PI * 440 * i / sampleRate);
@@ -1791,7 +1721,6 @@
             const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
             if (!OfflineContext) return false;
             try {
-                // Will throw in browsers that don't accept the given rate
                 new OfflineContext(1, 1, sampleRate);
                 return true;
             } catch (e) {
@@ -1823,32 +1752,24 @@
                 const source = ctx.createBufferSource();
                 source.buffer = audioBuffer;
                 
-                // Lowpass filter для эмуляции ограниченной полосы пропускания SK-1
                 const filter = ctx.createBiquadFilter();
                 filter.type = 'lowpass';
                 filter.frequency.value = 4000; // SK-1 имеет ограниченную полосу пропускания
                 filter.Q.value = 1;
                 
-                // Bitcrusher для эмуляции 8-bit квантования SK-1
-                // 8-bit = 256 уровней, диапазон от -1 до 1
                 const bitcrusher = ctx.createScriptProcessor(4096, numChannels, numChannels);
                 bitcrusher.onaudioprocess = function(e) {
-                    // 8-bit квантование: 256 уровней для диапазона -1.0 до 1.0
-                    // Шаг = 2.0 / 256 = 0.0078125
                     const bits = 8;
                     const levels = Math.pow(2, bits);
-                    const step = 2.0 / levels; // 0.0078125 для 8-bit
+                    const step = 2.0 / levels;
                     
                     for (let ch = 0; ch < numChannels; ch++) {
                         const input = e.inputBuffer.getChannelData(ch);
                         const output = e.outputBuffer.getChannelData(ch);
                         
                         for (let i = 0; i < input.length; i++) {
-                            // Ограничиваем входное значение
                             let sample = Math.max(-1, Math.min(1, input[i]));
-                            // Квантуем: округляем до ближайшего уровня
                             sample = step * Math.floor(sample / step + 0.5);
-                            // Ограничиваем результат
                             output[i] = Math.max(-1, Math.min(1, sample));
                         }
                     }
@@ -1945,9 +1866,8 @@
             } catch (e) {
                 const ContextClass = window.AudioContext || window.webkitAudioContext;
                 if (!ContextClass) throw e;
-                const tempCtx = activeAudioContext || new ContextClass();
+                    const tempCtx = activeAudioContext || new ContextClass();
                 const buf = tempCtx.createBuffer(numberOfChannels, length, sampleRate);
-                // If we had to create a temp context, close it
                 if (!activeAudioContext) {
                     try { tempCtx.close(); } catch (err) {}
                 }
@@ -2004,7 +1924,6 @@
             startIndex = Math.max(0, startIndex - Math.floor(0.05 * sampleRate));
             endIndex = Math.min(length - 1, endIndex + Math.floor(0.05 * sampleRate));
 
-            // Respect minSilenceDuration: don't trim tiny silences
             if (startIndex > 0 && startIndex < minSilenceSamples) startIndex = 0;
             if (endIndex < length - 1 && (length - 1 - endIndex) < minSilenceSamples) endIndex = length - 1;
             
@@ -2026,15 +1945,11 @@
             return newBuffer;
         }
         
-        // Нормализация аудио до указанного уровня в dB
         function normalizeAudio(audioBuffer, targetDb = -0.1) {
             if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
             
-            // Конвертируем dB в линейное значение
-            // targetDb = -0.1 dB -> linear = 10^(-0.1/20) ≈ 0.9886
             const targetLinear = Math.pow(10, targetDb / 20);
             
-            // Находим максимальный пик во всех каналах
             let maxPeak = 0;
             const numChannels = audioBuffer.numberOfChannels;
             const chData = [];
@@ -2043,7 +1958,6 @@
                 chData.push(audioBuffer.getChannelData(ch));
             }
             
-            // Ищем максимальное абсолютное значение
             for (let i = 0; i < audioBuffer.length; i++) {
                 for (let ch = 0; ch < numChannels; ch++) {
                     const absValue = Math.abs(chData[ch][i]);
@@ -2053,20 +1967,16 @@
                 }
             }
             
-            // Если файл пустой (тишина), не нормализуем
             if (maxPeak <= 0) {
                 return audioBuffer;
             }
             
-            // Вычисляем коэффициент масштабирования для приведения к целевому уровню
             const gain = targetLinear / maxPeak;
             
-            // Если коэффициент слишком близок к 1.0, нормализация не нужна
             if (Math.abs(gain - 1.0) < 0.001) {
                 return audioBuffer;
             }
             
-            // Применяем нормализацию
             const normalizedBuffer = createAudioBuffer({
                 length: audioBuffer.length,
                 sampleRate: audioBuffer.sampleRate,
@@ -2132,7 +2042,6 @@
             
             ctx.clearRect(0, 0, width, height);
             
-            // Performance: avoid allocating an AudioBuffer-length array
             const channels = audioBuffer.numberOfChannels;
             const chData = [];
             for (let c = 0; c < channels; c++) chData.push(audioBuffer.getChannelData(c));
@@ -2222,12 +2131,9 @@
             const audioElement = document.createElement('audio');
             audioElement.src = url;
             audioElement.style.display = 'none';
-            // On some browsers (esp. mobile Safari) blob audio may not fire readiness
-            // events until load()/play() is attempted.
             audioElement.preload = 'auto';
             try { audioElement.load(); } catch (e) {}
             
-            // FIXED: Улучшенная обработка аудио с проверкой готовности
             let audioReady = false;
             let errorHandled = false;
             
@@ -2315,8 +2221,6 @@
                 activateAudio();
                 stopAllPlayback();
                 
-                // Don't block playback behind "audioReady": some browsers only become
-                // ready after play() or load() is attempted.
                 if (!audioReady) {
                     try { audioElement.load(); } catch (e) {}
                 }
@@ -2328,7 +2232,6 @@
                 }).catch(e => {
                     console.error('Playback error:', e);
                     showNotification('Playback failed. Please try again.', 'error');
-                    // Не отключаем кнопку полностью, даем шанс повторить
                 });
             });
             
@@ -2454,7 +2357,6 @@
         }
         
         function cleanupMemory({ closeAudioContext = false } = {}) {
-            // Don't revoke URLs that are still used by preview windows
             if (createdObjectURLs.length) {
                 const kept = [];
                 for (const url of createdObjectURLs) {
@@ -2467,7 +2369,6 @@
                 createdObjectURLs = kept;
             }
             
-            // Closing AudioContext is expensive; do it only when explicitly requested
             if (closeAudioContext && activeAudioContext) {
                 try { activeAudioContext.close(); } catch (e) {}
                 activeAudioContext = null;
