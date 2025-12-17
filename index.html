@@ -1409,6 +1409,10 @@
                     addToLog(`<i class="fas fa-cut"></i> Trimmed: ${(trimmedSamples / processed.sampleRate).toFixed(2)}s silence`);
                 }
                 
+                // Нормализация всегда применяется (перманентная функция как ускорение в 2 раза)
+                processed = normalizeAudio(processed, -0.1);
+                addToLog(`<i class="fas fa-volume-up"></i> Normalized to -0.1 dB`);
+                
                 const pathParts = item.path.split('/');
                 const origFilename = pathParts.pop();
                 const safeFilename = origFilename.replace(/[^\w\.\-]/gi, '');
@@ -2020,6 +2024,60 @@
             }
             
             return newBuffer;
+        }
+        
+        // Нормализация аудио до указанного уровня в dB
+        function normalizeAudio(audioBuffer, targetDb = -0.1) {
+            if (!audioBuffer || audioBuffer.length === 0) return audioBuffer;
+            
+            // Конвертируем dB в линейное значение
+            // targetDb = -0.1 dB -> linear = 10^(-0.1/20) ≈ 0.9886
+            const targetLinear = Math.pow(10, targetDb / 20);
+            
+            // Находим максимальный пик во всех каналах
+            let maxPeak = 0;
+            const numChannels = audioBuffer.numberOfChannels;
+            const chData = [];
+            
+            for (let ch = 0; ch < numChannels; ch++) {
+                chData.push(audioBuffer.getChannelData(ch));
+            }
+            
+            // Ищем максимальное абсолютное значение
+            for (let i = 0; i < audioBuffer.length; i++) {
+                for (let ch = 0; ch < numChannels; ch++) {
+                    const absValue = Math.abs(chData[ch][i]);
+                    if (absValue > maxPeak) {
+                        maxPeak = absValue;
+                    }
+                }
+            }
+            
+            // Если максимальный пик уже меньше или равен целевому уровню, или равен 0, не нормализуем
+            if (maxPeak <= 0 || maxPeak >= targetLinear) {
+                return audioBuffer;
+            }
+            
+            // Вычисляем коэффициент масштабирования
+            const gain = targetLinear / maxPeak;
+            
+            // Применяем нормализацию
+            const normalizedBuffer = createAudioBuffer({
+                length: audioBuffer.length,
+                sampleRate: audioBuffer.sampleRate,
+                numberOfChannels: audioBuffer.numberOfChannels
+            });
+            
+            for (let ch = 0; ch < numChannels; ch++) {
+                const sourceData = chData[ch];
+                const targetData = normalizedBuffer.getChannelData(ch);
+                
+                for (let i = 0; i < audioBuffer.length; i++) {
+                    targetData[i] = sourceData[i] * gain;
+                }
+            }
+            
+            return normalizedBuffer;
         }
         
         function findExactStartMulti(buffer, roughStart, threshold) {
