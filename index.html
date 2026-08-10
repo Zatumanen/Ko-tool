@@ -813,6 +813,234 @@ button{min-height:28px}
 @media(max-width:900px){.ko-shell{grid-template-columns:210px minmax(0,1fr)}.ko-main{grid-template-columns:minmax(0,1fr) 205px}.ko-topbar{grid-template-columns:1fr auto}.ko-connection{grid-column:1/-1;grid-row:2}.ko-project-strip{grid-column:2;grid-row:1}.ko-pads{gap:4px}}
 @media(max-width:700px){.ko-shell{display:block;overflow:auto}.ko-main{display:block}.ko-editor{display:block}.ko-library-panel{height:280px;margin-top:8px}.ko-topbar{margin-bottom:8px}.ko-bottom{margin-top:8px}.ko-pads{height:250px;margin-top:8px}.ko-wave{height:100px}.ko-groups{margin-top:8px}.ko-sound-head{margin-top:8px}}
 </style>
+
+    <style id="ux-fixes-v2">
+        /* ===== UX consistency pass ===== */
+        .desktop-apps .app-icon {
+            box-sizing:border-box;
+        }
+
+        .taskbar-stop {
+            flex:0 0 auto;
+            width:62px !important;
+            height:28px !important;
+            min-height:28px !important;
+            margin-left:8px !important;
+            padding:2px 6px !important;
+            display:inline-flex !important;
+            align-items:center;
+            justify-content:center;
+            gap:5px;
+            font:11px/1 'Courier New',monospace !important;
+            font-weight:bold !important;
+            background:var(--win-gray);
+            border:2px outset var(--win-gray);
+            color:#000;
+            cursor:pointer;
+        }
+        .taskbar-stop i { font-size:9px; }
+        .taskbar-stop:active { border-style:inset; }
+
+        .app-window .title-bar {
+            height:30px !important;
+            min-height:30px !important;
+            padding:3px 5px 3px 8px !important;
+            box-sizing:border-box;
+        }
+        .app-window .title-bar .window-controls {
+            display:flex !important;
+            align-items:center;
+            gap:2px;
+            flex:0 0 auto;
+        }
+        .app-window .title-bar .window-controls button,
+        .app-window .title-bar button {
+            width:22px !important;
+            height:22px !important;
+            min-width:22px !important;
+            min-height:22px !important;
+            max-width:22px !important;
+            max-height:22px !important;
+            padding:0 !important;
+            margin:0 !important;
+            font-size:13px !important;
+            line-height:20px !important;
+            box-sizing:border-box !important;
+            border-width:2px !important;
+        }
+        .app-window .title-bar .window-controls button i {
+            font-size:10px;
+            line-height:1;
+        }
+        .app-window.minimized {
+            height:30px !important;
+            min-height:30px !important;
+            overflow:hidden !important;
+        }
+        .app-window.minimized .app-content,
+        .app-window.minimized .ko-shell {
+            display:none !important;
+        }
+
+        /* KO II: compact EP-133-style workflow, no dead vertical space */
+        #ko-window .app-content {
+            padding:8px !important;
+            overflow:hidden !important;
+        }
+        #ko-window .ko-shell {
+            gap:6px;
+        }
+        #ko-window .ko-topbar {
+            gap:5px;
+            padding:5px;
+        }
+        #ko-window .ko-topbar button {
+            min-height:28px !important;
+            height:28px !important;
+            padding:3px 9px !important;
+            font-size:12px !important;
+        }
+        #ko-window .ko-main {
+            gap:6px;
+        }
+        #ko-window .ko-editor {
+            gap:6px;
+        }
+        #ko-window .ko-sound-head {
+            padding:5px;
+        }
+        #ko-window .ko-wave {
+            height:100px;
+        }
+        #ko-window .ko-trim {
+            margin-top:4px;
+            gap:5px;
+        }
+        #ko-window .ko-groups {
+            gap:4px;
+        }
+        #ko-window .ko-group {
+            height:28px;
+            min-height:28px !important;
+            padding:2px 6px !important;
+            font-size:12px !important;
+        }
+        #ko-window .ko-pads {
+            gap:4px;
+        }
+        #ko-window .ko-hw-pad {
+            min-height:58px;
+            padding:4px;
+        }
+        #ko-window .ko-library-panel {
+            padding:5px;
+            gap:5px;
+        }
+        #ko-window .ko-library-tools button,
+        #ko-window .ko-actions button {
+            min-height:26px !important;
+            height:26px !important;
+            padding:2px 7px !important;
+            font-size:11px !important;
+        }
+        #ko-window .ko-bottom {
+            min-height:25px;
+            padding:3px 5px;
+        }
+
+        @media (max-width:900px) {
+            #ko-window .ko-shell {
+                display:flex;
+                flex-direction:column;
+                min-height:0;
+                height:auto;
+            }
+            #ko-window .ko-topbar {
+                flex:0 0 auto;
+                display:grid;
+                grid-template-columns:auto 1fr auto;
+            }
+            #ko-window .ko-connection {
+                grid-column:1 / -1;
+                grid-row:2;
+            }
+            #ko-window .ko-main {
+                display:flex !important;
+                flex-direction:column;
+                gap:6px;
+                min-height:0;
+                overflow:auto;
+                padding-right:2px;
+            }
+            #ko-window .ko-editor {
+                display:flex !important;
+                flex-direction:column;
+                gap:6px;
+                min-height:0;
+            }
+            #ko-window .ko-wave { height:88px; }
+            #ko-window .ko-pads {
+                display:grid !important;
+                grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+                grid-template-rows:repeat(3,58px) !important;
+                height:auto !important;
+                min-height:174px !important;
+                flex:0 0 auto;
+            }
+            #ko-window .ko-library-panel {
+                height:230px !important;
+                flex:0 0 230px;
+                margin-top:0 !important;
+            }
+            #ko-window .ko-library {
+                min-height:90px;
+            }
+            #ko-window .ko-bottom {
+                flex:0 0 auto;
+            }
+        }
+
+        @media (max-width:600px) {
+            .taskbar-stop {
+                width:42px !important;
+                font-size:0 !important;
+                gap:0;
+            }
+            .taskbar-stop i { font-size:10px; }
+            .app-window .title-bar .window-controls button,
+            .app-window .title-bar button {
+                width:22px !important;
+                height:22px !important;
+                min-width:22px !important;
+                min-height:22px !important;
+                font-size:12px !important;
+            }
+            #ko-window .app-content { padding:5px !important; }
+            #ko-window .ko-shell { gap:4px; }
+            #ko-window .ko-topbar { gap:4px; padding:4px; }
+            #ko-window .ko-topbar button {
+                min-height:25px !important;
+                height:25px !important;
+                padding:2px 6px !important;
+                font-size:10px !important;
+            }
+            #ko-window .ko-wave { height:76px; }
+            #ko-window .ko-pads {
+                grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+                grid-template-rows:repeat(3,52px) !important;
+                min-height:156px !important;
+            }
+            #ko-window .ko-hw-pad {
+                min-height:52px;
+                font-size:10px;
+            }
+            #ko-window .ko-library-panel {
+                height:205px !important;
+                flex-basis:205px;
+            }
+        }
+    </style>
+
 </head>
 <body>
     <div class="crt-overlay">
@@ -1082,8 +1310,8 @@ button{min-height:28px}
             <i class="fas fa-bars"></i> Start
         </div>
         <div class="status-bar" id="status-bar">Ready</div>
-        <button id="stop-all-audio" style="margin-left:10px;padding:2px 6px">
-            <i class="fas fa-stop"></i> Stop All
+        <button id="stop-all-audio" class="taskbar-stop" type="button" title="Stop all audio" aria-label="Stop all audio">
+            <i class="fas fa-stop"></i><span>STOP</span>
         </button>
     </div>
 
@@ -2941,7 +3169,35 @@ button{min-height:28px}
         function renderKoLibrary(){const el=document.getElementById('ko-library');if(!el)return;const q=(document.getElementById('ko-library-search')?.value||'').trim().toLowerCase();el.innerHTML='';const list=KOII.samples.filter(s=>!q||String(s.name||'').toLowerCase().includes(q)||String(s.id).includes(q));const count=document.getElementById('ko-library-count');if(count)count.textContent=KOII.samples.length+' / 999';if(!list.length){el.innerHTML='<div style="padding:8px;font:10px monospace">'+(KOII.samples.length?'No matching sounds.':'No samples found.')+'</div>';return}list.forEach(s=>{const row=document.createElement('div');row.className='ko-sample-row';row.draggable=true;row.dataset.sampleId=s.id;row.innerHTML='<span>#'+String(s.id).padStart(3,'0')+'</span><span class="ko-sample-name">'+escapeHtml(s.name)+'</span><span>'+koFmtBytes(s.size)+'</span><button type="button">▶</button>';row.addEventListener('click',()=>selectKoSample(s));row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/ko-sample-id',String(s.id));e.dataTransfer.effectAllowed='copy'});row.querySelector('button').addEventListener('click',e=>{e.stopPropagation();koPlayback(s.id)});el.appendChild(row)})}
         async function koPlayback(nodeId){try{await koSend(5,[5,1,...koB16(nodeId)],5000);koHardwareStatus('Playing sample #'+nodeId+' on KO II.')}catch(e){koHardwareStatus(e.message)}}
         async function koLoadActiveTree(){const pm=await koMetaGet(2000);KOII.activeProject=Number(pm.active)||3000;const gm=await koMetaGet(KOII.activeProject+100);KOII.activeGroup=Number(gm.active)||KOII.activeProject+200;KOII.pads=(await koList(KOII.activeGroup)).filter(x=>!x.isDir).slice(0,12);renderKoPads();const n=Math.max(1,Math.floor(KOII.activeProject/1000)-2);document.getElementById('ko-device-info').textContent='Device: '+(KOII.info?.product||'EP-133')+' · OS '+(KOII.info?.os_version||'?')+' · Project '+String(n).padStart(2,'0');const pl=document.getElementById('ko-project-label');if(pl)pl.textContent=String(n).padStart(2,'0')}
-        function renderKoPads(){const grid=document.getElementById('ko-hw-pad-grid');if(!grid)return;grid.innerHTML='';KOII.pads.forEach((p,i)=>{const b=document.createElement('button');b.className='ko-hw-pad';b.dataset.padId=p.id;b.innerHTML='<span class="ko-pad-no">'+String(i+1).padStart(2,'0')+'</span><span class="ko-pad-sample">Loading…</span><span class="ko-pad-id">PAD '+(i+1)+'</span>';b.addEventListener('dragover',e=>{e.preventDefault();b.classList.add('dragover')});b.addEventListener('dragleave',()=>b.classList.remove('dragover'));b.addEventListener('drop',async e=>{e.preventDefault();b.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/ko-sample-id'));if(id){await koAssignPad(id,p.id,i);return}const files=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));if(!files.length)return;if(KOII.busy)return;KOII.busy=true;try{const slot=await koUploadFile(files[0]);await koAssignPad(slot,p.id,i);koHardwareStatus(files[0].name+' uploaded and assigned to Pad '+(i+1)+'.')}catch(err){koHardwareStatus('Pad upload failed: '+err.message)}finally{KOII.busy=false;koProgress(0)}});b.addEventListener('click',()=>koPlayback(p.id));grid.appendChild(b);koPadMeta(p.id,b,i)})}
+        function renderKoPads(){
+            const grid=document.getElementById('ko-hw-pad-grid');
+            if(!grid)return;
+            grid.innerHTML='';
+            const pads=KOII.pads.length?KOII.pads.slice(0,12):Array.from({length:12},(_,i)=>({id:0,placeholder:true,name:''}));
+            pads.forEach((p,i)=>{
+                const b=document.createElement('button');
+                b.className='ko-hw-pad';
+                b.dataset.padId=p.id||'';
+                b.innerHTML='<span class="ko-pad-no">'+String(i+1).padStart(2,'0')+'</span><span class="ko-pad-sample">'+(p.placeholder?'EMPTY':'Loading…')+'</span><span class="ko-pad-id">PAD '+(i+1)+'</span>';
+                b.addEventListener('dragover',e=>{e.preventDefault();b.classList.add('dragover')});
+                b.addEventListener('dragleave',()=>b.classList.remove('dragover'));
+                b.addEventListener('drop',async e=>{
+                    e.preventDefault();b.classList.remove('dragover');
+                    if(!KOII.connected){koHardwareStatus('Connect K.O. II before writing a sample.');return}
+                    const id=Number(e.dataTransfer.getData('text/ko-sample-id'));
+                    if(id){await koAssignPad(id,p.id,i);return}
+                    const files=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));
+                    if(!files.length)return;if(KOII.busy)return;
+                    KOII.busy=true;
+                    try{const slot=await koUploadFile(files[0]);await koAssignPad(slot,p.id,i);koHardwareStatus(files[0].name+' uploaded and assigned to Pad '+(i+1)+'.')}
+                    catch(err){koHardwareStatus('Pad upload failed: '+err.message)}
+                    finally{KOII.busy=false;koProgress(0)}
+                });
+                b.addEventListener('click',()=>{if(p.id)koPlayback(p.id);else koHardwareStatus('Connect K.O. II to access Pad '+(i+1)+'.')});
+                grid.appendChild(b);
+                if(p.id)koPadMeta(p.id,b,i);
+            });
+        }
         async function koPadMeta(padId,b,index){try{const m=await koMetaGet(padId);b.querySelector('.ko-pad-sample').textContent=m.sym?'Sample #'+m.sym:'EMPTY';b.classList.toggle('assigned',!!m.sym)}catch{b.querySelector('.ko-pad-sample').textContent='EMPTY'}}
         async function koAssignPad(sampleId,padId,index){if(KOII.busy)return;KOII.busy=true;try{const m=await koMetaGet(padId);m.sym=sampleId;await koMetaSet(padId,m);const b=document.querySelector('.ko-hw-pad[data-pad-id="'+padId+'"]');if(b){b.classList.add('assigned');b.querySelector('.ko-pad-sample').textContent='Sample #'+sampleId}koHardwareStatus('Sample #'+sampleId+' assigned to Pad '+(index+1)+'.')}catch(e){koHardwareStatus('Pad assignment failed: '+e.message)}finally{KOII.busy=false}}
         async function koDecodeToPcm(file){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('Web Audio is unavailable');const ctx=window.__koDecodeContext||(window.__koDecodeContext=new C());if(ctx.state==='suspended')await ctx.resume().catch(()=>{});let buf=await ctx.decodeAudioData(await file.arrayBuffer());if(buf.duration>KO_MAX_UPLOAD_SECONDS)throw new Error(file.name+' is longer than '+KO_MAX_UPLOAD_SECONDS+' seconds');let channels=Math.min(2,buf.numberOfChannels),rate=buf.sampleRate;if(rate>KO_NATIVE_RATE){const len=Math.ceil(buf.duration*KO_NATIVE_RATE),off=new OfflineAudioContext(channels,len,KO_NATIVE_RATE),src=off.createBufferSource();src.buffer=buf;src.connect(off.destination);src.start();buf=await off.startRendering();rate=KO_NATIVE_RATE}const pcm=new Uint8Array(buf.length*channels*2),views=Array.from({length:channels},(_,c)=>buf.getChannelData(c));let o=0;for(let i=0;i<buf.length;i++)for(let c=0;c<channels;c++){const v=Math.max(-1,Math.min(1,views[c][i])),n=Math.round(v<0?v*32768:v*32767);pcm[o++]=n&255;pcm[o++]=(n>>8)&255}return{pcm,channels,rate}}
