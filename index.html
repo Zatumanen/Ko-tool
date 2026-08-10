@@ -1013,9 +1013,26 @@
             
             dropZone.addEventListener('touchend', handleDragLeave);
             
+            // Prime Web Audio from the real user gesture BEFORE opening the native picker.
+            const primeAudioForPicker = () => {
+                try {
+                    const ctx = initAudioContext();
+                    if (!ctx) return;
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(() => { audioContextResumed = true; }).catch(err => {
+                            console.warn('AudioContext resume deferred:', err);
+                        });
+                    } else {
+                        audioContextResumed = true;
+                    }
+                } catch (err) { console.warn('Could not prime AudioContext:', err); }
+            };
+
+            selectFileButton.addEventListener('pointerdown', primeAudioForPicker, { passive: true });
+            selectFolderButton.addEventListener('pointerdown', primeAudioForPicker, { passive: true });
+
             selectFileButton.addEventListener('click', () => {
                 fileInput.click();
-                activateAudio();
             });
             
             selectFolderButton.addEventListener('click', () => {
@@ -1024,7 +1041,6 @@
                     return;
                 }
                 folderInput.click();
-                activateAudio();
             });
             
             clearButton.addEventListener('click', clearAllData);
@@ -1033,7 +1049,7 @@
                 if (e.target.files.length > 0) {
                     updateStatus(`Files selected: ${e.target.files.length}`);
                     addToLog(`<i class="fas fa-file-import"></i> Selected ${e.target.files.length} file(s). Processing...`);
-                    await ensureAudioContext();
+                    if (!activeAudioContext) initAudioContext();
                     await processFiles(e.target.files);
                     e.target.value = null;
                 }
@@ -1043,7 +1059,7 @@
                 if (e.target.files.length > 0) {
                     updateStatus(`Folder selected with ${e.target.files.length} files`);
                     addToLog(`<i class="fas fa-folder-open"></i> Folder selected. Processing...`);
-                    await ensureAudioContext();
+                    if (!activeAudioContext) initAudioContext();
                     await processFolder(e.target.files);
                     e.target.value = null;
                 }
@@ -1066,8 +1082,8 @@
             
             ['#select-file-button', '#select-folder-button', '.wave-button', '.wave-window', '#drop-zone'].forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
+                    el.addEventListener('pointerdown', activateAudio, { passive: true });
                     el.addEventListener('click', activateAudio);
-                    el.addEventListener('touchstart', activateAudio);
                 });
             });
             
@@ -1108,18 +1124,18 @@
         }
         
         function activateAudio() {
-            if (!audioContextResumed && activeAudioContext) {
-                try {
-                    if (activeAudioContext.state === 'suspended') {
-                        activeAudioContext.resume().then(() => {
-                            audioContextResumed = true;
-                        }).catch(e => {
-                            console.error("Failed to resume AudioContext:", e);
-                        });
-                    }
-                } catch (e) {
-                    console.error("Error activating audio:", e);
+            try {
+                const ctx = activeAudioContext || initAudioContext();
+                if (!ctx) return;
+                if (ctx.state === 'suspended') {
+                    ctx.resume().then(() => { audioContextResumed = true; }).catch(e => {
+                        console.warn("AudioContext resume deferred:", e);
+                    });
+                } else {
+                    audioContextResumed = true;
                 }
+            } catch (e) {
+                console.error("Error activating audio:", e);
             }
         }
         
