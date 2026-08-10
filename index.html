@@ -741,7 +741,78 @@
         .ko-transfer-progress span{display:block;height:100%;width:0;background:#00a000}
         @media(max-width:768px){.ko-pad-grid{grid-template-columns:repeat(4,1fr)}.ko-memory{grid-template-columns:1fr}}
 
-    </style>
+    
+/* ===== UX normalization ===== */
+*,*::before,*::after{box-sizing:border-box}
+html,body{min-width:0;min-height:100%;}
+body{padding:0 0 42px 0;overflow:hidden;}
+button,input,select,textarea{font:inherit;box-sizing:border-box}
+button{min-height:28px}
+.desktop-apps{width:112px!important;padding:12px 7px 50px!important;display:flex!important;flex-direction:column!important;gap:7px!important;overflow-y:auto!important;overflow-x:hidden!important;}
+.desktop-apps .app-icon{position:relative!important;top:auto!important;left:auto!important;width:98px!important;min-height:78px;flex:0 0 78px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 4px!important;font-size:11px;line-height:13px}
+.desktop-apps .app-icon img,.desktop-apps .app-icon .app-glyph{width:42px;height:42px;line-height:42px;margin:0 auto 4px;font-size:34px}
+.desktop-apps .app-icon:hover{background:rgba(255,255,255,.16)}
+.desktop-apps .app-icon:active{background:rgba(255,255,255,.28)}
+.app-window{width:min(980px,calc(100vw - 132px))!important;height:min(720px,calc(100vh - 58px))!important;min-width:620px;min-height:420px;}
+.app-window .app-content{padding:10px 12px 12px;overflow:auto}
+.app-window .title-bar{user-select:none;cursor:default}
+.tool-card,.ko-device-panel{min-width:0}
+@media(max-width:900px){.app-window{min-width:0;width:calc(100vw - 124px)!important;height:calc(100vh - 58px)!important}.desktop-apps{width:104px!important}.desktop-apps .app-icon{width:90px!important}}
+@media(max-width:600px){body{padding-bottom:38px}.desktop-apps{width:76px!important;padding:8px 4px 42px!important;gap:4px!important}.desktop-apps .app-icon{width:68px!important;min-height:66px;flex-basis:66px;font-size:9px;line-height:10px}.desktop-apps .app-icon img,.desktop-apps .app-icon .app-glyph{width:34px;height:34px;line-height:34px;font-size:27px}.app-window{left:80px!important;top:4px!important;width:calc(100vw - 84px)!important;height:calc(100vh - 46px)!important}.taskbar{height:38px}.status-bar{font-size:11px;white-space:nowrap;overflow:hidden}}
+
+/* ===== KO II Tool / EP-133-style sample workflow ===== */
+.ko-shell{display:grid;grid-template-columns:250px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px;height:100%;min-height:0}
+.ko-topbar{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(180px,1fr) auto auto;gap:7px;align-items:center;padding:7px;background:#d4d0c8;border:2px solid;border-top-color:#fff;border-left-color:#fff;border-right-color:#404040;border-bottom-color:#404040}
+.ko-brand{font-weight:bold;letter-spacing:.5px;white-space:nowrap}
+.ko-connection{display:flex;gap:7px;align-items:center;min-width:0}
+.ko-connection .ko-device-status{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ko-device-status{font:11px monospace;background:#111;color:#0f0;padding:5px 7px;border:2px inset #888;min-height:27px}
+.ko-project-strip{display:flex;gap:5px;align-items:center;font:11px monospace;white-space:nowrap}
+.ko-project-strip select{height:27px;border:2px inset #888;background:#fff}
+.ko-main{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:8px;min-height:0}
+.ko-editor{display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:8px;min-width:0;min-height:0}
+.ko-sound-head{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:7px;background:#eee;border:2px inset #888}
+.ko-sound-title{min-width:0;font:bold 12px monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ko-sound-meta{font:10px monospace;color:#444}
+.ko-wave{height:126px;background:#111;border:2px inset #888;position:relative;overflow:hidden}
+.ko-wave::before{content:'';position:absolute;inset:50% 0 auto;height:1px;background:#285c28;opacity:.8}
+.ko-wave-grid{position:absolute;inset:0;background:repeating-linear-gradient(to right,transparent 0,transparent 39px,rgba(255,255,255,.08) 40px),repeating-linear-gradient(to bottom,transparent 0,transparent 30px,rgba(255,255,255,.05) 31px)}
+.ko-wave-line{position:absolute;left:1%;right:1%;top:50%;height:1px;background:#62e062;box-shadow:0 0 5px #2f8;transform:skewY(-3deg)}
+.ko-trim{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.ko-trim-box{font:10px monospace;background:#d4d0c8;border:2px inset #888;padding:5px}
+.ko-groups{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.ko-group{height:30px;background:#d4d0c8;border:2px outset #c0c0c0;font-weight:bold;cursor:pointer}
+.ko-group.active{border-style:inset;background:#aaa}
+.ko-pads{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,minmax(58px,1fr));gap:6px;min-height:0}
+.ko-hw-pad{min-height:0;height:auto;padding:5px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;text-align:left;background:#d4d0c8;border:2px outset #c0c0c0;cursor:pointer;overflow:hidden}
+.ko-hw-pad.assigned{background:#c8ddc8}
+.ko-hw-pad.dragover{background:#aaa;border-style:inset}
+.ko-pad-no{font:bold 11px monospace}
+.ko-pad-sample{font:10px monospace;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ko-pad-id{font:9px monospace;color:#555}
+.ko-library-panel{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;background:#d4d0c8;border:2px outset #c0c0c0;padding:7px;gap:6px}
+.ko-library-title{font-weight:bold;font-size:12px}
+.ko-memory-bar{height:14px;background:#111;border:2px inset #888;position:relative;overflow:hidden}
+.ko-memory-fill{height:100%;width:0;background:#d66;transition:width .2s}
+.ko-memory-label{font:10px monospace;display:flex;justify-content:space-between;margin-top:2px}
+.ko-library-tools{display:flex;gap:5px;align-items:center}
+.ko-library-tools input{min-width:0;flex:1;height:27px;border:2px inset #888;padding:3px 5px;background:#fff}
+.ko-library{margin:0;min-height:0;max-height:none;overflow:auto;background:#fff;border:2px inset #888}
+.ko-sample-row{display:grid;grid-template-columns:32px minmax(0,1fr) 50px 24px;gap:5px;align-items:center;padding:5px 5px;border-bottom:1px solid #bbb;font:10px monospace;cursor:grab;min-height:30px}
+.ko-sample-row.selected{background:#d8e6ff}
+.ko-sample-row:hover{background:#eee}
+.ko-sample-row .ko-sample-name{min-width:0}
+.ko-sample-row button{min-height:22px;height:22px;padding:0 3px}
+.ko-drop-zone{border:2px dashed #555;background:#eee;padding:9px;text-align:center;font:10px monospace;cursor:pointer}
+.ko-drop-zone.dragover{background:#ccc}
+.ko-bottom{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;background:#d4d0c8;border-top:1px solid #808080;padding:5px 7px;font:10px monospace;min-height:28px}
+.ko-actions{display:flex;gap:5px;flex-wrap:wrap}
+.ko-transfer-progress{height:10px;background:#111;border:2px inset #888;margin:0;min-width:130px}
+.ko-transfer-progress span{display:block;height:100%;width:0;background:#4aaf4a}
+.ko-legacy-memory,.ko-legacy-transfer{display:none!important}
+@media(max-width:900px){.ko-shell{grid-template-columns:210px minmax(0,1fr)}.ko-main{grid-template-columns:minmax(0,1fr) 205px}.ko-topbar{grid-template-columns:1fr auto}.ko-connection{grid-column:1/-1;grid-row:2}.ko-project-strip{grid-column:2;grid-row:1}.ko-pads{gap:4px}}
+@media(max-width:700px){.ko-shell{display:block;overflow:auto}.ko-main{display:block}.ko-editor{display:block}.ko-library-panel{height:280px;margin-top:8px}.ko-topbar{margin-bottom:8px}.ko-bottom{margin-top:8px}.ko-pads{height:250px;margin-top:8px}.ko-wave{height:100px}.ko-groups{margin-top:8px}.ko-sound-head{margin-top:8px}}
+</style>
 </head>
 <body>
     <div class="crt-overlay">
@@ -856,35 +927,54 @@
     </div>
 
 
-    <div class="app-window" id="ko-window" style="width:min(980px,92vw);height:min(720px,86vh);">
-      <div class="title-bar"><span>KO II Tool</span><div class="window-controls"><button class="minimize" onclick="minimizeAppWindow('ko-window')">_</button><button class="close" onclick="closeAppWindow('ko-window')">×</button></div></div>
+    <div class="app-window" id="ko-window" style="width:min(1080px,calc(100vw - 132px));height:min(740px,calc(100vh - 58px));">
+      <div class="title-bar"><span>EP-133 K.O. II / SAMPLE TOOL</span><div class="window-controls"><button class="minimize" onclick="minimizeAppWindow('ko-window')">_</button><button class="close" onclick="closeAppWindow('ko-window')">×</button></div></div>
       <div class="app-content">
-        <div class="ko-device-panel" id="ko-device-panel">
-                <div class="ko-device-head">
-                    <strong>KO II DEVICE</strong>
-                    <button id="ko-connect-button" type="button">Connect KO II</button>
-                    <button id="ko-refresh-button" type="button" disabled>Refresh</button>
-                    <div class="ko-device-status" id="ko-device-status">Not connected. Web MIDI + SysEx required.</div>
-                </div>
-                <div class="ko-memory">
-                    <div class="ko-memory-box" id="ko-device-info">Device: --</div>
-                    <div class="ko-memory-box" id="ko-memory-info">Memory: --</div>
-                </div>
-                <div class="ko-transfer" id="ko-transfer-drop">
-                    DROP AUDIO HERE TO UPLOAD TO KO II MEMORY<br>
-                    <small>Files are converted to KO-compatible PCM and written directly over USB MIDI.</small>
-                    <input id="ko-transfer-file" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac" multiple hidden>
-                </div>
-                <div class="ko-transfer-progress"><span id="ko-transfer-progress"></span></div>
-                <div class="tool-row" style="margin-top:7px">
-                    <button id="ko-refresh-library" type="button" disabled>Read sample memory</button>
-                    <span style="font:11px monospace">Drag a library sample onto any pad.</span>
-                </div>
-                <div class="ko-library" id="ko-library"><div style="padding:8px;font:11px monospace">Connect KO II to read its sample memory.</div></div>
-                <div style="margin-top:8px;font:bold 12px monospace">ACTIVE PROJECT / GROUP PADS</div>
-                <div class="ko-pad-grid" id="ko-hw-pad-grid"></div>
-                <div class="window-status" id="ko-hardware-status">Hardware bridge is idle.</div>
+        <div class="ko-shell">
+          <div class="ko-topbar">
+            <div class="ko-brand">K.O. II</div>
+            <div class="ko-connection">
+              <button id="ko-connect-button" type="button">Connect</button>
+              <button id="ko-refresh-button" type="button" disabled>Refresh</button>
+              <div class="ko-device-status" id="ko-device-status">looking for device…</div>
             </div>
+            <div class="ko-project-strip"><span>PROJECT</span><b id="ko-project-label">--</b></div>
+            <button id="ko-refresh-library" type="button" disabled>Sync</button>
+          </div>
+
+          <div class="ko-main">
+            <section class="ko-editor">
+              <div class="ko-sound-head">
+                <div><div class="ko-sound-title" id="ko-selected-sample">NO SAMPLE SELECTED</div><div class="ko-sound-meta" id="ko-selected-meta">Select a sound in the library or drop a file onto a pad.</div></div>
+                <div class="ko-actions"><button id="ko-play-selected" type="button" disabled>PLAY</button></div>
+              </div>
+              <div>
+                <div class="ko-wave"><div class="ko-wave-grid"></div><div class="ko-wave-line"></div></div>
+                <div class="ko-trim"><div class="ko-trim-box">IN <b id="ko-trim-in">00:00.000</b></div><div class="ko-trim-box">OUT <b id="ko-trim-out">00:00.000</b></div></div>
+              </div>
+              <div style="min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:6px">
+                <div class="ko-groups" id="ko-group-tabs">
+                  <button class="ko-group active" data-group="A">A</button><button class="ko-group" data-group="B">B</button><button class="ko-group" data-group="C">C</button><button class="ko-group" data-group="D">D</button>
+                </div>
+                <div class="ko-pads" id="ko-hw-pad-grid"></div>
+              </div>
+            </section>
+
+            <aside class="ko-library-panel">
+              <div class="ko-library-title">SOUND LIBRARY <span id="ko-library-count">0 / 999</span></div>
+              <div><div class="ko-memory-bar"><div class="ko-memory-fill" id="ko-memory-fill"></div></div><div class="ko-memory-label"><span id="ko-memory-used">0 MB</span><span id="ko-memory-total">128 MB</span></div></div>
+              <div class="ko-library-tools"><input id="ko-library-search" type="search" placeholder="search sounds…"><button id="ko-library-add" type="button">+</button></div>
+              <div class="ko-library" id="ko-library"><div style="padding:8px;font:10px monospace">Connect K.O. II to load the sound library.</div></div>
+              <div class="ko-drop-zone" id="ko-transfer-drop">DROP SAMPLES HERE<br><small>upload to first free slots · multiple files supported</small><input id="ko-transfer-file" type="file" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.flac" multiple hidden></div>
+            </aside>
+          </div>
+
+          <div class="ko-bottom">
+            <div id="ko-hardware-status">Hardware bridge is idle.</div>
+            <div style="display:flex;align-items:center;gap:7px"><div class="ko-transfer-progress"><span id="ko-transfer-progress"></span></div><span id="ko-device-info">EP-133 · Project --</span></div>
+          </div>
+          <div id="ko-memory-info" class="ko-legacy-memory">Memory: --</div>
+        </div>
       </div>
     </div>
 
@@ -2847,13 +2937,13 @@
         async function koPutInit(fileName,size,channels,samplerate){const meta=JSON.stringify({channels,samplerate}),payload=[2,0,5,0,0,...koB16(KOII.soundDir),...koB32(size),...Array.from(new TextEncoder().encode(fileName)),0,...Array.from(new TextEncoder().encode(meta)),0],r=await koSend(5,payload,7000);if(r.payload.length<2)throw new Error('KO II did not return a sample slot');return koR16(r.payload,0)}
         async function koPutData(data){let page=0;try{for(let o=0;o<data.length;o+=KO_DATA_CHUNK){const chunk=data.slice(o,Math.min(o+KO_DATA_CHUNK,data.length));await koSend(5,[2,1,...koB16(page),...Array.from(chunk)],7000);page++;koProgress(o/data.length*90)}await koSend(5,[2,1,...koB16(page)],7000);koProgress(95)}catch(err){try{await koSend(5,[2,1,...koB16(page)],4000)}catch{}throw err}}
         function koFmtBytes(n){if(!Number.isFinite(n)||n<0)return'--';const u=['B','KB','MB','GB'];let i=0,x=n;while(x>=1024&&i<3){x/=1024;i++}return x.toFixed(i?1:0)+' '+u[i]}
-        async function koReadMemory(){if(!KOII.connected)return;KOII.samples=(await koList(KOII.soundDir)).filter(x=>!x.isDir);renderKoLibrary();try{const m=await koMetaGet(KOII.soundDir),cap=Number(m.max_capacity||0),free=Number(m.free_space_in_bytes||0);document.getElementById('ko-memory-info').textContent='Memory: '+koFmtBytes(cap-free)+' used / '+koFmtBytes(cap)+' total · '+koFmtBytes(free)+' free'}catch{}}
-        function renderKoLibrary(){const el=document.getElementById('ko-library');if(!el)return;el.innerHTML='';if(!KOII.samples.length){el.innerHTML='<div style="padding:8px;font:11px monospace">No samples found.</div>';return}KOII.samples.forEach(s=>{const row=document.createElement('div');row.className='ko-sample-row';row.draggable=true;row.dataset.sampleId=s.id;row.innerHTML='<span>#'+String(s.id).padStart(3,'0')+'</span><span class="ko-sample-name">'+escapeHtml(s.name)+'</span><span>'+koFmtBytes(s.size)+'</span><button type="button">Play</button>';row.addEventListener('dragstart',e=>e.dataTransfer.setData('text/ko-sample-id',String(s.id)));row.querySelector('button').addEventListener('click',()=>koPlayback(s.id));el.appendChild(row)})}
+        async function koReadMemory(){if(!KOII.connected)return;KOII.samples=(await koList(KOII.soundDir)).filter(x=>!x.isDir);renderKoLibrary();try{const m=await koMetaGet(KOII.soundDir),cap=Number(m.max_capacity||0),free=Number(m.free_space_in_bytes||0);document.getElementById('ko-memory-info').textContent='Memory: '+koFmtBytes(cap-free)+' used / '+koFmtBytes(cap)+' total · '+koFmtBytes(free)+' free';const fill=document.getElementById('ko-memory-fill');if(fill)fill.style.width=(cap>0?Math.min(100,Math.max(0,(cap-free)/cap*100)):0)+'%';const used=document.getElementById('ko-memory-used'),total=document.getElementById('ko-memory-total');if(used)used.textContent=koFmtBytes(cap-free);if(total)total.textContent=koFmtBytes(cap)}catch{}}
+        function renderKoLibrary(){const el=document.getElementById('ko-library');if(!el)return;const q=(document.getElementById('ko-library-search')?.value||'').trim().toLowerCase();el.innerHTML='';const list=KOII.samples.filter(s=>!q||String(s.name||'').toLowerCase().includes(q)||String(s.id).includes(q));const count=document.getElementById('ko-library-count');if(count)count.textContent=KOII.samples.length+' / 999';if(!list.length){el.innerHTML='<div style="padding:8px;font:10px monospace">'+(KOII.samples.length?'No matching sounds.':'No samples found.')+'</div>';return}list.forEach(s=>{const row=document.createElement('div');row.className='ko-sample-row';row.draggable=true;row.dataset.sampleId=s.id;row.innerHTML='<span>#'+String(s.id).padStart(3,'0')+'</span><span class="ko-sample-name">'+escapeHtml(s.name)+'</span><span>'+koFmtBytes(s.size)+'</span><button type="button">▶</button>';row.addEventListener('click',()=>selectKoSample(s));row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/ko-sample-id',String(s.id));e.dataTransfer.effectAllowed='copy'});row.querySelector('button').addEventListener('click',e=>{e.stopPropagation();koPlayback(s.id)});el.appendChild(row)})}
         async function koPlayback(nodeId){try{await koSend(5,[5,1,...koB16(nodeId)],5000);koHardwareStatus('Playing sample #'+nodeId+' on KO II.')}catch(e){koHardwareStatus(e.message)}}
-        async function koLoadActiveTree(){const pm=await koMetaGet(2000);KOII.activeProject=Number(pm.active)||3000;const gm=await koMetaGet(KOII.activeProject+100);KOII.activeGroup=Number(gm.active)||KOII.activeProject+200;KOII.pads=(await koList(KOII.activeGroup)).filter(x=>!x.isDir).slice(0,12);renderKoPads();const n=Math.max(1,Math.floor(KOII.activeProject/1000)-2);document.getElementById('ko-device-info').textContent='Device: '+(KOII.info?.product||'EP-133')+' · OS '+(KOII.info?.os_version||'?')+' · Project '+String(n).padStart(2,'0')}
-        function renderKoPads(){const grid=document.getElementById('ko-hw-pad-grid');if(!grid)return;grid.innerHTML='';KOII.pads.forEach((p,i)=>{const b=document.createElement('button');b.className='ko-hw-pad';b.dataset.padId=p.id;b.innerHTML=(i+1)+'<small>Loading…</small>';b.addEventListener('dragover',e=>{e.preventDefault();b.classList.add('dragover')});b.addEventListener('dragleave',()=>b.classList.remove('dragover'));b.addEventListener('drop',async e=>{e.preventDefault();b.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/ko-sample-id'));if(id){await koAssignPad(id,p.id,i);return}const files=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));if(!files.length)return;if(KOII.busy)return;KOII.busy=true;try{const slot=await koUploadFile(files[0]);await koAssignPad(slot,p.id,i);koHardwareStatus(files[0].name+' uploaded and assigned to Pad '+(i+1)+'.')}catch(err){koHardwareStatus('Pad upload failed: '+err.message)}finally{KOII.busy=false;koProgress(0)}});b.addEventListener('click',()=>koPlayback(p.id));grid.appendChild(b);koPadMeta(p.id,b,i)})}
-        async function koPadMeta(padId,b,index){try{const m=await koMetaGet(padId);b.querySelector('small').textContent=m.sym?'Sample #'+m.sym:'Empty';b.classList.toggle('assigned',!!m.sym)}catch{b.querySelector('small').textContent='Pad '+(index+1)}}
-        async function koAssignPad(sampleId,padId,index){if(KOII.busy)return;KOII.busy=true;try{const m=await koMetaGet(padId);m.sym=sampleId;await koMetaSet(padId,m);const b=document.querySelector('.ko-hw-pad[data-pad-id="'+padId+'"]');if(b){b.classList.add('assigned');b.querySelector('small').textContent='Sample #'+sampleId}koHardwareStatus('Sample #'+sampleId+' assigned to Pad '+(index+1)+'.')}catch(e){koHardwareStatus('Pad assignment failed: '+e.message)}finally{KOII.busy=false}}
+        async function koLoadActiveTree(){const pm=await koMetaGet(2000);KOII.activeProject=Number(pm.active)||3000;const gm=await koMetaGet(KOII.activeProject+100);KOII.activeGroup=Number(gm.active)||KOII.activeProject+200;KOII.pads=(await koList(KOII.activeGroup)).filter(x=>!x.isDir).slice(0,12);renderKoPads();const n=Math.max(1,Math.floor(KOII.activeProject/1000)-2);document.getElementById('ko-device-info').textContent='Device: '+(KOII.info?.product||'EP-133')+' · OS '+(KOII.info?.os_version||'?')+' · Project '+String(n).padStart(2,'0');const pl=document.getElementById('ko-project-label');if(pl)pl.textContent=String(n).padStart(2,'0')}
+        function renderKoPads(){const grid=document.getElementById('ko-hw-pad-grid');if(!grid)return;grid.innerHTML='';KOII.pads.forEach((p,i)=>{const b=document.createElement('button');b.className='ko-hw-pad';b.dataset.padId=p.id;b.innerHTML='<span class="ko-pad-no">'+String(i+1).padStart(2,'0')+'</span><span class="ko-pad-sample">Loading…</span><span class="ko-pad-id">PAD '+(i+1)+'</span>';b.addEventListener('dragover',e=>{e.preventDefault();b.classList.add('dragover')});b.addEventListener('dragleave',()=>b.classList.remove('dragover'));b.addEventListener('drop',async e=>{e.preventDefault();b.classList.remove('dragover');const id=Number(e.dataTransfer.getData('text/ko-sample-id'));if(id){await koAssignPad(id,p.id,i);return}const files=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));if(!files.length)return;if(KOII.busy)return;KOII.busy=true;try{const slot=await koUploadFile(files[0]);await koAssignPad(slot,p.id,i);koHardwareStatus(files[0].name+' uploaded and assigned to Pad '+(i+1)+'.')}catch(err){koHardwareStatus('Pad upload failed: '+err.message)}finally{KOII.busy=false;koProgress(0)}});b.addEventListener('click',()=>koPlayback(p.id));grid.appendChild(b);koPadMeta(p.id,b,i)})}
+        async function koPadMeta(padId,b,index){try{const m=await koMetaGet(padId);b.querySelector('.ko-pad-sample').textContent=m.sym?'Sample #'+m.sym:'EMPTY';b.classList.toggle('assigned',!!m.sym)}catch{b.querySelector('.ko-pad-sample').textContent='EMPTY'}}
+        async function koAssignPad(sampleId,padId,index){if(KOII.busy)return;KOII.busy=true;try{const m=await koMetaGet(padId);m.sym=sampleId;await koMetaSet(padId,m);const b=document.querySelector('.ko-hw-pad[data-pad-id="'+padId+'"]');if(b){b.classList.add('assigned');b.querySelector('.ko-pad-sample').textContent='Sample #'+sampleId}koHardwareStatus('Sample #'+sampleId+' assigned to Pad '+(index+1)+'.')}catch(e){koHardwareStatus('Pad assignment failed: '+e.message)}finally{KOII.busy=false}}
         async function koDecodeToPcm(file){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('Web Audio is unavailable');const ctx=window.__koDecodeContext||(window.__koDecodeContext=new C());if(ctx.state==='suspended')await ctx.resume().catch(()=>{});let buf=await ctx.decodeAudioData(await file.arrayBuffer());if(buf.duration>KO_MAX_UPLOAD_SECONDS)throw new Error(file.name+' is longer than '+KO_MAX_UPLOAD_SECONDS+' seconds');let channels=Math.min(2,buf.numberOfChannels),rate=buf.sampleRate;if(rate>KO_NATIVE_RATE){const len=Math.ceil(buf.duration*KO_NATIVE_RATE),off=new OfflineAudioContext(channels,len,KO_NATIVE_RATE),src=off.createBufferSource();src.buffer=buf;src.connect(off.destination);src.start();buf=await off.startRendering();rate=KO_NATIVE_RATE}const pcm=new Uint8Array(buf.length*channels*2),views=Array.from({length:channels},(_,c)=>buf.getChannelData(c));let o=0;for(let i=0;i<buf.length;i++)for(let c=0;c<channels;c++){const v=Math.max(-1,Math.min(1,views[c][i])),n=Math.round(v<0?v*32768:v*32767);pcm[o++]=n&255;pcm[o++]=(n>>8)&255}return{pcm,channels,rate}}
         async function koUploadFile(file){const {pcm,channels,rate}=await koDecodeToPcm(file);const base=file.name.replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,48)||'sample';const slot=await koPutInit(base+'.pcm',pcm.length,channels,rate);koHardwareStatus('Uploading '+file.name+' → slot #'+slot+'…');await koPutData(pcm);await koReadMemory();return slot}
         async function koUploadFiles(files){if(KOII.busy||!files.length)return;if(!KOII.connected){koStatus('Connect KO II first.');return}KOII.busy=true;koProgress(0);try{for(let i=0;i<files.length;i++){koHardwareStatus('Preparing '+(i+1)+' / '+files.length+': '+files[i].name);await koUploadFile(files[i]);koProgress((i+1)/files.length*100)}koHardwareStatus('Upload complete. '+files.length+' file(s) written to KO II memory.')}catch(e){koHardwareStatus('Upload failed: '+e.message)}finally{KOII.busy=false;setTimeout(()=>koProgress(0),800)}}
@@ -2861,7 +2951,34 @@
         function koReconnectState(){if(!KOII.midi||!KOII.output)return;const still=[...KOII.midi.outputs.values()].some(p=>p===KOII.output||p.name===KOII.output.name);if(!still)koDisconnect()}
         function koDisconnect(){for(const p of KOII.pending.values()){clearTimeout(p.timer);p.reject(new Error('KO II disconnected'))}KOII.pending.clear();try{if(KOII.input)KOII.input.onmidimessage=null}catch{}KOII.connected=false;KOII.session=false;KOII.input=null;KOII.output=null;KOII.midi=null;document.getElementById('ko-refresh-button').disabled=true;document.getElementById('ko-refresh-library').disabled=true;const b=document.getElementById('ko-connect-button');b.textContent='Connect KO II';b.disabled=false;b.onclick=koConnect;koStatus('Disconnected.');koHardwareStatus('Hardware bridge is idle.')}
         async function koRefreshAll(){if(!KOII.connected)return;try{await koFileInit();await koLoadActiveTree();await koReadMemory();koHardwareStatus('KO II memory and pad map refreshed.')}catch(e){koHardwareStatus('Refresh failed: '+e.message)}}
-        function initKoDeviceUI(){const c=document.getElementById('ko-connect-button'),r=document.getElementById('ko-refresh-button'),m=document.getElementById('ko-refresh-library'),drop=document.getElementById('ko-transfer-drop'),input=document.getElementById('ko-transfer-file');if(!c)return;c.onclick=koConnect;r.onclick=koRefreshAll;m.onclick=koReadMemory;drop.addEventListener('click',e=>{if(e.target!==input)input.click()});input.addEventListener('change',()=>{const f=[...input.files];input.value='';koUploadFiles(f)});['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('dragover')}));['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('dragover')}));drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));koUploadFiles(f)});renderKoPads()}
+        function selectKoSample(sample){
+            document.querySelectorAll('.ko-sample-row.selected').forEach(x=>x.classList.remove('selected'));
+            const row=document.querySelector('.ko-sample-row[data-sample-id="'+sample.id+'"]'); if(row)row.classList.add('selected');
+            const title=document.getElementById('ko-selected-sample'),meta=document.getElementById('ko-selected-meta');
+            if(title)title.textContent='#'+String(sample.id).padStart(3,'0')+'  '+sample.name;
+            if(meta)meta.textContent=koFmtBytes(sample.size)+' · drag to any pad to assign';
+            const play=document.getElementById('ko-play-selected');
+            if(play)play.disabled=false;
+            KOII.selectedSample=sample;
+        }
+        function initKoUX(){
+            const search=document.getElementById('ko-library-search'); if(search)search.addEventListener('input',renderKoLibrary);
+            const add=document.getElementById('ko-library-add'),drop=document.getElementById('ko-transfer-drop'),input=document.getElementById('ko-transfer-file'),play=document.getElementById('ko-play-selected');
+            if(add&&input)add.onclick=()=>input.click();if(play)play.onclick=()=>{if(KOII.selectedSample)koPlayback(KOII.selectedSample.id)};
+            document.querySelectorAll('.ko-group').forEach(btn=>btn.addEventListener('click',()=>{
+                document.querySelectorAll('.ko-group').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+                koHardwareStatus('Group '+btn.dataset.group+' selected in the browser view. The pad map remains tied to the active group reported by K.O. II.');
+            }));
+            if(drop&&input){
+                drop.addEventListener('click',e=>{if(e.target!==input)input.click()});
+                input.addEventListener('change',()=>{const f=[...input.files];input.value='';koUploadFiles(f)});
+                ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('dragover')}));
+                ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('dragover')}));
+                drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files].filter(x=>x.type.startsWith('audio/')||/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(x.name));koUploadFiles(f)});
+            }
+        }
+
+        function initKoDeviceUI(){const c=document.getElementById('ko-connect-button'),r=document.getElementById('ko-refresh-button'),m=document.getElementById('ko-refresh-library');if(!c)return;c.onclick=koConnect;r.onclick=koRefreshAll;m.onclick=koReadMemory;initKoUX();renderKoPads()}
 
 </script>
 </body>
