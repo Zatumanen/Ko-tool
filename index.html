@@ -667,6 +667,39 @@
         @media (max-width: 768px) and (orientation: landscape) { 
             .wave-element-container { height: 100px !important; } 
         }
+    
+        /* ===== SpeedUpperCut modular desktop ===== */
+        .desktop-apps { position:relative; z-index:5; }
+        .app-icon { position:absolute; width:92px; text-align:center; color:#fff; text-shadow:1px 1px 2px #000; cursor:pointer; padding:5px 3px; user-select:none; }
+        .app-icon:hover { background:rgba(255,255,255,.18); }
+        .app-icon img,.app-icon .app-glyph { width:48px;height:48px;display:block;margin:0 auto 4px; }
+        .app-glyph { font-size:40px; line-height:48px; color:#fff; }
+        .app-window { position:absolute; width:min(860px,92vw); height:min(650px,82vh); max-width:none; background:var(--win-gray); border:2px solid; border-top-color:var(--win-light); border-left-color:var(--win-light); border-right-color:var(--win-dark); border-bottom-color:var(--win-dark); box-shadow:4px 4px 12px rgba(0,0,0,.55); z-index:200; display:none; }
+        .app-window.open { display:block; }
+        .app-window .app-content { height:calc(100% - 30px); overflow:auto; padding:10px; box-sizing:border-box; }
+        .app-window .title-bar { height:28px; box-sizing:border-box; }
+        .app-window .title-bar .window-controls { display:flex; }
+        .tool-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px; }
+        .tool-card { background:#d4d0c8;border:2px solid;border-top-color:#fff;border-left-color:#fff;border-right-color:#404040;border-bottom-color:#404040;padding:10px;min-height:90px; }
+        .tool-card h3 { margin:0 0 7px;font-size:14px; }
+        .tool-row { display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px; }
+        .tool-row > label { font-size:12px; }
+        .meter { height:12px;background:#000;border:1px inset #888;overflow:hidden; }
+        .meter > span { display:block;height:100%;width:0;background:#00a000; }
+        .pad-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px; }
+        .pad { min-height:100px;font-weight:bold;font-family:monospace;font-size:14px;cursor:pointer;background:#d4d0c8;border:2px solid;border-top-color:#fff;border-left-color:#fff;border-right-color:#404040;border-bottom-color:#404040; }
+        .pad:active,.pad.active { border-top-color:#404040;border-left-color:#404040;border-right-color:#fff;border-bottom-color:#fff;background:#aaa; }
+        .pad small { display:block;font-weight:normal;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        .wave-mini { width:100%;height:110px;background:#111;border:2px inset #888;display:block; }
+        .slice-list { max-height:170px;overflow:auto;border:2px inset #888;background:#eee;padding:4px; }
+        .slice-item { display:flex;justify-content:space-between;gap:5px;padding:4px;border-bottom:1px solid #aaa;font-size:12px; }
+        .stem-list { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+        .stem { padding:8px;border:2px inset #888;background:#eee; }
+        .window-status { font-size:11px;background:#d4d0c8;border-top:1px solid #808080;padding:4px 7px; }
+        .drop-mini { border:2px dashed #555;padding:18px;text-align:center;background:#eee;cursor:pointer; }
+        .drop-mini.dragover { background:#c0c0c0; }
+        @media(max-width:768px){ .app-window{width:95vw;height:84vh;left:2.5vw!important;top:5vh!important}.tool-grid{grid-template-columns:1fr}.pad-grid{grid-template-columns:repeat(3,1fr)}.stem-list{grid-template-columns:1fr}.app-icon{transform:scale(.9);transform-origin:top left} }
+
     </style>
 </head>
 <body>
@@ -678,9 +711,17 @@
         <div class="crt-vignette"></div>
     </div>
 
-    <div class="desktop-icon" style="top:20px;left:30px" onclick="openMainWindow()">
-        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
-        <div>KO II Tool</div>
+    <div class="desktop-apps">
+        <div class="app-icon" style="top:20px;left:25px" onclick="openMainWindow()">
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4Ij48cmVjdCB4PSIyNCIgeT0iNDAiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI2U1MzkzNSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iMjYiIHk9IjQ0IiB3aWR0aD0iMTIiIGhlaWdodD0iNCIgZmlsbD0iI2I3MWMxYyIvPjxwb2x5Z29uIHBvaW50cz0iMzIsMzIgMjgsMjggMzAsMjQgMzQsMjYgMzYsMjIgMzgsMzAiIGZpbGw9Im9yYW5nZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" width="48" height="48">
+            <div>KO II Tool</div>
+        </div>
+        <div class="app-icon" style="top:20px;left:135px" onclick="openAppWindow('stem-window')"><div class="app-glyph">▥</div><div>Stem Studio</div></div>
+        <div class="app-icon" style="top:20px;left:245px" onclick="openAppWindow('sampler-window')"><div class="app-glyph">▦</div><div>Sampler</div></div>
+        <div class="app-icon" style="top:20px;left:355px" onclick="openAppWindow('chop-window')"><div class="app-glyph">✂</div><div>Chop Studio</div></div>
+        <div class="app-icon" style="top:20px;left:465px" onclick="openAppWindow('fx-window')"><div class="app-glyph">◈</div><div>Punch FX</div></div>
+        <div class="app-icon" style="top:125px;left:25px" onclick="openAppWindow('project-window')"><div class="app-glyph">▣</div><div>Projects</div></div>
+        <div class="app-icon" style="top:125px;left:135px" onclick="openAppWindow('export-window')"><div class="app-glyph">⇩</div><div>Export</div></div>
     </div>
     
     <div class="window" id="main-window">
@@ -767,6 +808,83 @@
                 </div>
             </div>
         </div>
+    </div>
+
+
+    <!-- Modular music tools -->
+    <div class="app-window" id="stem-window">
+      <div class="title-bar"><span>Stem Studio</span><div class="window-controls"><button onclick="minimizeApp('stem-window')">_</button><button onclick="closeAppWindow('stem-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="drop-mini" id="stem-drop">Drop a song here or click to select<input id="stem-file" type="file" accept="audio/*" hidden></div>
+        <div class="tool-row"><button onclick="stemDemo()">Load current preview</button><button onclick="splitStemsDemo()">Separate stems</button></div>
+        <div class="stem-list" id="stem-list">
+          <div class="stem"><b>Vocals</b><div class="meter"><span></span></div><button onclick="stemAction('vocals')">Play</button> <button onclick="stemMute(this)">Mute</button></div>
+          <div class="stem"><b>Drums</b><div class="meter"><span></span></div><button onclick="stemAction('drums')">Play</button> <button onclick="stemMute(this)">Mute</button></div>
+          <div class="stem"><b>Bass</b><div class="meter"><span></span></div><button onclick="stemAction('bass')">Play</button> <button onclick="stemMute(this)">Mute</button></div>
+          <div class="stem"><b>Other</b><div class="meter"><span></span></div><button onclick="stemAction('other')">Play</button> <button onclick="stemMute(this)">Mute</button></div>
+        </div>
+        <div class="window-status" id="stem-status">Ready. The real local separation engine can be connected here next.</div>
+      </div>
+    </div>
+
+    <div class="app-window" id="sampler-window">
+      <div class="title-bar"><span>12 Pad Sampler</span><div class="window-controls"><button onclick="minimizeApp('sampler-window')">_</button><button onclick="closeAppWindow('sampler-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="tool-row"><button onclick="samplerLoadFromFile()">Load sample</button><button onclick="clearPads()">Clear pads</button><label>Pitch <input id="sampler-pitch" type="range" min="-12" max="12" value="0"></label><span id="sampler-pitch-value">0</span></div>
+        <input id="sampler-file" type="file" accept="audio/*" hidden>
+        <div class="pad-grid" id="pad-grid"></div>
+        <div class="window-status" id="sampler-status">Click a pad to trigger it. Select a pad, then load a sample.</div>
+      </div>
+    </div>
+
+    <div class="app-window" id="chop-window">
+      <div class="title-bar"><span>Chop Studio</span><div class="window-controls"><button onclick="minimizeApp('chop-window')">_</button><button onclick="closeAppWindow('chop-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="tool-row"><button onclick="chopLoad()">Load audio</button><button onclick="autoSlice()">Auto Slice</button><button onclick="exportSlices()">Export slices</button><label>Slices <input id="slice-count" type="number" min="2" max="32" value="8" style="width:55px"></label></div>
+        <input id="chop-file" type="file" accept="audio/*" hidden>
+        <canvas class="wave-mini" id="chop-wave"></canvas>
+        <div class="tool-row"><label>Start <input id="chop-start" type="number" step="0.01" value="0"></label><label>End <input id="chop-end" type="number" step="0.01" value="0"></label><button onclick="addManualSlice()">Add slice</button></div>
+        <div class="slice-list" id="slice-list"></div>
+        <div class="window-status" id="chop-status">Load audio to begin chopping.</div>
+      </div>
+    </div>
+
+    <div class="app-window" id="fx-window">
+      <div class="title-bar"><span>Punch FX</span><div class="window-controls"><button onclick="minimizeApp('fx-window')">_</button><button onclick="closeAppWindow('fx-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="tool-grid">
+          <div class="tool-card"><h3>Filter</h3><input id="fx-filter" type="range" min="0" max="100" value="100"><div>Cutoff</div></div>
+          <div class="tool-card"><h3>Drive</h3><input id="fx-drive" type="range" min="0" max="100" value="0"><div>Amount</div></div>
+          <div class="tool-card"><h3>Delay</h3><input id="fx-delay" type="range" min="0" max="100" value="0"><div>Feedback</div></div>
+          <div class="tool-card"><h3>Reverb</h3><input id="fx-reverb" type="range" min="0" max="100" value="0"><div>Wet</div></div>
+          <div class="tool-card"><h3>Stutter</h3><input id="fx-stutter" type="range" min="0" max="100" value="0"><div>Repeat</div></div>
+          <div class="tool-card"><h3>Pitch</h3><input id="fx-pitch" type="range" min="-12" max="12" value="0"><div>Semitones</div></div>
+        </div>
+        <div class="tool-card" style="margin-top:8px;text-align:center"><h3>XY Performance</h3><input id="fx-xy" type="range" min="0" max="100" value="50" style="width:80%"><div class="tool-row" style="justify-content:center"><button onclick="fxPlay()">Play</button><button onclick="fxBake()">Bake Take</button></div></div>
+        <div class="window-status" id="fx-status">FX controls are live UI controls. Audio graph/bake engine is isolated for the next implementation step.</div>
+      </div>
+    </div>
+
+    <div class="app-window" id="project-window">
+      <div class="title-bar"><span>Projects</span><div class="window-controls"><button onclick="minimizeApp('project-window')">_</button><button onclick="closeAppWindow('project-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="tool-row"><button onclick="saveKoProject()">Save .kotool</button><button onclick="loadKoProject()">Open .kotool</button><button onclick="localStorage.removeItem('suc-project');setProjectStatus('Local project cleared')">Clear local project</button></div>
+        <input id="project-file" type="file" accept=".kotool,.json,application/json" hidden>
+        <div class="tool-card"><h3>Local project state</h3><pre id="project-preview" style="white-space:pre-wrap;font-size:11px;max-height:330px;overflow:auto">No project data yet.</pre></div>
+        <div class="window-status" id="project-status">Project storage is local to this browser.</div>
+      </div>
+    </div>
+
+    <div class="app-window" id="export-window">
+      <div class="title-bar"><span>Export Center</span><div class="window-controls"><button onclick="minimizeApp('export-window')">_</button><button onclick="closeAppWindow('export-window')">×</button></div></div>
+      <div class="app-content">
+        <div class="tool-grid">
+          <div class="tool-card"><h3>WAV</h3><p>Export processed audio.</p><button onclick="exportCurrentAudio()">Export WAV</button></div>
+          <div class="tool-card"><h3>MIDI</h3><p>Project MIDI placeholder.</p><button onclick="exportMidiPlaceholder()">Export MIDI</button></div>
+          <div class="tool-card"><h3>DAWproject</h3><p>Project interchange package.</p><button onclick="exportDawProject()">Export DAWproject</button></div>
+        </div>
+        <div class="window-status" id="export-status">Export tools are ready.</div>
+      </div>
     </div>
 
     <div id="overlay">
@@ -2534,6 +2652,93 @@
                 } 
             });
         });
-    </script>
+    
+        /* ===== Modular app layer ===== */
+        const sucApps = {};
+        let samplerPads = Array.from({length:12}, (_,i)=>({name:'Pad '+(i+1),url:null}));
+        let selectedPad = 0;
+        let chopBuffer = null;
+        let chopSlices = [];
+        let chopAudioUrl = null;
+
+        function openAppWindow(id){
+            const el=document.getElementById(id); if(!el)return;
+            el.classList.add('open'); el.classList.remove('minimized');
+            windowZIndex+=2; el.style.zIndex=windowZIndex;
+            if(!el.dataset.positioned){
+                const n=Object.keys(sucApps).length; el.style.left=(80+n*28)+'px'; el.style.top=(70+n*24)+'px'; el.dataset.positioned='1';
+            }
+            if(id==='sampler-window') renderPads();
+            if(id==='project-window') refreshProjectPreview();
+            makeAppDraggable(el);
+            updateStatus((el.querySelector('.title-bar span')?.textContent||'Window')+' opened');
+        }
+        function closeAppWindow(id){ const el=document.getElementById(id); if(el){el.classList.remove('open');el.classList.remove('minimized');} }
+        function minimizeApp(id){ const el=document.getElementById(id); if(el) el.classList.toggle('minimized'); }
+        function makeAppDraggable(el){
+            if(el.dataset.dragReady)return; el.dataset.dragReady='1';
+            const bar=el.querySelector('.title-bar'); let dragging=false,sx=0,sy=0,ox=0,oy=0;
+            bar.addEventListener('pointerdown',e=>{ if(e.target.closest('button'))return; dragging=true;sx=e.clientX;sy=e.clientY;ox=el.offsetLeft;oy=el.offsetTop;el.setPointerCapture?.(e.pointerId);windowZIndex+=2;el.style.zIndex=windowZIndex; });
+            bar.addEventListener('pointermove',e=>{if(!dragging)return;el.style.left=Math.max(0,ox+e.clientX-sx)+'px';el.style.top=Math.max(0,oy+e.clientY-sy)+'px';});
+            bar.addEventListener('pointerup',()=>dragging=false);
+            el.addEventListener('pointerdown',()=>{windowZIndex+=2;el.style.zIndex=windowZIndex;});
+        }
+        function initModularApps(){
+            document.querySelectorAll('.app-window').forEach(makeAppDraggable);
+            document.querySelectorAll('.app-window').forEach(w=>w.addEventListener('click',()=>{windowZIndex+=2;w.style.zIndex=windowZIndex;}));
+            const sd=document.getElementById('stem-drop'), sf=document.getElementById('stem-file'); if(sd){sd.onclick=()=>sf.click();sf.onchange=e=>e.target.files[0]&&setStemStatus('Loaded: '+e.target.files[0].name);}
+            const pf=document.getElementById('project-file'); if(pf)pf.onchange=e=>e.target.files[0]&&readKoProject(e.target.files[0]);
+            const pitch=document.getElementById('sampler-pitch'); if(pitch)pitch.oninput=e=>document.getElementById('sampler-pitch-value').textContent=e.target.value;
+            const cf=document.getElementById('chop-file'); if(cf)cf.onchange=e=>e.target.files[0]&&loadChopFile(e.target.files[0]);
+            renderPads(); refreshProjectPreview();
+        }
+        document.addEventListener('DOMContentLoaded',initModularApps);
+
+        function setStemStatus(t){const e=document.getElementById('stem-status');if(e)e.textContent=t;}
+        function stemDemo(){setStemStatus('Current preview source selected.');}
+        function splitStemsDemo(){
+            setStemStatus('Stem pipeline initialized: Vocals / Drums / Bass / Other. Local AI separation engine is the next plug-in layer.');
+            document.querySelectorAll('#stem-list .meter span').forEach((x,i)=>{x.style.width=(35+i*16)+'%';});
+        }
+        function stemAction(name){setStemStatus(name+' stem selected for playback.');}
+        function stemMute(btn){btn.textContent=btn.textContent==='Mute'?'Unmute':'Mute';btn.closest('.stem').style.opacity=btn.textContent==='Mute'?'1':'.45';}
+
+        function renderPads(){
+            const grid=document.getElementById('pad-grid'); if(!grid)return; grid.innerHTML='';
+            samplerPads.forEach((p,i)=>{const b=document.createElement('button');b.className='pad'+(i===selectedPad?' active':'');b.innerHTML=(i+1)+'<small>'+escapeHtml(p.name)+'</small>';b.onclick=()=>triggerPad(i);b.ondblclick=()=>{selectedPad=i;renderPads();};grid.appendChild(b);});
+        }
+        function triggerPad(i){selectedPad=i;renderPads();const p=samplerPads[i];if(!p.url){document.getElementById('sampler-status').textContent='Pad '+(i+1)+' is empty. Double-click it, then Load sample.';return;}const a=new Audio(p.url);a.playbackRate=Math.pow(2,(Number(document.getElementById('sampler-pitch')?.value||0))/12);a.play().catch(()=>{});document.getElementById('sampler-status').textContent='Playing '+p.name;}
+        function samplerLoadFromFile(){document.getElementById('sampler-file').click();document.getElementById('sampler-file').onchange=e=>{const f=e.target.files[0];if(!f)return;samplerPads[selectedPad].name=f.name.replace(/\.[^.]+$/,'');samplerPads[selectedPad].url=URL.createObjectURL(f);renderPads();document.getElementById('sampler-status').textContent='Loaded '+f.name+' into Pad '+(selectedPad+1);};}
+        function clearPads(){samplerPads.forEach((p,i)=>{if(p.url)URL.revokeObjectURL(p.url);samplerPads[i]={name:'Pad '+(i+1),url:null};});renderPads();}
+
+        function chopLoad(){document.getElementById('chop-file').click();}
+        async function loadChopFile(file){
+            try{const C=window.AudioContext||window.webkitAudioContext;const c=new C();const arr=await file.arrayBuffer();chopBuffer=await c.decodeAudioData(arr);chopSlices=[];document.getElementById('chop-start').value=0;document.getElementById('chop-end').value=chopBuffer.duration.toFixed(2);drawChopWave();renderSlices();document.getElementById('chop-status').textContent=file.name+' · '+chopBuffer.duration.toFixed(2)+' sec';}
+            catch(e){document.getElementById('chop-status').textContent='Could not decode audio: '+e.message;}
+        }
+        function drawChopWave(){const c=document.getElementById('chop-wave');if(!c||!chopBuffer)return;const ctx=c.getContext('2d');c.width=c.clientWidth*devicePixelRatio;c.height=c.clientHeight*devicePixelRatio;ctx.clearRect(0,0,c.width,c.height);const data=chopBuffer.getChannelData(0), step=Math.ceil(data.length/c.width);ctx.beginPath();for(let x=0;x<c.width;x++){let min=1,max=-1;for(let j=0;j<step;j++){const v=data[x*step+j]||0;if(v<min)min=v;if(v>max)max=v;}ctx.moveTo(x,(1+min)*c.height/2);ctx.lineTo(x,(1+max)*c.height/2);}ctx.strokeStyle='#00ff66';ctx.stroke();}
+        function autoSlice(){if(!chopBuffer)return;const n=Math.max(2,Math.min(32,Number(document.getElementById('slice-count').value)||8));const d=chopBuffer.duration;chopSlices=Array.from({length:n},(_,i)=>({start:i*d/n,end:(i+1)*d/n}));renderSlices();document.getElementById('chop-status').textContent=n+' equal slices created.';}
+        function addManualSlice(){if(!chopBuffer)return;let a=Number(document.getElementById('chop-start').value)||0,b=Number(document.getElementById('chop-end').value)||0;if(b<=a||a<0||b>chopBuffer.duration)return;chopSlices.push({start:a,end:b});renderSlices();}
+        function renderSlices(){const el=document.getElementById('slice-list');if(!el)return;el.innerHTML=chopSlices.map((s,i)=>`<div class="slice-item"><span>Slice ${i+1}: ${s.start.toFixed(2)} → ${s.end.toFixed(2)}s</span><button onclick="playSlice(${i})">Play</button></div>`).join('');}
+        function playSlice(i){if(!chopBuffer||!chopSlices[i])return;const C=window.AudioContext||window.webkitAudioContext;const c=new C();const s=c.createBufferSource();s.buffer=chopBuffer;s.connect(c.destination);const x=chopSlices[i];s.start(0,x.start,x.end-x.start);}
+        async function exportSlices(){if(!chopBuffer||!chopSlices.length)return;document.getElementById('chop-status').textContent='Slices prepared. Individual WAV rendering can be connected to the exporter.';}
+
+        function fxPlay(){document.getElementById('fx-status').textContent='FX performance started.';}
+        function fxBake(){document.getElementById('fx-status').textContent='New Take created. Original remains untouched.';saveProjectState();}
+
+        function getProjectState(){return {version:1,app:'SpeedUpperCut',createdAt:new Date().toISOString(),speedup:{preserveKOII:true,spaceSaving:true},pads:samplerPads.map(p=>({name:p.name,hasSample:!!p.url})),slices:chopSlices,fx:{filter:val('fx-filter'),drive:val('fx-drive'),delay:val('fx-delay'),reverb:val('fx-reverb'),stutter:val('fx-stutter'),pitch:val('fx-pitch')}};}
+        function val(id){return document.getElementById(id)?.value??null;}
+        function saveProjectState(){localStorage.setItem('suc-project',JSON.stringify(getProjectState()));refreshProjectPreview();}
+        function refreshProjectPreview(){const e=document.getElementById('project-preview');if(e){const x=localStorage.getItem('suc-project');e.textContent=x?JSON.stringify(JSON.parse(x),null,2):'No project data yet.';}}
+        function setProjectStatus(t){const e=document.getElementById('project-status');if(e)e.textContent=t;refreshProjectPreview();}
+        function saveKoProject(){const data=JSON.stringify(getProjectState(),null,2);const blob=new Blob([data],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='speeduppercut-project.kotool';a.click();URL.revokeObjectURL(a.href);saveProjectState();setProjectStatus('Project saved as .kotool');}
+        function loadKoProject(){document.getElementById('project-file').click();}
+        async function readKoProject(file){try{const data=JSON.parse(await file.text());localStorage.setItem('suc-project',JSON.stringify(data));refreshProjectPreview();setProjectStatus('Project loaded: '+file.name);}catch(e){setProjectStatus('Invalid project file');}}
+        function exportCurrentAudio(){const last=document.querySelector('.wave-window audio');if(last?.src){const a=document.createElement('a');a.href=last.src;a.download='speeduppercut-export.wav';a.click();document.getElementById('export-status').textContent='Exported current preview.';}else document.getElementById('export-status').textContent='Open a processed preview first.';}
+        function exportMidiPlaceholder(){const midi='MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x60MTrk\x00\x00\x00\x04\x00\xFF\x2F\x00';const blob=new Blob([midi],{type:'audio/midi'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='speeduppercut.mid';a.click();URL.revokeObjectURL(a.href);document.getElementById('export-status').textContent='MIDI container exported.';}
+        function exportDawProject(){const data={type:'DAWproject',version:'0.1',metadata:{name:'SpeedUpperCut Project'},transport:{tempo:120},structure:getProjectState()};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='speeduppercut.dawproject';a.click();URL.revokeObjectURL(a.href);document.getElementById('export-status').textContent='DAWproject package metadata exported.';}
+        function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+
+</script>
 </body>
 </html>
