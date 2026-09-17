@@ -1,5 +1,5 @@
-import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260918-4';
-import{createZip}from './zip.js?v=20260918-4';
+import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260918-5';
+import{createZip}from './zip.js?v=20260918-5';
 const state={ctx:null,fileResults:[],folderResults:[],folderName:'',cancelled:false,urls:new Set(),startedAt:0,folderZipUrl:null};
 const $=id=>document.getElementById(id);const selected=g=>document.querySelector(`.win95-list[data-group="${g}"] .list-item.selected`)?.dataset.value||(g==='fidelity'?'cd':'stereo');const status=t=>$('status-bar').textContent=t;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const bytes=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 function progress(v,text,i,total){$('progress-fill').style.width=`${v*100}%`;$('progress-text').textContent=`${Math.round(v*100)}%`;$('current-file').textContent=text;$('file-count').textContent=`File: ${i}/${total}`;$('progress-time').textContent=`Time: ${Math.max(0,Math.round((performance.now()-state.startedAt)/1000))}s`;}
