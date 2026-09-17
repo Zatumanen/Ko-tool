@@ -32,11 +32,12 @@
         <div class="tab-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div>
         <div class="tab-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div>
       </div>
-      <div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
+      <div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="folder-download-area"></div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
     </div>
   </main>
 </div>
 <div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> Processing Audio Files...</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Time: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">Cancel Processing</button></div></div>
 <div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div><button class="taskbar-stop" id="stop-all-audio" type="button"><i class="fas fa-stop"></i> STOP</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="module" src="js/app.js"></script>
 </body></html>
