@@ -22,6 +22,7 @@
         </div></section>
         <section class="win95-inset"><label>CHANNELS</label><div class="win95-list" data-group="channels"><div class="list-item selected" data-value="stereo">Stereo</div><div class="list-item" data-value="mono">Mono</div></div></section>
       </div>
+      <div class="playmode-control" data-group="playmode"><button class="playmode-button selected" data-value="oneshot" type="button">ONE SHOT</button><button class="playmode-button" data-value="loop" type="button">LOOP</button></div>
       <label class="trim-control"><input checked id="auto-trim" type="checkbox"> Auto-trim silence at start/end</label>
       <div class="drop-zone" id="drop-zone"><i class="fas fa-cloud-upload-alt"></i><strong>DRAG AND DROP AUDIO FILES/FOLDERS</strong><span>or click to select files</span><small>WAV, MP3, AAC, OGG, FLAC, M4A</small><input accept=".wav,.mp3,.aac,.ogg,.flac,.m4a,audio/*" id="audio-upload" multiple type="file"></div>
       <input id="folder-upload" multiple type="file" webkitdirectory style="display:none">
@@ -38,5 +39,5 @@
 </div>
 <div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> Processing Audio Files...</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Time: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">Cancel Processing</button></div></div>
 <div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div><button class="taskbar-stop" id="stop-all-audio" type="button"><i class="fas fa-stop"></i> STOP</button></div>
-<script type="module" src="js/app.js?v=20260918-6"></script>
+<script type="module" src="js/app.js?v=20260918-7"></script>
 </body></html>
