@@ -1,4 +1,4 @@
-export const PRESETS=Object.freeze({cd:{sampleRate:44100,bitDepth:16,wavBitDepth:16,resample:'linear'},sp8:{sampleRate:26040,bitDepth:12,wavBitDepth:16,resample:'drop'},sp16:{sampleRate:22050,bitDepth:16,wavBitDepth:16,resample:'linear'},sk:{sampleRate:9387,bitDepth:8,wavBitDepth:8,resample:'sk'}});
+export const PRESETS=Object.freeze({cd:{sampleRate:44100,bitDepth:16,wavBitDepth:16,resample:'linear'},sp8:{sampleRate:26040,bitDepth:12,wavBitDepth:16,resample:'drop'},sp16:{sampleRate:44100,bitDepth:16,wavBitDepth:16,resample:'linear'},sk:{sampleRate:9387,bitDepth:8,wavBitDepth:8,resample:'sk'}});
 export const getPreset=(name='cd')=>PRESETS[name]||PRESETS.cd;
 export function createAudioContext(){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw Error('Web Audio API is not supported in this browser.');return new C();}
 export async function decodeAudio(arrayBuffer,ctx){try{return await ctx.decodeAudioData(arrayBuffer.slice(0));}catch(e){throw Error(`Audio decoding failed: ${e?.message||e}`);}}
