@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="css/base.css?v=20260918-4">
+<link rel="stylesheet" href="css/base.css?v=20260918-5">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
@@ -27,17 +27,16 @@
       <div class="drop-zone" id="drop-zone"><i class="fas fa-cloud-upload-alt"></i><strong>DRAG AND DROP AUDIO FILES/FOLDERS</strong><span>or click to select files</span><small>WAV, MP3, AAC, OGG, FLAC, M4A</small><input accept=".wav,.mp3,.aac,.ogg,.flac,.m4a,audio/*" id="audio-upload" multiple type="file"></div>
       <input id="folder-upload" multiple type="file" webkitdirectory style="display:none">
       <div class="button-group"><button id="select-file-button" type="button">Select Files</button><button id="select-folder-button" type="button">Select Folder</button><button id="clear-button" type="button">Clear</button></div>
-      <div class="info-panel" id="file-info">
-        <div class="info-tabs"><button class="tab-button" data-tab="errors" type="button">Errors</button><button class="tab-button" data-tab="stats" type="button">Statistics</button></div>
-        <div class="tab-content" id="log-tab"><div><i class="fas fa-info-circle"></i> Drop or select audio files to begin.</div><div><i class="fas fa-tachometer-alt"></i> Files are processed at x2 speed.</div></div>
-        <div class="tab-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div>
-        <div class="tab-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div>
-      </div>
       <div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="folder-download-area"></div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
     </div>
   </main>
 </div>
 <div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> PROCESSING</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Elapsed: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">CANCEL</button></div></div><div id="error-dialog" role="alertdialog" aria-modal="true"><div class="error-dialog-window"><div class="title-bar"><span>Warning</span><button id="error-close" type="button" aria-label="Close">×</button></div><div class="error-dialog-body"><div class="error-dialog-message"><span class="error-icon">!</span><span id="error-message"></span></div><button id="error-ok" type="button">OK</button></div></div></div>
-<div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
+<div class="start-menu" id="start-menu">
+  <div class="start-menu-brand"><i class="fas fa-bolt"></i><span>SpeedUpperCut</span></div>
+  <div class="start-menu-item" data-menu="log"><span><i class="fas fa-file-alt"></i> Log</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">PROCESSING LOG</div><div class="start-submenu-content" id="log-tab"><div><i class="fas fa-info-circle"></i> Drop or select audio files to begin.</div><div><i class="fas fa-tachometer-alt"></i> Files are processed at x2 speed.</div></div></div></div>
+  <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
+  <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
+</div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
 <script type="module" src="js/app.js?v=20260918-7"></script>
 </body></html>
