@@ -17,7 +17,7 @@
       <div class="mobile-warning" id="mobile-warning"><i class="fas fa-mobile-alt"></i> Processing on mobile may be slow. Use smaller files for best results.</div>
       <div class="format-warning"><i class="fas fa-info-circle"></i> Output is WAV. Audio is sped up 2× to reduce duration and storage.</div>
       <div class="settings-row">
-        <section class="win95-inset"><label>FIDELITY</label><div class="win95-list" data-group="fidelity">
+        <section class="win95-inset"><label>QUALITY</label><div class="win95-list" data-group="fidelity">
           <div class="list-item selected" data-value="cd">CD (16-bit, 44.1kHz)</div><div class="list-item" data-value="sp8">SP-1200 (8-bit, 22kHz)</div><div class="list-item" data-value="sp16">SP-1200 (16-bit, 22kHz)</div><div class="list-item" data-value="sk">SK-1 (8-bit, 9kHz)</div>
         </div></section>
         <section class="win95-inset"><label>CHANNELS</label><div class="win95-list" data-group="channels"><div class="list-item selected" data-value="stereo">Stereo</div><div class="list-item" data-value="mono">Mono</div></div></section>
@@ -28,8 +28,8 @@
       <input id="folder-upload" multiple type="file" webkitdirectory style="display:none">
       <div class="button-group"><button id="select-file-button" type="button">Select Files</button><button id="select-folder-button" type="button">Select Folder</button><button id="clear-button" type="button">Clear</button></div>
       <div class="info-panel" id="file-info">
-        <div class="info-tabs"><button class="tab-button active" data-tab="log" type="button">Processing Log</button><button class="tab-button" data-tab="errors" type="button">Errors</button><button class="tab-button" data-tab="stats" type="button">Statistics</button></div>
-        <div class="tab-content active" id="log-tab"><div><i class="fas fa-info-circle"></i> Drop or select audio files to begin.</div><div><i class="fas fa-tachometer-alt"></i> Files are processed at 2× speed.</div></div>
+        <div class="info-tabs"><button class="tab-button" data-tab="errors" type="button">Errors</button><button class="tab-button" data-tab="stats" type="button">Statistics</button></div>
+        <div class="tab-content" id="log-tab"><div><i class="fas fa-info-circle"></i> Drop or select audio files to begin.</div><div><i class="fas fa-tachometer-alt"></i> Files are processed at x2 speed.</div></div>
         <div class="tab-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div>
         <div class="tab-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div>
       </div>
@@ -37,7 +37,7 @@
     </div>
   </main>
 </div>
-<div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> Processing Audio Files...</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Time: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">Cancel Processing</button></div></div>
+<div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> PROCESSING</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Elapsed: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">CANCEL</button></div></div><div id="error-dialog" role="alertdialog" aria-modal="true"><div class="error-dialog-window"><div class="title-bar"><span>Warning</span><button id="error-close" type="button" aria-label="Close">×</button></div><div class="error-dialog-body"><div class="error-dialog-message"><span class="error-icon">!</span><span id="error-message"></span></div><button id="error-ok" type="button">OK</button></div></div></div>
 <div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div><button class="taskbar-stop" id="stop-all-audio" type="button"><i class="fas fa-stop"></i> STOP</button></div>
 <script type="module" src="js/app.js?v=20260918-7"></script>
 </body></html>
