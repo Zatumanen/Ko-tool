@@ -1,4 +1,4 @@
-import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260918-7';
+import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260919-4';
 import{createZip}from './zip.js?v=20260918-5';
 const state={ctx:null,fileResults:[],folderResults:[],folderName:'',cancelled:false,urls:new Set(),startedAt:0,folderZipUrl:null};
 const $=id=>document.getElementById(id);const selected=g=>document.querySelector(`.win95-list[data-group="${g}"] .list-item.selected`)?.dataset.value||(g==='fidelity'?'cd':'stereo');const selectedPlaymode=()=>document.querySelector('.playmode-control .list-item.selected')?.dataset.value||'oneshot';const status=t=>$('status-bar').textContent=t;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const bytes=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
