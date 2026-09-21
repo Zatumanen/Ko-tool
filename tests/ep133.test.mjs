@@ -81,3 +81,29 @@ test('EP sample filename normalization matches the device naming rules',async()=
   assert.equal(normalizeFileName('Snärë/Bad\\Name.wav'),'snarebadname');
   assert.equal(normalizeFileName('Long sample filename here.wav'),'long sample file');
 });
+
+import{getTargetSampleRate,parseWavAudioMeta}from '../js/ep133/audio.js';
+test('EP target sample rate follows pbarilla format metadata',()=>{
+  const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
+  assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);
+  assert.equal(getTargetSampleRate({sample_rate:44100,channels:2},formats),44100);
+  assert.equal(getTargetSampleRate({sample_rate:46875,channels:1},formats),46875);
+  assert.equal(getTargetSampleRate({sample_rate:48000,channels:1},formats),46875);
+  assert.equal(getTargetSampleRate({sample_rate:96000,channels:2},formats),46875);
+});
+
+test('EP target sample rate uses native rate when no range exists',()=>{
+  const formats=[{type:'pcm',formats:[{format:'s16',channels:[2],'samplerate.native':44100}]}];
+  assert.equal(getTargetSampleRate({sample_rate:48000,channels:2},formats),44100);
+});
+
+test('EP target sample rate falls back to 46875 when no supported format exists',()=>{
+  assert.equal(getTargetSampleRate({sample_rate:44100,channels:2},[]),46875);
+  assert.equal(getTargetSampleRate({sample_rate:44100,channels:3},[{type:'pcm',formats:[{format:'s16',channels:[1]}]}]),46875);
+});
+
+test('EP WAV metadata parser reads source rate and PCM layout',()=>{
+  const bytes=new Uint8Array(48);const view=new DataView(bytes.buffer);
+  new TextEncoder().encodeInto('RIFF',bytes.subarray(0,4));view.setUint32(4,40,true);new TextEncoder().encodeInto('WAVE',bytes.subarray(8,12));new TextEncoder().encodeInto('fmt ',bytes.subarray(12,16));view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,2,true);view.setUint32(24,44100,true);view.setUint32(28,176400,true);view.setUint16(32,4,true);view.setUint16(34,16,true);new TextEncoder().encodeInto('data',bytes.subarray(36,40));view.setUint32(40,8,true);
+  const meta=parseWavAudioMeta(bytes);assert.equal(meta.rate,44100);assert.equal(meta.channels,2);assert.equal(meta.format,1);assert.equal(meta.bits,16);assert.equal(meta.dataOffset,44);assert.equal(meta.dataSize,4);
+});
