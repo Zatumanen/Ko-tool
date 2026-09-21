@@ -20,7 +20,26 @@ export function parseMetadataResponse(raw,page){if(raw.length<=2)return null;con
 
 function parseList(data){const out=[];let offset=0;while(offset+7<=data.length){const nodeId=u16(data,offset),flags=data[offset+2],fileSize=u32(data,offset+3),fileName=parseNullTerminatedString(data,offset+7);out.push({nodeId,flags,fileSize,fileName,fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),isWritable:!!(flags&8),isPlayable:!!(flags&64)});offset+=7+fileName.length+1;}return out;}
 
-async function getMetadataByNodeId(nodeId){let page=0,text='';for(;;){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);let response;let lastError;for(let attempt=0;attempt<3;attempt++){try{response=await requestRead(TE_SYSEX_FILE,p);break}catch(error){lastError=error;if(attempt<2)await new Promise(r=>setTimeout(r,200));}}if(!response)throw lastError||new Error('EP metadata request failed.');const parsed=parseMetadataResponse(response.rawData,page);if(!parsed)break;text+=parsed.text;if(parsed.done)break;page+=1;}try{return JSON.parse(text);}catch{throw new Error('Invalid EP-series metadata response.');}}
+async function getMetadataByNodeId(nodeId){
+  let lastError;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      let page=0,text='';
+      for(;;){
+        const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);
+        const response=await requestRead(TE_SYSEX_FILE,p);
+        const parsed=parseMetadataResponse(response.rawData,page);
+        if(!parsed)break;
+        text+=parsed.text;if(parsed.done)break;page+=1;
+      }
+      return JSON.parse(text);
+    }catch(error){
+      lastError=error;
+      if(attempt<2)await new Promise(r=>setTimeout(r,200));
+    }
+  }
+  throw lastError||new Error('EP metadata request failed.');
+}
 
 export async function getFileMetadata(nodeId){return getMetadataByNodeId(nodeId);}
 
