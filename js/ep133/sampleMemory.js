@@ -49,7 +49,9 @@ export function createSampleMemory({
   tabsEl,
   searchEl,
   infoEl,
-  onSelect
+  onSelect,
+  onPlay,
+  onDrop
 }){
   let slots=[];
   let activeTab=0;
@@ -149,6 +151,6 @@ export function createSampleMemory({
       render();
     },
     refresh(){render();renderInfo();},
-    getSelected(){return selectedId?slots[selectedId-1]:null;}
+    getSelected(){return selectedId?slots[selectedId-1]:null;},\n    getSlot(id){return slots[id-1]||null;}
   };
 }
