@@ -64,7 +64,7 @@ export function createSampleMemory({
     return (size/1024/1024).toFixed(2)+' MB';
   };
 
-  const slotName=slot=>slot?.file?.name||'';
+  const slotName=slot=>slot?.meta?.name||slot?.file?.name||'';
 
   const visible=()=>{
     const tab=DEFAULT_SAMPLE_TABS[activeTab];
