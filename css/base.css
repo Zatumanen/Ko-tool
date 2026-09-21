@@ -415,12 +415,12 @@
 @media(max-width:600px){.ep133-sample-header{align-items:stretch;flex-direction:column}.ep133-sample-header input{width:100%}.ep133-sample-tabs{overflow-x:auto;flex-wrap:nowrap}.ep133-sample-tab{flex:0 0 auto}.ep133-sample-list{max-height:55vh}.ep133-sample-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}}
 
 /* My EP sample memory layout and draggable window */
-.ep133-browser-window{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);}
+.ep133-browser-window{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);}
 .ep133-browser-body{min-height:0;overflow:hidden;}
 .ep133-sample-memory{flex:1;min-height:0;}
 .ep133-sample-list{flex:1;max-height:none;min-height:160px;}
 .ep133-info{max-height:150px;overflow:auto;overflow-wrap:anywhere;word-break:break-word;}
-.ep133-slot-info-head span{min-width:0;}
+.ep133-slot-info-head span{min-width:0;}.ep133-browser-window .title-bar{touch-action:none;cursor:move;}
 @media(max-width:600px){
   .ep133-browser-window{left:50%;top:50%;}
   .ep133-browser-body{overflow:auto;}
