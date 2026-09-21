@@ -1,0 +1,8 @@
+{
+  "name": "speeduppercut",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
