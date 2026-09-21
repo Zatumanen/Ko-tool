@@ -1,5 +1,6 @@
 import{connectEp133,disconnectEp133,isConnected}from './index.js';
-import{listDeviceFiles,getFileMetadata}from './filesystem.js';
+import{listDeviceFiles,getFileMetadata,uploadSampleToSlot,startPlayback}from './filesystem.js';
+import{prepareEp133Sample}from './audio.js';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
 export function initEp133Browser({showError}={}){
@@ -17,14 +18,38 @@ export function initEp133Browser({showError}={}){
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
   const setBusy=b=>{connect.disabled=b;refresh.disabled=b;};
+  const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
+  const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
+  const getDroppedFile=event=>{\n    const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');\n    if(resultId){\n      const item=window.__speedUpperCutFiles?.get(resultId);\n      if(item?.result?.blob)return new File([item.result.blob],item.outputName||item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav',{type:'audio/wav'});\n    }\n    const file=event.dataTransfer?.files?.[0];\n    return file||null;\n  };
 
+  let soundsParentId=0;
   const memory=createSampleMemory({
     listEl:list,
     tabsEl:tabs,
     searchEl:search,
     infoEl:info,
     onSelect:slot=>{
-      setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY · READ ONLY');
+      setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY');
+    },
+    onPlay:async slot=>{
+      try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
+    },
+    onDrop:async(slot,event)=>{
+      if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
+      if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
+      const file=getDroppedFile(event);
+      if(!file)return;
+      try{
+        setSlotStatus(slot,'PREPARING...');
+        const prepared=await prepareEp133Sample(file,{onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
+        const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format};
+        await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
+        slot.file={name:String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase(),path:'/sounds/'+String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase(),size:prepared.data.byteLength};
+        slot.nodeId=slot.id;
+        slot.meta={...metadata,name:String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase()};
+        memory.refresh();
+        setSlotStatus(slot,'WRITTEN');
+      }catch(error){setSlotStatus(slot,'WRITE ERROR');showError?.(error?.message||error);}
     }
   });
 
@@ -106,6 +131,7 @@ export function initEp133Browser({showError}={}){
     setBusy(true);setStatus('READING FILES...');
     try{
       const files=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
+      soundsParentId=getSoundsParentId(files);
       const slots=createSampleSlots(files);
       memory.setSlots(slots);
 
