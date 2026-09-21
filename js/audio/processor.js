@@ -1,4 +1,4 @@
-import{encodeMp3}from './encoder.js';
+import{encodeMp3}from './encoder.js?v=20260921-2';
 export const PRESETS=Object.freeze({cd:{sampleRate:44100,bitDepth:16,wavBitDepth:16,resample:'linear'},sp8:{sampleRate:26040,bitDepth:12,wavBitDepth:16,resample:'drop'},sk:{sampleRate:9387,bitDepth:8,wavBitDepth:8,resample:'sk'}});
 export const getPreset=(name='cd')=>PRESETS[name]||PRESETS.cd;
 export function createAudioContext(){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw Error('Web Audio API is not supported in this browser.');return new C();}
