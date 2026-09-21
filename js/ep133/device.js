@@ -41,13 +41,13 @@ function waitForIdentity(timeout=2000){
 }
 
 async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
-  if(!output||!input)throw new Error('EP-133 is not connected.');
+  if(!output||!input)throw new Error('EP-series device is not connected.');
   const frame=buildTeSysex(command,payload,identityCode,output.id);
   return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-133 request timeout (command ${command})`));},timeout);
+    const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
     pending.set(frame.id,{resolve:v=>{
       clearTimeout(timer);
-      if(v.status!==STATUS_OK)reject(new Error(`EP-133 returned status ${v.status}`));
+      if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));
       else resolve(v);
     }});
     try{output.send(frame.bytes);}
@@ -71,7 +71,7 @@ export async function connectEp133(){
       const identity=await Promise.race([identityPromise,new Promise(r=>setTimeout(()=>r(null),2200))]);
       if(identity){
         const parsed=parseIdentityResponse(identity.data);
-        if(parsed&&/TE032|EP-133/i.test(parsed.sku)){
+        if(parsed&&/^TE032AS/i.test(parsed.sku)){
           found={out,parsed,input:identity.inputPort};
           break;
         }
@@ -81,13 +81,13 @@ export async function connectEp133(){
 
   if(!found){
     stopListeners();
-    throw new Error('EP-133 was not found on the available MIDI ports.');
+    throw new Error('Supported EP-series device was not found on the available MIDI ports. Supported models: EP-133 (64/128 MB), EP-40, EP-1320.');
   }
 
   output=found.out;
   input=found.input;
   const greet=await sendRequest(TE_SYSEX_GREET);
-  if(!greet||greet.status!==STATUS_OK)throw new Error('EP-133 GREET failed.');
+  if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
   initialized=true;
   return{sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData)),input,output};
