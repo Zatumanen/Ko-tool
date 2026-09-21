@@ -73,3 +73,11 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
   assert.equal(view.getUint16(2),3);
   assert.deepEqual([...payload.slice(4)],[0,127,128,255]);
 });
+
+
+test('EP sample filename normalization matches the device naming rules',async()=>{
+  const {normalizeFileName}=await import('../js/ep133/filesystem.js');
+  assert.equal(normalizeFileName('001 Kick 808.wav'),'kick 808');
+  assert.equal(normalizeFileName('Snärë/Bad\\Name.wav'),'snarebadname');
+  assert.equal(normalizeFileName('Long sample filename here.wav'),'long sample file');
+});
