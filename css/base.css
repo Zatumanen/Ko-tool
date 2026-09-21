@@ -22,31 +22,31 @@
 .preview-actions{margin-top:9px}
 @media(max-width:600px){.preview-controls button{flex:1;padding-left:4px;padding-right:4px}.preview-display{font-size:12px}.preview-player{padding:8px}}
 \n.preview-window{width:min(520px,94vw)}.preview-body{padding:10px}.preview-file{font-weight:bold;margin-bottom:8px}.preview-player{background:#000080;border:2px inset var(--win-dark);padding:10px;color:#fff}.preview-display{background:#000;color:#0f0;border:2px inset var(--win-dark);padding:7px 9px;font:14px "Courier New",monospace;display:flex;justify-content:space-between;margin-bottom:9px}.preview-progress{height:18px;background:#fff;border:2px inset var(--win-dark);cursor:pointer}.preview-progress-fill{height:100%;width:0;background:#00aa00}.preview-controls{display:flex;gap:5px;margin-top:9px}.preview-controls button,.preview-speed button{min-height:34px;background:var(--win-gray);color:#000;border:2px outset var(--win-gray);font:700 13px "Courier New",monospace;cursor:pointer;padding:4px 9px}.preview-controls button:active,.preview-speed button:active,.preview-speed button.selected{border-style:inset;background:#fff}.preview-controls .preview-play{min-width:82px}.preview-speed{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap;font-size:12px}.preview-speed-label{font-weight:bold}.preview-volume{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}.preview-volume input{flex:1}.preview-meta{margin-top:9px;background:#fff;color:#000;border:2px inset var(--win-dark);padding:7px;font-size:12px}.preview-actions{margin-top:9px}@media(max-width:600px){.preview-controls button{flex:1;padding-left:4px;padding-right:4px}.preview-display{font-size:12px}.preview-player{padding:8px}}
-/* Surgical player pass */
-.preview-window{position:fixed;z-index:10001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:5px 5px 15px rgba(0,0,0,.65)}
+/* WinPlay3-style preview player v2 */
+.preview-window{position:fixed;z-index:10001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(500px,calc(100vw - 20px));background:#c0c0c0;border:2px solid;border-top-color:#fff;border-left-color:#fff;border-right-color:#000;border-bottom-color:#000;box-shadow:6px 6px 0 rgba(0,0,0,.35);color:#000}
 .preview-window.preview-minimized .preview-body{display:none}
-.preview-title{height:28px;cursor:move}
-.preview-title .window-controls{display:flex}
-.preview-title .window-controls button{width:22px;height:22px;min-height:22px;padding:0;margin-left:3px}
-.preview-body{padding:10px}
-.preview-file{font-weight:bold;margin-bottom:8px}
-.preview-player{background:#000080;border:2px inset var(--win-dark);padding:10px;color:#fff}
-.preview-display{background:#000;color:#0f0;border:2px inset var(--win-dark);padding:7px 9px;font:14px "Courier New",monospace;display:flex;justify-content:space-between;gap:10px;margin-bottom:9px}
-.preview-wave{height:96px;background:#111;border:2px inset #808080;position:relative;overflow:hidden;cursor:pointer}
+.preview-title{height:24px;min-height:24px;padding:2px 3px;box-sizing:border-box;background:#000080;color:#fff;font:700 12px "MS Sans Serif","Arial",sans-serif;display:flex;align-items:center;justify-content:space-between;cursor:move}
+.preview-title .window-controls{display:flex;gap:2px}
+.preview-title .window-controls button{width:18px;height:18px;min-height:18px;padding:0;margin:0;background:#c0c0c0;color:#000;border:2px outset #c0c0c0;font:700 11px Arial;line-height:12px;cursor:pointer}
+.preview-title .window-controls button:active{border-style:inset}
+.preview-body{padding:6px;background:#c0c0c0}
+.preview-file{margin:0 0 5px;padding:3px 5px;background:#fff;border:2px inset #808080;font:700 11px "MS Sans Serif","Arial",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preview-player{padding:5px;background:#c0c0c0;border:2px inset #808080;color:#000}
+.preview-display{height:38px;box-sizing:border-box;margin:0 0 5px;padding:4px 7px;background:#050505;color:#39ff39;border:2px inset #808080;display:flex;align-items:center;justify-content:space-between;font:700 18px "Courier New",monospace;letter-spacing:1px;text-shadow:0 0 3px #20ff20}
+.preview-wave{height:76px;background:#101010;border:2px inset #808080;position:relative;overflow:hidden;cursor:pointer}
 .preview-wave canvas{display:block;width:100%;height:100%}
-.preview-wave-position{position:absolute;top:0;bottom:0;left:0;width:2px;background:#fff;box-shadow:0 0 3px #fff;pointer-events:none}
-.preview-progress{height:16px;margin-top:6px;background:#fff;border:2px inset var(--win-dark);cursor:pointer;position:relative}
+.preview-wave-position{position:absolute;top:0;bottom:0;left:0;width:2px;background:#fff;box-shadow:0 0 2px #fff;pointer-events:none}
+.preview-progress{height:12px;margin-top:4px;background:#fff;border:2px inset #808080;cursor:pointer;position:relative}
 .preview-progress-fill{height:100%;width:0;background:#000080}
-.preview-controls{display:flex;gap:5px;margin-top:9px}
-.preview-controls button,.preview-speed button{min-height:34px;background:var(--win-gray);color:#000;border:2px outset var(--win-gray);font:700 12px "Courier New",monospace;cursor:pointer;padding:4px 7px}
-.preview-controls button:active,.preview-speed button:active,.preview-speed button.selected{border-style:inset;background:#fff}
-.preview-controls button{flex:1}
-.preview-speed{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap;font-size:12px}
-.preview-speed-label{font-weight:bold}
-.preview-volume{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
-.preview-volume input{flex:1;min-width:80px}
-.preview-meta{margin-top:9px;background:#fff;color:#000;border:2px inset var(--win-dark);padding:7px;font-size:12px}
-.preview-actions{display:flex;gap:7px;margin-top:9px}
-.preview-actions button{flex:1;min-height:34px;background:var(--win-gray);border:2px outset var(--win-gray);font-family:"Courier New",monospace;cursor:pointer}
-.preview-actions button:active{border-style:inset}
-@media(max-width:600px){.preview-controls button{padding-left:3px;padding-right:3px}.preview-display{font-size:12px}.preview-player{padding:8px}.preview-wave{height:78px}}
+.preview-controls{display:grid;grid-template-columns:1fr 1.25fr 1fr 1fr;gap:4px;margin-top:5px}
+.preview-controls button,.preview-speed button,.preview-actions button{min-height:28px;padding:2px 5px;background:#c0c0c0;color:#000;border:2px outset #c0c0c0;font:700 11px "MS Sans Serif","Arial",sans-serif;cursor:pointer}
+.preview-controls button:active,.preview-speed button:active,.preview-speed button.selected,.preview-actions button:active{border-style:inset}
+.preview-speed{display:flex;align-items:center;gap:4px;margin-top:5px;font:700 10px "MS Sans Serif","Arial",sans-serif}
+.preview-speed-label{margin-right:2px}
+.preview-speed button{min-width:42px;min-height:24px}
+.preview-volume{display:flex;align-items:center;gap:6px;margin-top:5px;font:700 10px "MS Sans Serif","Arial",sans-serif}
+.preview-volume input{flex:1;min-width:70px}
+.preview-meta{margin-top:5px;padding:4px 6px;background:#c0c0c0;border:0;font:10px "MS Sans Serif","Arial",sans-serif;color:#000}
+.preview-actions{display:flex;gap:5px;margin-top:5px}
+.preview-actions button{flex:1;min-height:28px}
+@media(max-width:600px){.preview-window{width:calc(100vw - 10px)}.preview-body{padding:4px}.preview-wave{height:62px}.preview-display{height:34px;font-size:15px}.preview-controls button{padding-left:2px;padding-right:2px}}
