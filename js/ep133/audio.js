@@ -14,7 +14,7 @@ function parseNativeWav(bytes){
     offset=next;
   }
   if(!fmt||dataOffset<0||fmt.format!==1||fmt.bits!==16||(fmt.channels!==1&&fmt.channels!==2)||fmt.rate!==TARGET_RATE)return null;
-  return bytes.slice(dataOffset,dataOffset+dataSize);
+  return {data:bytes.slice(dataOffset,dataOffset+dataSize),channels:fmt.channels};
 }
 
 async function decode(file){
@@ -59,7 +59,7 @@ export async function prepareEp133Sample(file,{onProgress}={}){
   const native=parseNativeWav(new Uint8Array(await file.arrayBuffer()));
   if(native){
     onProgress?.(100,{status:'ready'});
-    return{data:native,channels:parseNativeChannels(file),samplerate:TARGET_RATE,format:'s16'};
+    return{data:native.data,channels:native.channels,samplerate:TARGET_RATE,format:'s16'};
   }
   onProgress?.(0,{status:'decoding'});
   const decoded=await decode(file);
