@@ -41,7 +41,47 @@ function addFiles(list,fromFolder=false){const files=[...list].filter(f=>/\.(wav
 async function process(files,isFolder){if(!files.length||$('overlay').style.display==='flex')return;state.cancelled=false;state.startedAt=performance.now();$('overlay').style.display='flex';try{state.ctx=state.ctx||createAudioContext();const fidelity=selected('fidelity'),channels=selected('channels'),playmode=selectedPlaymode(),p=getPreset(fidelity);const batch=[];for(let i=0;i<files.length;i++){if(state.cancelled)break;const f=files[i];progress(0,f.name,i+1,files.length);const outputFormat='wav';const r=await processAudio(await f.arrayBuffer(),{speed:2,fidelity,channels,playmode,autoTrim:$('auto-trim').checked,context:state.ctx,outputFormat},{progress:(v,phase)=>progress(v,`${f.name} · ${phase}`,i+1,files.length),shouldCancel:()=>state.cancelled});const url=URL.createObjectURL(r.blob);state.urls.add(url);const item={file:f,result:r,url,fidelity,channels,playmode};batch.push(item);if(isFolder)state.folderResults.push(item);else{state.fileResults.push(item);renderFileResult(item);}$('log-tab').insertAdjacentHTML('beforeend',`<div><i class="fas fa-check-circle"></i> ${esc(f.name)} → x2 · ${p.sampleRate} Hz · ${p.bitDepth}-bit source · ${outputFormat.toUpperCase()} · ${channels} · ${playmode}</div>`);}updateStats();if(isFolder&&batch.length&&!state.cancelled)await createFolderZip();if(!isFolder&&batch.length===1&&!state.cancelled){const openPreview=await loadPreview();openPreview(batch[0],{state,saveBlob,esc,createAudioContext});}status(state.cancelled?'Processing cancelled':`Done: ${batch.length} file(s)`);}catch(e){if(e?.name==='AbortError'){status('Processing cancelled');}else{const message=e?.message||e;$('errors-tab').innerHTML+=`<div><i class="fas fa-times-circle"></i> ${esc(message)}</div>`;showError(message);status(`Error: ${message}`);}}finally{$('overlay').style.display='none';}}
 function clearAll(){const p=document.getElementById('preview-window');if(p)p.remove();if(state.ctx){try{state.ctx.close?.()}catch(e){}state.ctx=null}state.fileResults=[];state.folderResults=[];state.folderName='';for(const u of state.urls)URL.revokeObjectURL(u);state.urls.clear();resetFolderZip();$('log-tab').innerHTML='<div><i class="fas fa-info-circle"></i> Drop or select audio files to begin.</div><div><i class="fas fa-tachometer-alt"></i> Files are processed at x2 speed.</div>';$('errors-tab').innerHTML='<div><i class="fas fa-check-circle"></i> No errors yet.</div>';$('stats-tab').innerHTML='<div><i class="fas fa-chart-pie"></i> No statistics yet.</div>';$('results-list').innerHTML='<div class="empty-results">Processed files will appear here with download buttons.</div>';$('memory-warning').style.display='none';status('File list cleared');}
 function closeMain(){$('main-window').style.display='none';}function openMain(){$('main-window').style.display='block';}
-window.addEventListener('DOMContentLoaded',()=>{openMain();const drop=$('drop-zone'),fi=$('audio-upload'),folder=$('folder-upload');drop.setAttribute('role','button');drop.setAttribute('tabindex','0');drop.setAttribute('aria-label','Select or drop audio files and folders');drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}});drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragover');try{const files=e.dataTransfer.items?.length?await filesFromDropItems(e.dataTransfer.items):[...e.dataTransfer.files];const fromFolder=files.some(f=>f.webkitRelativePath)||[...e.dataTransfer.items||[]].some(i=>i.webkitGetAsEntry?.()?.isDirectory);addFiles(files,fromFolder);}catch(err){showError(err?.message||err);}});drop.addEventListener('click',e=>{if(e.target!==fi)fi.click()});fi.addEventListener('change',e=>{addFiles(e.target.files,false);e.target.value=''});folder.addEventListener('change',e=>{addFiles(e.target.files,true);e.target.value=''});$('select-file-button').onclick=()=>fi.click();$('select-folder-button').onclick=()=>folder.click();$('clear-button').onclick=clearAll;$('cancel-button').onclick=()=>{state.cancelled=true;status('Cancelling…')};$('error-ok').onclick=hideError;$('error-close').onclick=hideError;$('app-icon').onclick=openMain;$('app-icon').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMain();}});$('main-window').querySelector('.close').onclick=closeMain;$('main-window').querySelector('.minimize').onclick=closeMain;document.querySelectorAll('.win95-list').forEach(g=>{
+function makeMainWindowDraggable(){
+  const win=$('main-window'),bar=win?.querySelector('.title-bar');
+  if(!win||!bar||bar.dataset.dragReady)return;
+  bar.dataset.dragReady='1';
+  let dragging=false,dx=0,dy=0;
+  bar.style.cursor='move';
+  bar.style.touchAction='none';
+  bar.addEventListener('pointerdown',e=>{
+    if(e.button!==0||e.target.closest('button'))return;
+    const r=win.getBoundingClientRect();
+    win.style.position='fixed';
+    win.style.transform='none';
+    win.style.left=r.left+'px';
+    win.style.top=r.top+'px';
+    dx=e.clientX-r.left;
+    dy=e.clientY-r.top;
+    dragging=true;
+    bar.setPointerCapture?.(e.pointerId);
+  });
+  bar.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const maxX=Math.max(0,window.innerWidth-win.offsetWidth);
+    const maxY=Math.max(0,window.innerHeight-win.offsetHeight);
+    win.style.left=Math.min(maxX,Math.max(0,e.clientX-dx))+'px';
+    win.style.top=Math.min(maxY,Math.max(0,e.clientY-dy))+'px';
+  });
+  const stop=e=>{
+    if(!dragging)return;
+    dragging=false;
+    if(bar.hasPointerCapture?.(e.pointerId))bar.releasePointerCapture(e.pointerId);
+  };
+  bar.addEventListener('pointerup',stop);
+  bar.addEventListener('pointercancel',stop);
+  window.addEventListener('resize',()=>{
+    const maxX=Math.max(0,window.innerWidth-win.offsetWidth);
+    const maxY=Math.max(0,window.innerHeight-win.offsetHeight);
+    win.style.left=Math.min(maxX,Math.max(0,parseFloat(win.style.left)||0))+'px';
+    win.style.top=Math.min(maxY,Math.max(0,parseFloat(win.style.top)||0))+'px';
+  });
+}
+window.addEventListener('DOMContentLoaded',()=>{openMain();makeMainWindowDraggable();const drop=$('drop-zone'),fi=$('audio-upload'),folder=$('folder-upload');drop.setAttribute('role','button');drop.setAttribute('tabindex','0');drop.setAttribute('aria-label','Select or drop audio files and folders');drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}});drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragover');try{const files=e.dataTransfer.items?.length?await filesFromDropItems(e.dataTransfer.items):[...e.dataTransfer.files];const fromFolder=files.some(f=>f.webkitRelativePath)||[...e.dataTransfer.items||[]].some(i=>i.webkitGetAsEntry?.()?.isDirectory);addFiles(files,fromFolder);}catch(err){showError(err?.message||err);}});drop.addEventListener('click',e=>{if(e.target!==fi)fi.click()});fi.addEventListener('change',e=>{addFiles(e.target.files,false);e.target.value=''});folder.addEventListener('change',e=>{addFiles(e.target.files,true);e.target.value=''});$('select-file-button').onclick=()=>fi.click();$('select-folder-button').onclick=()=>folder.click();$('clear-button').onclick=clearAll;$('cancel-button').onclick=()=>{state.cancelled=true;status('Cancelling…')};$('error-ok').onclick=hideError;$('error-close').onclick=hideError;$('app-icon').onclick=openMain;$('app-icon').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMain();}});$('main-window').querySelector('.close').onclick=closeMain;$('main-window').querySelector('.minimize').onclick=closeMain;document.querySelectorAll('.win95-list').forEach(g=>{
   const items=[...g.querySelectorAll('.list-item')];
   g.setAttribute('role','listbox');
   items.forEach((item,i)=>{
