@@ -7,7 +7,7 @@
 .preview-window *{box-sizing:border-box}
 .wp-hit,.wp-mask{position:absolute;z-index:2}
 .wp-hit{background:transparent;border:0;padding:0;margin:0;cursor:pointer}
-.wp-min{left:222px;top:3px;width:15px;height:12px}.wp-max{left:239px;top:3px;width:15px;height:12px}.wp-close{left:256px;top:3px;width:15px;height:12px}
+.wp-min{left:222px;top:3px;width:15px;height:12px}.wp-max{left:239px;top:3px;width:15px;height:12px}.wp-close{left:256px;top:3px;width:15px;height:12px;background:transparent!important;border:0!important;font-size:0!important;min-height:0!important;margin:0!important}
 .wp-download{left:225px;top:47px;width:39px;height:25px;background:#c0c0c0;border:2px outset #c0c0c0!important;color:#000;font:700 17px Arial!important;z-index:3}
 .wp-download::after{content:"⇩";position:absolute;left:11px;top:1px}
 .wp-play{left:8px;top:102px;width:37px;height:22px}.wp-stop{left:45px;top:102px;width:37px;height:22px}.wp-pause{left:83px;top:102px;width:37px;height:22px}.wp-prev{left:121px;top:102px;width:37px;height:22px}.wp-next{left:158px;top:102px;width:37px;height:22px}
