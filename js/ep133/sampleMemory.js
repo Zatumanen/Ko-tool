@@ -42,6 +42,8 @@ export function applySampleMetadata(slots,nodeId,meta){
   slot.meta=meta||null;
 }
 
+export function getSampleDisplayName(slot){return slot?.meta?.name||slot?.file?.name||'';}
+
 export function createSampleMemory({
   listEl,
   tabsEl,
@@ -64,7 +66,7 @@ export function createSampleMemory({
     return (size/1024/1024).toFixed(2)+' MB';
   };
 
-  const slotName=slot=>slot?.meta?.name||slot?.file?.name||'';
+  const slotName=getSampleDisplayName;
 
   const visible=()=>{
     const tab=DEFAULT_SAMPLE_TABS[activeTab];
