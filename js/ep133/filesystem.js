@@ -6,11 +6,12 @@ const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
 const writeString=(view,offset,text,terminate=false)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));if(terminate)view.setUint8(offset+text.length,0);};
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
+let deviceChunkSize=0;
 export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYSEX_HEADER_OVERHEAD+2+TE_SYSEX_FOOTER_OVERHEAD;if(maxPacketLength<=overhead)return 0;const available=maxPacketLength-1-overhead;return available-Math.floor(available/8);}
 
 function initPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
 
-export async function initFileSystem(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,initPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');return chunkSize;}
+export async function initFileSystem(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,initPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');deviceChunkSize=chunkSize;return chunkSize;}
 
 async function initRead(maxResponseLength=4*1024*1024){return initFileSystem(maxResponseLength);}
 function listPayload(page,nodeId){const p=new Uint8Array(5),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_LIST;view.setUint16(1,page);view.setUint16(3,nodeId);return p;}
@@ -40,7 +41,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>999)throw new Error('Invalid EP-133 sample destination.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
-  const chunkSize=await initFileSystem();
+  const chunkSize=deviceChunkSize||await initFileSystem();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata),timeout);
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
@@ -60,7 +61,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
 }
 
 export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
-  const chunkSize=await initFileSystem();
+  const chunkSize=deviceChunkSize||await initFileSystem();
   const json=JSON.stringify(metadata);
   if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=new TextEncoder().encode(json),maxPayload=calculateMaxPayloadLength(chunkSize-8);
@@ -71,6 +72,7 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
 }
 
 export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress}){
+  await initFileSystem();
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
