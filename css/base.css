@@ -260,3 +260,92 @@
   outline-offset:-3px;
 }
 .drop-zone.dragover{outline:2px dashed #000;outline-offset:-4px}
+
+
+/* Final compact preview-player layout */
+.preview-window{
+  width:min(680px,calc(100vw - 12px));
+  max-height:calc(100vh - 12px);
+  overflow:auto;
+}
+.preview-body{padding:6px}
+.preview-file{max-width:100%;min-width:0}
+.preview-main{min-width:0}
+.preview-display{
+  grid-template-columns:82px 82px 82px minmax(0,1fr) 52px;
+  min-width:0;
+  gap:5px;
+  overflow:hidden;
+}
+.display-stat,.display-mode{min-width:0}
+.display-stat b,.display-mode b{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.display-mode b{white-space:nowrap}
+.preview-controls{
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  min-width:0;
+}
+.preview-controls button{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preview-options-popup{
+  margin-top:6px;
+  padding:6px;
+  background:#c0c0c0;
+  border:2px inset #808080;
+}
+.preview-options-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.preview-options-row + .preview-options-row{margin-top:6px}
+.preview-options-row b{min-width:58px;font:700 11px "MS Sans Serif",Arial,sans-serif}
+.preview-options-row button{
+  min-width:46px;
+  min-height:25px;
+  padding:2px 6px;
+  background:#c0c0c0;
+  border:2px outset #c0c0c0;
+  font:700 12px "MS Sans Serif",Arial,sans-serif;
+}
+.preview-options-row button.selected{border-style:inset;background:#fff}
+.preview-options-row input{flex:1;min-width:80px}
+@media(max-width:760px){
+  .preview-window{width:calc(100vw - 8px);max-height:calc(100vh - 8px)}
+  .preview-body{padding:4px}
+  .preview-display{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:auto auto;
+    min-height:0;
+    gap:4px;
+    padding:5px;
+  }
+  .display-stat b{font-size:30px;line-height:31px}
+  .display-stat span,.display-mode span{font-size:9px}
+  .display-mode{
+    grid-column:1 / span 2;
+    grid-row:2;
+    align-self:center;
+  }
+  .display-mode b{font-size:10px;line-height:12px}
+  .display-download{
+    grid-column:3;
+    grid-row:2;
+    justify-self:end;
+    width:40px!important;
+    height:40px!important;
+    min-height:40px!important;
+    font-size:25px!important;
+  }
+  .preview-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  .preview-controls button{min-height:34px;font-size:13px}
+  .preview-options-row{flex-wrap:wrap}
+}
+@media(max-width:380px){
+  .display-stat b{font-size:25px;line-height:27px}
+  .preview-controls button{font-size:12px}
+  .preview-menu{padding:0 2px}
+}
