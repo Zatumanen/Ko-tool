@@ -31,108 +31,42 @@ export function initEp133Browser({showError}={}){
   };
 
   let soundsParentId=0;
+  let soundFormats=[];
   const memory=createSampleMemory({
-    listEl:list,
-    tabsEl:tabs,
-    searchEl:search,
-    infoEl:info,
-    onSelect:slot=>{
-      setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY');
-    },
+    listEl:list,tabsEl:tabs,searchEl:search,infoEl:info,
+    onSelect:slot=>setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY'),
     onPlay:async slot=>{
       try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
     },
     onDrop:async(slot,event)=>{
       if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
       if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
-      const file=getDroppedFile(event);
-      if(!file)return;
+      const file=getDroppedFile(event);if(!file)return;
       try{
         setSlotStatus(slot,'PREPARING...');
-        const prepared=await prepareEp133Sample(file,{onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
+        const prepared=await prepareEp133Sample(file,{formats:soundFormats,onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
         const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format};
         await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
         const normalizedName=normalizeFileName(file.name);
         slot.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
-        slot.nodeId=slot.id;
-        slot.meta={...metadata,name:normalizedName};
-        memory.refresh();
-        setSlotStatus(slot,'WRITTEN');
+        slot.nodeId=slot.id;slot.meta={...metadata,name:normalizedName};memory.refresh();setSlotStatus(slot,'WRITTEN');
       }catch(error){setSlotStatus(slot,'WRITE ERROR');showError?.(error?.message||error);}
     }
   });
 
-  const closePanel=()=>{
-    panel.style.display='none';
-    panel.setAttribute('aria-hidden','true');
-    if(isConnected())disconnectEp133();
-  };
-
+  const closePanel=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true');if(isConnected())disconnectEp133();};
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
-  open.onclick=()=>{
-    if(isMobileDevice()){
-      showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');
-      return;
-    }
-    panel.style.display='flex';
-    panel.setAttribute('aria-hidden','false');
-  };
-  open.addEventListener('keydown',e=>{
-    if(e.key!=='Enter'&&e.key!==' ')return;
-    e.preventDefault();open.click();
-  });
+  open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
+  open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
 
   const makeDraggable=windowEl=>{
-    const title=windowEl?.querySelector('.title-bar');
-    if(!windowEl||!title||title.dataset.dragReady)return;
-    title.dataset.dragReady='1';
-    let dragging=false;
-    let offsetX=0;
-    let offsetY=0;
-    title.style.cursor='move';
-    title.style.touchAction='none';
-
-    const clamp=()=>{
-      const width=windowEl.offsetWidth;
-      const height=windowEl.offsetHeight;
-      const maxX=Math.max(0,window.innerWidth-width);
-      const maxY=Math.max(0,window.innerHeight-height);
-      const left=Math.min(maxX,Math.max(0,parseFloat(windowEl.style.left)||0));
-      const top=Math.min(maxY,Math.max(0,parseFloat(windowEl.style.top)||0));
-      windowEl.style.left=left+'px';
-      windowEl.style.top=top+'px';
-    };
-
-    title.addEventListener('pointerdown',e=>{
-      if(e.button!==0||e.target.closest('button'))return;
-      const rect=windowEl.getBoundingClientRect();
-      windowEl.style.position='fixed';
-      windowEl.style.transform='none';
-      windowEl.style.left=rect.left+'px';
-      windowEl.style.top=rect.top+'px';
-      offsetX=e.clientX-rect.left;
-      offsetY=e.clientY-rect.top;
-      dragging=true;
-      title.setPointerCapture?.(e.pointerId);
-    });
-
-    title.addEventListener('pointermove',e=>{
-      if(!dragging)return;
-      const maxX=Math.max(0,window.innerWidth-windowEl.offsetWidth);
-      const maxY=Math.max(0,window.innerHeight-windowEl.offsetHeight);
-      windowEl.style.left=Math.min(maxX,Math.max(0,e.clientX-offsetX))+'px';
-      windowEl.style.top=Math.min(maxY,Math.max(0,e.clientY-offsetY))+'px';
-    });
-
-    const stop=e=>{
-      if(!dragging)return;
-      dragging=false;
-      if(title.hasPointerCapture?.(e.pointerId))title.releasePointerCapture(e.pointerId);
-    };
-    title.addEventListener('pointerup',stop);
-    title.addEventListener('pointercancel',stop);
-    window.addEventListener('resize',clamp);
+    const title=windowEl?.querySelector('.title-bar');if(!windowEl||!title||title.dataset.dragReady)return;
+    title.dataset.dragReady='1';let dragging=false,offsetX=0,offsetY=0;title.style.cursor='move';title.style.touchAction='none';
+    const clamp=()=>{const width=windowEl.offsetWidth,height=windowEl.offsetHeight,maxX=Math.max(0,window.innerWidth-width),maxY=Math.max(0,window.innerHeight-height),left=Math.min(maxX,Math.max(0,parseFloat(windowEl.style.left)||0)),top=Math.min(maxY,Math.max(0,parseFloat(windowEl.style.top)||0));windowEl.style.left=left+'px';windowEl.style.top=top+'px';};
+    title.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('button'))return;const rect=windowEl.getBoundingClientRect();windowEl.style.position='fixed';windowEl.style.transform='none';windowEl.style.left=rect.left+'px';windowEl.style.top=rect.top+'px';offsetX=e.clientX-rect.left;offsetY=e.clientY-rect.top;dragging=true;title.setPointerCapture?.(e.pointerId);});
+    title.addEventListener('pointermove',e=>{if(!dragging)return;const maxX=Math.max(0,window.innerWidth-windowEl.offsetWidth),maxY=Math.max(0,window.innerHeight-windowEl.offsetHeight);windowEl.style.left=Math.min(maxX,Math.max(0,e.clientX-offsetX))+'px';windowEl.style.top=Math.min(maxY,Math.max(0,e.clientY-offsetY))+'px';});
+    const stop=e=>{if(!dragging)return;dragging=false;if(title.hasPointerCapture?.(e.pointerId))title.releasePointerCapture(e.pointerId);};title.addEventListener('pointerup',stop);title.addEventListener('pointercancel',stop);window.addEventListener('resize',clamp);
   };
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
@@ -141,51 +75,15 @@ export function initEp133Browser({showError}={}){
     try{
       const files=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
       soundsParentId=getSoundsParentId(files);
-      const slots=createSampleSlots(files);
-      memory.setSlots(slots);
-
-      const occupied=slots.filter(slot=>slot.file);
-      let loaded=0;
-      for(const slot of occupied){
-        try{
-          const meta=await getFileMetadata(slot.nodeId);
-          memory.setMetadata(slot.id,meta);
-        }catch(e){
-          console.warn('EP sample metadata read failed for slot '+slot.id,e);
-        }
-        loaded+=1;
-        setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);
-      }
-
-      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
-      refresh.disabled=false;
-    }catch(e){
-      setStatus('READ ERROR');
-      showError?.(e?.message||e);
-    }finally{
-      setBusy(false);
-      refresh.disabled=!isConnected();
-    }
+      soundFormats=[];
+      if(soundsParentId){try{const soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
+      const slots=createSampleSlots(files);memory.setSlots(slots);
+      const occupied=slots.filter(slot=>slot.file);let loaded=0;
+      for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
+      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');refresh.disabled=false;
+    }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);refresh.disabled=!isConnected();}
   };
 
-  connect.onclick=async()=>{
-    setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');
-    try{
-      const device=await connectEp133();
-      const meta=device.metadata||{};
-      setDevice(meta.product||device.sku||'EP SERIES');
-      setStatus('CONNECTED · READ/WRITE');
-      await readDevice();
-    }catch(e){
-      setStatus('NOT CONNECTED');
-      showError?.(e?.message||e);
-      setBusy(false);
-      refresh.disabled=true;
-    }
-  };
-
-  refresh.onclick=readDevice;
-  search?.addEventListener('input',()=>memory.refresh());
-  panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
+  connect.onclick=async()=>{setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');try{const device=await connectEp133();const meta=device.metadata||{};setDevice(meta.product||device.sku||'EP SERIES');setStatus('CONNECTED · READ/WRITE');await readDevice();}catch(e){setStatus('NOT CONNECTED');showError?.(e?.message||e);setBusy(false);refresh.disabled=true;}};
+  refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
