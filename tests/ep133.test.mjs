@@ -14,6 +14,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
 import{requestRead}from '../js/ep133/device.js';
+import{parseMetadataResponse}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
@@ -35,6 +36,11 @@ test('sample display name prefers device metadata name over filesystem slot file
   assert.equal(getSampleDisplayName(slots[6]),'my-kick.wav');
 });
 
+
+test('EP metadata response parser reads JSON text and completion marker',()=>{
+  const bytes=Uint8Array.from([0,0,...new TextEncoder().encode('{"name":"kick_808.wav"}'),0]);
+  assert.deepEqual(parseMetadataResponse(bytes,0),{text:'{"name":"kick_808.wav"}',done:true});
+});
 
 test('EP metadata GET is permitted by the read-only request gate',()=>{
   assert.equal(typeof requestRead,'function');
