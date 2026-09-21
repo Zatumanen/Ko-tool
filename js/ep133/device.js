@@ -1,5 +1,5 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,STATUS_OK}from './constants.js';
-import{parseIdentityResponse,buildTeSysex,parseTeSysex}from './sysex.js';
+import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false;
@@ -71,7 +71,7 @@ export async function connectEp133(){
       const identity=await Promise.race([identityPromise,new Promise(r=>setTimeout(()=>r(null),2200))]);
       if(identity){
         const parsed=parseIdentityResponse(identity.data);
-        if(parsed&&/^TE032AS/i.test(parsed.sku)){
+        if(parsed&&isSupportedEpSku(parsed.sku)){
           found={out,parsed,input:identity.inputPort};
           break;
         }
