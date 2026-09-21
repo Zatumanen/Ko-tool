@@ -31,6 +31,7 @@ export function createSampleSlots(entries=[]){
       size:entry.fileSize||0
     };
     slot.node=entry;
+    slot.nodeId=entry.nodeId;
   }
   return slots;
 }
