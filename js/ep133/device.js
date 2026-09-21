@@ -1,66 +1,12 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
-
-let input=null,output=null,identityCode=0,initialized=false,listener=null;
-const pending=new Map();
-
-function onMessage(event){
-  const data=new Uint8Array(event.data);
-  if(data[0]!==0xF0)return;
-  if(data[1]===0x7E){
-    for(const p of pending.values())if(p.identityWait)p.resolve({kind:'identity',data});
-    return;
-  }
-  const msg=parseTeSysex(data);
-  if(!msg)return;
-  const p=pending.get(msg.requestId);
-  if(p){pending.delete(msg.requestId);p.resolve(msg);}
-}
+let input=null,output=null,identityCode=0,initialized=false,listener=null;const pending=new Map();
+function onMessage(event){const data=new Uint8Array(event.data||[]);if(data[0]!==0xF0)return;if(data[1]===0x7E){const p=pending.get(0);if(p?.identityWait){pending.delete(0);p.resolve({kind:'identity',data});}return;}const msg=parseTeSysex(data);if(!msg)return;const p=pending.get(msg.requestId);if(p){pending.delete(msg.requestId);p.resolve(msg);}}
 function stopListener(){if(input&&listener)input.removeEventListener('midimessage',listener);listener=null;}
-function waitForIdentity(timeout=2000){
-  return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(0);reject(new Error('EP-133 identity timeout'));},timeout);
-    pending.set(0,{identityWait:true,resolve:v=>{clearTimeout(timer);pending.delete(0);resolve(v);}});
-  });
-}
-export async function connectEp133(){
-  if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');
-  const access=await navigator.requestMIDIAccess({sysex:true});
-  stopListener();
-  const inputs=[...access.inputs.values()],outputs=[...access.outputs.values()];
-  if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect the EP-133 by USB and try again.');
-  let found=null;
-  for(const out of outputs){
-    try{
-      out.send(IDENTITY_SYSEX);
-      const identity=await Promise.race([waitForIdentity(),new Promise(r=>setTimeout(()=>r(null),2200))]);
-      if(identity){
-        const parsed=parseIdentityResponse(identity.data);
-        if(parsed&&/TE032|EP-133/i.test(parsed.sku)){found={out,parsed};break;}
-      }
-    }catch{}
-  }
-  if(!found)throw new Error('EP-133 was not found on the available MIDI ports.');
-  output=found.out;
-  input=inputs.find(i=>i.id===found.out.id)||inputs.find(i=>/EP-133|EP133|EP-1320/i.test(i.name||''))||inputs[0];
-  if(!input)throw new Error('EP-133 MIDI input was not found.');
-  listener=onMessage;input.addEventListener('midimessage',listener);
-  const greet=await request(TE_SYSEX_GREET,new Uint8Array());
-  if(!greet||greet.status!==STATUS_OK)throw new Error('EP-133 GREET failed.');
-  identityCode=greet.identityCode;
-  initialized=true;
-  return{sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData)),input,output};
-}
+function waitForIdentity(timeout=2000){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(0);reject(new Error('EP-133 identity timeout'));},timeout);pending.set(0,{identityWait:true,resolve:v=>{clearTimeout(timer);resolve(v);}});});}
+export async function connectEp133(){if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');const access=await navigator.requestMIDIAccess({sysex:true});stopListener();const inputs=[...access.inputs.values()],outputs=[...access.outputs.values()];if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect the EP-133 by USB and try again.');input=inputs.find(i=>/EP-133|EP133|EP-1320/i.test(i.name||''))||inputs[0];listener=onMessage;input.addEventListener('midimessage',listener);let found=null;for(const out of outputs){try{out.send(IDENTITY_SYSEX);const identity=await Promise.race([waitForIdentity(),new Promise(r=>setTimeout(()=>r(null),2200))]);if(identity){const parsed=parseIdentityResponse(identity.data);if(parsed&&/TE032|EP-133/i.test(parsed.sku)){found={out,parsed};break;}}}catch{}}if(!found){stopListener();input=null;throw new Error('EP-133 was not found on the available MIDI ports.');}output=found.out;const greet=await request(TE_SYSEX_GREET,new Uint8Array());if(!greet||greet.status!==STATUS_OK)throw new Error('EP-133 GREET failed.');identityCode=greet.identityCode;initialized=true;return{sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData)),input,output};}
 export function disconnectEp133(){stopListener();for(const p of pending.values())p.reject?.(new Error('Disconnected'));pending.clear();input=null;output=null;initialized=false;}
 export function isConnected(){return initialized&&!!input&&!!output;}
-export function request(command,payload=new Uint8Array(),timeout=5000){
-  if(!output||!input) return Promise.reject(new Error('EP-133 is not connected.'));
-  const frame=buildTeSysex(command,payload,identityCode);
-  output.send(frame.bytes);
-  return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-133 request timeout (command ${command})`));},timeout);
-    pending.set(frame.id,{resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-133 returned status ${v.status}`));else resolve(v);}});
-  });
-}
+export function request(command,payload=new Uint8Array(),timeout=5000){if(!output||!input)return Promise.reject(new Error('EP-133 is not connected.'));const frame=buildTeSysex(command,payload,identityCode);return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-133 request timeout (command ${command})`);},timeout);pending.set(frame.id,{resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-133 returned status ${v.status}`));else resolve(v);}});output.send(frame.bytes);});}
 export function getMidiPorts(){return{input,output};}
