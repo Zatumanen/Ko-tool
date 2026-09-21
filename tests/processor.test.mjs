@@ -92,7 +92,6 @@ test('16-bit quantization is actually applied',async()=>{
   const b=buffer(2,1,44100);
   b.getChannelData(0).set([0.1234567,-0.654321]);
   const out=await quantizeBuffer(b,16);
-  assert.notEqual(out,out);
   assert.notEqual(out.getChannelData(0)[0],b.getChannelData(0)[0]);
 });
 
