@@ -55,10 +55,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
         <div class="preview-options-row"><b>VOL</b><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume"></div>
       </div>
       </div>
-      <div class="preview-actions">
-        <button type="button" class="preview-download">Download WAV</button>
-        <button type="button" class="preview-close2">Close</button>
-      </div>
+
     </div>`;
   document.body.appendChild(w);
 
@@ -199,7 +196,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     if(was)start();
   });
   volume.oninput=e=>{if(gain)gain.gain.value=Number(e.target.value)};
-  w.querySelectorAll('.preview-download').forEach(b=>b.onclick=()=>saveBlob(item.result.blob,filename()));
+  w.querySelector('.display-download').onclick=()=>saveBlob(item.result.blob,filename());
   w.querySelector('.preview-close').onclick=close;
   w.querySelector('.preview-close2').onclick=close;
   w.querySelector('.preview-minimize').onclick=()=>w.classList.toggle('preview-minimized');
