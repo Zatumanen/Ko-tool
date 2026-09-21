@@ -1,6 +1,6 @@
 import{connectEp133,disconnectEp133,isConnected}from './index.js';
-import{listDeviceFiles}from './filesystem.js';
-import{createEp133Browser}from './browser.js';
+import{listDeviceFiles,getFileMetadata}from './filesystem.js';
+import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
 export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
@@ -8,20 +8,24 @@ export function initEp133Browser({showError}={}){
   const close=document.getElementById('ep133-close');
   const connect=document.getElementById('ep133-connect');
   const refresh=document.getElementById('ep133-refresh');
-  const list=document.getElementById('ep133-file-list');
-  const breadcrumbs=document.getElementById('ep133-breadcrumbs');
-  const search=document.getElementById('ep133-search');
-  const sort=document.getElementById('ep133-sort');
-  const info=document.getElementById('ep133-info');
+  const list=document.getElementById('ep133-sample-list');
+  const tabs=document.getElementById('ep133-sample-tabs');
+  const search=document.getElementById('ep133-sample-search');
+  const info=document.getElementById('ep133-sample-info');
   if(!open||!panel||!connect||!list)return;
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
   const setBusy=b=>{connect.disabled=b;refresh.disabled=b;};
 
-  const browser=createEp133Browser({
-    listEl:list,breadcrumbEl:breadcrumbs,searchEl:search,sortEl:sort,infoEl:info,
-    onFolderChange:path=>{const el=document.getElementById('ep133-path');if(el)el.textContent=path;}
+  const memory=createSampleMemory({
+    listEl:list,
+    tabsEl:tabs,
+    searchEl:search,
+    infoEl:info,
+    onSelect:slot=>{
+      setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY · READ ONLY');
+    }
   });
 
   const closePanel=()=>{
@@ -46,11 +50,26 @@ export function initEp133Browser({showError}={}){
   close.onclick=closePanel;
 
   const readDevice=async()=>{
-    setBusy(true);setStatus('READING...');
+    setBusy(true);setStatus('READING FILES...');
     try{
-      const files=await listDeviceFiles((item,total)=>setStatus('READING... '+total));
-      browser.setEntries(files);
-      setStatus('READY · '+files.length+' ENTRIES');
+      const files=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
+      const slots=createSampleSlots(files);
+      memory.setSlots(slots);
+
+      const occupied=slots.filter(slot=>slot.file);
+      let loaded=0;
+      for(const slot of occupied){
+        try{
+          const meta=await getFileMetadata(slot.nodeId);
+          memory.setMetadata(slot.id,meta);
+        }catch(e){
+          console.warn('EP sample metadata read failed for slot '+slot.id,e);
+        }
+        loaded+=1;
+        setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);
+      }
+
+      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
       refresh.disabled=false;
     }catch(e){
       setStatus('READ ERROR');
@@ -78,9 +97,7 @@ export function initEp133Browser({showError}={}){
   };
 
   refresh.onclick=readDevice;
-  search?.addEventListener('input',()=>browser.refresh());
-  sort?.addEventListener('change',()=>browser.refresh());
-
+  search?.addEventListener('input',()=>memory.refresh());
   panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
