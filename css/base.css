@@ -427,3 +427,5 @@
   .ep133-sample-list{max-height:none;min-height:180px;}
   .ep133-info{max-height:120px;}
 }
+
+.result-item[draggable="true"]{cursor:grab}.result-item.dragging{opacity:.55}.ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}.ep133-sample-row{touch-action:none}
