@@ -25,7 +25,24 @@
       <div class="drop-zone" id="drop-zone"><i class="fas fa-cloud-upload-alt"></i><strong>DRAG AND DROP AUDIO FILES/FOLDERS</strong><span>or click to select files</span><small>WAV, MP3, AAC, OGG, FLAC, M4A</small><input accept=".wav,.mp3,.aac,.ogg,.flac,.m4a,audio/*" id="audio-upload" multiple type="file"></div>
       <input id="folder-upload" multiple type="file" webkitdirectory style="display:none">
       <div class="button-group"><button id="select-file-button" type="button">Select Files</button><button id="select-folder-button" type="button">Select Folder</button><button id="clear-button" type="button">Clear</button></div>
-      <div class="ep133-connect-row"><button id="ep133-button" type="button">EP-133 DEVICE</button></div><div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="folder-download-area"></div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
+      <div class="ep133-connect-row"><button id="ep133-button" type="button">EP SERIES DEVICE</button></div>
+<div id="ep133-browser" class="ep133-browser" aria-hidden="true">
+  <div class="ep133-browser-window" role="dialog" aria-modal="true" aria-labelledby="ep133-browser-title">
+    <div class="title-bar"><span id="ep133-browser-title">EP SERIES DEVICE BROWSER</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
+    <div class="ep133-browser-body">
+      <div class="ep133-device-head">
+        <div><strong id="ep133-device">NO DEVICE</strong><span id="ep133-status">NOT CONNECTED</span></div>
+        <div class="ep133-actions"><button id="ep133-connect" type="button">CONNECT</button><button id="ep133-refresh" type="button" disabled>REFRESH</button></div>
+      </div>
+      <div class="ep133-readonly">READ-ONLY · EP-133 64/128 MB · EP-40 · EP-1320</div>
+      <div class="ep133-file-browser">
+        <div class="ep133-file-browser-title">DEVICE FILES</div>
+        <div id="ep133-file-list" class="ep133-file-list"><div class="ep133-empty">Connect a device to read its files.</div></div>
+      </div>
+      <div class="ep133-safety">No files are written, deleted, moved, renamed, or reformatted by this browser.</div>
+    </div>
+  </div>
+</div><div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="folder-download-area"></div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
     </div>
   </main>
 </div>
