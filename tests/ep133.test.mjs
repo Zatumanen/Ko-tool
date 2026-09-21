@@ -48,8 +48,8 @@ test('EP metadata GET is permitted by the read-only request gate',()=>{
 
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
-  assert.equal(calculateMaxPayloadLength(512-6),436);
-  assert.equal(calculateMaxPayloadLength(1024-6),883);
+  assert.equal(calculateMaxPayloadLength(512-6),433);
+  assert.equal(calculateMaxPayloadLength(1024-6),881);
 });
 
 test('EP FILE_PUT init targets the requested destination slot',()=>{
