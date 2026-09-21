@@ -61,7 +61,8 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
   assert.equal(view.getUint16(3),127);
   assert.equal(view.getUint16(5),42);
   assert.equal(view.getUint32(7),1234);
-  assert.equal(new TextDecoder().decode(payload.slice(11)).startsWith('kick 808'),true);\n  assert.equal(payload[19],0);
+  assert.equal(new TextDecoder().decode(payload.slice(11)).startsWith('kick 808'),true);
+  assert.equal(payload[19],0);
 });
 
 test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
