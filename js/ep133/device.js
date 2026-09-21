@@ -1,4 +1,4 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
@@ -107,7 +107,7 @@ export function isConnected(){return initialized&&!!input&&!!output;}
 export function requestRead(command,payload=new Uint8Array(),timeout=5000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
-  if(subcommand!==TE_SYSEX_FILE_INIT&&subcommand!==TE_SYSEX_FILE_LIST&&subcommand!==TE_SYSEX_FILE_GET){
+  if(subcommand!==TE_SYSEX_FILE_INIT&&subcommand!==TE_SYSEX_FILE_LIST&&subcommand!==TE_SYSEX_FILE_GET&&subcommand!==TE_SYSEX_FILE_METADATA){
     return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
   }
   return sendRequest(command,payload,timeout);
