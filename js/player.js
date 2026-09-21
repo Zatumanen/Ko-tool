@@ -6,7 +6,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   w.id='preview-window';
   w.className='preview-window';
   const result=item.result||{};
-  const quality={cd:'CD',sp8:'E-mu SP-1200',sp16:'Akai MPC 2000XL',sk:'Casio SK-1'}[item.fidelity]||'CD';
+  const quality={cd:'CD',sp8:'E-mu SP-1200',sk:'Casio SK-1'}[item.fidelity]||'CD';
   const ch=result.channels===1?'MONO':'STEREO';
   const rate=result.sampleRate||44100;
   const bits=result.bitDepth||16;
