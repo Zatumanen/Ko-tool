@@ -1,4 +1,4 @@
-import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_CAPABILITY_READ}from './constants.js';
+import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_GET}from './constants.js';
 import{requestRead}from './device.js';
 import{parseNullTerminatedString}from './packing.js';
 
@@ -33,6 +33,32 @@ function parseList(data){
     offset+=7+fileName.length+1;
   }
   return out;
+}
+
+async function getMetadataByNodeId(nodeId){
+  let page=0;
+  let text='';
+  for(;;){
+    const p=new Uint8Array(6),view=new DataView(p.buffer);
+    p[0]=TE_SYSEX_FILE_METADATA;
+    p[1]=TE_SYSEX_FILE_METADATA_GET;
+    view.setUint16(2,nodeId);
+    view.setUint16(4,page);
+    const response=await requestRead(TE_SYSEX_FILE,p);
+    const raw=response.rawData;
+    if(raw.length<=2)break;
+    const responsePage=u16(raw,0);
+    if(responsePage!==page)throw new Error('Unexpected metadata page '+responsePage+', expected '+page);
+    text+=parseNullTerminatedString(raw,2);
+    page+=1;
+    if(raw[raw.length-1]===0)break;
+  }
+  try{return JSON.parse(text);}catch(e){throw new Error('Invalid EP-series metadata response.');}
+}
+
+export async function getFileMetadata(nodeId){
+  await initRead();
+  return getMetadataByNodeId(nodeId);
 }
 
 export async function listDeviceFiles(onProgress){
