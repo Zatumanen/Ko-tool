@@ -40,19 +40,20 @@ function waitForIdentity(timeout=2000){
   });
 }
 
+let requestQueue=Promise.resolve();
+
 async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
-  if(!output||!input)throw new Error('EP-series device is not connected.');
-  const frame=buildTeSysex(command,payload,identityCode,output.id);
-  return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
-    pending.set(frame.id,{resolve:v=>{
-      clearTimeout(timer);
-      if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));
-      else resolve(v);
-    }});
-    try{output.send(frame.bytes);}
-    catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
+  const task=requestQueue.then(async()=>{
+    if(!output||!input)throw new Error('EP-series device is not connected.');
+    const frame=buildTeSysex(command,payload,identityCode,output.id);
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
+      pending.set(frame.id,{resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));else resolve(v);}});
+      try{output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
+    });
   });
+  requestQueue=task.catch(()=>{});
+  return task;
 }
 
 export async function connectEp133(){
