@@ -11,17 +11,21 @@ async function createFolderZip(){if(!state.folderResults.length)return;const fil
 function getFolderName(files){const path=files.find(f=>f.webkitRelativePath)?.webkitRelativePath||'';return path.split('/')[0]||'Processed Folder';}
 async function filesFromDropItems(items){
   const out=[];
-  const walk=entry=>new Promise((resolve,reject)=>{
+  const walk=(entry,relative='')=>new Promise((resolve,reject)=>{
     if(!entry)return resolve();
     if(entry.isFile){
-      entry.file(f=>{out.push(f);resolve();},reject);
+      entry.file(f=>{
+        const path=relative+f.name;
+        try{Object.defineProperty(f,'webkitRelativePath',{value:path,configurable:true});}catch(e){}
+        out.push(f);resolve();
+      },reject);
       return;
     }
     if(entry.isDirectory){
-      const reader=entry.createReader();
+      const reader=entry.createReader(),nextRelative=relative+entry.name+'/';
       const read=()=>reader.readEntries(async entries=>{
         if(!entries.length){resolve();return;}
-        try{for(const child of entries)await walk(child);read();}catch(e){reject(e);}
+        try{for(const child of entries)await walk(child,nextRelative);read();}catch(e){reject(e);}
       },reject);
       read();
       return;
