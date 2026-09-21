@@ -57,7 +57,6 @@ async function getMetadataByNodeId(nodeId){
 }
 
 export async function getFileMetadata(nodeId){
-  await initRead();
   return getMetadataByNodeId(nodeId);
 }
 
