@@ -70,7 +70,8 @@ test('WAV encoder writes valid PCM headers for 16-bit container output',async()=
   assert.equal(ascii(8,4),'WAVE');
   assert.equal(view.getUint16(22,true),16);
   assert.equal(view.getUint32(24,true),26040);
-  assert.ok(bytes.includes(108));
+  const dataOffset=bytes.findIndex((_,i)=>ascii(i,4)==='data');
+  assert.ok(dataOffset>0);
 });
 
 test('WAV encoder supports 8-bit output',async()=>{
@@ -80,6 +81,7 @@ test('WAV encoder supports 8-bit output',async()=>{
   const bytes=new Uint8Array(await blob.arrayBuffer());
   const view=new DataView(bytes.buffer);
   assert.equal(view.getUint16(22,true),8);
-  assert.equal(bytes[44],0);
-  assert.equal(bytes[45],255);
+  const dataOffset=bytes.findIndex((_,i)=>ascii(i,4)==='data')+8;
+  assert.equal(bytes[dataOffset],0);
+  assert.equal(bytes[dataOffset+1],255);
 });
