@@ -14,7 +14,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
 import{requestRead}from '../js/ep133/device.js';
-import{parseMetadataResponse}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
@@ -44,4 +44,31 @@ test('EP metadata response parser reads JSON text and completion marker',()=>{
 
 test('EP metadata GET is permitted by the read-only request gate',()=>{
   assert.equal(typeof requestRead,'function');
+});
+
+
+test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
+  assert.equal(calculateMaxPayloadLength(512-6),436);
+  assert.equal(calculateMaxPayloadLength(1024-6),883);
+});
+
+test('EP FILE_PUT init targets the requested destination slot',()=>{
+  const payload=buildFilePutInitPayload(127,42,1234,'Kick 808.wav',{channels:2,samplerate:46875,format:'s16'});
+  const view=new DataView(payload.buffer);
+  assert.equal(payload[0],2);
+  assert.equal(payload[1],0);
+  assert.equal(payload[2],4);
+  assert.equal(view.getUint16(3),127);
+  assert.equal(view.getUint16(5),42);
+  assert.equal(view.getUint32(7),1234);
+  assert.equal(new TextDecoder().decode(payload.slice(11)).startsWith('kick 808\\0'),true);
+});
+
+test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
+  const payload=buildFilePutDataPayload(3,Uint8Array.from([0,127,128,255]));
+  const view=new DataView(payload.buffer);
+  assert.equal(payload[0],2);
+  assert.equal(payload[1],1);
+  assert.equal(view.getUint16(2),3);
+  assert.deepEqual([...payload.slice(4)],[0,127,128,255]);
 });
