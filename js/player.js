@@ -6,7 +6,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   w.id='preview-window';
   w.className='preview-window';
   const result=item.result||{};
-  const quality={cd:'CD',sp8:'E-mu SP-1200',sp16:'Akai MPC 2000XL',sk:'Casio SK-1'}[item.fidelity]||'CD';
+  const quality={cd:'CD',sp8:'SP-1200',sp16:'MPC 2000XL',sk:'SK-1'}[item.fidelity]||'CD';
   const ch=result.channels===1?'MONO':'STEREO';
   const rate=result.sampleRate||44100;
   const bits=result.bitDepth||16;
@@ -23,7 +23,9 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
       </div>
     </div>
     <div class="preview-menu">
-      <span>File</span><span>Options</span><span>Help</span>
+      <button type="button" class="preview-menu-item preview-file-menu">File</button>
+      <button type="button" class="preview-menu-item preview-options-menu">Options</button>
+      <button type="button" class="preview-menu-item preview-help-menu">Help</button>
     </div>
     <div class="preview-body">
       <div class="preview-file" title="${esc(item.file.name)}">${esc(item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav')}</div>
@@ -34,7 +36,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
           <div class="display-stat"><span>SEC</span><b class="preview-sec">00</b></div>
           <div class="display-mode">
             <span>MODE</span>
-            <b>${rate/1000}kHz ${kbps}Kbit/s</b>
+            <b>${(rate/1000).toFixed(rate%1000?'3':'1')}kHz ${kbps}Kbit/s</b>
             <b>${quality} ${ch} ${mode}</b>
           </div>
           <button type="button" class="preview-download display-download" title="Download WAV" aria-label="Download WAV">↓</button>
@@ -43,29 +45,22 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
           <div class="preview-progress-fill"></div>
         </div>
         <div class="preview-controls">
-          <button type="button" class="preview-rewind" title="Go to beginning">|&lt;&lt;</button>
+          <button type="button" class="preview-play" title="Play">▶</button>
           <button type="button" class="preview-stop" title="Stop">■</button>
-          <button type="button" class="preview-play" title="Play / pause">▶</button>
-          <button type="button" class="preview-forward" title="Go to end">&gt;&gt;|</button>
-          <button type="button" class="preview-back5" title="Rewind 5 seconds">◀ 5s</button>
-          <button type="button" class="preview-forward5" title="Forward 5 seconds">5s ▶</button>
+          <button type="button" class="preview-pause" title="Pause">Ⅱ</button>
+          <button type="button" class="preview-back5" title="Rewind 5 seconds">|&lt;&lt;</button>
+          <button type="button" class="preview-forward5" title="Forward 5 seconds">&gt;&gt;|</button>
         </div>
-        <div class="preview-bottom">
-          <div class="preview-speed">
-            <span>PLAYBACK</span>
-            <button type="button" data-rate="1">1×</button>
-            <button type="button" data-rate="0.5" class="selected">0.5×</button>
-          </div>
-          <div class="preview-volume">
-            <span>VOL</span>
-            <input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
-          </div>
+        <div class="preview-options-panel" hidden>
+          <span>PLAYBACK</span>
+          <button type="button" data-rate="1">1×</button>
+          <button type="button" data-rate="0.5" class="selected">0.5×</button>
+          <span>VOL</span>
+          <input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
         </div>
-      </div>
-      <div class="preview-meta">Processed at x2 · ${bits}-bit · ${rate} Hz · ${ch} · ${mode}</div>
-      <div class="preview-actions">
-        <button type="button" class="preview-download">Download WAV</button>
-        <button type="button" class="preview-close2">Close</button>
+        <div class="preview-statusline">
+          <span>${(rate/1000).toFixed(rate%1000?'3':'1')}kHz</span><span>${bits}-bit</span><span>${ch}</span><span>${mode}</span>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(w);
@@ -75,7 +70,8 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   const fill=w.querySelector('.preview-progress-fill');
   const bar=w.querySelector('.preview-progress');
   const play=w.querySelector('.preview-play');
-  const volume=w.querySelector('.preview-volume input');
+  const pause=w.querySelector('.preview-pause');
+  const volume=w.querySelector('.preview-options-panel input');
   const ctx=state.ctx||createAudioContext();
   state.ctx=ctx;
 
@@ -105,8 +101,8 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     currentSec.textContent=p.s;
     fill.style.width=(ratio*100)+'%';
     bar.setAttribute('aria-valuenow',String(Math.round(ratio*100)));
-    play.textContent=playing?'Ⅱ':'▶';
-    play.title=playing?'Pause':'Play';
+    play.classList.toggle('selected',playing);
+    pause.classList.toggle('selected',!playing);
     if(playing)raf=requestAnimationFrame(sync);
   };
   const stopSource=()=>{
@@ -162,11 +158,13 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   };
   const togglePlay=()=>{
     if(!buffer)return;
-    if(playing){
-      offset=pos();
-      stopSource();
-      sync();
-    }else start();
+    if(playing){offset=pos();stopSource();sync();}else start();
+  };
+  const pausePlayback=()=>{
+    if(!buffer||!playing)return;
+    offset=pos();
+    stopSource();
+    sync();
   };
   const close=()=>{
     stopSource();
@@ -184,10 +182,9 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
   };
 
-  play.onclick=togglePlay;
+  play.onclick=()=>{if(!playing)start()};
+  pause.onclick=pausePlayback;
   w.querySelector('.preview-stop').onclick=()=>{stopSource();offset=0;sync()};
-  w.querySelector('.preview-rewind').onclick=()=>seek(0);
-  w.querySelector('.preview-forward').onclick=()=>seek(buffer?.duration||0);
   w.querySelector('.preview-back5').onclick=()=>seek(pos()-5);
   w.querySelector('.preview-forward5').onclick=()=>seek(pos()+5);
   bar.onclick=barSeek;
@@ -197,6 +194,14 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     if(e.key==='Home'){e.preventDefault();seek(0)}
     if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
   };
+  w.querySelector('.preview-options-menu').onclick=()=>{
+    const panel=w.querySelector('.preview-options-panel');
+    panel.hidden=!panel.hidden;
+  };
+  w.querySelector('.preview-help-menu').onclick=()=>{
+    w.querySelector('.preview-file').title='Space: play/pause · ←/→: ±5 sec · Home/End: jump · Esc: close';
+  };
+  w.querySelector('.preview-file-menu').onclick=()=>saveBlob(item.result.blob,filename());
   w.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{
     const p=pos(),was=playing;
     stopSource();
@@ -207,17 +212,13 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     if(was)start();
   });
   volume.oninput=e=>{if(gain)gain.gain.value=Number(e.target.value)};
-  w.querySelectorAll('.preview-download').forEach(b=>b.onclick=()=>saveBlob(item.result.blob,filename()));
+  w.querySelector('.preview-download').onclick=()=>saveBlob(item.result.blob,filename());
   w.querySelector('.preview-close').onclick=close;
-  w.querySelector('.preview-close2').onclick=close;
   w.querySelector('.preview-minimize').onclick=()=>w.classList.toggle('preview-minimized');
   w.querySelector('.preview-maximize').onclick=()=>{
     const maximized=w.classList.toggle('preview-maximized');
-    if(maximized){
-      w.style.left='8px';w.style.top='8px';w.style.transform='none';
-    }else{
-      w.style.left='50%';w.style.top='50%';w.style.transform='translate(-50%,-50%)';
-    }
+    if(maximized){w.style.left='8px';w.style.top='8px';w.style.transform='none';}
+    else{w.style.left='50%';w.style.top='50%';w.style.transform='translate(-50%,-50%)';}
   };
 
   let drag=false,dx=0,dy=0;
@@ -246,6 +247,6 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
     buffer=decoded;
     sync();
   }).catch(e=>{
-    w.querySelector('.preview-meta').textContent='Preview error: '+(e?.message||e);
+    w.querySelector('.preview-statusline').textContent='Preview error: '+(e?.message||e);
   });
 }
