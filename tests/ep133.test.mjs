@@ -57,7 +57,7 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
   const view=new DataView(payload.buffer);
   assert.equal(payload[0],2);
   assert.equal(payload[1],0);
-  assert.equal(payload[2],4);
+  assert.equal(payload[2],5);
   assert.equal(view.getUint16(3),127);
   assert.equal(view.getUint16(5),42);
   assert.equal(view.getUint32(7),1234);
