@@ -230,7 +230,7 @@
 
 
 /* Keep Start cascade menus fully visible on desktop */
-@media(min-width:601px){.preview-window{width:540px;max-width:540px}}
+@media(min-width:601px){.preview-window{width:540px;max-width:540px;box-shadow:2px 2px 4px rgba(0,0,0,.5)}}
 .start-menu{max-height:calc(100vh - 48px);overflow:visible!important}
 .start-submenu{top:auto!important;bottom:-2px!important;max-height:calc(100vh - 58px)!important}
 .start-submenu-content{max-height:calc(100vh - 112px)!important;overflow:auto!important}
