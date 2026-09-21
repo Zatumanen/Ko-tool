@@ -35,7 +35,7 @@ function startListeners(inputs){
 
 function waitForIdentity(timeout=2000){
   return new Promise((resolve,reject)=>{
-    const timer=setTimeout(()=>{pending.delete(0);reject(new Error('EP-133 identity timeout'));},timeout);
+    const timer=setTimeout(()=>{pending.delete(0);reject(new Error('EP-series identity timeout'));},timeout);
     pending.set(0,{identityWait:true,resolve:v=>{clearTimeout(timer);resolve(v);}});
   });
 }
@@ -60,7 +60,7 @@ export async function connectEp133(){
   const access=await navigator.requestMIDIAccess({sysex:true});
   const inputs=[...access.inputs.values()];
   const outputs=[...access.outputs.values()];
-  if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect the EP-133 by USB and try again.');
+  if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect an EP-series device by USB and try again.');
 
   startListeners(inputs);
   let found=null;
@@ -105,10 +105,10 @@ export function disconnectEp133(){
 export function isConnected(){return initialized&&!!input&&!!output;}
 
 export function requestRead(command,payload=new Uint8Array(),timeout=5000){
-  if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-133 read-only command rejected: ${command}`));
+  if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
   if(subcommand!==TE_SYSEX_FILE_INIT&&subcommand!==TE_SYSEX_FILE_LIST&&subcommand!==TE_SYSEX_FILE_GET){
-    return Promise.reject(new Error(`EP-133 read-only FILE subcommand rejected: ${subcommand}`));
+    return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
   }
   return sendRequest(command,payload,timeout);
 }
