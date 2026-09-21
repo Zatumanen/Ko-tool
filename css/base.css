@@ -22,3 +22,31 @@
 .preview-actions{margin-top:9px}
 @media(max-width:600px){.preview-controls button{flex:1;padding-left:4px;padding-right:4px}.preview-display{font-size:12px}.preview-player{padding:8px}}
 \n.preview-window{width:min(520px,94vw)}.preview-body{padding:10px}.preview-file{font-weight:bold;margin-bottom:8px}.preview-player{background:#000080;border:2px inset var(--win-dark);padding:10px;color:#fff}.preview-display{background:#000;color:#0f0;border:2px inset var(--win-dark);padding:7px 9px;font:14px "Courier New",monospace;display:flex;justify-content:space-between;margin-bottom:9px}.preview-progress{height:18px;background:#fff;border:2px inset var(--win-dark);cursor:pointer}.preview-progress-fill{height:100%;width:0;background:#00aa00}.preview-controls{display:flex;gap:5px;margin-top:9px}.preview-controls button,.preview-speed button{min-height:34px;background:var(--win-gray);color:#000;border:2px outset var(--win-gray);font:700 13px "Courier New",monospace;cursor:pointer;padding:4px 9px}.preview-controls button:active,.preview-speed button:active,.preview-speed button.selected{border-style:inset;background:#fff}.preview-controls .preview-play{min-width:82px}.preview-speed{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap;font-size:12px}.preview-speed-label{font-weight:bold}.preview-volume{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}.preview-volume input{flex:1}.preview-meta{margin-top:9px;background:#fff;color:#000;border:2px inset var(--win-dark);padding:7px;font-size:12px}.preview-actions{margin-top:9px}@media(max-width:600px){.preview-controls button{flex:1;padding-left:4px;padding-right:4px}.preview-display{font-size:12px}.preview-player{padding:8px}}
+/* Surgical player pass */
+.preview-window{position:fixed;z-index:10001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,94vw);background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:5px 5px 15px rgba(0,0,0,.65)}
+.preview-window.preview-minimized .preview-body{display:none}
+.preview-title{height:28px;cursor:move}
+.preview-title .window-controls{display:flex}
+.preview-title .window-controls button{width:22px;height:22px;min-height:22px;padding:0;margin-left:3px}
+.preview-body{padding:10px}
+.preview-file{font-weight:bold;margin-bottom:8px}
+.preview-player{background:#000080;border:2px inset var(--win-dark);padding:10px;color:#fff}
+.preview-display{background:#000;color:#0f0;border:2px inset var(--win-dark);padding:7px 9px;font:14px "Courier New",monospace;display:flex;justify-content:space-between;gap:10px;margin-bottom:9px}
+.preview-wave{height:96px;background:#111;border:2px inset #808080;position:relative;overflow:hidden;cursor:pointer}
+.preview-wave canvas{display:block;width:100%;height:100%}
+.preview-wave-position{position:absolute;top:0;bottom:0;left:0;width:2px;background:#fff;box-shadow:0 0 3px #fff;pointer-events:none}
+.preview-progress{height:16px;margin-top:6px;background:#fff;border:2px inset var(--win-dark);cursor:pointer;position:relative}
+.preview-progress-fill{height:100%;width:0;background:#000080}
+.preview-controls{display:flex;gap:5px;margin-top:9px}
+.preview-controls button,.preview-speed button{min-height:34px;background:var(--win-gray);color:#000;border:2px outset var(--win-gray);font:700 12px "Courier New",monospace;cursor:pointer;padding:4px 7px}
+.preview-controls button:active,.preview-speed button:active,.preview-speed button.selected{border-style:inset;background:#fff}
+.preview-controls button{flex:1}
+.preview-speed{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap;font-size:12px}
+.preview-speed-label{font-weight:bold}
+.preview-volume{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
+.preview-volume input{flex:1;min-width:80px}
+.preview-meta{margin-top:9px;background:#fff;color:#000;border:2px inset var(--win-dark);padding:7px;font-size:12px}
+.preview-actions{display:flex;gap:7px;margin-top:9px}
+.preview-actions button{flex:1;min-height:34px;background:var(--win-gray);border:2px outset var(--win-gray);font-family:"Courier New",monospace;cursor:pointer}
+.preview-actions button:active{border-style:inset}
+@media(max-width:600px){.preview-controls button{padding-left:3px;padding-right:3px}.preview-display{font-size:12px}.preview-player{padding:8px}.preview-wave{height:78px}}
