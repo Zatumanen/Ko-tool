@@ -27,21 +27,21 @@ export async function listDeviceFiles(onProgress){await initRead();const result=
 
 function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
-function putInitPayload(fileId,parentId,fileSize,filename,metadata){const safe=normalizeFileName(filename),meta=metadata==null?'':JSON.stringify(metadata),p=new Uint8Array(11+safe.length+1+meta.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=TE_SYSEX_FILE_CAPABILITY_READ|TE_SYSEX_FILE_FILE_TYPE_FILE;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta)writeString(view,12+safe.length,meta,false);return p;}
+export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata){const safe=normalizeFileName(filename),meta=metadata==null?'':JSON.stringify(metadata),p=new Uint8Array(11+safe.length+1+meta.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=TE_SYSEX_FILE_CAPABILITY_READ|TE_SYSEX_FILE_FILE_TYPE_FILE;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta)writeString(view,12+safe.length,meta,false);return p;}
 
-function putDataPayload(page,data){const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
+export function buildFilePutDataPayload(page,data){const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
 
-function metadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),p=new Uint8Array(5+json.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeString(view,4,json,true);return p;}
+export function buildMetadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),p=new Uint8Array(5+json.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeString(view,4,json,true);return p;}
 
-function metadataPagedInitPayload(fileId,size){const p=new Uint8Array(9),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT;view.setUint16(3,fileId);view.setUint32(5,size);return p;}
-function metadataPagedDataPayload(page,data){const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA;view.setUint16(3,page);p.set(data,5);return p;}
+export function buildMetadataPagedInitPayload(fileId,size){const p=new Uint8Array(9),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT;view.setUint16(3,fileId);view.setUint32(5,size);return p;}
+export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA;view.setUint16(3,page);p.set(data,5);return p;}
 
 export async function putFile({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=15000}){
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>999)throw new Error('Invalid EP-133 sample destination.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
   const chunkSize=await initFileSystem();
-  const init=await requestFile(TE_SYSEX_FILE,putInitPayload(destinationId,parentId,data.byteLength,filename,metadata),timeout);
+  const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata),timeout);
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
   const maxPayload=calculateMaxPayloadLength(chunkSize-6);
@@ -50,24 +50,24 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   onProgress?.(0,data.byteLength,{status:'sending',fileId});
   while(offset<data.byteLength){
     const size=Math.min(maxPayload,data.byteLength-offset);
-    const payload=putDataPayload(page,data.subarray(offset,offset+size));
+    const payload=buildFilePutDataPayload(page,data.subarray(offset,offset+size));
     await requestFile(TE_SYSEX_FILE,payload,timeout);
     offset+=size;page+=1;
     onProgress?.(offset,data.byteLength,{status:'sending',fileId});
   }
-  await requestFile(TE_SYSEX_FILE,putDataPayload(page,new Uint8Array(0)),timeout);
+  await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
   return fileId;
 }
 
 export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   const chunkSize=await initFileSystem();
   const json=JSON.stringify(metadata);
-  if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,metadataSetPayload(fileId,metadata),timeout);return;}
+  if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=new TextEncoder().encode(json),maxPayload=calculateMaxPayloadLength(chunkSize-8);
-  await requestFile(TE_SYSEX_FILE,metadataPagedInitPayload(fileId,data.byteLength),timeout);
+  await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
   let offset=0,page=0;
-  while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,metadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
-  await requestFile(TE_SYSEX_FILE,metadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+  while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
+  await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
 }
 
 export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress}){
