@@ -23,7 +23,7 @@ export function packToBuffer(data,out){
     if(pos===6&&i<data.length-1){msbIndex+=8;outIndex++;}
   }
 }
-export function packedLength(n){return n+n?Math.ceil(n/7):0}
+export function packedLength(n){return n? n+Math.ceil(n/7):0}
 export function parseNullTerminatedString(buffer,start){
   let end=start;
   while(end<buffer.length&&buffer[end]!==0)end++;
