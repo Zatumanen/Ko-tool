@@ -1,26 +1,251 @@
 export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
-  const old=document.getElementById('preview-window'); if(old) old.remove();
-  const result=item.result||{}, rate=result.sampleRate||44100, bits=result.bitDepth||16, channels=result.channels||2;
-  const quality=({cd:'CD',sp8:'SP-1200',sp16:'MPC 2000XL',sk:'SK-1'})[item.fidelity]||'CD', ch=channels===1?'MONO':'STEREO', mode=item.playmode==='loop'?'LOOP':'ONE', kbps=Math.round(rate*bits*channels/1000);
-  const w=document.createElement('div'); w.id='preview-window'; w.className='preview-window';
-  w.innerHTML='<div class="preview-surface"><div class="wp-title"><span>WinPlay3 - DEMOFILE.MP3</span><div class="wp-window-buttons"><button class="wp-min" type="button">_</button><button class="wp-max" type="button">□</button><button class="wp-close" type="button">×</button></div></div><div class="wp-menu"><button class="wp-file" type="button">File</button><button class="wp-options" type="button">Options</button><button class="wp-help" type="button">Help</button></div><div class="wp-display"><div class="wp-display-track">1</div><div class="wp-display-time"><span class="wp-minutes">00</span><span>:</span><span class="wp-seconds">00</span></div><div class="wp-display-info"><span id="wp-rate"></span><span id="wp-quality"></span></div></div><button class="wp-download" type="button">Save</button><div class="wp-controls"><button class="wp-play" type="button">Play</button><button class="wp-stop" type="button">Stop</button><button class="wp-pause" type="button">Pause</button><button class="wp-back5" type="button">-5s</button><button class="wp-forward5" type="button">+5s</button></div><div class="wp-seek" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="wp-seek-fill"></div></div><div class="wp-popup wp-file-popup" hidden><button data-action="download">Save WAV</button><button data-action="close">Close</button></div><div class="wp-popup wp-options-popup" hidden><div>Playback <button data-rate="1">1×</button> <button data-rate="0.5">0.5×</button></div><div>Volume <input type="range" min="0" max="1" step="0.01" value="1"></div></div><div class="wp-popup wp-help-popup" hidden><div>Space — Play / Pause</div><div>← / → — 5 seconds</div><div>Home / End — Start / End</div><div>Esc — Close</div></div></div>';
+  const old=document.getElementById('preview-window');
+  if(old) old.remove();
+
+  const w=document.createElement('div');
+  w.id='preview-window';
+  w.className='preview-window';
+  const result=item.result||{};
+  const quality={cd:'CD',sp8:'E-mu SP-1200',sp16:'Akai MPC 2000XL',sk:'Casio SK-1'}[item.fidelity]||'CD';
+  const ch=result.channels===1?'MONO':'STEREO';
+  const rate=result.sampleRate||44100;
+  const bits=result.bitDepth||16;
+  const kbps=Math.round(rate*bits*(result.channels||2)/1000);
+  const mode=item.playmode==='loop'?'LOOP':'ONE';
+
+  w.innerHTML=`
+    <div class="preview-title" title="Drag to move">
+      <span class="preview-brand">WinPlay3</span>
+      <div class="window-controls">
+        <button type="button" class="preview-minimize" aria-label="Minimize">_</button>
+        <button type="button" class="preview-maximize" aria-label="Maximize">□</button>
+        <button type="button" class="preview-close" aria-label="Close">×</button>
+      </div>
+    </div>
+    <div class="preview-menu">
+      <span>File</span><span>Options</span><span>Help</span>
+    </div>
+    <div class="preview-body">
+      <div class="preview-file" title="${esc(item.file.name)}">${esc(item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav')}</div>
+      <div class="preview-main">
+        <div class="preview-display">
+          <div class="display-stat"><span>TRACK</span><b>1</b></div>
+          <div class="display-stat"><span>MIN</span><b class="preview-min">00</b></div>
+          <div class="display-stat"><span>SEC</span><b class="preview-sec">00</b></div>
+          <div class="display-mode">
+            <span>MODE</span>
+            <b>${rate/1000}kHz ${kbps}Kbit/s</b>
+            <b>${quality} ${ch} ${mode}</b>
+          </div>
+          <button type="button" class="preview-download display-download" title="Download WAV" aria-label="Download WAV">↓</button>
+        </div>
+        <div class="preview-progress" role="slider" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+          <div class="preview-progress-fill"></div>
+        </div>
+        <div class="preview-controls">
+          <button type="button" class="preview-rewind" title="Go to beginning">|&lt;&lt;</button>
+          <button type="button" class="preview-stop" title="Stop">■</button>
+          <button type="button" class="preview-play" title="Play / pause">▶</button>
+          <button type="button" class="preview-forward" title="Go to end">&gt;&gt;|</button>
+          <button type="button" class="preview-back5" title="Rewind 5 seconds">◀ 5s</button>
+          <button type="button" class="preview-forward5" title="Forward 5 seconds">5s ▶</button>
+        </div>
+        <div class="preview-bottom">
+          <div class="preview-speed">
+            <span>PLAYBACK</span>
+            <button type="button" data-rate="1">1×</button>
+            <button type="button" data-rate="0.5" class="selected">0.5×</button>
+          </div>
+          <div class="preview-volume">
+            <span>VOL</span>
+            <input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+          </div>
+        </div>
+      </div>
+      <div class="preview-meta">Processed at x2 · ${bits}-bit · ${rate} Hz · ${ch} · ${mode}</div>
+      <div class="preview-actions">
+        <button type="button" class="preview-download">Download WAV</button>
+        <button type="button" class="preview-close2">Close</button>
+      </div>
+    </div>`;
   document.body.appendChild(w);
-  const q=s=>w.querySelector(s); q('.wp-title span').textContent='WinPlay3 - '+item.file.name.toUpperCase(); q('#wp-rate').textContent=(rate/1000).toFixed(rate%1000?'3':'1')+' kHz  '+kbps+' kbit/s'; q('#wp-quality').textContent=quality+' '+ch+' '+mode;
-  const ctx=state.ctx||(state.ctx=createAudioContext()); let buffer=result.buffer||null,source=null,gain=null,ratePlay=.5,offset=0,startedAt=0,playing=false,raf=0;
-  const minEl=q('.wp-minutes'),secEl=q('.wp-seconds'),seek=q('.wp-seek'),vol=q('.wp-options-popup input'),filename=()=>item.file.name.replace(/\.[^.]+$/,'')+'_x2.wav';
-  const pos=()=>!buffer?0:playing?Math.min(buffer.duration,offset+(ctx.currentTime-startedAt)*ratePlay):Math.min(buffer.duration,offset);
-  const sync=()=>{const p=pos();minEl.textContent=String(Math.floor(p/60)).padStart(2,'0');secEl.textContent=String(Math.floor(p%60)).padStart(2,'0');seek.setAttribute('aria-valuenow',String(buffer&&buffer.duration?Math.round(p/buffer.duration*100):0)); q('.wp-seek-fill').style.width=(buffer&&buffer.duration?(p/buffer.duration*100):0)+'%';if(playing)raf=requestAnimationFrame(sync)};
-  const stopSource=()=>{if(source){source.onended=null;try{source.stop()}catch(e){}source.disconnect();source=null}if(gain){gain.disconnect();gain=null}playing=false;cancelAnimationFrame(raf)};
-  const start=()=>{if(!buffer)return;if(offset>=buffer.duration)offset=0;ctx.resume?.();source=ctx.createBufferSource();source.buffer=buffer;source.playbackRate.value=ratePlay;gain=ctx.createGain();gain.gain.value=+vol.value;source.connect(gain).connect(ctx.destination);startedAt=ctx.currentTime;playing=true;source.onended=()=>{if(!playing)return;if(item.playmode==='loop'){offset=0;stopSource();start();return}offset=buffer.duration;stopSource();sync()};source.start(0,offset);sync()};
-  const seekTo=p=>{if(!buffer)return;const was=playing;stopSource();offset=Math.max(0,Math.min(buffer.duration,p));sync();if(was)start()};
-  const close=()=>{stopSource();w.remove();window.removeEventListener('keydown',onKey)};
-  const onKey=e=>{if(!document.body.contains(w))return;if(e.key==='Escape'){close();return}if(e.target.matches('input,button'))return;if(e.code==='Space'){e.preventDefault();playing?seekTo(pos()):start()}else if(e.key==='ArrowLeft')seekTo(pos()-5);else if(e.key==='ArrowRight')seekTo(pos()+5);else if(e.key==='Home')seekTo(0);else if(e.key==='End')seekTo(buffer?buffer.duration:0)};
-  q('.wp-play').onclick=start; q('.wp-pause').onclick=()=>{if(playing)seekTo(pos())}; q('.wp-stop').onclick=()=>{stopSource();offset=0;sync()}; q('.wp-back5').onclick=()=>seekTo(pos()-5); q('.wp-forward5').onclick=()=>seekTo(pos()+5);
-  seek.onclick=e=>{if(!buffer)return;const r=seek.getBoundingClientRect();seekTo((e.clientX-r.left)/r.width*buffer.duration)}; seek.onkeydown=e=>{if(e.key==='ArrowLeft')seekTo(pos()-5);if(e.key==='ArrowRight')seekTo(pos()+5);if(e.key==='Home')seekTo(0);if(e.key==='End')seekTo(buffer?buffer.duration:0)};
-  const popups=[q('.wp-file-popup'),q('.wp-options-popup'),q('.wp-help-popup')],closePopups=()=>popups.forEach(p=>p.hidden=true);
-  q('.wp-file').onclick=()=>{const p=popups[0],open=p.hidden;closePopups();p.hidden=!open}; q('.wp-options').onclick=()=>{const p=popups[1],open=p.hidden;closePopups();p.hidden=!open}; q('.wp-help').onclick=()=>{const p=popups[2],open=p.hidden;closePopups();p.hidden=!open};
-  q('[data-action="download"]').onclick=()=>saveBlob(result.blob,filename()); q('[data-action="close"]').onclick=close; q('.wp-download').onclick=()=>saveBlob(result.blob,filename()); q('.wp-close').onclick=close; q('.wp-min').onclick=()=>w.classList.toggle('preview-minimized'); q('.wp-max').onclick=()=>w.classList.toggle('preview-maximized');
-  q('.wp-options-popup').querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{const p=pos(),was=playing;stopSource();offset=p;ratePlay=+b.dataset.rate;if(was)start()}); vol.oninput=()=>{if(gain)gain.gain.value=+vol.value};
-  let drag=false,dx=0,dy=0; const title=q('.wp-title'); title.onpointerdown=e=>{if(e.target.closest('button')||w.classList.contains('preview-maximized'))return;drag=true;const r=w.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;title.setPointerCapture?.(e.pointerId)}; title.onpointermove=e=>{if(!drag)return;w.style.left=Math.max(0,Math.min(innerWidth-w.offsetWidth,e.clientX-dx))+'px';w.style.top=Math.max(0,Math.min(innerHeight-w.offsetHeight,e.clientY-dy))+'px';w.style.transform='none'}; title.onpointerup=()=>drag=false; title.onpointercancel=()=>drag=false;
-  window.addEventListener('keydown',onKey); sync();
+
+  const currentMin=w.querySelector('.preview-min');
+  const currentSec=w.querySelector('.preview-sec');
+  const fill=w.querySelector('.preview-progress-fill');
+  const bar=w.querySelector('.preview-progress');
+  const play=w.querySelector('.preview-play');
+  const volume=w.querySelector('.preview-volume input');
+  const ctx=state.ctx||createAudioContext();
+  state.ctx=ctx;
+
+  let buffer=null;
+  let source=null;
+  let gain=null;
+  let ratePlay=.5;
+  let offset=0;
+  let startedAt=0;
+  let playing=false;
+  let raf=0;
+
+  const filename=()=>item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav';
+  const fmt=s=>{
+    s=Number.isFinite(s)?Math.max(0,s):0;
+    return {m:String(Math.floor(s/60)).padStart(2,'0'),s:String(Math.floor(s%60)).padStart(2,'0')};
+  };
+  const pos=()=>{
+    if(!buffer)return 0;
+    return playing?Math.min(buffer.duration,offset+(ctx.currentTime-startedAt)*ratePlay):Math.min(buffer.duration,offset);
+  };
+  const sync=()=>{
+    const p=fmt(pos());
+    const d=buffer?.duration||0;
+    const ratio=d?Math.min(1,pos()/d):0;
+    currentMin.textContent=p.m;
+    currentSec.textContent=p.s;
+    fill.style.width=(ratio*100)+'%';
+    bar.setAttribute('aria-valuenow',String(Math.round(ratio*100)));
+    play.textContent=playing?'Ⅱ':'▶';
+    play.title=playing?'Pause':'Play';
+    if(playing)raf=requestAnimationFrame(sync);
+  };
+  const stopSource=()=>{
+    if(source){
+      source.onended=null;
+      try{source.stop()}catch(e){}
+      source.disconnect();
+      source=null;
+    }
+    if(gain){gain.disconnect();gain=null}
+    playing=false;
+    cancelAnimationFrame(raf);
+  };
+  const start=()=>{
+    if(!buffer)return;
+    if(offset>=buffer.duration)offset=0;
+    ctx.resume?.();
+    source=ctx.createBufferSource();
+    source.buffer=buffer;
+    source.playbackRate.value=ratePlay;
+    gain=ctx.createGain();
+    gain.gain.value=Number(volume.value);
+    source.connect(gain).connect(ctx.destination);
+    startedAt=ctx.currentTime;
+    playing=true;
+    source.onended=()=>{
+      if(!playing)return;
+      if(item.playmode==='loop'){
+        offset=0;
+        stopSource();
+        start();
+        return;
+      }
+      offset=buffer.duration;
+      stopSource();
+      sync();
+    };
+    source.start(0,offset);
+    sync();
+  };
+  const seek=p=>{
+    if(!buffer)return;
+    const was=playing;
+    stopSource();
+    offset=Math.max(0,Math.min(buffer.duration,p));
+    sync();
+    if(was)start();
+  };
+  const barSeek=e=>{
+    if(!buffer)return;
+    const r=bar.getBoundingClientRect();
+    seek((e.clientX-r.left)/r.width*buffer.duration);
+  };
+  const togglePlay=()=>{
+    if(!buffer)return;
+    if(playing){
+      offset=pos();
+      stopSource();
+      sync();
+    }else start();
+  };
+  const close=()=>{
+    stopSource();
+    w.remove();
+    window.removeEventListener('keydown',onKey);
+  };
+  const onKey=e=>{
+    if(!document.body.contains(w))return;
+    if(e.key==='Escape'){e.preventDefault();close();return}
+    if(e.target.matches('input,button'))return;
+    if(e.code==='Space'){e.preventDefault();togglePlay();return}
+    if(e.key==='ArrowLeft'){e.preventDefault();seek(pos()-5);return}
+    if(e.key==='ArrowRight'){e.preventDefault();seek(pos()+5);return}
+    if(e.key==='Home'){e.preventDefault();seek(0);return}
+    if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
+  };
+
+  play.onclick=togglePlay;
+  w.querySelector('.preview-stop').onclick=()=>{stopSource();offset=0;sync()};
+  w.querySelector('.preview-rewind').onclick=()=>seek(0);
+  w.querySelector('.preview-forward').onclick=()=>seek(buffer?.duration||0);
+  w.querySelector('.preview-back5').onclick=()=>seek(pos()-5);
+  w.querySelector('.preview-forward5').onclick=()=>seek(pos()+5);
+  bar.onclick=barSeek;
+  bar.onkeydown=e=>{
+    if(e.key==='ArrowLeft'){e.preventDefault();seek(pos()-5)}
+    if(e.key==='ArrowRight'){e.preventDefault();seek(pos()+5)}
+    if(e.key==='Home'){e.preventDefault();seek(0)}
+    if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
+  };
+  w.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{
+    const p=pos(),was=playing;
+    stopSource();
+    offset=p;
+    ratePlay=Number(b.dataset.rate);
+    w.querySelectorAll('[data-rate]').forEach(x=>x.classList.toggle('selected',x===b));
+    sync();
+    if(was)start();
+  });
+  volume.oninput=e=>{if(gain)gain.gain.value=Number(e.target.value)};
+  w.querySelectorAll('.preview-download').forEach(b=>b.onclick=()=>saveBlob(item.result.blob,filename()));
+  w.querySelector('.preview-close').onclick=close;
+  w.querySelector('.preview-close2').onclick=close;
+  w.querySelector('.preview-minimize').onclick=()=>w.classList.toggle('preview-minimized');
+  w.querySelector('.preview-maximize').onclick=()=>{
+    const maximized=w.classList.toggle('preview-maximized');
+    if(maximized){
+      w.style.left='8px';w.style.top='8px';w.style.transform='none';
+    }else{
+      w.style.left='50%';w.style.top='50%';w.style.transform='translate(-50%,-50%)';
+    }
+  };
+
+  let drag=false,dx=0,dy=0;
+  const title=w.querySelector('.preview-title');
+  title.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button')||w.classList.contains('preview-maximized'))return;
+    drag=true;
+    const r=w.getBoundingClientRect();
+    dx=e.clientX-r.left;dy=e.clientY-r.top;
+    w.style.transform='none';
+    title.setPointerCapture?.(e.pointerId);
+  });
+  title.addEventListener('pointermove',e=>{
+    if(!drag)return;
+    w.style.left=Math.max(0,Math.min(window.innerWidth-w.offsetWidth,e.clientX-dx))+'px';
+    w.style.top=Math.max(0,Math.min(window.innerHeight-w.offsetHeight,e.clientY-dy))+'px';
+  });
+  title.addEventListener('pointerup',()=>drag=false);
+  title.addEventListener('pointercancel',()=>drag=false);
+  title.addEventListener('dblclick',e=>{if(!e.target.closest('button'))w.querySelector('.preview-maximize').click()});
+
+  window.addEventListener('keydown',onKey);
+
+  Promise.resolve(item.result?.buffer).then(decoded=>{
+    if(!decoded)throw Error('Processed audio buffer is unavailable.');
+    buffer=decoded;
+    sync();
+  }).catch(e=>{
+    w.querySelector('.preview-meta').textContent='Preview error: '+(e?.message||e);
+  });
 }
