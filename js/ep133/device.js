@@ -40,9 +40,9 @@ function waitForIdentity(timeout=2000){
   });
 }
 
-async function sendRequest(command,payload=new Uint8Array(),timeout=5000){
+async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
   if(!output||!input)throw new Error('EP-133 is not connected.');
-  const frame=buildTeSysex(command,payload,identityCode);
+  const frame=buildTeSysex(command,payload,identityCode,output.id);
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-133 request timeout (command ${command})`));},timeout);
     pending.set(frame.id,{resolve:v=>{
