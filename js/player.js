@@ -198,7 +198,6 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   volume.oninput=e=>{if(gain)gain.gain.value=Number(e.target.value)};
   w.querySelector('.display-download').onclick=()=>saveBlob(item.result.blob,filename());
   w.querySelector('.preview-close').onclick=close;
-  w.querySelector('.preview-close2').onclick=close;
   w.querySelector('.preview-minimize').onclick=()=>w.classList.toggle('preview-minimized');
   const optionsPopup=w.querySelector('.preview-options-popup');
   w.querySelector('.preview-options-menu').onclick=()=>{optionsPopup.hidden=!optionsPopup.hidden};
