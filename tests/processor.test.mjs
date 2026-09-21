@@ -12,7 +12,7 @@ class TestAudioBuffer{
 }
 globalThis.AudioBuffer=TestAudioBuffer;
 
-const {PRESETS,getPreset,convertChannels,speedAndResample,quantizeBuffer,encodeWav}=await import('../js/audio/processor.js');
+const {PRESETS,getPreset,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav}=await import('../js/audio/processor.js');
 
 function buffer(length=8,channels=1,sampleRate=44100){
   const b=new TestAudioBuffer({length,sampleRate,numberOfChannels:channels});
@@ -25,6 +25,7 @@ test('presets keep the supported hardware targets',()=>{
   assert.equal(PRESETS.sp8.bitDepth,12);
   assert.equal(PRESETS.sp8.wavBitDepth,16);
   assert.equal(PRESETS.sk.sampleRate,9387);
+  assert.equal(PRESETS.sp16,undefined);
 });
 
 test('mono conversion averages source channels',async()=>{
@@ -84,4 +85,23 @@ test('WAV encoder supports 8-bit output',async()=>{
   const dataOffset=bytes.findIndex((_,i)=>ascii(i,4)==='data')+8;
   assert.equal(bytes[dataOffset],0);
   assert.equal(bytes[dataOffset+1],255);
+});
+
+
+test('16-bit quantization is actually applied',async()=>{
+  const b=buffer(2,1,44100);
+  b.getChannelData(0).set([0.1234567,-0.654321]);
+  const out=await quantizeBuffer(b,16);
+  assert.notEqual(out,out);
+  assert.notEqual(out.getChannelData(0)[0],b.getChannelData(0)[0]);
+});
+
+test('normalize reaches digital full scale without changing silence',async()=>{
+  const b=buffer(3,1,44100);
+  b.getChannelData(0).set([-.25,.5,.125]);
+  const out=await normalizeBuffer(b);
+  assert.ok(Math.abs(out.getChannelData(0)[1]-1)<1e-6);
+  const z=buffer(2,1,44100);
+  const silent=await normalizeBuffer(z);
+  assert.deepEqual([...silent.getChannelData(0)],[0,0]);
 });
