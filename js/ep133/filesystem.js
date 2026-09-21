@@ -21,6 +21,13 @@ function listPayload(page,nodeId){
   return p;
 }
 
+export function parseMetadataResponse(raw,page){
+  if(raw.length<=2)return null;
+  const responsePage=u16(raw,0);
+  if(responsePage!==page)throw new Error('Unexpected metadata page '+responsePage+', expected '+page);
+  return {text:parseNullTerminatedString(raw,2),done:raw[raw.length-1]===0};
+}
+
 function parseList(data){
   const out=[];
   let offset=0;
