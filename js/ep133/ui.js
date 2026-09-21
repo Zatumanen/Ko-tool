@@ -51,14 +51,29 @@ export function initEp133Browser({showError}={}){
 
   const makeDraggable=windowEl=>{
     const title=windowEl?.querySelector('.title-bar');
-    if(!windowEl||!title)return;
+    if(!windowEl||!title||title.dataset.dragReady)return;
+    title.dataset.dragReady='1';
     let dragging=false;
     let offsetX=0;
     let offsetY=0;
     title.style.cursor='move';
+    title.style.touchAction='none';
+
+    const clamp=()=>{
+      const width=windowEl.offsetWidth;
+      const height=windowEl.offsetHeight;
+      const maxX=Math.max(0,window.innerWidth-width);
+      const maxY=Math.max(0,window.innerHeight-height);
+      const left=Math.min(maxX,Math.max(0,parseFloat(windowEl.style.left)||0));
+      const top=Math.min(maxY,Math.max(0,parseFloat(windowEl.style.top)||0));
+      windowEl.style.left=left+'px';
+      windowEl.style.top=top+'px';
+    };
+
     title.addEventListener('pointerdown',e=>{
-      if(e.target.closest('button'))return;
+      if(e.button!==0||e.target.closest('button'))return;
       const rect=windowEl.getBoundingClientRect();
+      windowEl.style.position='fixed';
       windowEl.style.transform='none';
       windowEl.style.left=rect.left+'px';
       windowEl.style.top=rect.top+'px';
@@ -67,22 +82,23 @@ export function initEp133Browser({showError}={}){
       dragging=true;
       title.setPointerCapture?.(e.pointerId);
     });
+
     title.addEventListener('pointermove',e=>{
       if(!dragging)return;
       const maxX=Math.max(0,window.innerWidth-windowEl.offsetWidth);
       const maxY=Math.max(0,window.innerHeight-windowEl.offsetHeight);
-      const x=Math.min(maxX,Math.max(0,e.clientX-offsetX));
-      const y=Math.min(maxY,Math.max(0,e.clientY-offsetY));
-      windowEl.style.left=x+'px';
-      windowEl.style.top=y+'px';
+      windowEl.style.left=Math.min(maxX,Math.max(0,e.clientX-offsetX))+'px';
+      windowEl.style.top=Math.min(maxY,Math.max(0,e.clientY-offsetY))+'px';
     });
+
     const stop=e=>{
       if(!dragging)return;
       dragging=false;
-      title.releasePointerCapture?.(e.pointerId);
+      if(title.hasPointerCapture?.(e.pointerId))title.releasePointerCapture(e.pointerId);
     };
     title.addEventListener('pointerup',stop);
     title.addEventListener('pointercancel',stop);
+    window.addEventListener('resize',clamp);
   };
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
