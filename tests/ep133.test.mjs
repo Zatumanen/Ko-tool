@@ -12,7 +12,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,createSampleMemory}from '../js/ep133/sampleMemory.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
@@ -25,4 +25,11 @@ test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   assert.equal(slots[136].file.name,'bass.wav');
   assert.equal(slots[2].file,null);
   assert.deepEqual(DEFAULT_SAMPLE_TABS.map(x=>x.range),[[1,99],[100,199],[200,299],[300,399],[400,499],[500,599],[600,699],[700,799],[800,899],[900,999]]);
+});
+
+
+test('sample display name prefers device metadata name over filesystem slot filename',()=>{
+  const slots=createSampleSlots([{nodeId:7,fileName:'/sounds/007.wav',fileSize:123}]);
+  slots[6].meta={name:'my-kick.wav'};
+  assert.equal(slots[6].meta.name,'my-kick.wav');
 });
