@@ -49,6 +49,43 @@ export function initEp133Browser({showError}={}){
   });
   close.onclick=closePanel;
 
+  const makeDraggable=windowEl=>{
+    const title=windowEl?.querySelector('.title-bar');
+    if(!windowEl||!title)return;
+    let dragging=false;
+    let offsetX=0;
+    let offsetY=0;
+    title.style.cursor='move';
+    title.addEventListener('pointerdown',e=>{
+      if(e.target.closest('button'))return;
+      const rect=windowEl.getBoundingClientRect();
+      windowEl.style.transform='none';
+      windowEl.style.left=rect.left+'px';
+      windowEl.style.top=rect.top+'px';
+      offsetX=e.clientX-rect.left;
+      offsetY=e.clientY-rect.top;
+      dragging=true;
+      title.setPointerCapture?.(e.pointerId);
+    });
+    title.addEventListener('pointermove',e=>{
+      if(!dragging)return;
+      const maxX=Math.max(0,window.innerWidth-windowEl.offsetWidth);
+      const maxY=Math.max(0,window.innerHeight-windowEl.offsetHeight);
+      const x=Math.min(maxX,Math.max(0,e.clientX-offsetX));
+      const y=Math.min(maxY,Math.max(0,e.clientY-offsetY));
+      windowEl.style.left=x+'px';
+      windowEl.style.top=y+'px';
+    });
+    const stop=e=>{
+      if(!dragging)return;
+      dragging=false;
+      title.releasePointerCapture?.(e.pointerId);
+    };
+    title.addEventListener('pointerup',stop);
+    title.addEventListener('pointercancel',stop);
+  };
+  makeDraggable(panel.querySelector('.ep133-browser-window'));
+
   const readDevice=async()=>{
     setBusy(true);setStatus('READING FILES...');
     try{
