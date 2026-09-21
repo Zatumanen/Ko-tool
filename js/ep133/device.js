@@ -1,4 +1,4 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
@@ -61,7 +61,6 @@ export async function connectEp133(){
   const inputs=[...access.inputs.values()];
   const outputs=[...access.outputs.values()];
   if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect an EP-series device by USB and try again.');
-
   startListeners(inputs);
   let found=null;
   for(const out of outputs){
@@ -71,19 +70,14 @@ export async function connectEp133(){
       const identity=await Promise.race([identityPromise,new Promise(r=>setTimeout(()=>r(null),2200))]);
       if(identity){
         const parsed=parseIdentityResponse(identity.data);
-        if(parsed&&isSupportedEpSku(parsed.sku)){
-          found={out,parsed,input:identity.inputPort};
-          break;
-        }
+        if(parsed&&isSupportedEpSku(parsed.sku)){found={out,parsed,input:identity.inputPort};break;}
       }
     }catch{}
   }
-
   if(!found){
     stopListeners();
     throw new Error('Supported EP-series device was not found on the available MIDI ports. Supported models: EP-133 (64/128 MB), EP-40, EP-1320.');
   }
-
   output=found.out;
   input=found.input;
   const greet=await sendRequest(TE_SYSEX_GREET);
@@ -97,19 +91,25 @@ export function disconnectEp133(){
   stopListeners();
   for(const p of pending.values())p.reject?.(new Error('Disconnected'));
   pending.clear();
-  input=null;
-  output=null;
-  initialized=false;
+  input=null;output=null;initialized=false;
 }
 
 export function isConnected(){return initialized&&!!input&&!!output;}
 
+const READ_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA]);
+const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK]);
+
 export function requestRead(command,payload=new Uint8Array(),timeout=5000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
-  if(subcommand!==TE_SYSEX_FILE_INIT&&subcommand!==TE_SYSEX_FILE_LIST&&subcommand!==TE_SYSEX_FILE_GET&&subcommand!==TE_SYSEX_FILE_METADATA){
-    return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
-  }
+  if(!READ_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
+  return sendRequest(command,payload,timeout);
+}
+
+export function requestFile(command,payload=new Uint8Array(),timeout=20000){
+  if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series FILE command rejected: ${command}`));
+  const subcommand=payload[0];
+  if(!WRITE_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series unsupported FILE subcommand: ${subcommand}`));
   return sendRequest(command,payload,timeout);
 }
 
