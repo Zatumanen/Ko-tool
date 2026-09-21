@@ -71,7 +71,7 @@ function encodePcm16(buffer,targetRate){
   return{data:out,channels,samplerate:targetRate,format:'s16'};
 }
 
-export async function prepareEp133Sample(file,{targetSampleRate=DEFAULT_SAMPLE_RATE,onProgress}={}){
+export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,onProgress}={}){
   if(!file)throw new Error('No audio file supplied.');
   const name=String(file.name||'sample.wav');
   if(!/\\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
@@ -83,10 +83,12 @@ export async function prepareEp133Sample(file,{targetSampleRate=DEFAULT_SAMPLE_R
   const decoded=await decode(file,wavMeta?.rate);
   if(decoded.duration>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
   if(decoded.numberOfChannels<1||decoded.numberOfChannels>2)throw new Error('EP-133 samples must have 1 or 2 channels.');
+  const sourceMeta={sample_rate:decoded.sampleRate,channels:decoded.numberOfChannels};
+  const target=targetSampleRate??getTargetSampleRate(sourceMeta,formats);
   onProgress?.(35,{status:'resampling'});
-  const converted=await resample(decoded,targetSampleRate);
+  const converted=await resample(decoded,target);
   onProgress?.(80,{status:'encoding'});
-  const result=encodePcm16(converted,targetSampleRate);
+  const result=encodePcm16(converted,target);
   onProgress?.(100,{status:'ready'});
   return result;
 }
