@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="css/base.css?v=20260922-1">
+<link rel="stylesheet" href="css/base.css?v=20260922-2">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
@@ -36,8 +36,16 @@
       </div>
       <div class="ep133-readonly">READ-ONLY · EP-133 64/128 MB · EP-40 · EP-1320</div>
       <div class="ep133-file-browser">
-        <div class="ep133-file-browser-title">DEVICE FILES</div>
-        <div id="ep133-file-list" class="ep133-file-list"><div class="ep133-empty">Connect a device to read its files.</div></div>
+        <div class="ep133-file-toolbar">
+          <div class="ep133-file-browser-title">DEVICE FILES <span id="ep133-path">/</span></div>
+          <div class="ep133-file-tools">
+            <input id="ep133-search" type="search" placeholder="Search" aria-label="Search device files">
+            <select id="ep133-sort" aria-label="Sort device files"><option value="name">Name</option><option value="size">Size</option></select>
+          </div>
+        </div>
+        <div id="ep133-breadcrumbs" class="ep133-breadcrumbs" aria-label="Current folder"></div>
+        <div class="ep133-file-list" id="ep133-file-list"><div class="ep133-empty">Connect a device to read its files.</div></div>
+        <div id="ep133-info" class="ep133-info"><div class="ep133-info-empty">Select a file or folder.</div></div>
       </div>
       <div class="ep133-safety">No files are written, deleted, moved, renamed, or reformatted by this browser.</div>
     </div>
@@ -53,5 +61,5 @@
   <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
-<script type="module" src="js/app.js?v=20260922-1"></script>
+<script type="module" src="js/app.js?v=20260922-2"></script>
 </body></html>
