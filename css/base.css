@@ -59,3 +59,150 @@
 .preview-actions{display:flex;gap:6px;margin-top:6px}
 .preview-actions button{flex:1;min-height:31px;font-size:12px}
 @media(max-width:600px){.preview-window{width:calc(100vw - 6px)}.preview-body{padding:4px}.preview-display{grid-template-columns:58px 58px 58px 1fr 50px;gap:4px;padding:6px;min-height:82px}.display-stat b{font-size:32px;line-height:34px}.display-stat span,.display-mode span{font-size:9px}.display-mode b{font-size:10px;line-height:12px}.display-download{width:42px!important;height:42px!important;min-height:42px!important;font-size:29px!important}.preview-controls{gap:3px}.preview-controls button{min-height:34px;font-size:14px;padding:2px}.preview-bottom{gap:7px}.preview-volume{min-width:0;flex:1}.preview-volume input{width:auto}.preview-speed{white-space:nowrap}}
+
+
+/* Final WinPlay3 visual pass */
+.preview-window{
+  width:min(700px,calc(100vw - 18px));
+  box-shadow:4px 4px 0 #000;
+  font-family:"MS Sans Serif",Tahoma,Arial,sans-serif;
+}
+.preview-title{
+  height:27px;
+  padding:2px 3px 2px 5px;
+  font-size:12px;
+  letter-spacing:0;
+}
+.preview-brand{font-size:13px}
+.preview-title .window-controls button{
+  width:22px;height:21px;min-height:21px;
+  font-size:13px;line-height:16px;
+}
+.preview-menu{
+  height:24px;
+  gap:0;
+  padding:0 5px;
+  border-top:1px solid #fff;
+  border-bottom:1px solid #808080;
+  font-size:12px;
+}
+.preview-menu span{
+  padding:3px 9px 4px;
+  text-decoration:none;
+}
+.preview-menu span:first-letter{text-decoration:underline}
+.preview-menu span:hover{
+  background:#000080;color:#fff;
+}
+.preview-menu span:last-child{margin-left:0}
+.preview-body{padding:7px}
+.preview-file{
+  height:22px;
+  margin:0 0 6px;
+  padding:2px 5px;
+  font-size:11px;
+  font-weight:400;
+}
+.preview-main{
+  padding:6px;
+  border:2px inset #808080;
+}
+.preview-display{
+  min-height:92px;
+  grid-template-columns:82px 82px 82px minmax(180px,1fr) 58px;
+  gap:5px;
+  padding:7px 9px;
+  border:3px solid #808080;
+  background:#020502;
+  box-shadow:inset 0 0 0 2px #111;
+}
+.display-stat span,.display-mode span{
+  font-size:10px;
+  letter-spacing:1px;
+}
+.display-stat b{
+  font-size:42px;
+  line-height:43px;
+  letter-spacing:-2px;
+}
+.display-mode{gap:2px}
+.display-mode b{
+  font-size:14px;
+  line-height:17px;
+}
+.display-download{
+  width:50px!important;height:50px!important;min-height:50px!important;
+  font-size:30px!important;
+}
+.preview-progress{
+  height:12px;
+  margin:7px 1px 5px;
+  background:#fff;
+}
+.preview-progress-fill{
+  background:#000080;
+}
+.preview-controls{
+  grid-template-columns:1fr 1fr 1.35fr 1fr 1.2fr 1.2fr;
+  gap:4px;
+  margin-top:5px;
+}
+.preview-controls button{
+  min-height:34px;
+  font-size:15px;
+  padding:2px 4px;
+}
+.preview-controls .preview-play{
+  min-width:0;
+  font-size:17px;
+}
+.preview-bottom{
+  margin-top:6px;
+  padding-top:5px;
+  border-top:1px solid #808080;
+}
+.preview-speed,.preview-volume{font-size:11px}
+.preview-speed button{
+  min-width:46px;
+  min-height:25px;
+  padding:2px 6px;
+  font-size:12px;
+}
+.preview-volume{min-width:220px}
+.preview-volume input{width:155px}
+.preview-meta{
+  margin-top:5px;
+  padding:3px 5px;
+  background:#c0c0c0;
+  border:0;
+  font-size:10px;
+  color:#333;
+}
+.preview-actions{margin-top:5px}
+.preview-actions button{
+  min-height:28px;
+  font-size:11px;
+}
+.preview-window.preview-maximized{
+  width:calc(100vw - 16px);
+  height:calc(100vh - 16px);
+}
+.preview-window.preview-maximized .preview-main{
+  height:calc(100% - 28px);
+}
+@media(max-width:600px){
+  .preview-window{width:calc(100vw - 6px)}
+  .preview-menu span{padding-left:6px;padding-right:6px}
+  .preview-display{
+    grid-template-columns:52px 52px 52px minmax(0,1fr) 43px;
+    gap:3px;padding:5px;min-height:75px;
+  }
+  .display-stat b{font-size:28px;line-height:30px}
+  .display-mode b{font-size:9px;line-height:11px}
+  .display-download{width:38px!important;height:38px!important;min-height:38px!important;font-size:24px!important}
+  .preview-controls{grid-template-columns:repeat(4,1fr)}
+  .preview-controls button:nth-child(5),.preview-controls button:nth-child(6){grid-column:span 2}
+  .preview-bottom{align-items:flex-start;flex-direction:column}
+  .preview-volume{width:100%;min-width:0}
+  .preview-volume input{flex:1;width:auto}
+}
