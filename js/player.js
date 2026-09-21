@@ -209,7 +209,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   let drag=false,dx=0,dy=0;
   const title=w.querySelector('.preview-title');
   title.addEventListener('pointerdown',e=>{
-    if(e.target.closest('button')||w.classList.contains('preview-maximized'))return;
+    if(e.target.closest('button'))return;
     drag=true;
     const r=w.getBoundingClientRect();
     dx=e.clientX-r.left;dy=e.clientY-r.top;
