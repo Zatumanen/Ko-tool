@@ -129,12 +129,28 @@ export function createSampleMemory({
         '</button>';
     }).join('');
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
+      const slot=slots[Number(row.dataset.slot)-1];
       row.onclick=()=>{
-        selectedId=Number(row.dataset.slot);
+        selectedId=slot.id;
         render();
         renderInfo();
-        onSelect?.(slots[selectedId-1]);
+        onSelect?.(slot);
+        if(slot.file)onPlay?.(slot);
       };
+      row.addEventListener('dragover',event=>{
+        event.preventDefault();
+        event.dataTransfer.dropEffect='copy';
+        row.classList.add('dragover');
+      });
+      row.addEventListener('dragleave',event=>{
+        if(event.relatedTarget&&row.contains(event.relatedTarget))return;
+        row.classList.remove('dragover');
+      });
+      row.addEventListener('drop',async event=>{
+        event.preventDefault();
+        row.classList.remove('dragover');
+        await onDrop?.(slot,event);
+      });
     });
     renderInfo();
   };
