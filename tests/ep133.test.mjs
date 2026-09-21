@@ -11,3 +11,18 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   for(const sku of ['TE032AS001','TE032AS002','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
+
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS}from '../js/ep133/sampleMemory.js';
+test('sample memory creates 999 slots and maps sound node id to slot',()=>{
+  const slots=createSampleSlots([
+    {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
+    {nodeId:137,fileName:'/sounds/bass.wav',fileSize:5678},
+    {nodeId:1000,fileName:'/sounds/ignored.wav',fileSize:1},
+    {nodeId:50,fileName:'/other/file.wav',fileSize:1}
+  ]);
+  assert.equal(slots.length,EP_SAMPLE_SLOT_COUNT);
+  assert.equal(slots[0].file.name,'kick.wav');
+  assert.equal(slots[136].file.name,'bass.wav');
+  assert.equal(slots[2].file,null);
+  assert.deepEqual(DEFAULT_SAMPLE_TABS.map(x=>x.range),[[1,99],[100,199],[200,299],[300,399],[400,499],[500,599],[600,699],[700,799],[800,899],[900,999]]);
+});
