@@ -66,7 +66,7 @@ export async function getFile(nodeId,onProgress){
   view.setUint16(2,nodeId);
   view.setUint32(4,0);
   const start=await requestRead(TE_SYSEX_FILE,init);
-  if(start.rawData.length<7)throw new Error('Invalid EP-133 FILE_GET init response.');
+  if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');
   const fileSize=u32(start.rawData,3);
   const fileName=parseNullTerminatedString(start.rawData,7);
   const chunks=[];
