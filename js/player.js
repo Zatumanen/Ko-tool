@@ -1,4 +1,3 @@
-const WINPLAY3_SKIN='https://commons.wikimedia.org/wiki/Special:Redirect/file/WinPlay3_screenshot.gif';
 export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   const old=document.getElementById('preview-window'); if(old) old.remove();
   const result=item.result||{}, rate=result.sampleRate||44100, bits=result.bitDepth||16, channels=result.channels||2;
