@@ -362,3 +362,13 @@
 .ep133-file-browser{min-height:0;border:2px inset var(--win-dark);background:#fff;display:flex;flex-direction:column}.ep133-file-browser-title{padding:5px 7px;font-weight:bold;border-bottom:1px solid #aaa;background:var(--win-gray)}
 .ep133-file-list{min-height:180px;max-height:430px;overflow:auto;padding:3px}.ep133-file-row{display:grid;grid-template-columns:42px minmax(0,1fr) 90px;gap:7px;align-items:center;padding:5px 6px;border-bottom:1px solid #eee;font-size:12px}.ep133-file-row:hover{background:#dbe8ff}.ep133-file-type{font-size:10px;color:#555}.ep133-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-file-size{text-align:right}.ep133-empty{padding:18px 8px;color:#666;text-align:center}.ep133-safety{font-size:10px;color:#555}
 @media(max-width:600px){.ep133-browser{padding:6px}.ep133-browser-window{width:100%;max-height:94vh}.ep133-device-head{align-items:stretch;flex-direction:column}.ep133-actions{width:100%}.ep133-actions button{flex:1}.ep133-file-list{max-height:55vh}.ep133-file-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}}
+
+/* My EP desktop app */
+.my-ep-icon{left:112px}
+.my-ep-icon i{font-size:31px}
+.my-ep-icon:hover{background:rgba(255,255,255,.2)}
+.my-ep-window{width:min(760px,96vw);max-height:min(680px,92vh)}
+@media(max-width:600px){
+  .my-ep-icon{left:100px}
+  .my-ep-window{width:100%;max-height:94vh}
+}

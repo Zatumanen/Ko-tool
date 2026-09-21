@@ -19,7 +19,7 @@ function renderFiles(files){
 }
 
 export function initEp133Browser({showError}={}){
-  const open=$('ep133-button'),panel=$('ep133-browser'),close=$('ep133-close'),connect=$('ep133-connect'),refresh=$('ep133-refresh');
+  const open=$('my-ep-icon'),panel=$('ep133-browser'),close=$('ep133-close'),connect=$('ep133-connect'),refresh=$('ep133-refresh');
   if(!open||!panel||!connect)return;
   const setStatus=t=>{$('ep133-status').textContent=t};
   const setDevice=t=>{$('ep133-device').textContent=t};
@@ -29,7 +29,18 @@ export function initEp133Browser({showError}={}){
     panel.setAttribute('aria-hidden','true');
     if(isConnected())disconnectEp133();
   };
-  open.onclick=()=>{panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
+  const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
+  open.onclick=()=>{
+    if(isMobileDevice()){
+      showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');
+      return;
+    }
+    panel.style.display='flex';panel.setAttribute('aria-hidden','false');
+  };
+  open.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    e.preventDefault();open.click();
+  });
   close.onclick=closePanel;
   connect.onclick=async()=>{
     setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');

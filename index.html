@@ -4,12 +4,13 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="css/base.css?v=20260921-17">
+<link rel="stylesheet" href="css/base.css?v=20260922-1">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
 <div class="desktop-apps" id="desktop-apps">
   <div class="app-icon" id="app-icon" title="Open SpeedUpperCut" role="button" tabindex="0" aria-label="Open SpeedUpperCut"><i class="fas fa-bolt"></i><span>SpeedUpperCut</span></div>
+  <div class="app-icon my-ep-icon" id="my-ep-icon" title="Open My EP" role="button" tabindex="0" aria-label="Open My EP"><i class="fas fa-folder-open"></i><span>My EP</span></div>
   <main class="window" id="main-window">
     <div class="title-bar"><span>SpeedUpperCut</span><div class="window-controls"><button class="minimize" type="button" aria-label="Minimize window">_</button><button class="close" type="button" aria-label="Close window">×</button></div></div>
     <div class="content">
@@ -25,10 +26,9 @@
       <div class="drop-zone" id="drop-zone"><i class="fas fa-cloud-upload-alt"></i><strong>DRAG AND DROP AUDIO FILES/FOLDERS</strong><span>or click to select files</span><small>WAV, MP3, AAC, OGG, FLAC, M4A</small><input accept=".wav,.mp3,.aac,.ogg,.flac,.m4a,audio/*" id="audio-upload" multiple type="file"></div>
       <input id="folder-upload" multiple type="file" webkitdirectory style="display:none">
       <div class="button-group"><button id="select-file-button" type="button">Select Files</button><button id="select-folder-button" type="button">Select Folder</button><button id="clear-button" type="button">Clear</button></div>
-      <div class="ep133-connect-row"><button id="ep133-button" type="button">EP SERIES DEVICE</button></div>
-<div id="ep133-browser" class="ep133-browser" aria-hidden="true">
-  <div class="ep133-browser-window" role="dialog" aria-modal="true" aria-labelledby="ep133-browser-title">
-    <div class="title-bar"><span id="ep133-browser-title">EP SERIES DEVICE BROWSER</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
+      <div id="ep133-browser" class="ep133-browser" aria-hidden="true">
+  <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="true" aria-labelledby="ep133-browser-title">
+    <div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
     <div class="ep133-browser-body">
       <div class="ep133-device-head">
         <div><strong id="ep133-device">NO DEVICE</strong><span id="ep133-status">NOT CONNECTED</span></div>
@@ -53,5 +53,5 @@
   <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
-<script type="module" src="js/app.js?v=20260921-16"></script>
+<script type="module" src="js/app.js?v=20260922-1"></script>
 </body></html>
