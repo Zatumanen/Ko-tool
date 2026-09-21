@@ -239,3 +239,24 @@
   .start-submenu-content{max-height:calc(100vh - 95px)!important}
 }
 .preview-actions{display:none!important}
+
+
+/* Accessibility: preserve the existing Win95 visuals while making keyboard focus visible. */
+.list-item:focus-visible,
+.drop-zone:focus-visible,
+.app-icon:focus-visible,
+.start-menu-item:focus-visible,
+.preview-menu-button:focus-visible,
+.preview-controls button:focus-visible,
+.preview-speed button:focus-visible,
+.preview-download:focus-visible,
+.preview-progress:focus-visible,
+.window-controls button:focus-visible,
+.button-group button:focus-visible,
+#cancel-button:focus-visible,
+#error-ok:focus-visible,
+#error-close:focus-visible{
+  outline:1px dotted #000;
+  outline-offset:-3px;
+}
+.drop-zone.dragover{outline:2px dashed #000;outline-offset:-4px}
