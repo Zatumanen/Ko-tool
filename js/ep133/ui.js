@@ -1,5 +1,5 @@
 import{connectEp133,disconnectEp133,isConnected}from './index.js';
-import{listDeviceFiles,getFileMetadata,uploadSampleToSlot,startPlayback}from './filesystem.js';
+import{listDeviceFiles,getFileMetadata,uploadSampleToSlot,startPlayback,normalizeFileName}from './filesystem.js';
 import{prepareEp133Sample}from './audio.js';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
@@ -20,7 +20,15 @@ export function initEp133Browser({showError}={}){
   const setBusy=b=>{connect.disabled=b;refresh.disabled=b;};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
-  const getDroppedFile=event=>{\n    const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');\n    if(resultId){\n      const item=window.__speedUpperCutFiles?.get(resultId);\n      if(item?.result?.blob)return new File([item.result.blob],item.outputName||item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav',{type:'audio/wav'});\n    }\n    const file=event.dataTransfer?.files?.[0];\n    return file||null;\n  };
+  const getDroppedFile=event=>{
+    const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
+    if(resultId){
+      const item=window.__speedUpperCutFiles?.get(resultId);
+      if(item?.result?.blob)return new File([item.result.blob],item.outputName||item.file.name.replace(/\.[^.]+$/,'')+'_x2.wav',{type:'audio/wav'});
+    }
+    const file=event.dataTransfer?.files?.[0];
+    return file||null;
+  };
 
   let soundsParentId=0;
   const memory=createSampleMemory({
@@ -44,9 +52,10 @@ export function initEp133Browser({showError}={}){
         const prepared=await prepareEp133Sample(file,{onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
         const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format};
         await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
-        slot.file={name:String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase(),path:'/sounds/'+String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase(),size:prepared.data.byteLength};
+        const normalizedName=normalizeFileName(file.name);
+        slot.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
         slot.nodeId=slot.id;
-        slot.meta={...metadata,name:String(file.name).replace(/\\.[^.]+$/,'').slice(0,16).toLowerCase()};
+        slot.meta={...metadata,name:normalizedName};
         memory.refresh();
         setSlotStatus(slot,'WRITTEN');
       }catch(error){setSlotStatus(slot,'WRITE ERROR');showError?.(error?.message||error);}
@@ -165,7 +174,7 @@ export function initEp133Browser({showError}={}){
       const device=await connectEp133();
       const meta=device.metadata||{};
       setDevice(meta.product||device.sku||'EP SERIES');
-      setStatus('CONNECTED · READ ONLY');
+      setStatus('CONNECTED · READ/WRITE');
       await readDevice();
     }catch(e){
       setStatus('NOT CONNECTED');
