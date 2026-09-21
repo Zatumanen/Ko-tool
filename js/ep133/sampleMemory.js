@@ -64,7 +64,7 @@ export function createSampleMemory({
     return (size/1024/1024).toFixed(2)+' MB';
   };
 
-  const slotName=slot=>slot?.meta?.name||slot?.file?.name||'EMPTY';
+  const slotName=slot=>slot?.file?.name||'';
 
   const visible=()=>{
     const tab=DEFAULT_SAMPLE_TABS[activeTab];
@@ -99,7 +99,7 @@ export function createSampleMemory({
       return;
     }
     const occupied=!!slot.file;
-    const name=occupied?slotName(slot):'EMPTY';
+    const name=occupied?slotName(slot):'';
     const metadata=slot.meta||{};
     infoEl.innerHTML=
       '<div class="ep133-slot-info-head"><strong>SLOT '+String(slot.id).padStart(3,'0')+'</strong><span>'+escapeHtml(name)+'</span></div>'+
@@ -120,7 +120,7 @@ export function createSampleMemory({
       const occupied=!!slot.file;
       return '<button type="button" class="ep133-sample-row'+selected+'" data-slot="'+slot.id+'">'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
-        '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'EMPTY')+'</span>'+
+        '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'')+'</span>'+
         '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
         '</button>';
     }).join('');
