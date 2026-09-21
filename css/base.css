@@ -206,3 +206,24 @@
   .preview-volume{width:100%;min-width:0}
   .preview-volume input{flex:1;width:auto}
 }
+
+/* Requested UI fixes */
+.start-menu{max-height:calc(100vh - 46px);overflow:visible}
+.start-submenu{max-height:calc(100vh - 70px);overflow:hidden}
+.start-submenu-content{max-height:calc(100vh - 125px);overflow:auto}
+@media(max-width:600px){
+  .start-menu{left:3px;bottom:39px;max-height:calc(100vh - 48px)}
+  .start-submenu{position:fixed!important;left:195px!important;top:8px!important;bottom:39px!important;width:calc(100vw - 202px)!important;max-height:none!important;height:calc(100vh - 47px)!important;overflow:hidden!important}
+  .start-submenu-content{max-height:calc(100vh - 95px)!important;overflow:auto!important}
+}
+.preview-maximize{display:none!important}
+.preview-menu-button{background:transparent;border:0;padding:2px 4px;margin:0;font:inherit;color:#000;cursor:pointer}
+.preview-menu-button:hover{background:#000080;color:#fff}
+.preview-options-popup{position:absolute;z-index:80;left:55px;top:45px;min-width:190px;padding:6px;background:var(--win-gray);color:#000;border:2px outset var(--win-gray);box-shadow:3px 3px 6px rgba(0,0,0,.45)}
+.preview-options-popup[hidden]{display:none}
+.preview-options-row{display:flex;align-items:center;gap:6px;padding:4px 2px}
+.preview-options-row b{min-width:58px}
+.preview-options-row button{min-height:25px;padding:2px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:12px "Courier New",monospace;cursor:pointer}
+.preview-options-row button.selected{border-style:inset;background:#fff}
+.preview-options-row input{width:100px}
+.preview-meta{display:none!important}
