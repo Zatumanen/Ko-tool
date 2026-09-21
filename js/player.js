@@ -1,252 +1,27 @@
+const WINPLAY3_SKIN='data:image/gif;base64,R0lGODlhEwGYAPcAAAAAAAAAhAAA/wD/AISEhMbGxv8AAP8A////AP///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////ywAAAAAEwGYAAAI/gABCBxIsKDBgwgTKlzIsKHDhxAjSpxIsaLFiwEyatzIsaPHjyBDihxJsqTJkyhTqlzJsuVKgRkFyEQQQKZMAzhtCnDJs6fPn0CDCh06EmbNmQhu4lx6QCbRp1CjSn36r6rVq1gBYN16FUBGrmC9BjBqM2mBpQIO4CzgdKrbt3DjevxXoK7du3YJaMXLt67er335/h0rtqzMszbVGmj69d/HqgEgz8Xa2ORVuZgzr6Qb+K5ezgRCixbtVyznzqUzkp1p2GbOnZEdTxYpObZtkpJra97Ney7qvHsLjB5Od/BpgXeRCxe7WkBSnUoNtL2dW3bI2pB1l9Teu/vu06g//vvlSqC46eQA6ipfrrqwgALPdS5lC5u67OqxrVauXB2/du7eBRgXeJ2JJxyBB7IXGV4EecZcYQhECJ0A87GlEX725WfbVvtd6Fh21ukn4IiYIdiXgeUJZh5gDKbnYHsZhRZhfPIZYKGHHPJ334fWediYfiByBCCJRBJlomDBpYhXisa1uJ6CZBGAAAETyqRYfflRpuOWQvK45X89FinmUEcumSSCTJ5nl3LrDdZcla5J12WHG+5420ZB2mfnnWP2CdRxBTkIGporLqiei4emRlhM0L0WJ5YZ+uhfmHpi+COlfmbaEqANAgfacKIVWuaLix5VI30USgfpW0Nq6ipP/qN6ahdYov6m6JvRLfWaXCK+6utP/4Aq7GfDgmpascM9yOiEuur067PQtnfRQdI2BKOpcEIX7bbcamZUt+CGK+C05JZr7rnopqvuuuTa6u678MYr77z01mvvvfjmq++7T+7r778AByzwwAQT3G/BCCes8MIMN9zZwQ5HLPHEFFfMF8SBpoeovJ2itrHFIIdM8cYfr2krxn2V7C7Jgaks8sswJ8xyyierbDO9M18c8848F5wzgzXTnFwBLg7E79BEG5000YcWvXSiPUctNdAmN61e0hjbrLTGTF99MtKIcs102E+L7fLUaIdskNdjd+32mjcPrXHHHoNtstNkk/12/tp8vzxzxm6XjLLce39ddd5XI8722X037vDfQOuNntB3B76y3YlnrnnbhTvuOcOQZy453JRrrvTKp3dsNpuHM/756wPnvDXWWkvsOuy4v874wWvbi1DnuQfv90EPe3y78MgnD/rxyjfvPMAQPy/99Puya/312Gev/fbk0ur99+CHL/745Jdv/vnop6/++uzTKlD78Mcv//z012///d/rpVWs1Pfvf4H6q8r/BkjA34TmffwroAKld8D9LfCBBWygACFIwf5JkEDIyqAGN8jBDnrwgyAMoQhHOMKoXXBJJEyhClfIwha68IWhMWEAMag/7tnwhji83gR5dkLP1DCH/kAMohAlssOd9TAvPxTIAJa4RAAwcQADYWIUm+hEJUIEilaUIharOBEpOtGLXkzXFrFIRTCGcYgO7NkR/ZLEKLoxi24cIxe32JAmllGJZOxiHAkiRzFC0Y5wrCId0YhAGRbShwjpoyD3yEcuPuSPc4TjIB0ySDpOEl2QhOQiN0nIgRQxZmsUThutiMcyPtGReJRIH/P4RYqYkZXskmMeZ0nFTn4SZqFsoEFk+UZOBvKRb4TlJa+IymGai5eb1GQnD8nDGaIwkcEkJSc1acyDrFKa1UwIMrGpLmRSE5W2PBL+tgJAZrIRmtxc5R3BuRBZAlKaEXklGWuJyWDO857Z/rThLesyzqsQoJxpROIyB0rQHO6z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';
 export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
-  const old=document.getElementById('preview-window');
-  if(old) old.remove();
-
-  const w=document.createElement('div');
-  w.id='preview-window';
-  w.className='preview-window';
-  const result=item.result||{};
-  const quality={cd:'CD',sp8:'SP-1200',sp16:'MPC 2000XL',sk:'SK-1'}[item.fidelity]||'CD';
-  const ch=result.channels===1?'MONO':'STEREO';
-  const rate=result.sampleRate||44100;
-  const bits=result.bitDepth||16;
-  const kbps=Math.round(rate*bits*(result.channels||2)/1000);
-  const mode=item.playmode==='loop'?'LOOP':'ONE';
-
-  w.innerHTML=`
-    <div class="preview-title" title="Drag to move">
-      <span class="preview-brand">WinPlay3</span>
-      <div class="window-controls">
-        <button type="button" class="preview-minimize" aria-label="Minimize">_</button>
-        <button type="button" class="preview-maximize" aria-label="Maximize">□</button>
-        <button type="button" class="preview-close" aria-label="Close">×</button>
-      </div>
-    </div>
-    <div class="preview-menu">
-      <button type="button" class="preview-menu-item preview-file-menu">File</button>
-      <button type="button" class="preview-menu-item preview-options-menu">Options</button>
-      <button type="button" class="preview-menu-item preview-help-menu">Help</button>
-    </div>
-    <div class="preview-body">
-      <div class="preview-file" title="${esc(item.file.name)}">${esc(item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav')}</div>
-      <div class="preview-main">
-        <div class="preview-display">
-          <div class="display-stat"><span>TRACK</span><b>1</b></div>
-          <div class="display-stat"><span>MIN</span><b class="preview-min">00</b></div>
-          <div class="display-stat"><span>SEC</span><b class="preview-sec">00</b></div>
-          <div class="display-mode">
-            <span>MODE</span>
-            <b>${(rate/1000).toFixed(rate%1000?'3':'1')}kHz ${kbps}Kbit/s</b>
-            <b>${quality} ${ch} ${mode}</b>
-          </div>
-          <button type="button" class="preview-download display-download" title="Download WAV" aria-label="Download WAV">↓</button>
-        </div>
-        <div class="preview-progress" role="slider" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
-          <div class="preview-progress-fill"></div>
-        </div>
-        <div class="preview-controls">
-          <button type="button" class="preview-play" title="Play">▶</button>
-          <button type="button" class="preview-stop" title="Stop">■</button>
-          <button type="button" class="preview-pause" title="Pause">Ⅱ</button>
-          <button type="button" class="preview-back5" title="Rewind 5 seconds">|&lt;&lt;</button>
-          <button type="button" class="preview-forward5" title="Forward 5 seconds">&gt;&gt;|</button>
-        </div>
-        <div class="preview-options-panel" hidden>
-          <span>PLAYBACK</span>
-          <button type="button" data-rate="1">1×</button>
-          <button type="button" data-rate="0.5" class="selected">0.5×</button>
-          <span>VOL</span>
-          <input type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
-        </div>
-        <div class="preview-statusline">
-          <span>${(rate/1000).toFixed(rate%1000?'3':'1')}kHz</span><span>${bits}-bit</span><span>${ch}</span><span>${mode}</span>
-        </div>
-      </div>
-    </div>`;
+  const old=document.getElementById('preview-window'); if(old) old.remove();
+  const result=item.result||{}, rate=result.sampleRate||44100, bits=result.bitDepth||16, channels=result.channels||2;
+  const quality=({cd:'CD',sp8:'SP-1200',sp16:'MPC 2000XL',sk:'SK-1'})[item.fidelity]||'CD', ch=channels===1?'MONO':'STEREO', mode=item.playmode==='loop'?'LOOP':'ONE', kbps=Math.round(rate*bits*channels/1000);
+  const w=document.createElement('div'); w.id='preview-window'; w.className='preview-window';
+  w.innerHTML='<div class="preview-surface"><img class="preview-skin" src="'+WINPLAY3_SKIN+'" alt="" draggable="false"><div class="wp-title-drag"></div><button class="wp-hit wp-min"></button><button class="wp-hit wp-max"></button><button class="wp-hit wp-close"></button><button class="wp-hit wp-file"></button><button class="wp-hit wp-options"></button><button class="wp-hit wp-help"></button><div class="wp-dynamic wp-track">1</div><div class="wp-dynamic wp-minutes">00</div><div class="wp-dynamic wp-seconds">00</div><div class="wp-dynamic wp-mode"><span id="wp-rate"></span><span id="wp-quality"></span></div><button class="wp-hit wp-download"></button><button class="wp-hit wp-play"></button><button class="wp-hit wp-stop"></button><button class="wp-hit wp-pause"></button><button class="wp-hit wp-back5"></button><button class="wp-hit wp-forward5"></button><div class="wp-hit wp-seek" tabindex="0"></div><div class="wp-popup wp-file-popup" hidden><button data-action="download">Save WAV</button><button data-action="close">Close</button></div><div class="wp-popup wp-options-popup" hidden><div>Playback <button data-rate="1">1×</button> <button data-rate="0.5">0.5×</button></div><div>Volume <input type="range" min="0" max="1" step="0.01" value="1"></div></div><div class="wp-popup wp-help-popup" hidden><div>Space — Play / Pause</div><div>← / → — 5 seconds</div><div>Home / End — Start / End</div><div>Esc — Close</div></div></div>';
   document.body.appendChild(w);
-
-  const currentMin=w.querySelector('.preview-min');
-  const currentSec=w.querySelector('.preview-sec');
-  const fill=w.querySelector('.preview-progress-fill');
-  const bar=w.querySelector('.preview-progress');
-  const play=w.querySelector('.preview-play');
-  const pause=w.querySelector('.preview-pause');
-  const volume=w.querySelector('.preview-options-panel input');
-  const ctx=state.ctx||createAudioContext();
-  state.ctx=ctx;
-
-  let buffer=null;
-  let source=null;
-  let gain=null;
-  let ratePlay=.5;
-  let offset=0;
-  let startedAt=0;
-  let playing=false;
-  let raf=0;
-
-  const filename=()=>item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav';
-  const fmt=s=>{
-    s=Number.isFinite(s)?Math.max(0,s):0;
-    return {m:String(Math.floor(s/60)).padStart(2,'0'),s:String(Math.floor(s%60)).padStart(2,'0')};
-  };
-  const pos=()=>{
-    if(!buffer)return 0;
-    return playing?Math.min(buffer.duration,offset+(ctx.currentTime-startedAt)*ratePlay):Math.min(buffer.duration,offset);
-  };
-  const sync=()=>{
-    const p=fmt(pos());
-    const d=buffer?.duration||0;
-    const ratio=d?Math.min(1,pos()/d):0;
-    currentMin.textContent=p.m;
-    currentSec.textContent=p.s;
-    fill.style.width=(ratio*100)+'%';
-    bar.setAttribute('aria-valuenow',String(Math.round(ratio*100)));
-    play.classList.toggle('selected',playing);
-    pause.classList.toggle('selected',!playing);
-    if(playing)raf=requestAnimationFrame(sync);
-  };
-  const stopSource=()=>{
-    if(source){
-      source.onended=null;
-      try{source.stop()}catch(e){}
-      source.disconnect();
-      source=null;
-    }
-    if(gain){gain.disconnect();gain=null}
-    playing=false;
-    cancelAnimationFrame(raf);
-  };
-  const start=()=>{
-    if(!buffer)return;
-    if(offset>=buffer.duration)offset=0;
-    ctx.resume?.();
-    source=ctx.createBufferSource();
-    source.buffer=buffer;
-    source.playbackRate.value=ratePlay;
-    gain=ctx.createGain();
-    gain.gain.value=Number(volume.value);
-    source.connect(gain).connect(ctx.destination);
-    startedAt=ctx.currentTime;
-    playing=true;
-    source.onended=()=>{
-      if(!playing)return;
-      if(item.playmode==='loop'){
-        offset=0;
-        stopSource();
-        start();
-        return;
-      }
-      offset=buffer.duration;
-      stopSource();
-      sync();
-    };
-    source.start(0,offset);
-    sync();
-  };
-  const seek=p=>{
-    if(!buffer)return;
-    const was=playing;
-    stopSource();
-    offset=Math.max(0,Math.min(buffer.duration,p));
-    sync();
-    if(was)start();
-  };
-  const barSeek=e=>{
-    if(!buffer)return;
-    const r=bar.getBoundingClientRect();
-    seek((e.clientX-r.left)/r.width*buffer.duration);
-  };
-  const togglePlay=()=>{
-    if(!buffer)return;
-    if(playing){offset=pos();stopSource();sync();}else start();
-  };
-  const pausePlayback=()=>{
-    if(!buffer||!playing)return;
-    offset=pos();
-    stopSource();
-    sync();
-  };
-  const close=()=>{
-    stopSource();
-    w.remove();
-    window.removeEventListener('keydown',onKey);
-  };
-  const onKey=e=>{
-    if(!document.body.contains(w))return;
-    if(e.key==='Escape'){e.preventDefault();close();return}
-    if(e.target.matches('input,button'))return;
-    if(e.code==='Space'){e.preventDefault();togglePlay();return}
-    if(e.key==='ArrowLeft'){e.preventDefault();seek(pos()-5);return}
-    if(e.key==='ArrowRight'){e.preventDefault();seek(pos()+5);return}
-    if(e.key==='Home'){e.preventDefault();seek(0);return}
-    if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
-  };
-
-  play.onclick=()=>{if(!playing)start()};
-  pause.onclick=pausePlayback;
-  w.querySelector('.preview-stop').onclick=()=>{stopSource();offset=0;sync()};
-  w.querySelector('.preview-back5').onclick=()=>seek(pos()-5);
-  w.querySelector('.preview-forward5').onclick=()=>seek(pos()+5);
-  bar.onclick=barSeek;
-  bar.onkeydown=e=>{
-    if(e.key==='ArrowLeft'){e.preventDefault();seek(pos()-5)}
-    if(e.key==='ArrowRight'){e.preventDefault();seek(pos()+5)}
-    if(e.key==='Home'){e.preventDefault();seek(0)}
-    if(e.key==='End'){e.preventDefault();seek(buffer?.duration||0)}
-  };
-  w.querySelector('.preview-options-menu').onclick=()=>{
-    const panel=w.querySelector('.preview-options-panel');
-    panel.hidden=!panel.hidden;
-  };
-  w.querySelector('.preview-help-menu').onclick=()=>{
-    w.querySelector('.preview-file').title='Space: play/pause · ←/→: ±5 sec · Home/End: jump · Esc: close';
-  };
-  w.querySelector('.preview-file-menu').onclick=()=>saveBlob(item.result.blob,filename());
-  w.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{
-    const p=pos(),was=playing;
-    stopSource();
-    offset=p;
-    ratePlay=Number(b.dataset.rate);
-    w.querySelectorAll('[data-rate]').forEach(x=>x.classList.toggle('selected',x===b));
-    sync();
-    if(was)start();
-  });
-  volume.oninput=e=>{if(gain)gain.gain.value=Number(e.target.value)};
-  w.querySelector('.preview-download').onclick=()=>saveBlob(item.result.blob,filename());
-  w.querySelector('.preview-close').onclick=close;
-  w.querySelector('.preview-minimize').onclick=()=>w.classList.toggle('preview-minimized');
-  w.querySelector('.preview-maximize').onclick=()=>{
-    const maximized=w.classList.toggle('preview-maximized');
-    if(maximized){w.style.left='8px';w.style.top='8px';w.style.transform='none';}
-    else{w.style.left='50%';w.style.top='50%';w.style.transform='translate(-50%,-50%)';}
-  };
-
-  let drag=false,dx=0,dy=0;
-  const title=w.querySelector('.preview-title');
-  title.addEventListener('pointerdown',e=>{
-    if(e.target.closest('button')||w.classList.contains('preview-maximized'))return;
-    drag=true;
-    const r=w.getBoundingClientRect();
-    dx=e.clientX-r.left;dy=e.clientY-r.top;
-    w.style.transform='none';
-    title.setPointerCapture?.(e.pointerId);
-  });
-  title.addEventListener('pointermove',e=>{
-    if(!drag)return;
-    w.style.left=Math.max(0,Math.min(window.innerWidth-w.offsetWidth,e.clientX-dx))+'px';
-    w.style.top=Math.max(0,Math.min(window.innerHeight-w.offsetHeight,e.clientY-dy))+'px';
-  });
-  title.addEventListener('pointerup',()=>drag=false);
-  title.addEventListener('pointercancel',()=>drag=false);
-  title.addEventListener('dblclick',e=>{if(!e.target.closest('button'))w.querySelector('.preview-maximize').click()});
-
-  window.addEventListener('keydown',onKey);
-
-  Promise.resolve(item.result?.buffer).then(decoded=>{
-    if(!decoded)throw Error('Processed audio buffer is unavailable.');
-    buffer=decoded;
-    sync();
-  }).catch(e=>{
-    w.querySelector('.preview-statusline').textContent='Preview error: '+(e?.message||e);
-  });
+  const q=s=>w.querySelector(s); q('#wp-rate').textContent=(rate/1000).toFixed(rate%1000?'3':'1')+' kHz  '+kbps+' kbit/s'; q('#wp-quality').textContent=quality+' '+ch+' '+mode;
+  const ctx=state.ctx||(state.ctx=createAudioContext()); let buffer=result.buffer||null,source=null,gain=null,ratePlay=.5,offset=0,startedAt=0,playing=false,raf=0;
+  const minEl=q('.wp-minutes'),secEl=q('.wp-seconds'),seek=q('.wp-seek'),vol=q('.wp-options-popup input'),filename=()=>item.file.name.replace(/\.[^.]+$/,'')+'_x2.wav';
+  const pos=()=>!buffer?0:playing?Math.min(buffer.duration,offset+(ctx.currentTime-startedAt)*ratePlay):Math.min(buffer.duration,offset);
+  const sync=()=>{const p=pos();minEl.textContent=String(Math.floor(p/60)).padStart(2,'0');secEl.textContent=String(Math.floor(p%60)).padStart(2,'0');seek.setAttribute('aria-valuenow',String(buffer&&buffer.duration?Math.round(p/buffer.duration*100):0));if(playing)raf=requestAnimationFrame(sync)};
+  const stopSource=()=>{if(source){source.onended=null;try{source.stop()}catch(e){}source.disconnect();source=null}if(gain){gain.disconnect();gain=null}playing=false;cancelAnimationFrame(raf)};
+  const start=()=>{if(!buffer)return;if(offset>=buffer.duration)offset=0;ctx.resume?.();source=ctx.createBufferSource();source.buffer=buffer;source.playbackRate.value=ratePlay;gain=ctx.createGain();gain.gain.value=+vol.value;source.connect(gain).connect(ctx.destination);startedAt=ctx.currentTime;playing=true;source.onended=()=>{if(!playing)return;if(item.playmode==='loop'){offset=0;stopSource();start();return}offset=buffer.duration;stopSource();sync()};source.start(0,offset);sync()};
+  const seekTo=p=>{if(!buffer)return;const was=playing;stopSource();offset=Math.max(0,Math.min(buffer.duration,p));sync();if(was)start()};
+  const close=()=>{stopSource();w.remove();window.removeEventListener('keydown',onKey)};
+  const onKey=e=>{if(!document.body.contains(w))return;if(e.key==='Escape'){close();return}if(e.target.matches('input,button'))return;if(e.code==='Space'){e.preventDefault();playing?seekTo(pos()):start()}else if(e.key==='ArrowLeft')seekTo(pos()-5);else if(e.key==='ArrowRight')seekTo(pos()+5);else if(e.key==='Home')seekTo(0);else if(e.key==='End')seekTo(buffer?buffer.duration:0)};
+  q('.wp-play').onclick=start; q('.wp-pause').onclick=()=>{if(playing)seekTo(pos())}; q('.wp-stop').onclick=()=>{stopSource();offset=0;sync()}; q('.wp-back5').onclick=()=>seekTo(pos()-5); q('.wp-forward5').onclick=()=>seekTo(pos()+5);
+  seek.onclick=e=>{if(!buffer)return;const r=seek.getBoundingClientRect();seekTo((e.clientX-r.left)/r.width*buffer.duration)}; seek.onkeydown=e=>{if(e.key==='ArrowLeft')seekTo(pos()-5);if(e.key==='ArrowRight')seekTo(pos()+5);if(e.key==='Home')seekTo(0);if(e.key==='End')seekTo(buffer?buffer.duration:0)};
+  const popups=[q('.wp-file-popup'),q('.wp-options-popup'),q('.wp-help-popup')],closePopups=()=>popups.forEach(p=>p.hidden=true);
+  q('.wp-file').onclick=()=>{const p=popups[0],open=p.hidden;closePopups();p.hidden=!open}; q('.wp-options').onclick=()=>{const p=popups[1],open=p.hidden;closePopups();p.hidden=!open}; q('.wp-help').onclick=()=>{const p=popups[2],open=p.hidden;closePopups();p.hidden=!open};
+  q('[data-action="download"]').onclick=()=>saveBlob(result.blob,filename()); q('[data-action="close"]').onclick=close; q('.wp-download').onclick=()=>saveBlob(result.blob,filename()); q('.wp-close').onclick=close; q('.wp-min').onclick=()=>w.classList.toggle('preview-minimized'); q('.wp-max').onclick=()=>w.classList.toggle('preview-maximized');
+  q('.wp-options-popup').querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{const p=pos(),was=playing;stopSource();offset=p;ratePlay=+b.dataset.rate;if(was)start()}); vol.oninput=()=>{if(gain)gain.gain.value=+vol.value};
+  let drag=false,dx=0,dy=0; const title=q('.wp-title-drag'); title.onpointerdown=e=>{if(w.classList.contains('preview-maximized'))return;drag=true;const r=w.getBoundingClientRect();dx=e.clientX-r.left;dy=e.clientY-r.top;title.setPointerCapture?.(e.pointerId)}; title.onpointermove=e=>{if(!drag)return;w.style.left=Math.max(0,Math.min(innerWidth-w.offsetWidth,e.clientX-dx))+'px';w.style.top=Math.max(0,Math.min(innerHeight-w.offsetHeight,e.clientY-dy))+'px';w.style.transform='none'}; title.onpointerup=()=>drag=false; title.onpointercancel=()=>drag=false;
+  window.addEventListener('keydown',onKey); sync();
 }
