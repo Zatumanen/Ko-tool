@@ -53,9 +53,15 @@
 <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-list" id="ep133-sample-list"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
 <div class="ep133-safety">Drop an audio file onto a slot to write it to that EP position. Click a sample to preview it on the device.</div></div></section></div></div></div>
 <script>
-const isMyEp=window.name==="my-ep";
+const isMyEp=window.name==="my-ep"||new URLSearchParams(location.search).has("my-ep");
 document.getElementById("desktop-apps")?.toggleAttribute("hidden",isMyEp);
 document.getElementById("my-ep-mode-root")?.toggleAttribute("hidden",!isMyEp);
-if(isMyEp)import("./js/my-ep.js?v=20260922-3");else import("./js/app.js?v=20260922-6");
+if(!isMyEp){
+  const myEp=document.getElementById("my-ep-icon");
+  const openMyEp=()=>{const url=new URL("./",document.baseURI);url.searchParams.set("my-ep","1");const w=window.open(url.href,"my-ep");if(w)w.focus();};
+  myEp?.addEventListener("click",openMyEp);
+  myEp?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openMyEp();}});
+}
+if(isMyEp)import("./js/my-ep.js?v=20260922-4");else import("./js/app.js?v=20260922-7");
 </script>
 </body></html>
