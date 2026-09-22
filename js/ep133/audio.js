@@ -168,7 +168,6 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
     channels=flattened.channels;
   }
   onProgress?.(35,{status:'resampling'});
-  const resampler=await getLibSampleRateModule();
   const output=await resampler.resampleAudioData(inputData,audioMeta.sample_rate,target,inputFormat,'pcm',16,channels);
   const data=output instanceof Uint8Array?output:new Uint8Array(output.buffer||output);
   onProgress?.(80,{status:'encoding'});
