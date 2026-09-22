@@ -4,7 +4,7 @@ const DYNAMIC_LIBRARIES=['libsndfile.wasm','libsamplerate.wasm','libtag.wasm','l
 let modulePromise=null;
 
 async function loadResampleModule(){
-  if(!modulePromise)modulePromise=createResampleModule({dynamicLibraries:DYNAMIC_LIBRARIES});
+  if(!modulePromise)modulePromise=createResampleModule({dynamicLibraries:DYNAMIC_LIBRARIES,locateFile:file=>new URL(`./wasm/${file}`,import.meta.url).href});
   return modulePromise;
 }
 
