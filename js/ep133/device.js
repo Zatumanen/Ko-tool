@@ -63,10 +63,12 @@ function waitForIdentity(timeout=2000){
 }
 
 let requestQueue=Promise.resolve();
+let connectionEpoch=0;
 
 async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
+  const epoch=connectionEpoch;
   const task=requestQueue.then(async()=>{
-    if(!output||!input)throw new Error('EP-series device is not connected.');
+    if(epoch!==connectionEpoch||!output||!input)throw new Error('EP-series device is not connected.');
     const frame=buildTeSysex(command,payload,identityCode,output.id);
     return new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
@@ -120,6 +122,8 @@ export async function connectEp133(){
 }
 
 export function disconnectEp133(){
+  connectionEpoch+=1;
+  requestQueue=Promise.resolve();
   stopListeners();
   for(const p of pending.values())p.reject?.(new Error('Disconnected'));
   pending.clear();
