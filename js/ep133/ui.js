@@ -171,5 +171,5 @@ export function initEp133Browser({showError}={}){
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
   });
   connect?.addEventListener('click',async()=>{setBusy(true);setStatus('CONNECTING...');try{const device=await connectEp133();renderConnection({connected:true,device});await readDevice();}catch(error){renderConnection({connected:false});showError?.(error?.message||error);}finally{setBusy(false);refresh.disabled=!isConnected();}});
-  refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
+  refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
