@@ -162,6 +162,18 @@ export function initEp133Browser({showError}={}){
   };
   renderFiles();
   renderFileInfo();
+  // Match the reference MIDI lifecycle: request MIDI immediately so an
+  // already-connected EP-133 is discovered without requiring a statechange.
+  const autoConnect=async()=>{
+    if(isConnected())return;
+    try{
+      await connectEp133();
+    }catch(error){
+      // No device / denied MIDI is intentionally silent here. The reference
+      // keeps checking for devices instead of requiring a Connect button.
+      console.debug('EP auto-connect:',error?.message||error);
+    }
+  };
   let eventRefreshTimer=null;
   const scheduleDeviceRefresh=()=>{
     if(!isConnected()||panel.style.display==='none')return;
@@ -174,5 +186,6 @@ export function initEp133Browser({showError}={}){
     renderConnection(state);
     if(state.connected)readDevice();
   });
+  autoConnect();
   search?.addEventListener('input',()=>memory.refresh());document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
