@@ -98,24 +98,34 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
   const bytes=new Uint8Array(await file.arrayBuffer());
   const ko2Metadata=parseKo2Metadata(bytes);
-  const native=parseNativeWav(bytes);
-  if(native){onProgress?.(100,{status:'ready'});return{data:native.data,channels:native.channels,samplerate:native.rate,format:'s16',metadata:ko2Metadata};}
-  const wavMeta=parseWavAudioMeta(bytes);
-  onProgress?.(0,{status:'decoding'});
-  const decoded=await decode(file,wavMeta?.rate);
-  if(decoded.duration>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
-  if(decoded.numberOfChannels<1||decoded.numberOfChannels>2)throw new Error('EP-133 samples must have 1 or 2 channels.');
-  const {data:interleaved,channels}=flattenAudioBuffer(decoded);
-  const sourceMeta={sample_rate:decoded.sampleRate,channels};
-  const target=targetSampleRate??getTargetSampleRate(sourceMeta,formats);
+  const resampler=await getLibSampleRateModule(wasmUrl);
+  let audioMeta;
+  try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{audioMeta=decodeMetaFallback(bytes);}
+  if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
+  const nativeStart=audioMeta?.extra?.data_start??0;
+  const nativeEnd=audioMeta?.extra?.data_end??0;
+  if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===DEFAULT_SAMPLE_RATE&&(audioMeta.channels===1||audioMeta.channels===2)){
+    onProgress?.(100,{status:'ready'});
+    return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:audioMeta.sample_rate,format:DEVICE_AUDIO_FORMAT,metadata:ko2Metadata};
+  }
+  if((audioMeta.length??0)>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
+  if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
+  const target=targetSampleRate??getTargetSampleRate(audioMeta,formats);
+  let inputData=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),channels=audioMeta.channels,inputFormat=audioMeta.container==='AIFF'?'aiff':'pcm';
+  if(inputFormat==='pcm'){
+    onProgress?.(0,{status:'decoding'});
+    const decoded=await decode(file,audioMeta.sample_rate);
+    const flattened=flattenAudioBuffer(decoded);
+    inputData=flattened.data.buffer;
+    channels=flattened.channels;
+  }
   onProgress?.(35,{status:'resampling'});
-  const converted=await resampleInterleavedFloat32(interleaved,decoded.sampleRate,target,channels,{wasmUrl});
+  const output=await resampler.resampleAudioData(inputData,audioMeta.sample_rate,target,inputFormat,'pcm',16,channels);
+  const data=output instanceof Uint8Array?output:new Uint8Array(output.buffer||output);
   onProgress?.(80,{status:'encoding'});
-  const result=encodePcm16(converted,channels,target);
   onProgress?.(100,{status:'ready'});
-  return {...result,metadata:ko2Metadata};
+  return{data,channels,samplerate:target,format:DEVICE_AUDIO_FORMAT,metadata:ko2Metadata};
 }
-
 export {parseKo2Metadata};
 
 export const EP133_SAMPLE_RATE=DEFAULT_SAMPLE_RATE;
