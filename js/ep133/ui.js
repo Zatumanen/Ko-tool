@@ -8,7 +8,6 @@ export function initEp133Browser({showError}={}){
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
   const connect=document.getElementById('ep133-connect');
-  const refresh=document.getElementById('ep133-refresh');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
   const breadcrumbs=document.getElementById('ep133-breadcrumbs');
@@ -27,7 +26,7 @@ export function initEp133Browser({showError}={}){
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
-  const setBusy=b=>{refresh.disabled=b;};
+  const setBusy=()=>{};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -154,14 +153,10 @@ export function initEp133Browser({showError}={}){
       const meta=state.device?.metadata||{};
       setDevice(meta.product||state.device?.sku||'EP SERIES');
       setStatus('CONNECTED · READ/WRITE');
-      connect.disabled=true;
-      refresh.disabled=false;
       return;
     }
     setDevice('NO DEVICE');
     setStatus('NOT CONNECTED');
-    connect.disabled=false;
-    refresh.disabled=true;
     soundsParentId=0;
     soundFormats=[];
     deviceFiles=[];selectedFile=null;renderFiles();memory.setSlots([]);
@@ -178,8 +173,7 @@ export function initEp133Browser({showError}={}){
 
   onConnectionChange(state=>{
     renderConnection(state);
-    if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
+    if(state.connected)readDevice();
   });
-  connect?.addEventListener('click',async()=>{setBusy(true);setStatus('CONNECTING...');try{const device=await connectEp133();renderConnection({connected:true,device});await readDevice();}catch(error){renderConnection({connected:false});showError?.(error?.message||error);}finally{setBusy(false);refresh.disabled=!isConnected();}});
-  refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
+  search?.addEventListener('input',()=>memory.refresh());document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
