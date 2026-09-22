@@ -187,5 +187,8 @@ export function initEp133Browser({showError}={}){
     if(state.connected)readDevice();
   });
   autoConnect();
+  // Reference tool also performs periodic discovery while no device is present.
+  const autoConnectTimer=setInterval(()=>{if(!isConnected())autoConnect();},4000);
+  window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
   search?.addEventListener('input',()=>memory.refresh());document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
