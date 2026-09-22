@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
+import{isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
 import{prepareEp133Sample}from './audio.js?v=20260922-2';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
@@ -6,17 +6,16 @@ export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
-  const connect=document.getElementById('ep133-connect');
   const refresh=document.getElementById('ep133-refresh');
   const list=document.getElementById('ep133-sample-list');
   const tabs=document.getElementById('ep133-sample-tabs');
   const search=document.getElementById('ep133-sample-search');
   const info=document.getElementById('ep133-sample-info');
-  if(!open||!panel||!connect||!list)return;
+  if(!open||!panel||!list)return;
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
-  const setBusy=b=>{connect.disabled=b;refresh.disabled=b;};
+  const setBusy=b=>{refresh.disabled=b;};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const getDroppedFile=event=>{
@@ -90,19 +89,16 @@ export function initEp133Browser({showError}={}){
       const meta=state.device?.metadata||{};
       setDevice(meta.product||state.device?.sku||'EP SERIES');
       setStatus('CONNECTED · READ/WRITE');
-      connect.disabled=true;
       refresh.disabled=false;
       return;
     }
     setDevice('NO DEVICE');
     setStatus('NOT CONNECTED');
-    connect.disabled=false;
     refresh.disabled=true;
     soundsParentId=0;
     soundFormats=[];
     memory.setSlots([]);
   };
-  connect.onclick=async()=>{setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');try{const device=await connectEp133();renderConnection({connected:true,device});await readDevice();}catch(e){setStatus('NOT CONNECTED');showError?.(e?.message||e);setBusy(false);refresh.disabled=true;}};
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
