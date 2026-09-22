@@ -11,7 +11,8 @@ function requestId(outputId){
   return id;
 }
 
-export function isSupportedEpSku(sku){return /^TE032AS/i.test(String(sku||''));}
+const SUPPORTED_EP_SKUS=new Set(['TE032AS001','TE032AS005','TE032AS006']);
+export function isSupportedEpSku(sku){return SUPPORTED_EP_SKUS.has(String(sku||'').toUpperCase());}
 
 export function parseIdentityResponse(bytes){
   if(bytes.length!==17||bytes[0]!==0xF0||bytes[1]!==0x7E||bytes[5]!==TE_MIDI_ID[0]||bytes[6]!==TE_MIDI_ID[1]||bytes[7]!==TE_MIDI_ID[2])return null;
