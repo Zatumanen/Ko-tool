@@ -6,7 +6,7 @@ let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midi
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set();
 
 function notifyConnection(){
-  const state={connected:isConnected(),device:deviceInfo};
+  const state={connected:isConnected(),device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null};
   for(const listener of connectionListeners){try{listener(state);}catch{}}
 }
 
