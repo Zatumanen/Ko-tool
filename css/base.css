@@ -352,8 +352,8 @@
 
 /* EP series read-only device browser */
 .ep133-connect-row{margin-top:9px}.ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}
-.ep133-browser{display:none;position:fixed;inset:0;z-index:10001;background:transparent;align-items:flex-start;justify-content:flex-start;padding:0;pointer-events:none}
-.ep133-browser-window{width:min(760px,96vw);max-height:min(680px,92vh);background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:5px 5px 15px rgba(0,0,0,.65);display:flex;flex-direction:column}
+.ep133-browser{display:none;position:static;width:0;height:0;pointer-events:none}
+.ep133-browser-window{position:fixed;z-index:10001;pointer-events:auto;width:min(760px,96vw);max-height:min(680px,92vh);background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:5px 5px 15px rgba(0,0,0,.65);display:flex;flex-direction:column}
 .ep133-browser-body{padding:9px;min-height:0;display:flex;flex-direction:column;gap:8px}
 .ep133-device-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border:2px inset var(--win-dark);background:#fff;padding:7px}
 .ep133-device-head>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}.ep133-device-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-device-head span{font-size:11px}
