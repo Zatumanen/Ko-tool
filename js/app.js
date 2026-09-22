@@ -116,4 +116,4 @@ document.querySelectorAll('.start-menu-item').forEach(item=>{
   item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();activate();}});
 });
 document.addEventListener('click',e=>{if(startMenu?.classList.contains('open')&&!startMenu.contains(e.target)&&e.target!==startButton)closeStartMenu();});
-window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});initEp133Browser({showError});if(myEpWindow){const ep=document.getElementById('ep133-browser');if(ep){ep.style.display='flex';ep.setAttribute('aria-hidden','false');}status('My EP');}else status('Ready to process files');});
+window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});initEp133Browser({showError});status('Ready to process files');});
