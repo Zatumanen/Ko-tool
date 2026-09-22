@@ -1,4 +1,4 @@
-import{isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
+import{connectEp133,isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
 import{prepareEp133Sample}from './audio.js?v=20260922-2';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
