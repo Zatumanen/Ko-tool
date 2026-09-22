@@ -127,7 +127,7 @@ test('EP sample filename normalization matches the device naming rules',async()=
   assert.equal(normalizeFileName('Long sample filename here.wav'),'long sample file');
 });
 
-import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata}from '../js/ep133/audio.js';
+import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata}from '../js/ep133/audio.js';
 test('EP target sample rate follows pbarilla format metadata',()=>{
   const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
   assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);
@@ -153,6 +153,26 @@ test('EP WAV metadata parser reads source rate and PCM layout',()=>{
   const meta=parseWavAudioMeta(bytes);assert.equal(meta.rate,44100);assert.equal(meta.channels,2);assert.equal(meta.format,1);assert.equal(meta.bits,16);assert.equal(meta.dataOffset,44);assert.equal(meta.dataSize,4);
 });
 
+
+test('EP upload metadata follows the reference Teenage Engineering metadata rules',()=>{
+  const meta=prepareTeenageMetadata({
+    sample_rate:44100,
+    extra:{
+      loop_start:4410,
+      loop_end:22050,
+      midi_root_note:60,
+      bpm:120,
+      json:JSON.stringify({'sound.playmode':'loop','sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
+    }
+  },46875);
+  assert.equal(meta['sound.loopstart'],4691);
+  assert.equal(meta['sound.loopend'],23437);
+  assert.equal(meta['sound.rootnote'],60);
+  assert.equal(meta['sound.bpm'],120);
+  assert.equal(meta['sound.playmode'],'loop');
+  assert.equal(meta['sound.pitch'],2);
+  assert.equal(meta['sound.amplitude'],100);
+});
 
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   const json=JSON.stringify({"sound.playmode":"loop","sound.amplitude":100});
