@@ -7,6 +7,7 @@ export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
+  const title=document.getElementById('ep133-browser-title');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
   const breadcrumbs=document.getElementById('ep133-breadcrumbs');
@@ -25,6 +26,12 @@ export function initEp133Browser({showError}={}){
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
+  const setTitleDevice=state=>{
+    if(!title)return;
+    const sku=String(state?.device?.sku||'').toUpperCase();
+    const model=sku==='TE032AS001'?'-133':sku==='TE032AS005'?'-40':sku==='TE032AS006'?'-1320':'';
+    title.textContent=model?'MY EP '+model:'MY EP';
+  };
   const setBusy=()=>{};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
@@ -148,6 +155,7 @@ export function initEp133Browser({showError}={}){
   };
 
   const renderConnection=state=>{
+    setTitleDevice(state);
     if(state.connected){
       const meta=state.device?.metadata||{};
       setDevice(meta.product||state.device?.sku||'EP SERIES');
