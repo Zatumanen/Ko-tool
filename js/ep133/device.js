@@ -2,8 +2,26 @@ import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_F
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
-let input=null,output=null,identityCode=0,initialized=false;
-const listeners=new Map(),pending=new Map();
+let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
+const listeners=new Map(),pending=new Map(),connectionListeners=new Set();
+
+function notifyConnection(){
+  const state={connected:isConnected(),device:deviceInfo};
+  for(const listener of connectionListeners){try{listener(state);}catch{}}
+}
+
+async function handleMidiStateChange(){
+  if(initialized){
+    if(input?.state==='disconnected'||output?.state==='disconnected'){
+      disconnectEp133();
+    }
+    return;
+  }
+  if(connectingPromise)return;
+  const ports=[...(midiAccess?.inputs?.values?.()||[]),...(midiAccess?.outputs?.values?.()||[])];
+  if(!ports.some(port=>port.state==='connected'))return;
+  try{await connectEp133();}catch{}
+}
 
 function onMessage(inputPort,event){
   const data=new Uint8Array(event.data||[]);
@@ -57,8 +75,13 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
 }
 
 export async function connectEp133(){
+  if(initialized)return{sku:deviceInfo?.sku,metadata:deviceInfo?.metadata,input,output};
+  if(connectingPromise)return connectingPromise;
+  connectingPromise=(async()=>{
   if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');
-  const access=await navigator.requestMIDIAccess({sysex:true});
+  const access=midiAccess||await navigator.requestMIDIAccess({sysex:true});
+  midiAccess=access;
+  midiAccess.onstatechange=handleMidiStateChange;
   const inputs=[...access.inputs.values()];
   const outputs=[...access.outputs.values()];
   if(!outputs.length||!inputs.length)throw new Error('No MIDI ports found. Connect an EP-series device by USB and try again.');
@@ -85,14 +108,19 @@ export async function connectEp133(){
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
   initialized=true;
-  return{sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData)),input,output};
+  deviceInfo={sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData))};
+  notifyConnection();
+  return{...deviceInfo,input,output};
+  })();
+  try{return await connectingPromise;}finally{connectingPromise=null;}
 }
 
 export function disconnectEp133(){
   stopListeners();
   for(const p of pending.values())p.reject?.(new Error('Disconnected'));
   pending.clear();
-  input=null;output=null;initialized=false;
+  input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;
+  notifyConnection();
 }
 
 export function isConnected(){return initialized&&!!input&&!!output;}
@@ -115,3 +143,10 @@ export function requestFile(command,payload=new Uint8Array(),timeout=20000){
 }
 
 export function getMidiPorts(){return{input,output};}
+
+export function onConnectionChange(listener){
+  if(typeof listener!=='function')return()=>{};
+  connectionListeners.add(listener);
+  try{listener({connected:isConnected(),device:deviceInfo});}catch{}
+  return()=>connectionListeners.delete(listener);
+}
