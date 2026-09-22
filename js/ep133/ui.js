@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
+import{isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
 import{prepareEp133Sample}from './audio.js?v=20260923-1';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 import{outputFileName}from '../output-name.js';
@@ -7,7 +7,6 @@ export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
-  const connect=document.getElementById('ep133-connect');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
   const breadcrumbs=document.getElementById('ep133-breadcrumbs');
