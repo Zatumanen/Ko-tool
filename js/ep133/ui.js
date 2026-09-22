@@ -29,8 +29,8 @@ export function initEp133Browser({showError}={}){
   const setTitleDevice=state=>{
     if(!title)return;
     const sku=String(state?.device?.sku||'').toUpperCase();
-    const model=sku==='TE032AS001'?'-133':sku==='TE032AS005'?'-40':sku==='TE032AS006'?'-1320':'';
-    title.textContent=model?'MY EP '+model:'MY EP';
+    const model=sku==='TE032AS001'?'-133':sku==='TE032AS005'?'-1320':sku==='TE032AS006'?'-40':'';
+    title.textContent=model?'MY EP'+model:'MY EP';
   };
   const setBusy=()=>{};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
