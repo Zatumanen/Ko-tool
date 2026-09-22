@@ -6,6 +6,7 @@ export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
+  const connect=document.getElementById('ep133-connect');
   const refresh=document.getElementById('ep133-refresh');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
@@ -150,11 +151,13 @@ export function initEp133Browser({showError}={}){
       const meta=state.device?.metadata||{};
       setDevice(meta.product||state.device?.sku||'EP SERIES');
       setStatus('CONNECTED · READ/WRITE');
+      connect.disabled=true;
       refresh.disabled=false;
       return;
     }
     setDevice('NO DEVICE');
     setStatus('NOT CONNECTED');
+    connect.disabled=false;
     refresh.disabled=true;
     soundsParentId=0;
     soundFormats=[];
@@ -166,5 +169,6 @@ export function initEp133Browser({showError}={}){
     renderConnection(state);
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
   });
+  connect?.addEventListener('click',async()=>{setBusy(true);setStatus('CONNECTING...');try{const device=await connectEp133();renderConnection({connected:true,device});await readDevice();}catch(error){renderConnection({connected:false});showError?.(error?.message||error);}finally{setBusy(false);refresh.disabled=!isConnected();}});
   refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
