@@ -8,6 +8,9 @@ export function initEp133Browser({showError}={}){
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
   const title=document.getElementById('ep133-browser-title');
+  const memoryUsed=document.getElementById('ep133-memory-used');
+  const fileCount=document.getElementById('ep133-file-count');
+  const sampleCount=document.getElementById('ep133-sample-count');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
   const breadcrumbs=document.getElementById('ep133-breadcrumbs');
@@ -25,7 +28,6 @@ export function initEp133Browser({showError}={}){
   if(!open||!panel||!list||!fileList)return;
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
-  const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
   const setTitleDevice=state=>{
     if(!title)return;
     const sku=String(state?.device?.sku||'').toUpperCase();
@@ -37,6 +39,13 @@ export function initEp133Browser({showError}={}){
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatSize=size=>{if(!size)return '—';if(size<1024)return size+' B';if(size<1024*1024)return(size/1024).toFixed(1)+' KB';return(size/1024/1024).toFixed(2)+' MB';};
+  const renderDeviceStats=(files=[],samples=[])=>{
+    const filesUsed=files.filter(item=>item.fileType==='file');
+    const usedBytes=samples.reduce((total,item)=>total+(Number(item.fileSize)||0),0);
+    if(memoryUsed)memoryUsed.textContent=usedBytes?formatSize(usedBytes):'0 B';
+    if(fileCount)fileCount.textContent=String(filesUsed.length);
+    if(sampleCount)sampleCount.textContent=String(samples.length);
+  };
   const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
   const renderFileInfo=()=>{
@@ -148,17 +157,18 @@ export function initEp133Browser({showError}={}){
       if(soundsParentId){try{soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
       memory.setTabs(soundsMeta?.tabs);
       const slots=createSampleSlots(files);memory.setSlots(slots);
-      const occupied=slots.filter(slot=>slot.file);let loaded=0;
+      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(deviceFiles,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
-      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
+      renderDeviceStats(deviceFiles,occupied);
+    setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
   };
 
   const renderConnection=state=>{
     setTitleDevice(state);
+    if(!state.connected)renderDeviceStats([],[]);
     if(state.connected){
       const meta=state.device?.metadata||{};
-      setDevice(meta.product||state.device?.sku||'EP SERIES');
       setStatus('CONNECTED · READ/WRITE');
       return;
     }
