@@ -36,7 +36,7 @@
   <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
-<div id="my-ep-mode-root" hidden><div id="ep133-browser" class="ep133-browser independent-app" aria-hidden="false">
+<div id="my-ep-mode-root"><div id="ep133-browser" class="ep133-browser independent-app" aria-hidden="false">
 <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="false" aria-labelledby="ep133-browser-title">
 <div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
 <div class="ep133-browser-body"><div class="ep133-device-head"><div><strong id="ep133-device">NO DEVICE</strong><span id="ep133-status">NOT CONNECTED</span></div><div class="ep133-actions"><button id="ep133-refresh" type="button" disabled>REFRESH</button></div></div>
@@ -52,16 +52,6 @@
 <div class="ep133-readonly">SAMPLE MEMORY · 999 SLOTS</div><div class="ep133-sample-memory"><div class="ep133-sample-header"><div><strong>SAMPLE MEMORY</strong><span>999 POSITIONS</span></div><input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots"></div>
 <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-list" id="ep133-sample-list"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
 <div class="ep133-safety">Drop an audio file onto a slot to write it to that EP position. Click a sample to preview it on the device.</div></div></section></div></div></div>
-<script>
-const isMyEp=window.name==="my-ep"||new URLSearchParams(location.search).has("my-ep");
-document.getElementById("desktop-apps")?.toggleAttribute("hidden",isMyEp);
-document.getElementById("my-ep-mode-root")?.toggleAttribute("hidden",!isMyEp);
-if(!isMyEp){
-  const myEp=document.getElementById("my-ep-icon");
-  const openMyEp=()=>{const url=new URL("./",document.baseURI);url.searchParams.set("my-ep","1");const w=window.open(url.href,"my-ep");if(w)w.focus();};
-  myEp?.addEventListener("click",openMyEp);
-  myEp?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openMyEp();}});
-}
-if(isMyEp)import("./js/my-ep.js?v=20260922-4");else import("./js/app.js?v=20260922-7");
-</script>
+<script type="module" src="js/app.js?v=20260922-8"></script>
+
 </body></html>
