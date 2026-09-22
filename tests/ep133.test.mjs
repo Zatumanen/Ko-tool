@@ -91,6 +91,7 @@ test('EP FILE_GET rejects missing, empty, wrong, and oversized pages',()=>{
   assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,1,9]),0,10),/Unexpected page/);
   assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,0,1,2,3]),0,2),/exceeds the declared file size/);
   assert.deepEqual([...validateFileGetChunk(Uint8Array.from([0,0,1,2]),0,3)],[1,2]);
+  assert.deepEqual([...validateFileGetChunk(Uint8Array.from([0,0,1,2,3]),0,3)],[1,2,3]);
 });
 
 test('EP FILE_PUT page counter rejects 16-bit overflow',()=>{
@@ -98,6 +99,15 @@ test('EP FILE_PUT page counter rejects 16-bit overflow',()=>{
   assert.equal(validateFilePutPage(0xffff),0xffff);
   assert.throws(()=>validateFilePutPage(0x10000),/FILE_PUT page limit exceeded/);
 });
+test('EP FILE_PUT zero-size terminator carries no data bytes',()=>{
+  const payload=buildFilePutDataPayload(0,new Uint8Array(0));
+  const view=new DataView(payload.buffer);
+  assert.equal(payload.length,4);
+  assert.equal(payload[0],2);
+  assert.equal(payload[1],1);
+  assert.equal(view.getUint16(2),0);
+});
+
 test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
   const payload=buildFilePutDataPayload(3,Uint8Array.from([0,127,128,255]));
   const view=new DataView(payload.buffer);
