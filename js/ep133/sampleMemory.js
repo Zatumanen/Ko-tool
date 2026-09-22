@@ -51,7 +51,8 @@ export function createSampleMemory({
   infoEl,
   onSelect,
   onPlay,
-  onDrop
+  onDrop,
+  onDelete
 }){
   let slots=[];
   let activeTab=0;
@@ -112,7 +113,8 @@ export function createSampleMemory({
         '<div><b>SIZE</b> '+formatSize(slot.file.size)+'</div>'+
         (metadata.samplerate?'<div><b>RATE</b> '+escapeHtml(metadata.samplerate)+' Hz</div>':'')+
         (metadata.channels?'<div><b>CHANNELS</b> '+escapeHtml(metadata.channels)+'</div>':'')+
-        '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'
+        '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+\
+        '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'\
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
   };
 
@@ -128,6 +130,7 @@ export function createSampleMemory({
         '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
         '</button>';
     }).join('');
+    infoEl?.querySelectorAll('[data-delete-slot]').forEach(button=>{button.onclick=async event=>{event.stopPropagation();const slot=slots[Number(button.dataset.deleteSlot)-1];if(!slot?.file)return;button.disabled=true;try{await onDelete?.(slot);slot.file=null;slot.meta=null;slot.node=null;slot.nodeId=slot.id;render();renderInfo();}catch(error){throw error;}finally{button.disabled=false;}};});
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
       const slot=slots[Number(row.dataset.slot)-1];
       row.onclick=()=>{
