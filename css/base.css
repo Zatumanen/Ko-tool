@@ -451,9 +451,6 @@
 .result-item[draggable="true"]{cursor:grab}
 .result-item.dragging{opacity:.55}
 
-@media(min-width:601px){
-  .my-ep-window{width:760px;max-width:760px}
-}
 @media(max-width:600px){
   .my-ep-icon{left:100px}
   .my-ep-window{width:100%;max-height:94vh}
