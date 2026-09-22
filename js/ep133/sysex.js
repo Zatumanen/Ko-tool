@@ -5,7 +5,8 @@ const requestIds=new Map();
 
 function requestId(outputId){
   if(!requestIds.has(outputId))requestIds.set(outputId,Math.floor(Math.random()*4095));
-  const id=((requestIds.get(outputId)??0)+1)%4096;
+  let id=((requestIds.get(outputId)??0)+1)%4096;
+  if(id===0)id=1;
   requestIds.set(outputId,id);
   return id;
 }
