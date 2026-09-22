@@ -15,7 +15,8 @@ test('EP-133 identity parser',()=>{const p=32,a=1;const response=Uint8Array.from
 
 
 test('EP-series identity accepts supported TE032 SKUs',()=>{
-  for(const sku of ['TE032AS001','TE032AS002','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
+  for(const sku of ['TE032AS001','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
+  assert.equal(isSupportedEpSku('TE032AS002'),false);
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
@@ -74,11 +75,12 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
 
 test('EP project archive PUT uses directory flags',()=>{const payload=buildFilePutInitPayload(1234,42,99,'01',null,{isDirectory:true,capabilities:[4]});assert.equal(payload[2],6);assert.equal(new DataView(payload.buffer).getUint16(3),1234);assert.equal(new DataView(payload.buffer).getUint16(5),42);});
 
-test('EP metadata JSON is encoded as UTF-8 in FILE_PUT init and metadata SET payloads',()=>{
+test('EP metadata JSON is encoded as UTF-8 and null-terminated in FILE_PUT init and metadata SET payloads',()=>{
   const metadata={name:'привет',description:'café'};
   const put=buildFilePutInitPayload(7,42,12,'Kick.wav',metadata);
   const putNameEnd=11+'kick'.length+1;
-  const putJson=new TextDecoder().decode(put.slice(putNameEnd));
+  assert.equal(put[putNameEnd+new TextEncoder().encode(JSON.stringify(metadata)).length],0);
+  const putJson=new TextDecoder().decode(put.slice(putNameEnd,-1));
   assert.deepEqual(JSON.parse(putJson),metadata);
   const set=buildMetadataSetPayload(7,metadata);
   const setJson=new TextDecoder().decode(set.slice(4,-1));
