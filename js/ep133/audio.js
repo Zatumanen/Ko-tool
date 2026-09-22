@@ -145,10 +145,10 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
   const bytes=new Uint8Array(await file.arrayBuffer());
   const ko2Metadata=parseKo2Metadata(bytes);
-  const resampler=await getLibSampleRateModule(wasmUrl);
   let audioMeta;
   try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{audioMeta=decodeMetaFallback(bytes);}
   if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
+  if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-133 samples must be 1 or 2 channels.');
   const nativeStart=audioMeta?.extra?.data_start??0;
   const nativeEnd=audioMeta?.extra?.data_end??0;
   if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===DEFAULT_SAMPLE_RATE&&(audioMeta.channels===1||audioMeta.channels===2)){
@@ -167,6 +167,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
     channels=flattened.channels;
   }
   onProgress?.(35,{status:'resampling'});
+  const resampler=await getLibSampleRateModule();
   const output=await resampler.resampleAudioData(inputData,audioMeta.sample_rate,target,inputFormat,'pcm',16,channels);
   const data=output instanceof Uint8Array?output:new Uint8Array(output.buffer||output);
   onProgress?.(80,{status:'encoding'});
