@@ -37,14 +37,20 @@ export function initEp133Browser({showError}={}){
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatSize=size=>{if(!size)return '—';if(size<1024)return size+' B';if(size<1024*1024)return(size/1024).toFixed(1)+' KB';return(size/1024/1024).toFixed(2)+' MB';};
-  const renderDeviceStats=(files=[],samples=[])=>{
-    const usedBytes=samples.reduce((total,item)=>total+(Number(item.fileSize)||0),0);
-    const sku=String(state?.device?.sku||'').toUpperCase();
-    const capacityBytes=sku==='TE032AS006'?128*1024*1024:sku==='TE032AS005'?32*1024*1024:64*1024*1024;
-    const freeBytes=Math.max(0,capacityBytes-usedBytes);
+  const formatMemoryMb=bytes=>{
+    const mb=Number(bytes||0)/1e6;
+    if(!Number.isFinite(mb)||mb<=0)return '0 MB';
+    return mb.toFixed(1).replace(/\\.0$/,'')+' MB';
+  };
+  const renderDeviceStats=(metadata={},samples=[])=>{
+    const maxCapacity=Number(metadata?.max_capacity)||0;
+    const freeSpace=Number(metadata?.free_space_in_bytes);
+    const usedBytes=maxCapacity>0&&Number.isFinite(freeSpace)?Math.max(0,maxCapacity-freeSpace):0;
     const memoryStats=document.getElementById('ep133-memory-stats');
-    if(memoryStats)memoryStats.textContent=(usedBytes?formatSize(usedBytes):'0 B')+' USED · '+formatSize(freeBytes)+' FREE';
-    if(sampleCount)sampleCount.textContent=String(samples.length)+' / 999';
+    if(memoryStats)memoryStats.textContent=maxCapacity>0&&Number.isFinite(freeSpace)
+      ? formatMemoryMb(usedBytes)+' / '+formatMemoryMb(maxCapacity)
+      : '—';
+    if(sampleCount)sampleCount.textContent=String(samples.length);
   };
   const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
@@ -157,16 +163,16 @@ export function initEp133Browser({showError}={}){
       if(soundsParentId){try{soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
       memory.setTabs(soundsMeta?.tabs);
       const slots=createSampleSlots(files);memory.setSlots(slots);
-      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(deviceFiles,occupied);let loaded=0;
+      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(soundsMeta,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
-      renderDeviceStats(deviceFiles,occupied);
+      renderDeviceStats(soundsMeta,occupied);
     setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
   };
 
   const renderConnection=state=>{
     setTitleDevice(state);
-    if(!state.connected)renderDeviceStats([],[]);
+    if(!state.connected)renderDeviceStats({},[]);
     if(state.connected){
       const meta=state.device?.metadata||{};
       setStatus('CONNECTED · READ/WRITE');
