@@ -74,7 +74,7 @@ export function initEp133Browser({showError}={}){
   const getDroppedFile=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
-      const item=window.__speedUpperCutFiles?.get(resultId);
+      const sourceWindows=[window,window.opener].filter(Boolean);const item=sourceWindows.map(w=>w.__speedUpperCutFiles?.get(resultId)).find(Boolean);
       if(item?.result?.blob)return new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'});
     }
     const file=event.dataTransfer?.files?.[0];
