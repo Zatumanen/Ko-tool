@@ -8,7 +8,9 @@ const writeString=(view,offset,text,terminate=false)=>{for(let i=0;i<text.length
 const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextEncoder().encode(text);new Uint8Array(view.buffer,view.byteOffset+offset,bytes.length).set(bytes);if(terminate)view.setUint8(offset+bytes.length,0);return bytes.length;};
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
-export function resetFileSystemState(){deviceChunkSizes.clear();}
+let fileOperationQueue=Promise.resolve();
+function runFileOperation(operation){const task=fileOperationQueue.then(operation);fileOperationQueue=task.catch(()=>{});return task;}
+export function resetFileSystemState(){deviceChunkSizes.clear();fileOperationQueue=Promise.resolve();}
 const getDeviceKey=device=>device?.deviceKey||device?.metadata?.serialNumber||device?.metadata?.serial||null;
 let activeDeviceKey=null;
 onConnectionChange(({connected,device})=>{
@@ -20,9 +22,10 @@ export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYS
 
 function initPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
 
-export async function initFileSystem(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,initPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
+async function initFileSystemUnlocked(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,initPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
 
-async function initRead(maxResponseLength=4*1024*1024){return initFileSystem(maxResponseLength);}
+export async function initFileSystem(maxResponseLength=4*1024*1024){return runFileOperation(()=>initFileSystemUnlocked(maxResponseLength));}
+async function initRead(maxResponseLength=4*1024*1024){return initFileSystemUnlocked(maxResponseLength);}
 function listPayload(page,nodeId){const p=new Uint8Array(5),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_LIST;view.setUint16(1,page);view.setUint16(3,nodeId);return p;}
 
 export function parseMetadataResponse(raw,page){if(raw.length<=2)return null;const responsePage=u16(raw,0);if(responsePage!==page)throw new Error('Unexpected metadata page '+responsePage+', expected '+page);return{text:parseNullTerminatedString(raw,2),done:raw[raw.length-1]===0};}
@@ -50,9 +53,9 @@ async function getMetadataByNodeId(nodeId){
   throw lastError||new Error('EP metadata request failed.');
 }
 
-export async function getFileMetadata(nodeId){return getMetadataByNodeId(nodeId);}
+export async function getFileMetadata(nodeId){return runFileOperation(()=>getMetadataByNodeId(nodeId));}
 
-export async function listDeviceFiles(onProgress){await initRead();const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
+export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;});}
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
@@ -66,6 +69,7 @@ export function buildMetadataPagedInitPayload(fileId,size){const p=new Uint8Arra
 export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA;view.setUint16(3,page);p.set(data,5);return p;}
 
 export async function putFile({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=15000}){
+  return runFileOperation(async()=>{
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>999)throw new Error('Invalid EP-133 sample destination.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
@@ -86,9 +90,11 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   }
   await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
   return fileId;
+  });
 }
 
 export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
+  return runFileOperation(async()=>{
   const chunkSize=getCachedChunkSize()||await initFileSystem();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(jsonBytes.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
@@ -97,10 +103,11 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   let offset=0,page=0;
   while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+  });
 }
 
 export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress}){
-  await initFileSystem();
+
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
@@ -114,4 +121,4 @@ export async function stopPlayback(nodeId){const p=new Uint8Array(12),view=new D
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
 
-export async function getFile(nodeId,onProgress){await initRead();const init=new Uint8Array(8),view=new DataView(init.buffer);init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);const start=await requestRead(TE_SYSEX_FILE,init);if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];let done=0,page=0;while(done<fileSize){if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);const response=await requestRead(TE_SYSEX_FILE,requestPayload);const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;}if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);const data=new Uint8Array(done);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}return{name:fileName,size:fileSize,data};}
+export async function getFile(nodeId,onProgress){return runFileOperation(async()=>{await initRead();const init=new Uint8Array(8),view=new DataView(init.buffer);init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);const start=await requestRead(TE_SYSEX_FILE,init);if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];let done=0,page=0;while(done<fileSize){if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);const response=await requestRead(TE_SYSEX_FILE,requestPayload);const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;}if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);const data=new Uint8Array(done);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}return{name:fileName,size:fileSize,data};});}
