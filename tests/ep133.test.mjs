@@ -111,11 +111,12 @@ test('EP WAV metadata parser reads source rate and PCM layout',()=>{
 
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   const json=JSON.stringify({"sound.playmode":"loop","sound.amplitude":100});
-  const bytes=new Uint8Array(32+json.length);
+  const paddedJsonLength=json.length+(json.length&1);
+  const bytes=new Uint8Array(32+paddedJsonLength);
   const view=new DataView(bytes.buffer);
   const ascii=(offset,text)=>{for(let i=0;i<text.length;i++)bytes[offset+i]=text.charCodeAt(i);};
   ascii(0,'RIFF');view.setUint32(4,bytes.length-8,true);ascii(8,'WAVE');
-  ascii(12,'LIST');view.setUint32(16,12+json.length,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,json.length,true);
+  ascii(12,'LIST');view.setUint32(16,12+paddedJsonLength,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,json.length,true);
   new TextEncoder().encodeInto(json,bytes.subarray(32));
   assert.equal(parseKo2Metadata(bytes)['sound.playmode'],'loop');
 });
