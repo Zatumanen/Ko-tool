@@ -140,7 +140,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
-  assert.doesNotMatch(source,/resampler\.getAudioMeta/,'metadata call must use the bound resampler instance');
+  assert.match(source,/resampler\\.getAudioMeta\\(name,bytes\\)/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
