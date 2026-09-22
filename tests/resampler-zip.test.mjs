@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {createZip} from '../js/zip.js';
 
-test('resampler keeps its WASM source pinned and integrity-checked',async()=>{
+test('resampler uses the reference dynamic WASM runtime',async()=>{
   const source=await fs.readFile(new URL('../js/ep133/resampler.js',import.meta.url),'utf8');
-  assert.match(source,/DEFAULT_WASM_URL='\.\/wasm\/libsamplerate\.wasm'/);
-  assert.match(source,/resampleModule\.js/);
-  assert.match(source,/WebAssembly\.instantiate\(module,\{env:runtime\.env\}\)/);
-  assert.match(source,/EP-133 resampler integrity check failed/);
+  const runtime=await fs.readFile(new URL('../js/ep133/resampleModule.js',import.meta.url),'utf8');
+  assert.match(source,/DYNAMIC_LIBRARIES=\['libsndfile\.wasm','libsamplerate\.wasm','libtag\.wasm','libtag_c\.wasm'\]/);
+  assert.match(source,/createResampleModule\(\{dynamicLibraries:DYNAMIC_LIBRARIES\}\)/);
+  assert.match(runtime,/new URL\("resample\.wasm",import\.meta\.url\)/);
+  assert.match(runtime,/Module\.resampleAudioData/);
 });
 
 test('ZIP local and central headers use the same UTF-8 flag',async()=>{
