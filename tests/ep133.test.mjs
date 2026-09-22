@@ -14,7 +14,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
 import{requestRead}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
@@ -74,6 +74,14 @@ test('EP metadata JSON is encoded as UTF-8 in FILE_PUT init and metadata SET pay
   const set=buildMetadataSetPayload(7,metadata);
   const setJson=new TextDecoder().decode(set.slice(4,-1));
   assert.deepEqual(JSON.parse(setJson),metadata);
+});
+
+test('EP FILE_GET rejects missing, empty, wrong, and oversized pages',()=>{
+  assert.throws(()=>validateFileGetChunk(new Uint8Array(),0,10),/Invalid FILE_GET response/);
+  assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,0]),0,10),/Empty FILE_GET response/);
+  assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,1,9]),0,10),/Unexpected page/);
+  assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,0,1,2,3]),0,2),/exceeds the declared file size/);
+  assert.deepEqual([...validateFileGetChunk(Uint8Array.from([0,0,1,2]),0,3)],[1,2]);
 });
 
 test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
