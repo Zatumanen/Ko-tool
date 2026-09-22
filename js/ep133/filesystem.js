@@ -113,6 +113,7 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   const name=filename||file?.name||'sample.wav';
   const fileId=await putFile({data:bytes,filename:name,parentId,destinationId,metadata,onProgress});
   await setFileMetadata(fileId,{...metadata,name:normalizeFileName(name)});
+  await initFileSystem();
   return fileId;
 }
 
