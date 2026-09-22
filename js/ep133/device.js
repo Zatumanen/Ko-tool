@@ -4,6 +4,21 @@ import{metadataStringToObject}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set();
+const MIN_FIRMWARE={
+  TE032AS001:{beta:'0.100.38',production:'2.0.5'},
+  TE032AS005:{beta:'0.2.13',production:'1.0.2'},
+  TE032AS006:{beta:'0.4.7',production:'1.0.5'}
+};
+function compareVersion(a,b){const pa=String(a||'').split('.').map(Number),pb=String(b||'').split('.').map(Number);for(let i=0;i<3;i++){const x=Number.isFinite(pa[i])?pa[i]:0,y=Number.isFinite(pb[i])?pb[i]:0;if(x!==y)return x-y;}return 0;}
+function validateFirmware(sku,metadata){
+  const version=String(metadata?.os_version||'');
+  if(version.startsWith('0.1.0'))return;
+  const minimums=MIN_FIRMWARE[sku];
+  if(!minimums||!version)throw new Error('EP-series firmware version could not be verified.');
+  const channel=version.startsWith('0.')?'beta':'production';
+  const minimum=minimums[channel];
+  if(compareVersion(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
+}
 
 function notifyConnection(){
   const state={connected:isConnected(),device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null};
@@ -120,8 +135,10 @@ export async function connectEp133(){
   const greet=await sendRequest(TE_SYSEX_GREET);
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
+  const metadata=metadataStringToObject(new TextDecoder().decode(greet.rawData));
+  validateFirmware(found.parsed.sku,metadata);
   initialized=true;
-  deviceInfo={sku:found.parsed.sku,metadata:metadataStringToObject(new TextDecoder().decode(greet.rawData))};
+  deviceInfo={sku:found.parsed.sku,metadata};
   notifyConnection();
   return{...deviceInfo,input,output};
   })();
