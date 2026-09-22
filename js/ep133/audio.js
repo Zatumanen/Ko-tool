@@ -1,3 +1,5 @@
+import{resampleInterleavedFloat32}from './resampler.js';
+
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
 
@@ -44,37 +46,33 @@ async function decode(file,sourceRate){
   finally{try{await ctx.close();}catch{}}
 }
 
-async function resample(buffer,targetRate){
-  if(buffer.sampleRate===targetRate)return buffer;
-  const frames=Math.max(1,Math.round(buffer.duration*targetRate));
-  const C=window.OfflineAudioContext||window.webkitOfflineAudioContext;
-  if(!C)throw new Error('OfflineAudioContext is required for EP-133 sample conversion.');
-  const ctx=new C(buffer.numberOfChannels,frames,targetRate);
-  const source=ctx.createBufferSource();
-  source.buffer=buffer;
-  source.connect(ctx.destination);
-  source.start(0);
-  return ctx.startRendering();
+function flattenAudioBuffer(buffer){
+  const channels=Math.min(2,buffer.numberOfChannels);
+  const frames=buffer.length;
+  const out=new Float32Array(frames*channels);
+  const data=Array.from({length:channels},(_,channel)=>buffer.getChannelData(channel));
+  let offset=0;
+  for(let frame=0;frame<frames;frame++)for(let channel=0;channel<channels;channel++)out[offset++]=data[channel][frame];
+  return{data:out,channels};
 }
 
-function encodePcm16(buffer,targetRate){
-  const channels=Math.min(2,buffer.numberOfChannels);
-  const out=new Uint8Array(buffer.length*channels*2);
+function encodePcm16(interleaved,channels,targetRate){
+  const frames=Math.floor(interleaved.length/channels);
+  const out=new Uint8Array(frames*channels*2);
   const view=new DataView(out.buffer);
-  const data=Array.from({length:channels},(_,c)=>buffer.getChannelData(c));
   let offset=0;
-  for(let i=0;i<buffer.length;i++)for(let c=0;c<channels;c++){
-    const x=Math.max(-1,Math.min(1,data[c][i]));
+  for(let i=0;i<interleaved.length;i++){
+    const x=Math.max(-1,Math.min(1,interleaved[i]));
     view.setInt16(offset,x<0?Math.round(x*32768):Math.round(x*32767),true);
     offset+=2;
   }
   return{data:out,channels,samplerate:targetRate,format:'s16'};
 }
 
-export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,onProgress}={}){
+export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,wasmUrl=null,onProgress}={}){
   if(!file)throw new Error('No audio file supplied.');
   const name=String(file.name||'sample.wav');
-  if(!/\\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
+  if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
   const bytes=new Uint8Array(await file.arrayBuffer());
   const native=parseNativeWav(bytes);
   if(native){onProgress?.(100,{status:'ready'});return{data:native.data,channels:native.channels,samplerate:native.rate,format:'s16'};}
@@ -83,12 +81,13 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   const decoded=await decode(file,wavMeta?.rate);
   if(decoded.duration>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
   if(decoded.numberOfChannels<1||decoded.numberOfChannels>2)throw new Error('EP-133 samples must have 1 or 2 channels.');
-  const sourceMeta={sample_rate:decoded.sampleRate,channels:decoded.numberOfChannels};
+  const {data:interleaved,channels}=flattenAudioBuffer(decoded);
+  const sourceMeta={sample_rate:decoded.sampleRate,channels};
   const target=targetSampleRate??getTargetSampleRate(sourceMeta,formats);
   onProgress?.(35,{status:'resampling'});
-  const converted=await resample(decoded,target);
+  const converted=await resampleInterleavedFloat32(interleaved,decoded.sampleRate,target,channels,{wasmUrl});
   onProgress?.(80,{status:'encoding'});
-  const result=encodePcm16(converted,target);
+  const result=encodePcm16(converted,channels,target);
   onProgress?.(100,{status:'ready'});
   return result;
 }
