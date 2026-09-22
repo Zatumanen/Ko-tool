@@ -1,4 +1,4 @@
-const DEFAULT_WASM_URL='https://raw.githubusercontent.com/pbarilla/ep_133_sample_tool/28e545a8a9db09d75802fc9ce612779d2690b556/data/libsamplerate.wasm';
+const DEFAULT_WASM_URL='./wasm/libsamplerate.wasm';
 const DEFAULT_WASM_GIT_BLOB_SHA='537871e90eeb3373144066543dd2a01c205173a6';
 let modulePromise=null;
 
