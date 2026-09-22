@@ -56,6 +56,7 @@ export function createSampleMemory({
   onDownload
 }){
   let slots=[];
+  let sampleTabs=DEFAULT_SAMPLE_TABS;
   let activeTab=0;
   let selectedId=null;
 
@@ -73,7 +74,7 @@ export function createSampleMemory({
   const slotName=getSampleDisplayName;
 
   const visible=()=>{
-    const tab=DEFAULT_SAMPLE_TABS[activeTab];
+    const tab=sampleTabs[activeTab]||sampleTabs[0];
     const query=(searchEl?.value||'').trim().toLowerCase();
     return slots.slice(tab.range[0]-1,tab.range[1]).filter(slot=>{
       if(!query)return true;
@@ -83,7 +84,7 @@ export function createSampleMemory({
 
   const renderTabs=()=>{
     if(!tabsEl)return;
-    tabsEl.innerHTML=DEFAULT_SAMPLE_TABS.map((tab,index)=>{
+    tabsEl.innerHTML=sampleTabs.map((tab,index)=>{
       const active=index===activeTab?' selected':'';
       return '<button type="button" class="ep133-sample-tab'+active+'" data-tab="'+index+'">'+
         escapeHtml(tab.name)+'</button>';
@@ -167,6 +168,14 @@ export function createSampleMemory({
     setSlots(next){
       slots=next||[];
       selectedId=null;
+      activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
+      renderTabs();
+      render();
+    },
+    setTabs(nextTabs){
+      const normalized=Array.isArray(nextTabs)?nextTabs.map(tab=>({name:String(tab?.name??''),range:[Number(tab?.range?.[0]),Number(tab?.range?.[1])],color:tab?.color})).filter(tab=>tab.name&&Number.isInteger(tab.range[0])&&Number.isInteger(tab.range[1])&&tab.range[0]>=1&&tab.range[1]>=tab.range[0]&&tab.range[1]<=EP_SAMPLE_SLOT_COUNT):[];
+      sampleTabs=normalized.length?normalized:DEFAULT_SAMPLE_TABS;
+      activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
       renderTabs();
       render();
     },
