@@ -139,7 +139,9 @@ export function initEp133Browser({showError}={}){
       const files=deviceFiles;
       soundsParentId=getSoundsParentId(files);
       soundFormats=[];
-      if(soundsParentId){try{const soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
+      let soundsMeta=null;
+      if(soundsParentId){try{soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
+      memory.setTabs(soundsMeta?.tabs);
       const slots=createSampleSlots(files);memory.setSlots(slots);
       const occupied=slots.filter(slot=>slot.file);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
