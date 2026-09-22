@@ -46,7 +46,8 @@ async function getMetadataByNodeId(nodeId,key=null){
         if(!parsed)break;
         text+=parsed.text;if(parsed.done)break;page+=1;
       }
-      return JSON.parse(text);
+      const parsed=JSON.parse(text);
+      return Object.assign({},parsed);
     }catch(error){
       lastError=error;
       if(!(error instanceof SyntaxError)||attempt>=2)throw error;
