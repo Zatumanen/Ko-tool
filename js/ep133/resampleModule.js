@@ -17810,4 +17810,6 @@ return ret;
     };
 
 
+})();
+
 export default createResampleModule;
