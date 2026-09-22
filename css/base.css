@@ -429,3 +429,6 @@
 }
 
 .result-item[draggable="true"]{cursor:grab}.result-item.dragging{opacity:.55}.ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}.ep133-sample-row{touch-action:none}
+
+/* My EP filesystem browser */
+.ep133-view-tabs{display:flex;gap:3px;padding:0 2px}.ep133-view-tabs button{min-height:29px;padding:4px 10px;background:var(--win-gray);border:2px outset var(--win-gray);font:700 11px "Courier New",monospace;cursor:pointer}.ep133-view-tabs button.selected{border-style:inset;background:#fff}.ep133-view-panel[hidden]{display:none!important}.ep133-file-browser{flex:1;min-height:0}.ep133-file-list{height:270px;max-height:none;min-height:120px}.ep133-file-actions{display:flex;gap:5px;padding:5px;background:var(--win-gray);border-top:1px solid #aaa}.ep133-file-actions button{min-height:29px;min-width:100px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}.ep133-file-actions button:disabled{color:#666;cursor:default}.ep133-file-actions button:active:not(:disabled){border-style:inset}.ep133-file-row.dragover{outline:2px dashed #000;outline-offset:-3px;background:#c0c0c0}@media(max-width:600px){.ep133-file-list{height:42vh;min-height:160px}.ep133-view-tabs button{flex:1}}

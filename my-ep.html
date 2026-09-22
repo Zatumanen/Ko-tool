@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>My EP</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="css/base.css?v=20260922-5">
+<link rel="stylesheet" href="css/base.css?v=20260922-6">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
@@ -12,9 +12,18 @@
 <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="false" aria-labelledby="ep133-browser-title">
 <div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
 <div class="ep133-browser-body"><div class="ep133-device-head"><div><strong id="ep133-device">NO DEVICE</strong><span id="ep133-status">NOT CONNECTED</span></div><div class="ep133-actions"><button id="ep133-refresh" type="button" disabled>REFRESH</button></div></div>
+<div class="ep133-view-tabs"><button id="ep133-files-tab" class="selected" type="button">FILES</button><button id="ep133-samples-tab" type="button">SAMPLE MEMORY</button></div>
+<section id="ep133-files-panel" class="ep133-view-panel"><div class="ep133-file-browser">
+<div class="ep133-file-toolbar"><div class="ep133-file-browser-title"><strong>DEVICE FILE SYSTEM</strong> <span>READ / DOWNLOAD / DELETE</span></div><div class="ep133-file-tools"><input id="ep133-file-search" type="search" placeholder="Search files" aria-label="Search device files"></div></div>
+<div id="ep133-breadcrumbs" class="ep133-breadcrumbs"></div>
+<div id="ep133-file-list" class="ep133-file-list"><div class="ep133-empty">Connect a device to read its file system.</div></div>
+<div id="ep133-file-info" class="ep133-info"><div class="ep133-info-empty">Select a file.</div></div>
+<div class="ep133-file-actions"><button id="ep133-file-download" type="button" disabled>DOWNLOAD</button><button id="ep133-file-delete" type="button" disabled>DELETE</button></div>
+</div></section>
+<section id="ep133-samples-panel" class="ep133-view-panel" hidden>
 <div class="ep133-readonly">SAMPLE MEMORY · 999 SLOTS</div><div class="ep133-sample-memory"><div class="ep133-sample-header"><div><strong>SAMPLE MEMORY</strong><span>999 POSITIONS</span></div><input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots"></div>
 <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-list" id="ep133-sample-list"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
 <div class="ep133-safety">Drop an audio file onto a slot to write it to that EP position. Click a sample to preview it on the device.</div></div></div></div>
 <div id="error-dialog" role="alertdialog" aria-modal="true" style="display:none"><div class="error-dialog-window"><div class="title-bar"><span>Warning</span><button id="error-close" type="button" aria-label="Close">×</button></div><div class="error-dialog-body"><div class="error-dialog-message"><span class="error-icon">!</span><span id="error-message"></span></div><button id="error-ok" type="button">OK</button></div></div></div>
-<script type="module" src="js/my-ep.js?v=20260922-1"></script>
+<script type="module" src="js/my-ep.js?v=20260922-2"></script>
 </body></html>

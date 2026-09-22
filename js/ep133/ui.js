@@ -7,17 +7,68 @@ export function initEp133Browser({showError}={}){
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
   const refresh=document.getElementById('ep133-refresh');
+  const fileList=document.getElementById('ep133-file-list');
+  const fileSearch=document.getElementById('ep133-file-search');
+  const breadcrumbs=document.getElementById('ep133-breadcrumbs');
+  const fileInfo=document.getElementById('ep133-file-info');
+  const fileDownload=document.getElementById('ep133-file-download');
+  const fileDelete=document.getElementById('ep133-file-delete');
+  const filesPanel=document.getElementById('ep133-files-panel');
+  const samplesPanel=document.getElementById('ep133-samples-panel');
+  const filesTab=document.getElementById('ep133-files-tab');
+  const samplesTab=document.getElementById('ep133-samples-tab');
   const list=document.getElementById('ep133-sample-list');
   const tabs=document.getElementById('ep133-sample-tabs');
   const search=document.getElementById('ep133-sample-search');
   const info=document.getElementById('ep133-sample-info');
-  if(!open||!panel||!list)return;
+  if(!open||!panel||!list||!fileList)return;
 
   const setStatus=t=>{const el=document.getElementById('ep133-status');if(el)el.textContent=t;};
   const setDevice=t=>{const el=document.getElementById('ep133-device');if(el)el.textContent=t;};
   const setBusy=b=>{refresh.disabled=b;};
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
+  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const formatSize=size=>{if(!size)return '—';if(size<1024)return size+' B';if(size<1024*1024)return(size/1024).toFixed(1)+' KB';return(size/1024/1024).toFixed(2)+' MB';};
+  const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
+  const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
+  const renderFileInfo=()=>{
+    const item=selectedFile;
+    fileDownload.disabled=!item||item.fileType!=='file'||!isConnected();
+    fileDelete.disabled=!item||item.fileType!=='file'||!isConnected();
+    if(!item){fileInfo.innerHTML='<div class="ep133-info-empty">Select a file.</div>';return;}
+    fileInfo.innerHTML='<div><b>NAME</b> '+escapeHtml(baseName(item.fileName))+'</div><div><b>PATH</b> '+escapeHtml(item.fileName)+'</div><div><b>TYPE</b> '+escapeHtml(item.fileType.toUpperCase())+'</div>'+(item.fileType==='file'?'<div><b>SIZE</b> '+formatSize(item.fileSize)+'</div>':'');
+  };
+  const renderBreadcrumbs=()=>{
+    const parts=currentPath==='/'?[]:currentPath.split('/').filter(Boolean);
+    let path='';const items=['<button type="button" class="ep133-breadcrumb" data-path="/">ROOT</button>'];
+    for(const part of parts){path+='/'+part;items.push('<span>/</span><button type="button" class="ep133-breadcrumb" data-path="'+escapeHtml(path)+'">'+escapeHtml(part)+'</button>');}
+    breadcrumbs.innerHTML=items.join('');
+    breadcrumbs.querySelectorAll('[data-path]').forEach(button=>button.onclick=()=>{currentPath=button.dataset.path;selectedFile=null;renderFiles();});
+  };
+  const renderFiles=()=>{
+    renderBreadcrumbs();
+    const query=(fileSearch.value||'').trim().toLowerCase();
+    const rows=query?deviceFiles.filter(item=>item.fileName.toLowerCase().includes(query)):deviceFiles.filter(item=>parentPath(item.fileName)===currentPath);
+    fileList.innerHTML='';
+    if(currentPath!=='/'&&!query){const up=document.createElement('button');up.type='button';up.className='ep133-file-row ep133-up-row';up.innerHTML='<span class="ep133-file-type">DIR</span><span class="ep133-file-name">..</span><span class="ep133-file-size">—</span>';up.onclick=()=>{currentPath=parentPath(currentPath);selectedFile=null;renderFiles();};fileList.appendChild(up);}
+    rows.sort((a,b)=>a.fileType===b.fileType?baseName(a.fileName).localeCompare(baseName(b.fileName)):a.fileType==='folder'?-1:1).forEach(item=>{
+      const row=document.createElement('button');row.type='button';row.className='ep133-file-row'+(selectedFile?.nodeId===item.nodeId?' selected':'');
+      row.innerHTML='<span class="ep133-file-type">'+(item.fileType==='folder'?'DIR':'FILE')+'</span><span class="ep133-file-name">'+escapeHtml(baseName(item.fileName))+'</span><span class="ep133-file-size">'+(item.fileType==='file'?formatSize(item.fileSize):'—')+'</span>';
+      row.onclick=()=>{if(item.fileType==='folder'){currentPath=item.fileName;selectedFile=null;renderFiles();return;}selectedFile=item;renderFiles();setStatus('FILE '+baseName(item.fileName)+' SELECTED');};
+      fileList.appendChild(row);
+    });
+    if(!fileList.children.length)fileList.innerHTML='<div class="ep133-empty">No files in this location.</div>';
+    renderFileInfo();
+  };
+  const downloadFile=async()=>{
+    if(!selectedFile||selectedFile.fileType!=='file'||!isConnected())return;
+    try{setStatus('DOWNLOADING '+baseName(selectedFile.fileName)+' · 0%');const result=await getFile(selectedFile.nodeId,(done,total)=>setStatus('DOWNLOADING '+baseName(selectedFile.fileName)+' · '+Math.round(done/Math.max(1,total)*100)+'%'));const blob=new Blob([result.data],{type:'application/octet-stream'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.name||baseName(selectedFile.fileName);document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus('DOWNLOADED · '+baseName(selectedFile.fileName));}catch(error){showError?.(error?.message||error);}
+  };
+  const deleteSelectedFile=async()=>{
+    if(!selectedFile||selectedFile.fileType!=='file'||!isConnected())return;
+    try{const name=baseName(selectedFile.fileName);setStatus('DELETING '+name+'...');await deleteFile(selectedFile.nodeId);deviceFiles=deviceFiles.filter(item=>item.nodeId!==selectedFile.nodeId);selectedFile=null;renderFiles();setStatus('DELETED · '+name);}catch(error){showError?.(error?.message||error);}
+  };
   const getDroppedFile=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
@@ -30,6 +81,9 @@ export function initEp133Browser({showError}={}){
 
   let soundsParentId=0;
   let soundFormats=[];
+  let deviceFiles=[];
+  let currentPath='/';
+  let selectedFile=null;
   const memory=createSampleMemory({
     listEl:list,tabsEl:tabs,searchEl:search,infoEl:info,
     onSelect:slot=>setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY'),
@@ -59,6 +113,11 @@ export function initEp133Browser({showError}={}){
   open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
+  filesTab?.addEventListener('click',()=>{filesPanel.hidden=false;samplesPanel.hidden=true;filesTab.classList.add('selected');samplesTab.classList.remove('selected');});
+  samplesTab?.addEventListener('click',()=>{filesPanel.hidden=true;samplesPanel.hidden=false;samplesTab.classList.add('selected');filesTab.classList.remove('selected');});
+  fileSearch?.addEventListener('input',()=>{currentPath='/';selectedFile=null;renderFiles();});
+  fileDownload?.addEventListener('click',downloadFile);
+  fileDelete?.addEventListener('click',deleteSelectedFile);
 
   const makeDraggable=windowEl=>{
     const title=windowEl?.querySelector('.title-bar');if(!windowEl||!title||title.dataset.dragReady)return;
@@ -73,7 +132,9 @@ export function initEp133Browser({showError}={}){
   const readDevice=async()=>{
     setBusy(true);setStatus('READING FILES...');
     try{
-      const files=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
+      deviceFiles=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
+      currentPath='/';selectedFile=null;renderFiles();
+      const files=deviceFiles;
       soundsParentId=getSoundsParentId(files);
       soundFormats=[];
       if(soundsParentId){try{const soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
@@ -97,8 +158,10 @@ export function initEp133Browser({showError}={}){
     refresh.disabled=true;
     soundsParentId=0;
     soundFormats=[];
-    memory.setSlots([]);
+    deviceFiles=[];selectedFile=null;renderFiles();memory.setSlots([]);
   };
+  renderFiles();
+  renderFileInfo();
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
