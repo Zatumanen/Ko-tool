@@ -40,7 +40,7 @@ export function initEp133Browser({showError}={}){
   const formatMemoryMb=bytes=>{
     const mb=Number(bytes||0)/1e6;
     if(!Number.isFinite(mb)||mb<=0)return '0 MB';
-    return mb.toFixed(1).replace(/\\.0$/,'')+' MB';
+    return mb.toFixed(1).replace(/\.0$/,'')+' MB';
   };
   const renderDeviceStats=(metadata={},samples=[])=>{
     const maxCapacity=Number(metadata?.max_capacity)||0;
