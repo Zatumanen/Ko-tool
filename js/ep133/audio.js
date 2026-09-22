@@ -1,4 +1,4 @@
-import{resampleInterleavedFloat32}from './resampler.js?v=20260923-1';
+import{getLibSampleRateModule}from './resampler.js?v=20260923-2';
 
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
@@ -139,7 +139,7 @@ function encodePcm16(interleaved,channels,targetRate){
   return{data:out,channels,samplerate:targetRate,format:'s16'};
 }
 
-export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,wasmUrl=null,onProgress}={}){
+export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,onProgress}={}){
   if(!file)throw new Error('No audio file supplied.');
   const name=String(file.name||'sample.wav');
   if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
