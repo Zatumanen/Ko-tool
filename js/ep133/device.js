@@ -10,17 +10,9 @@ function notifyConnection(){
   for(const listener of connectionListeners){try{listener(state);}catch{}}
 }
 
-async function handleMidiStateChange(){
-  if(initialized){
-    if(input?.state==='disconnected'||output?.state==='disconnected'){
-      disconnectEp133();
-    }
-    return;
-  }
-  if(connectingPromise)return;
-  const ports=[...(midiAccess?.inputs?.values?.()||[]),...(midiAccess?.outputs?.values?.()||[])];
-  if(!ports.some(port=>port.state==='connected'))return;
-  try{await connectEp133();}catch{}
+function handleMidiStateChange(){
+  if(!initialized)return;
+  if(input?.state==='disconnected'||output?.state==='disconnected')disconnectEp133();
 }
 
 function onMessage(inputPort,event){
@@ -81,7 +73,10 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
 }
 
 export async function connectEp133(){
-  if(initialized)return{sku:deviceInfo?.sku,metadata:deviceInfo?.metadata,input,output};
+  if(initialized){
+    if(input?.state==='connected'&&output?.state==='connected')return{sku:deviceInfo?.sku,metadata:deviceInfo?.metadata,input,output};
+    disconnectEp133();
+  }
   if(connectingPromise)return connectingPromise;
   connectingPromise=(async()=>{
   if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');
