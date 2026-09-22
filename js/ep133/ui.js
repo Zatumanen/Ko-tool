@@ -1,4 +1,4 @@
-import{connectEp133,disconnectEp133,isConnected}from './index.js';
+import{connectEp133,isConnected,onConnectionChange}from './index.js';
 import{listDeviceFiles,getFileMetadata,uploadSampleToSlot,startPlayback,normalizeFileName}from './filesystem.js';
 import{prepareEp133Sample}from './audio.js';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
@@ -45,7 +45,7 @@ export function initEp133Browser({showError}={}){
       try{
         setSlotStatus(slot,'PREPARING...');
         const prepared=await prepareEp133Sample(file,{formats:soundFormats,onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
-        const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format};
+        const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format,...(prepared.metadata||{})};
         await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
         const normalizedName=normalizeFileName(file.name);
         slot.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
@@ -54,7 +54,7 @@ export function initEp133Browser({showError}={}){
     }
   });
 
-  const closePanel=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true');if(isConnected())disconnectEp133();};
+  const closePanel=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true');};
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
   open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
@@ -84,6 +84,27 @@ export function initEp133Browser({showError}={}){
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);refresh.disabled=!isConnected();}
   };
 
-  connect.onclick=async()=>{setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');try{const device=await connectEp133();const meta=device.metadata||{};setDevice(meta.product||device.sku||'EP SERIES');setStatus('CONNECTED · READ/WRITE');await readDevice();}catch(e){setStatus('NOT CONNECTED');showError?.(e?.message||e);setBusy(false);refresh.disabled=true;}};
+  const renderConnection=state=>{
+    if(state.connected){
+      const meta=state.device?.metadata||{};
+      setDevice(meta.product||state.device?.sku||'EP SERIES');
+      setStatus('CONNECTED · READ/WRITE');
+      connect.disabled=true;
+      refresh.disabled=false;
+      return;
+    }
+    setDevice('NO DEVICE');
+    setStatus('NOT CONNECTED');
+    connect.disabled=false;
+    refresh.disabled=true;
+    soundsParentId=0;
+    soundFormats=[];
+    memory.setSlots([]);
+  };
+  connect.onclick=async()=>{setBusy(true);setStatus('CONNECTING...');setDevice('NO DEVICE');try{const device=await connectEp133();renderConnection({connected:true,device});await readDevice();}catch(e){setStatus('NOT CONNECTED');showError?.(e?.message||e);setBusy(false);refresh.disabled=true;}};
+  onConnectionChange(state=>{
+    renderConnection(state);
+    if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
+  });
   refresh.onclick=readDevice;search?.addEventListener('input',()=>memory.refresh());panel.addEventListener('click',e=>{if(e.target===panel)closePanel();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.style.display!=='none')closePanel();});
 }
