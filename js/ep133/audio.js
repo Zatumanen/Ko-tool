@@ -150,14 +150,14 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
   if(audioMeta.rate&&!audioMeta.sample_rate)audioMeta={...audioMeta,sample_rate:audioMeta.rate,container:'WAV',format:audioMeta.format===1?'pcm':audioMeta.format,bits:audioMeta.bits,extra:{data_start:audioMeta.dataOffset,data_end:audioMeta.dataOffset+audioMeta.dataSize}};
   if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-133 samples must be 1 or 2 channels.');
+  if((audioMeta.length??0)>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
+  if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
   const nativeStart=audioMeta?.extra?.data_start??0;
   const nativeEnd=audioMeta?.extra?.data_end??0;
   if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===DEFAULT_SAMPLE_RATE&&(audioMeta.channels===1||audioMeta.channels===2)){
     onProgress?.(100,{status:'ready'});
     return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:audioMeta.sample_rate,format:DEVICE_AUDIO_FORMAT,metadata:prepareTeenageMetadata(audioMeta,audioMeta.sample_rate)};
   }
-  if((audioMeta.length??0)>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
-  if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
   const target=targetSampleRate??getTargetSampleRate(audioMeta,formats);
   let inputData=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),channels=audioMeta.channels,inputFormat=audioMeta.container==='AIFF'?'aiff':'pcm';
   if(inputFormat==='pcm'){
