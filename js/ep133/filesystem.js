@@ -89,7 +89,7 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
   let offset=0,page=0;
-  while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size),timeout),timeout);offset+=size;page+=1;}
+  while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
 }
 
