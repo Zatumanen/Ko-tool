@@ -144,8 +144,8 @@ export function initEp133Browser({showError}={}){
       const slots=createSampleSlots(files);memory.setSlots(slots);
       const occupied=slots.filter(slot=>slot.file);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
-      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');refresh.disabled=false;
-    }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);refresh.disabled=!isConnected();}
+      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
+    }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
   };
 
   const renderConnection=state=>{
@@ -167,7 +167,7 @@ export function initEp133Browser({showError}={}){
   const scheduleDeviceRefresh=()=>{
     if(!isConnected()||panel.style.display==='none')return;
     clearTimeout(eventRefreshTimer);
-    eventRefreshTimer=setTimeout(()=>{if(!refresh.disabled)readDevice();},300);
+    eventRefreshTimer=setTimeout(()=>readDevice(),300);
   };
   onFileEvent(()=>scheduleDeviceRefresh());
 
