@@ -411,7 +411,7 @@
 .ep133-sample-row:hover{background:#dbe8ff}.ep133-sample-row.selected{background:var(--primary-blue);color:#fff}
 .ep133-sample-number{font-weight:bold}.ep133-sample-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-sample-size{text-align:right;color:#555}.ep133-sample-row.selected .ep133-sample-size{color:#fff}
 .ep133-slot-info-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}.ep133-slot-info-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ep133-slot-destination{margin-top:5px;padding-top:5px;border-top:1px solid #aaa;font-weight:bold}
+.ep133-slot-destination{margin-top:5px;padding-top:5px;border-top:1px solid #aaa;font-weight:bold}.ep133-slot-actions{display:flex;gap:4px;margin-top:6px}.ep133-slot-actions button{min-height:26px;padding:3px 7px;border:2px outset var(--win-gray);background:var(--win-gray);font:10px "Courier New",monospace;cursor:pointer}.ep133-slot-actions button:active{border-style:inset}.ep133-slot-actions button:disabled{cursor:wait;opacity:.6}.ep133-download-sample{font-weight:bold}
 @media(max-width:600px){.ep133-sample-header{align-items:stretch;flex-direction:column}.ep133-sample-header input{width:100%}.ep133-sample-tabs{overflow-x:auto;flex-wrap:nowrap}.ep133-sample-tab{flex:0 0 auto}.ep133-sample-list{max-height:55vh}.ep133-sample-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}}
 
 /* My EP sample memory layout and draggable window */
