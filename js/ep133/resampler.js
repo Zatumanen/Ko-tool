@@ -52,10 +52,8 @@ async function loadModule(url=DEFAULT_WASM_URL){
 }
 
 export async function getLibSampleRateModule(url){
-  if(!modulePromise||url){
-    modulePromise=loadModule(url||DEFAULT_WASM_URL);
-  }
-  return modulePromise;
+  if(!modulePromise||url)modulePromise=loadModule(url||DEFAULT_WASM_URL);
+  return instantiateModule(await modulePromise);
 }
 
 export async function resampleInterleavedFloat32(input,sourceRate,targetRate,channels,{wasmUrl}={}){
@@ -89,5 +87,5 @@ export async function resampleInterleavedFloat32(input,sourceRate,targetRate,cha
     throw new Error(message||`libsamplerate error ${error}`);
   }
   const generated=view.getInt32(dataPtr+20,true);
-  return new Float32Array(new Float32Array(memory.buffer,outputPtr,generated*channels));
+  return new Float32Array(memory.buffer,outputPtr,generated*channels).slice();
 }
