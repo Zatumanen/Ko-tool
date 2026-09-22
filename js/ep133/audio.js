@@ -144,10 +144,11 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   const name=String(file.name||'sample.wav');
   if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
   const bytes=new Uint8Array(await file.arrayBuffer());
-  const ko2Metadata=parseKo2Metadata(bytes);
+  const resampler=await getLibSampleRateModule();
   let audioMeta;
-  try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{audioMeta=decodeMetaFallback(bytes);}
-  if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
+  try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{audioMeta=parseWavAudioMeta(bytes);}
+  if(!audioMeta?.channels||!audioMeta?.rate&&!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
+  if(audioMeta.rate&&!audioMeta.sample_rate)audioMeta={...audioMeta,sample_rate:audioMeta.rate,container:'WAV',format:audioMeta.format===1?'pcm':audioMeta.format,bits:audioMeta.bits,extra:{data_start:audioMeta.dataOffset,data_end:audioMeta.dataOffset+audioMeta.dataSize}};
   if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-133 samples must be 1 or 2 channels.');
   const nativeStart=audioMeta?.extra?.data_start??0;
   const nativeEnd=audioMeta?.extra?.data_end??0;
