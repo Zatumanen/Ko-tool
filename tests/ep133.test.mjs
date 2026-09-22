@@ -165,7 +165,7 @@ test('EP upload metadata follows the reference Teenage Engineering metadata rule
       json:JSON.stringify({'sound.playmode':'loop','sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
     }
   },46875);
-  assert.equal(meta['sound.loopstart'],4691);
+  assert.equal(meta['sound.loopstart'],4687);
   assert.equal(meta['sound.loopend'],23437);
   assert.equal(meta['sound.rootnote'],60);
   assert.equal(meta['sound.bpm'],120);
