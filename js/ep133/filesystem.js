@@ -128,8 +128,9 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
   const normalizedName=normalizeFileName(name);
-  const fileId=await putFile({data:bytes,filename:normalizedName,parentId,destinationId,metadata,onProgress});
-  await setFileMetadata(fileId,{...metadata,name:normalizedName});
+  const uploadMetadata={...metadata,name:normalizedName};
+  const fileId=await putFile({data:bytes,filename:normalizedName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  await setFileMetadata(fileId,uploadMetadata);
   await initFileSystem();
   return fileId;
 }
