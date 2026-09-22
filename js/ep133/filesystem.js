@@ -91,7 +91,8 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
     offset+=size;page+=1;
     onProgress?.(offset,data.byteLength,{status:'sending',fileId});
   }
-  if(page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');\n  await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
+  if(page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');
+  await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
   return fileId;
   });
 }
