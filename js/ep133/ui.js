@@ -1,5 +1,5 @@
 import{connectEp133,isConnected,onConnectionChange}from './index.js';
-import{listDeviceFiles,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './filesystem.js';
+import{listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './filesystem.js';
 import{prepareEp133Sample}from './audio.js?v=20260922-2';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 
@@ -39,6 +39,7 @@ export function initEp133Browser({showError}={}){
       try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
     },
     onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
+    onDownload:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');setSlotStatus(slot,'DOWNLOADING 0%');const result=await getFile(slot.nodeId,(done,total)=>setSlotStatus(slot,'DOWNLOADING '+Math.round(done/Math.max(1,total)*100)+'%'));const blob=new Blob([result.data],{type:'audio/wav'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=result.name||slot.file?.name||('sample_'+String(slot.id).padStart(3,'0')+'.wav');document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);setSlotStatus(slot,'DOWNLOADED');},
     onDrop:async(slot,event)=>{
       if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
       if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
