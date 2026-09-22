@@ -62,7 +62,9 @@ export function normalizeFileName(name){let value=String(name||'sample.wav').rep
 
 export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata){const safe=normalizeFileName(filename),meta=metadata==null?'':JSON.stringify(metadata),metaBytes=new TextEncoder().encode(meta),p=new Uint8Array(11+safe.length+1+metaBytes.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=TE_SYSEX_FILE_CAPABILITY_READ|TE_SYSEX_FILE_FILE_TYPE_FILE;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta)writeUtf8String(view,12+safe.length,meta,false);return p;}
 
-export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}\n\nexport function buildFilePutDataPayload(page,data){const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
+export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}
+
+export function buildFilePutDataPayload(page,data){const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
 
 export function buildMetadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),bytes=new TextEncoder().encode(json),p=new Uint8Array(5+bytes.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeUtf8String(view,4,json,true);return p;}
 
