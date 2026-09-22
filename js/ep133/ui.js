@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
 import{prepareEp133Sample}from './audio.js?v=20260923-1';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
 import{outputFileName}from '../output-name.js';
@@ -166,6 +166,14 @@ export function initEp133Browser({showError}={}){
   };
   renderFiles();
   renderFileInfo();
+  let eventRefreshTimer=null;
+  const scheduleDeviceRefresh=()=>{
+    if(!isConnected()||panel.style.display==='none')return;
+    clearTimeout(eventRefreshTimer);
+    eventRefreshTimer=setTimeout(()=>{if(!refresh.disabled)readDevice();},300);
+  };
+  onFileEvent(()=>scheduleDeviceRefresh());
+
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
