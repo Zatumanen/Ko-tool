@@ -6,7 +6,6 @@ import{outputFileName}from '../output-name.js';
 export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
   const panel=document.getElementById('ep133-browser');
-  const standalone=new URLSearchParams(location.search).get('my-ep')==='1';
   const close=document.getElementById('ep133-close');
   const connect=document.getElementById('ep133-connect');
   const refresh=document.getElementById('ep133-refresh');
@@ -111,9 +110,9 @@ export function initEp133Browser({showError}={}){
     }
   });
 
-  const closePanel=()=>{if(standalone){window.close();return;}panel.style.display='none';panel.setAttribute('aria-hidden','true');};
+  const closePanel=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true');};
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
-  open.onclick=()=>{if(standalone)return;if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}const url=new URL('./',document.baseURI);url.searchParams.set('my-ep','1');const w=window.open(url.href,'my-ep-window','popup=yes,width=1100,height=850');if(w)w.focus();};
+  open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
   filesTab?.addEventListener('click',()=>{filesPanel.hidden=false;samplesPanel.hidden=true;filesTab.classList.add('selected');samplesTab.classList.remove('selected');});
@@ -167,7 +166,6 @@ export function initEp133Browser({showError}={}){
   };
   renderFiles();
   renderFileInfo();
-  if(standalone){panel.style.display='flex';panel.setAttribute('aria-hidden','false');}
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&panel.style.display!=='none'&&list?.querySelector('.ep133-empty'))readDevice();
