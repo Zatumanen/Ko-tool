@@ -38,6 +38,7 @@ async function getMetadataByNodeId(nodeId){
     try{
       let page=0,text='';
       for(;;){
+        if(page>0xffff)throw new Error('EP-series metadata page limit exceeded.');
         const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);
         const response=await requestRead(TE_SYSEX_FILE,p);
         const parsed=parseMetadataResponse(response.rawData,page);
@@ -55,7 +56,7 @@ async function getMetadataByNodeId(nodeId){
 
 export async function getFileMetadata(nodeId){return runFileOperation(()=>getMetadataByNodeId(nodeId));}
 
-export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;});}
+export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;});}
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
@@ -101,7 +102,8 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
   let offset=0,page=0;
-  while(offset<data.byteLength){const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
+  while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
+  if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
   });
 }
