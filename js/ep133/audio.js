@@ -1,4 +1,4 @@
-import{resampleInterleavedFloat32}from './resampler.js';
+import{resampleInterleavedFloat32}from './resampler.js?v=20260923-1';
 
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
