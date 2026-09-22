@@ -11,8 +11,14 @@ function notifyConnection(){
 }
 
 function handleMidiStateChange(){
-  if(!initialized)return;
-  if(input?.state==='disconnected'||output?.state==='disconnected')disconnectEp133();
+  if(initialized){
+    if(input?.state==='disconnected'||output?.state==='disconnected')disconnectEp133();
+    return;
+  }
+  if(connectingPromise)return;
+  const ports=[...(midiAccess?.inputs?.values?.()||[]),...(midiAccess?.outputs?.values?.()||[])];
+  if(!ports.some(port=>port.state==='connected'))return;
+  connectEp133().catch(()=>{});
 }
 
 function onMessage(inputPort,event){
