@@ -12,6 +12,13 @@ test('resampler uses the reference dynamic WASM runtime',async()=>{
   assert.match(runtime,/Module\.resampleAudioData/);
 });
 
+test('EP audio pipeline imports the libsamplerate module and validates channel count',async()=>{
+  const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
+  assert.match(source,/import\{getLibSampleRateModule\}from '\.\/resampler\.js\?v=/);
+  assert.match(source,/getLibSampleRateModule\(\)/);
+  assert.match(source,/audioMeta\.channels<1\|\|audioMeta\.channels>2/);
+});
+
 test('ZIP local and central headers use the same UTF-8 flag',async()=>{
   const blob=await createZip([{path:'тест.wav',blob:new Blob([new Uint8Array([1,2,3])])}]);
   const bytes=new Uint8Array(await blob.arrayBuffer());
