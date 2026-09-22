@@ -1,4 +1,4 @@
-import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP}from './constants.js';
+import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE}from './constants.js';
 import{requestRead,requestFile,onConnectionChange}from './device.js';
 import{parseNullTerminatedString}from './packing.js';
 
@@ -60,6 +60,8 @@ export async function listDeviceFiles(onProgress){return runFileOperation(async(
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
+export function buildFileDeletePayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_DELETE;view.setUint16(1,fileId);return p;}
+
 export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata){const safe=normalizeFileName(filename),meta=metadata==null?'':JSON.stringify(metadata),metaBytes=new TextEncoder().encode(meta),p=new Uint8Array(11+safe.length+1+metaBytes.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=TE_SYSEX_FILE_CAPABILITY_READ|TE_SYSEX_FILE_FILE_TYPE_FILE;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta)writeUtf8String(view,12+safe.length,meta,false);return p;}
 
 export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}
@@ -96,6 +98,8 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   return fileId;
   });
 }
+
+export async function deleteFile(fileId,{timeout=15000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
 
 export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   return runFileOperation(async()=>{
