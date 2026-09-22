@@ -135,6 +135,14 @@ test('EP sample filename normalization matches the device naming rules',async()=
 });
 
 import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata}from '../js/ep133/audio.js';
+
+test('EP audio pipeline binds the local resampler module and has no stale fallback reference',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
+  assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
+  assert.doesNotMatch(source,/resampler\.getAudioMeta/,'metadata call must use the bound resampler instance');
+  assert.doesNotMatch(source,/decodeMetaFallback/);
+});
 test('EP target sample rate follows pbarilla format metadata',()=>{
   const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
   assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);
