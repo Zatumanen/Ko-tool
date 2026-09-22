@@ -15,7 +15,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
 import{requestRead}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFilePutInitPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
