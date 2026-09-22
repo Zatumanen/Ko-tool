@@ -54,6 +54,53 @@ function parseKo2Metadata(bytes){
   return null;
 }
 
+const TEENAGE_META_VALIDATORS={
+  "sound.loopstart":value=>value!=null&&value>=0,
+  "sound.loopend":value=>value!=null&&value>=0,
+  "sound.rootnote":value=>value!=null&&value>0&&value<=127,
+  "sound.bpm":value=>value!=null&&value>=60&&value<=180,
+  "sound.pitch":value=>value!=null&&value>=-12&&value<=12,
+  "sound.pan":value=>value!=null&&value>=-16&&value<=16,
+  "sound.amplitude":value=>value!=null&&value>=0&&value<=200,
+  "envelope.attack":value=>value!=null&&value>=0&&value<=255,
+  "envelope.release":value=>value!=null&&value>=0&&value<=255,
+  "sound.playmode":value=>value!=null&&String(value).length>0,
+  "time.mode":value=>value!=null&&String(value).length>0
+};
+
+function cleanTeenageMetadata(metadata){
+  const out={};
+  for(const[key,value]of Object.entries(metadata||{})){
+    const validator=TEENAGE_META_VALIDATORS[key];
+    if(validator&&!validator(value))continue;
+    out[key]=value;
+  }
+  return out;
+}
+
+export function prepareTeenageMetadata(audioMeta,targetSampleRate){
+  const extra=audioMeta?.extra||{};
+  let metadata={};
+  if(typeof extra.json==='string'&&extra.json){
+    try{
+      const parsed=JSON.parse(extra.json);
+      if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))metadata={...parsed};
+    }catch{}
+  }
+  const sourceRate=Number(audioMeta?.sample_rate);
+  const scale=Number.isFinite(sourceRate)&&sourceRate>0&&Number.isFinite(targetSampleRate)&&targetSampleRate>0
+    ? targetSampleRate/sourceRate : 1;
+  if(TEENAGE_META_VALIDATORS["sound.loopstart"](extra.loop_start))
+    metadata["sound.loopstart"]=Math.floor(extra.loop_start*scale);
+  if(TEENAGE_META_VALIDATORS["sound.loopend"](extra.loop_end))
+    metadata["sound.loopend"]=Math.floor(extra.loop_end*scale);
+  if(TEENAGE_META_VALIDATORS["sound.rootnote"](extra.midi_root_note))
+    metadata["sound.rootnote"]=extra.midi_root_note;
+  if(TEENAGE_META_VALIDATORS["sound.bpm"](extra.bpm))
+    metadata["sound.bpm"]=extra.bpm;
+  return cleanTeenageMetadata(metadata);
+}
+
 function parseNativeWav(bytes){
   const meta=parseWavAudioMeta(bytes);
   if(!meta||meta.format!==1||meta.bits!==16||(meta.channels!==1&&meta.channels!==2)||meta.rate!==DEFAULT_SAMPLE_RATE)return null;
@@ -106,7 +153,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   const nativeEnd=audioMeta?.extra?.data_end??0;
   if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===DEFAULT_SAMPLE_RATE&&(audioMeta.channels===1||audioMeta.channels===2)){
     onProgress?.(100,{status:'ready'});
-    return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:audioMeta.sample_rate,format:DEVICE_AUDIO_FORMAT,metadata:ko2Metadata};
+    return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:audioMeta.sample_rate,format:DEVICE_AUDIO_FORMAT,metadata:prepareTeenageMetadata(audioMeta,audioMeta.sample_rate)};
   }
   if((audioMeta.length??0)>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
   if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
@@ -124,7 +171,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   const data=output instanceof Uint8Array?output:new Uint8Array(output.buffer||output);
   onProgress?.(80,{status:'encoding'});
   onProgress?.(100,{status:'ready'});
-  return{data,channels,samplerate:target,format:DEVICE_AUDIO_FORMAT,metadata:ko2Metadata};
+  return{data,channels,samplerate:target,format:DEVICE_AUDIO_FORMAT,metadata:prepareTeenageMetadata(audioMeta,target)};
 }
 export {parseKo2Metadata};
 
