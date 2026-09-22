@@ -102,10 +102,10 @@ export function initEp133Browser({showError}={}){
         setSlotStatus(slot,'PREPARING...');
         const prepared=await prepareEp133Sample(file,{formats:soundFormats,onProgress:(value,info)=>setSlotStatus(slot,(info?.status||'PREPARING').toUpperCase()+' '+Math.round(value)+'%')});
         const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format,...(prepared.metadata||{})};
-        await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
+        const fileId=await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>setSlotStatus(slot,'UPLOADING '+Math.round(done/Math.max(1,total)*100)+'%')});
         const normalizedName=normalizeFileName(file.name);
         slot.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
-        slot.nodeId=slot.id;slot.meta={...metadata,name:normalizedName};memory.refresh();setSlotStatus(slot,'WRITTEN');
+        slot.nodeId=fileId;slot.meta={...metadata,name:normalizedName};memory.refresh();setSlotStatus(slot,'WRITTEN');
       }catch(error){setSlotStatus(slot,'WRITE ERROR');showError?.(error?.message||error);}
     }
   });
