@@ -1,6 +1,7 @@
 import{connectEp133,isConnected,onConnectionChange,listDeviceFiles,getFile,getFileMetadata,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js';
 import{prepareEp133Sample}from './audio.js?v=20260922-2';
 import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
+import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
@@ -74,7 +75,7 @@ export function initEp133Browser({showError}={}){
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
       const item=window.__speedUpperCutFiles?.get(resultId);
-      if(item?.result?.blob)return new File([item.result.blob],item.outputName||item.file.name.replace(/\.[^.]+$/,'')+'_x2.wav',{type:'audio/wav'});
+      if(item?.result?.blob)return new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'});
     }
     const file=event.dataTransfer?.files?.[0];
     return file||null;
