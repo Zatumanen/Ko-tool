@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP}from './constants.js';
-import{requestRead,requestFile}from './device.js';
+import{requestRead,requestFile,onConnectionChange}from './device.js';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -7,6 +7,8 @@ const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
 const writeString=(view,offset,text,terminate=false)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));if(terminate)view.setUint8(offset+text.length,0);};
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 let deviceChunkSize=0;
+export function resetFileSystemState(){deviceChunkSize=0;}
+onConnectionChange(({connected})=>{if(!connected)deviceChunkSize=0;});
 export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYSEX_HEADER_OVERHEAD+2+TE_SYSEX_FOOTER_OVERHEAD;if(maxPacketLength<=overhead)return 0;const available=maxPacketLength-1-overhead;return available-Math.floor(available/8);}
 
 function initPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
@@ -97,7 +99,6 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   const name=filename||file?.name||'sample.wav';
   const fileId=await putFile({data:bytes,filename:name,parentId,destinationId,metadata,onProgress});
   await setFileMetadata(fileId,{...metadata,name:normalizeFileName(name)});
-  await initFileSystem();
   return fileId;
 }
 
