@@ -116,7 +116,7 @@ export function createSampleMemory({
         (metadata.channels?'<div><b>CHANNELS</b> '+escapeHtml(metadata.channels)+'</div>':'')+
         '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+
         '<div class="ep133-slot-actions">'+
-        '<button type="button" class="ep133-download-sample" data-download-slot="'+slot.id+'">DOWNLOAD SAMPLE</button>'+\
+        '<button type="button" class="ep133-download-sample" data-download-slot="'+slot.id+'">DOWNLOAD SAMPLE</button>'+
         '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'+\
         '</div>'
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
