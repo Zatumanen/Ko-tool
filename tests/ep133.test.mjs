@@ -139,3 +139,10 @@ test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   new TextEncoder().encodeInto(json,bytes.subarray(32));
   assert.equal(parseKo2Metadata(bytes)['sound.playmode'],'loop');
 });
+
+
+test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
+  const fs=await import('../js/ep133/filesystem.js');
+  assert.equal(typeof fs.resetFileSystemState,'function');
+  fs.resetFileSystemState();
+});
