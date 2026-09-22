@@ -31,6 +31,29 @@ export function parseWavAudioMeta(bytes){
   return{...fmt,dataOffset,dataSize};
 }
 
+function parseKo2Metadata(bytes){
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(view.byteLength<12)return null;
+  const text=(offset,length)=>String.fromCharCode(...bytes.slice(offset,offset+length));
+  let offset=12;
+  while(offset+8<=view.byteLength){
+    const id=text(offset,4),size=view.getUint32(offset+4,true),end=offset+8+size+(size&1);
+    if(end>view.byteLength)break;
+    if(id==='LIST'&&size>=12&&text(offset+8,4)==='INFO'&&text(offset+12,4)==='TNGE'){
+      const jsonLength=view.getUint32(offset+16,true);
+      if(jsonLength>0&&offset+20+jsonLength<=view.byteLength){
+        try{
+          const json=new TextDecoder().decode(bytes.slice(offset+20,offset+20+jsonLength));
+          const metadata=JSON.parse(json);
+          return metadata&&typeof metadata==='object'?metadata:null;
+        }catch{}
+      }
+    }
+    offset=end;
+  }
+  return null;
+}
+
 function parseNativeWav(bytes){
   const meta=parseWavAudioMeta(bytes);
   if(!meta||meta.format!==1||meta.bits!==16||(meta.channels!==1&&meta.channels!==2)||meta.rate!==DEFAULT_SAMPLE_RATE)return null;
@@ -74,8 +97,9 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   const name=String(file.name||'sample.wav');
   if(!/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(name)&&!String(file.type||'').startsWith('audio/'))throw new Error('Unsupported audio file.');
   const bytes=new Uint8Array(await file.arrayBuffer());
+  const ko2Metadata=parseKo2Metadata(bytes);
   const native=parseNativeWav(bytes);
-  if(native){onProgress?.(100,{status:'ready'});return{data:native.data,channels:native.channels,samplerate:native.rate,format:'s16'};}
+  if(native){onProgress?.(100,{status:'ready'});return{data:native.data,channels:native.channels,samplerate:native.rate,format:'s16',metadata:ko2Metadata};}
   const wavMeta=parseWavAudioMeta(bytes);
   onProgress?.(0,{status:'decoding'});
   const decoded=await decode(file,wavMeta?.rate);
@@ -89,8 +113,10 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   onProgress?.(80,{status:'encoding'});
   const result=encodePcm16(converted,channels,target);
   onProgress?.(100,{status:'ready'});
-  return result;
+  return {...result,metadata:ko2Metadata};
 }
+
+export {parseKo2Metadata};
 
 export const EP133_SAMPLE_RATE=DEFAULT_SAMPLE_RATE;
 export const EP133_AUDIO_FORMAT=DEVICE_AUDIO_FORMAT;
