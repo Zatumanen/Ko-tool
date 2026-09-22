@@ -151,3 +151,7 @@ test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
   assert.equal(typeof fs.resetFileSystemState,'function');
   fs.resetFileSystemState();
 });
+
+test('EP FILE_DELETE payload encodes the file id',()=>{
+  assert.deepEqual([...buildFileDeletePayload(0x1234)],[5,0x12,0x34]);
+});
