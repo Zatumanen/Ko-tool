@@ -1,9 +1,9 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
-const listeners=new Map(),pending=new Map(),connectionListeners=new Set();
+const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set();
 
 function notifyConnection(){
   const state={connected:isConnected(),device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null};
@@ -31,6 +31,12 @@ function onMessage(inputPort,event){
   }
   const msg=parseTeSysex(data);
   if(!msg)return;
+  const fileEventTypes=new Set([TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED]);
+  if(msg.command===TE_SYSEX_FILE&&fileEventTypes.has(msg.status)&&!pending.has(msg.requestId)){
+    const eventType=msg.status;
+    for(const listener of fileEventListeners){try{listener({type:eventType,data:msg.rawData,inputPort});}catch{}}
+    return;
+  }
   const p=pending.get(msg.requestId);
   if(p){
     if(p.inputPort&&p.inputPort!==inputPort)return;
@@ -152,6 +158,12 @@ export function requestFile(command,payload=new Uint8Array(),timeout=20000){
 }
 
 export function getMidiPorts(){return{input,output};}
+
+export function onFileEvent(listener){
+  if(typeof listener!=='function')return()=>{};
+  fileEventListeners.add(listener);
+  return()=>fileEventListeners.delete(listener);
+}
 
 export function onConnectionChange(listener){
   if(typeof listener!=='function')return()=>{};
