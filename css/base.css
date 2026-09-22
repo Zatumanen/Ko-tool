@@ -351,6 +351,10 @@
 }
 
 
+.ep133-device-stats{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
+.ep133-device-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:5px 7px;border:2px inset var(--win-dark);background:#fff;min-width:0}
+.ep133-device-stats span{font-size:10px;font-weight:bold;color:#555;white-space:nowrap}
+.ep133-device-stats strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* My EP — consolidated Win95/CRT UI */
 .ep133-connect-row{margin-top:9px}
 .ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}
@@ -457,7 +461,8 @@
   .ep133-browser{padding:6px}
   .ep133-browser-window{width:100%;max-height:94vh;left:50%;top:50%}
   .ep133-browser-body{overflow:auto}
-  .ep133-device-head{align-items:stretch;flex-direction:column}
+  .ep133-device-stats{grid-template-columns:1fr 1fr 1fr}
+  .ep133-device-stats>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
   .ep133-actions{width:100%}
   .ep133-actions button{flex:1}
   .ep133-file-toolbar{flex-direction:column;gap:0}
