@@ -1,4 +1,4 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject}from './packing.js';
 
@@ -47,9 +47,9 @@ function onMessage(inputPort,event){
   const msg=parseTeSysex(data);
   if(!msg)return;
   const fileEventTypes=new Set([TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED]);
-  if(msg.command===TE_SYSEX_FILE&&fileEventTypes.has(msg.status)&&!pending.has(msg.requestId)){
-    const eventType=msg.status;
-    for(const listener of fileEventListeners){try{listener({type:eventType,data:msg.rawData,inputPort});}catch{}}
+  const eventType=msg.command===TE_SYSEX_FILE?msg.rawData?.[0]:undefined;
+  if(msg.command===TE_SYSEX_FILE&&fileEventTypes.has(eventType)&&!pending.has(msg.requestId)){
+    for(const listener of fileEventListeners){try{listener({type:eventType,data:msg.rawData.slice(1),inputPort});}catch{}}
     return;
   }
   const p=pending.get(msg.requestId);
@@ -157,8 +157,8 @@ export function disconnectEp133(){
 
 export function isConnected(){return initialized&&!!input&&!!output;}
 
-const READ_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA]);
-const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_DELETE]);
+const READ_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_INFO]);
+const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_MOVED]);
 
 export function requestRead(command,payload=new Uint8Array(),timeout=5000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
