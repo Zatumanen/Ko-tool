@@ -350,32 +350,47 @@
   .preview-menu{padding:0 2px}
 }
 
-/* EP series read-only device browser */
-.ep133-connect-row{margin-top:9px}.ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}
-.ep133-browser{display:none;position:static;width:0;height:0;pointer-events:none}
-.ep133-browser-window{position:fixed;z-index:10001;pointer-events:auto;width:min(760px,96vw);max-height:min(680px,92vh);background:var(--win-gray);border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);box-shadow:5px 5px 15px rgba(0,0,0,.65);display:flex;flex-direction:column}
-.ep133-browser-body{padding:9px;min-height:0;display:flex;flex-direction:column;gap:8px}
-.ep133-device-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border:2px inset var(--win-dark);background:#fff;padding:7px}
-.ep133-device-head>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}.ep133-device-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-device-head span{font-size:11px}
-.ep133-actions{display:flex;gap:5px}.ep133-actions button{min-width:92px;min-height:30px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:12px "Courier New",monospace;cursor:pointer}.ep133-actions button:disabled{color:#666;cursor:default}
-.ep133-readonly{padding:5px 7px;border:1px solid var(--win-dark);background:#fff3e0;color:var(--warning-color);font-size:11px;font-weight:bold}
-.ep133-file-browser{min-height:0;border:2px inset var(--win-dark);background:#fff;display:flex;flex-direction:column}.ep133-file-browser-title{padding:5px 7px;font-weight:bold;border-bottom:1px solid #aaa;background:var(--win-gray)}
-.ep133-file-list{min-height:180px;max-height:430px;overflow:auto;padding:3px}.ep133-file-row{display:grid;grid-template-columns:42px minmax(0,1fr) 90px;gap:7px;align-items:center;padding:5px 6px;border-bottom:1px solid #eee;font-size:12px}.ep133-file-row:hover{background:#dbe8ff}.ep133-file-type{font-size:10px;color:#555}.ep133-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-file-size{text-align:right}.ep133-empty{padding:18px 8px;color:#666;text-align:center}.ep133-safety{font-size:10px;color:#555}
-@media(max-width:600px){.ep133-browser{padding:6px}.ep133-browser-window{width:100%;max-height:94vh}.ep133-device-head{align-items:stretch;flex-direction:column}.ep133-actions{width:100%}.ep133-actions button{flex:1}.ep133-file-list{max-height:55vh}.ep133-file-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}}
 
-/* My EP desktop app */
+/* My EP — consolidated Win95/CRT UI */
+.ep133-connect-row{margin-top:9px}
+.ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}
+
+.ep133-browser{display:none;position:static;width:0;height:0;pointer-events:none}
+.ep133-browser-window{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:10001;pointer-events:auto;width:min(760px,96vw);max-height:min(680px,92vh);
+  background:var(--win-gray);
+  border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);
+  border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);
+  box-shadow:5px 5px 15px rgba(0,0,0,.65);
+  display:flex;flex-direction:column;
+}
+.ep133-browser-window .title-bar{touch-action:none;cursor:move}
+.ep133-browser-body{padding:9px;min-height:0;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+
+.ep133-device-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border:2px inset var(--win-dark);background:#fff;padding:7px}
+.ep133-device-head>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ep133-device-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-device-head span{font-size:11px}
+.ep133-actions{display:flex;gap:5px}
+.ep133-actions button{min-width:92px;min-height:30px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:12px "Courier New",monospace;cursor:pointer}
+.ep133-actions button:disabled{color:#666;cursor:default}
+.ep133-readonly{padding:5px 7px;border:1px solid var(--win-dark);background:#fff3e0;color:var(--warning-color);font-size:11px;font-weight:bold}
+.ep133-safety{font-size:10px;color:#555}
+
 .my-ep-icon{left:112px}
 .my-ep-icon i{font-size:31px}
 .my-ep-icon:hover{background:rgba(255,255,255,.2)}
 .my-ep-window{width:min(760px,96vw);max-height:min(680px,92vh)}
-@media(max-width:600px){
-  .my-ep-icon{left:100px}
-  .my-ep-window{width:100%;max-height:94vh}
-}
 
-/* My EP file-browser layout */
+.ep133-view-tabs{display:flex;gap:3px;padding:0 2px}
+.ep133-view-tabs button{min-height:29px;padding:4px 10px;background:var(--win-gray);border:2px outset var(--win-gray);font:700 11px "Courier New",monospace;cursor:pointer}
+.ep133-view-tabs button.selected{border-style:inset;background:#fff}
+.ep133-view-panel[hidden]{display:none!important}
+
+.ep133-file-browser{min-height:0;flex:1;border:2px inset var(--win-dark);background:#fff;display:flex;flex-direction:column}
 .ep133-file-toolbar{display:flex;gap:7px;align-items:stretch;border-bottom:1px solid #aaa;background:var(--win-gray)}
-.ep133-file-browser-title{flex:1;min-width:0}
+.ep133-file-browser-title{flex:1;min-width:0;padding:5px 7px;font-weight:bold;border-bottom:1px solid #aaa;background:var(--win-gray)}
 .ep133-file-browser-title span{font-weight:normal;color:#555}
 .ep133-file-tools{display:flex;gap:4px;padding:3px}
 .ep133-file-tools input,.ep133-file-tools select{min-height:27px;border:2px inset var(--win-dark);background:#fff;font:12px "Courier New",monospace;padding:3px 5px}
@@ -383,52 +398,82 @@
 .ep133-breadcrumbs{min-height:30px;display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:3px 5px;background:#fff;border-bottom:1px solid #aaa;font-size:11px}
 .ep133-breadcrumb{border:0;background:transparent;padding:3px 4px;font:11px "Courier New",monospace;cursor:pointer;color:#000}
 .ep133-breadcrumb:hover{background:var(--primary-blue);color:#fff}
-.ep133-file-row{width:100%;font:12px "Courier New",monospace;text-align:left;background:#fff;color:#000;border:0;border-bottom:1px solid #eee;cursor:pointer}
+.ep133-file-list{height:270px;max-height:none;min-height:120px;overflow:auto;padding:3px}
+.ep133-file-row{
+  width:100%;display:grid;grid-template-columns:42px minmax(0,1fr) 90px;gap:7px;align-items:center;
+  padding:5px 6px;border:0;border-bottom:1px solid #eee;background:#fff;color:#000;text-align:left;
+  font:12px "Courier New",monospace;cursor:pointer;
+}
+.ep133-file-row:hover{background:#dbe8ff}
 .ep133-file-row.selected{background:var(--primary-blue);color:#fff}
 .ep133-file-row.selected .ep133-file-type{color:#fff}
+.ep133-file-type{font-size:10px;color:#555}
+.ep133-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-file-size{text-align:right}
 .ep133-up-row{color:#555}
-.ep133-info{min-height:72px;padding:6px 8px;border:2px inset var(--win-dark);background:#fff;font-size:11px;line-height:1.55}
+.ep133-empty{padding:18px 8px;color:#666;text-align:center}
+.ep133-file-actions{display:flex;gap:5px;padding:5px;background:var(--win-gray);border-top:1px solid #aaa}
+.ep133-file-actions button{min-height:29px;min-width:100px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}
+.ep133-file-actions button:disabled{color:#666;cursor:default}
+.ep133-file-actions button:active:not(:disabled){border-style:inset}
+.ep133-file-row.dragover{outline:2px dashed #000;outline-offset:-3px;background:#c0c0c0}
+
+.ep133-info{min-height:72px;max-height:150px;overflow:auto;overflow-wrap:anywhere;word-break:break-word;padding:6px 8px;border:2px inset var(--win-dark);background:#fff;font-size:11px;line-height:1.55}
 .ep133-info b{display:inline-block;min-width:55px}
 .ep133-info-empty{color:#666}
+
+.ep133-sample-memory{min-height:0;flex:1;border:2px inset var(--win-dark);background:#fff;display:flex;flex-direction:column}
+.ep133-sample-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 7px;border-bottom:1px solid #aaa;background:var(--win-gray)}
+.ep133-sample-header>div{display:flex;align-items:baseline;gap:8px}
+.ep133-sample-header span{font-size:10px;color:#555}
+.ep133-sample-header input{width:190px;min-height:27px;border:2px inset var(--win-dark);background:#fff;font:12px "Courier New",monospace;padding:3px 5px}
+.ep133-sample-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:#fff;border-bottom:1px solid #aaa}
+.ep133-sample-tab{min-height:27px;padding:3px 7px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}
+.ep133-sample-tab.selected{border-style:inset;background:#fff;font-weight:bold}
+.ep133-sample-list{flex:1;max-height:none;min-height:160px;overflow:auto;padding:2px}
+.ep133-sample-row{width:100%;display:grid;grid-template-columns:46px minmax(0,1fr) 90px;gap:7px;align-items:center;padding:5px 6px;border:0;border-bottom:1px solid #eee;background:#fff;color:#000;text-align:left;font:12px "Courier New",monospace;cursor:pointer;touch-action:none}
+.ep133-sample-row:hover{background:#dbe8ff}
+.ep133-sample-row.selected{background:var(--primary-blue);color:#fff}
+.ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}
+.ep133-sample-number{font-weight:bold}
+.ep133-sample-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-sample-size{text-align:right;color:#555}
+.ep133-sample-row.selected .ep133-sample-size{color:#fff}
+.ep133-slot-info-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+.ep133-slot-info-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-slot-destination{margin-top:5px;padding-top:5px;border-top:1px solid #aaa;font-weight:bold}
+.ep133-slot-actions{display:flex;gap:4px;margin-top:6px}
+.ep133-slot-actions button{min-height:26px;padding:3px 7px;border:2px outset var(--win-gray);background:var(--win-gray);font:10px "Courier New",monospace;cursor:pointer}
+.ep133-slot-actions button:active{border-style:inset}
+.ep133-slot-actions button:disabled{cursor:wait;opacity:.6}
+.ep133-download-sample{font-weight:bold}
+
+.result-item[draggable="true"]{cursor:grab}
+.result-item.dragging{opacity:.55}
+
 @media(max-width:600px){
+  .my-ep-icon{left:100px}
+  .my-ep-window{width:100%;max-height:94vh}
+  .ep133-browser{padding:6px}
+  .ep133-browser-window{width:100%;max-height:94vh;left:50%;top:50%}
+  .ep133-browser-body{overflow:auto}
+  .ep133-device-head{align-items:stretch;flex-direction:column}
+  .ep133-actions{width:100%}
+  .ep133-actions button{flex:1}
   .ep133-file-toolbar{flex-direction:column;gap:0}
   .ep133-file-tools{padding:4px}
   .ep133-file-tools input{flex:1;width:auto}
   .ep133-file-tools select{width:90px}
   .ep133-breadcrumbs{min-height:34px}
+  .ep133-file-list{height:42vh;min-height:160px}
+  .ep133-file-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}
+  .ep133-view-tabs button{flex:1}
+  .ep133-sample-header{align-items:stretch;flex-direction:column}
+  .ep133-sample-header input{width:100%}
+  .ep133-sample-tabs{overflow-x:auto;flex-wrap:nowrap}
+  .ep133-sample-tab{flex:0 0 auto}
+  .ep133-sample-list{max-height:none;min-height:180px}
+  .ep133-sample-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}
+  .ep133-info{max-height:120px}
 }
 
-/* My EP sample memory */
-.ep133-sample-memory{min-height:0;border:2px inset var(--win-dark);background:#fff;display:flex;flex-direction:column}
-.ep133-sample-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 7px;border-bottom:1px solid #aaa;background:var(--win-gray)}
-.ep133-sample-header>div{display:flex;align-items:baseline;gap:8px}.ep133-sample-header span{font-size:10px;color:#555}
-.ep133-sample-header input{width:190px;min-height:27px;border:2px inset var(--win-dark);background:#fff;font:12px "Courier New",monospace;padding:3px 5px}
-.ep133-sample-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:#fff;border-bottom:1px solid #aaa}
-.ep133-sample-tab{min-height:27px;padding:3px 7px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}
-.ep133-sample-tab.selected{border-style:inset;background:#fff;font-weight:bold}
-.ep133-sample-list{min-height:180px;max-height:430px;overflow:auto;padding:2px}
-.ep133-sample-row{width:100%;display:grid;grid-template-columns:46px minmax(0,1fr) 90px;gap:7px;align-items:center;padding:5px 6px;border:0;border-bottom:1px solid #eee;background:#fff;color:#000;text-align:left;font:12px "Courier New",monospace;cursor:pointer}
-.ep133-sample-row:hover{background:#dbe8ff}.ep133-sample-row.selected{background:var(--primary-blue);color:#fff}
-.ep133-sample-number{font-weight:bold}.ep133-sample-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ep133-sample-size{text-align:right;color:#555}.ep133-sample-row.selected .ep133-sample-size{color:#fff}
-.ep133-slot-info-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}.ep133-slot-info-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ep133-slot-destination{margin-top:5px;padding-top:5px;border-top:1px solid #aaa;font-weight:bold}.ep133-slot-actions{display:flex;gap:4px;margin-top:6px}.ep133-slot-actions button{min-height:26px;padding:3px 7px;border:2px outset var(--win-gray);background:var(--win-gray);font:10px "Courier New",monospace;cursor:pointer}.ep133-slot-actions button:active{border-style:inset}.ep133-slot-actions button:disabled{cursor:wait;opacity:.6}.ep133-download-sample{font-weight:bold}
-@media(max-width:600px){.ep133-sample-header{align-items:stretch;flex-direction:column}.ep133-sample-header input{width:100%}.ep133-sample-tabs{overflow-x:auto;flex-wrap:nowrap}.ep133-sample-tab{flex:0 0 auto}.ep133-sample-list{max-height:55vh}.ep133-sample-row{grid-template-columns:38px minmax(0,1fr) 70px;font-size:11px}}
-
-/* My EP sample memory layout and draggable window */
-.ep133-browser-window{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);}
-.ep133-browser-body{min-height:0;overflow:hidden;}
-.ep133-sample-memory{flex:1;min-height:0;}
-.ep133-sample-list{flex:1;max-height:none;min-height:160px;}
-.ep133-info{max-height:150px;overflow:auto;overflow-wrap:anywhere;word-break:break-word;}
-.ep133-slot-info-head span{min-width:0;}.ep133-browser-window .title-bar{touch-action:none;cursor:move;}
-@media(max-width:600px){
-  .ep133-browser-window{left:50%;top:50%;}
-  .ep133-browser-body{overflow:auto;}
-  .ep133-sample-list{max-height:none;min-height:180px;}
-  .ep133-info{max-height:120px;}
-}
-
-.result-item[draggable="true"]{cursor:grab}.result-item.dragging{opacity:.55}.ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}.ep133-sample-row{touch-action:none}
-
-/* My EP filesystem browser */
-.ep133-view-tabs{display:flex;gap:3px;padding:0 2px}.ep133-view-tabs button{min-height:29px;padding:4px 10px;background:var(--win-gray);border:2px outset var(--win-gray);font:700 11px "Courier New",monospace;cursor:pointer}.ep133-view-tabs button.selected{border-style:inset;background:#fff}.ep133-view-panel[hidden]{display:none!important}.ep133-file-browser{flex:1;min-height:0}.ep133-file-list{height:270px;max-height:none;min-height:120px}.ep133-file-actions{display:flex;gap:5px;padding:5px;background:var(--win-gray);border-top:1px solid #aaa}.ep133-file-actions button{min-height:29px;min-width:100px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}.ep133-file-actions button:disabled{color:#666;cursor:default}.ep133-file-actions button:active:not(:disabled){border-style:inset}.ep133-file-row.dragover{outline:2px dashed #000;outline-offset:-3px;background:#c0c0c0}@media(max-width:600px){.ep133-file-list{height:42vh;min-height:160px}.ep133-view-tabs button{flex:1}}
