@@ -87,6 +87,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   let offset=0,page=0;
   onProgress?.(0,data.byteLength,{status:'sending',fileId});
   while(offset<data.byteLength){
+    if(page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');
     const size=Math.min(maxPayload,data.byteLength-offset);
     const payload=buildFilePutDataPayload(page,data.subarray(offset,offset+size));
     await requestFile(TE_SYSEX_FILE,payload,timeout);
