@@ -14,7 +14,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
 import{requestRead}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
@@ -63,6 +63,17 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
   assert.equal(view.getUint32(7),1234);
   assert.equal(new TextDecoder().decode(payload.slice(11)).startsWith('kick 808'),true);
   assert.equal(payload[19],0);
+});
+
+test('EP metadata JSON is encoded as UTF-8 in FILE_PUT init and metadata SET payloads',()=>{
+  const metadata={name:'привет',description:'café'};
+  const put=buildFilePutInitPayload(7,42,12,'Kick.wav',metadata);
+  const putNameEnd=11+'kick'.length+1;
+  const putJson=new TextDecoder().decode(put.slice(putNameEnd));
+  assert.deepEqual(JSON.parse(putJson),metadata);
+  const set=buildMetadataSetPayload(7,metadata);
+  const setJson=new TextDecoder().decode(set.slice(4,-1));
+  assert.deepEqual(JSON.parse(setJson),metadata);
 });
 
 test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
