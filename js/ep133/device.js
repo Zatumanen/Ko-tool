@@ -34,7 +34,11 @@ function onMessage(inputPort,event){
   const msg=parseTeSysex(data);
   if(!msg)return;
   const p=pending.get(msg.requestId);
-  if(p){pending.delete(msg.requestId);p.resolve(msg);}
+  if(p){
+    if(p.inputPort&&p.inputPort!==inputPort)return;
+    pending.delete(msg.requestId);
+    p.resolve(msg);
+  }
 }
 
 function stopListeners(){
@@ -66,7 +70,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
     const frame=buildTeSysex(command,payload,identityCode,output.id);
     return new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
-      pending.set(frame.id,{resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));else resolve(v);}});
+      pending.set(frame.id,{inputPort:input,resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));else resolve(v);}});
       try{output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
     });
   });
