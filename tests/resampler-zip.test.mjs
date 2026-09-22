@@ -5,7 +5,7 @@ import {createZip} from '../js/zip.js';
 
 test('resampler keeps its WASM source pinned and integrity-checked',async()=>{
   const source=await fs.readFile(new URL('../js/ep133/resampler.js',import.meta.url),'utf8');
-  assert.match(source,/ep_133_sample_tool\/28e545a8a9db09d75802fc9ce612779d2690b556\/data\/libsamplerate\.wasm/);
+  assert.match(source,/DEFAULT_WASM_URL='\.\/wasm\/libsamplerate\.wasm'/);
   assert.match(source,/DEFAULT_WASM_GIT_BLOB_SHA='537871e90eeb3373144066543dd2a01c205173a6'/);
   assert.match(source,/WebAssembly\.instantiate\(module,\{env:runtime\.env\}\)/);
   assert.match(source,/EP-133 resampler integrity check failed/);
