@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><base href="./"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="css/base.css?v=20260922-5">
@@ -37,5 +37,5 @@
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
 <script type="module" src="js/app.js?v=20260922-4"></script>
-<script>document.getElementById("my-ep-icon")?.addEventListener("click",()=>{window.location.href="my-ep.html";});</script>
+<script>document.getElementById("my-ep-icon")?.addEventListener("click",()=>{window.location.href=new URL("my-ep.html",document.baseURI).href;});</script>
 </body></html>
