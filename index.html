@@ -29,27 +29,6 @@
       <div class="results" id="results"><div class="results-title">OUTPUT FILES</div><div id="folder-download-area"></div><div id="results-list"><div class="empty-results">Processed files will appear here with download buttons.</div></div></div>
     </div>
   </main>
-</div><div id="ep133-browser" class="ep133-browser" aria-hidden="true">
-  <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="true" aria-labelledby="ep133-browser-title">
-    <div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
-    <div class="ep133-browser-body">
-      <div class="ep133-device-head">
-        <div><strong id="ep133-device">NO DEVICE</strong><span id="ep133-status">NOT CONNECTED</span></div>
-        <div class="ep133-actions"><button id="ep133-connect" type="button">CONNECT</button><button id="ep133-refresh" type="button" disabled>REFRESH</button></div>
-      </div>
-      <div class="ep133-readonly">SAMPLE MEMORY · 999 SLOTS</div>
-      <div class="ep133-sample-memory">
-        <div class="ep133-sample-header">
-          <div><strong>SAMPLE MEMORY</strong><span>999 POSITIONS</span></div>
-          <input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots">
-        </div>
-        <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div>
-        <div class="ep133-sample-list" id="ep133-sample-list"><div class="ep133-empty">Connect a device to read its sample memory.</div></div>
-        <div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div>
-      </div>
-      <div class="ep133-safety">Drag a sample onto a slot to write it to that EP-133 position. Click a sample to preview it on the device.</div>
-    </div>
-  </div>
 </div><div id="overlay"><div id="win95-loader"><div id="processing-title"><span class="spinner"></span> PROCESSING</div><div class="progress-bar-container"><div class="progress-fill" id="progress-fill"></div><div class="progress-text" id="progress-text">0%</div></div><div class="progress-info"><span id="progress-time">Elapsed: 0s</span><span id="file-count">File: 0/0</span></div><div id="current-file">Preparing...</div><button id="cancel-button" type="button">CANCEL</button></div></div><div id="error-dialog" role="alertdialog" aria-modal="true"><div class="error-dialog-window"><div class="title-bar"><span>Warning</span><button id="error-close" type="button" aria-label="Close">×</button></div><div class="error-dialog-body"><div class="error-dialog-message"><span class="error-icon">!</span><span id="error-message"></span></div><button id="error-ok" type="button">OK</button></div></div></div>
 <div class="start-menu" id="start-menu" role="menu" aria-label="Application menu">
   <div class="start-menu-brand"><i class="fas fa-bolt"></i><span>SpeedUpperCut</span></div>
@@ -57,5 +36,6 @@
   <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
-<script type="module" src="js/app.js?v=20260922-3"></script>
+<script type="module" src="js/app.js?v=20260922-4"></script>
+<script>document.getElementById("my-ep-icon")?.addEventListener("click",()=>{window.location.href="my-ep.html";});</script>
 </body></html>

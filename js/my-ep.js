@@ -1,0 +1,4 @@
+import{initEp133Browser}from './ep133/ui.js?v=20260922-1';
+function showError(message){const dialog=document.getElementById('error-dialog');const text=document.getElementById('error-message');if(!dialog||!text){window.alert(String(message||'Unknown error'));return;}text.textContent=String(message||'Unknown error');dialog.style.display='flex';document.getElementById('error-ok')?.focus();}
+function hideError(){const dialog=document.getElementById('error-dialog');if(dialog)dialog.style.display='none';}
+window.addEventListener('DOMContentLoaded',()=>{document.getElementById('error-ok')?.addEventListener('click',hideError);document.getElementById('error-close')?.addEventListener('click',hideError);initEp133Browser({showError});});
