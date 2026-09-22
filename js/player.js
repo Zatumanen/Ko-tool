@@ -1,3 +1,5 @@
+import{outputFileName}from './output-name.js';
+
 export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
   const old=document.getElementById('preview-window');
   if(old) old.remove();
@@ -26,7 +28,7 @@ export function openPreview(item,{state,saveBlob,esc,createAudioContext}){
       <button type="button" class="preview-menu-button preview-file-menu">File</button><button type="button" class="preview-menu-button preview-options-menu">Options</button>
     </div>
     <div class="preview-body">
-      <div class="preview-file" title="${esc(item.file.name)}">${esc(item.file.name.replace(/\\.[^.]+$/,'')+'_x2.wav')}</div>
+      <div class="preview-file" title="${esc(item.file.name)}">${esc(outputFileName(item.file.name))}</div>
       <div class="preview-main">
         <div class="preview-display">
           <div class="display-stat"><span>TRACK</span><b>1</b></div>
