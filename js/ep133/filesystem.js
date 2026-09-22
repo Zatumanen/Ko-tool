@@ -116,8 +116,8 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   return fileId;
 }
 
-export async function startPlayback(nodeId,preview=true){const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,5000);}
-export async function stopPlayback(nodeId){const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,5000);}
+export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,5000);});}
+export async function stopPlayback(nodeId){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,5000);});}
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
 
