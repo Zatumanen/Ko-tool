@@ -1,4 +1,5 @@
-const DEFAULT_WASM_URL='https://raw.githubusercontent.com/pbarilla/ep_133_sample_tool/main/data/libsamplerate.wasm';
+const DEFAULT_WASM_URL='https://raw.githubusercontent.com/pbarilla/ep_133_sample_tool/28e545a8a9db09d75802fc9ce612779d2690b556/data/libsamplerate.wasm';
+const DEFAULT_WASM_GIT_BLOB_SHA='537871e90eeb3373144066543dd2a01c205173a6';
 let modulePromise=null;
 
 function lrint(value){
@@ -40,12 +41,27 @@ function createRuntime(){
   return {memory,alloc,env};
 }
 
+async function sha1Hex(bytes){
+  const digest=await crypto.subtle.digest('SHA-1',bytes);
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function loadModule(url=DEFAULT_WASM_URL){
   const response=await fetch(url);
   if(!response.ok)throw new Error(`Could not load EP-133 resampler: HTTP ${response.status}`);
   const bytes=await response.arrayBuffer();
+  if(url===DEFAULT_WASM_URL){
+    const header=new TextEncoder().encode(`blob ${bytes.byteLength}\\0`);
+    const blob=new Uint8Array(header.length+bytes.byteLength);
+    blob.set(header);
+    blob.set(new Uint8Array(bytes),header.length);
+    const actual=await sha1Hex(blob);
+    if(actual!==DEFAULT_WASM_GIT_BLOB_SHA)throw new Error('EP-133 resampler integrity check failed.');
+  }
+  return WebAssembly.compile(bytes);
+}
+async function instantiateModule(module){
   const runtime=createRuntime();
-  const instance=await WebAssembly.instantiate(bytes,runtime.env);
+  const instance=await WebAssembly.instantiate(module,{env:runtime.env});
   instance.exports.__wasm_call_ctors?.();
   instance.exports.__wasm_apply_data_relocs?.();
   return{...runtime,exports:instance.exports};
