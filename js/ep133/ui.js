@@ -8,8 +8,6 @@ export function initEp133Browser({showError}={}){
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
   const title=document.getElementById('ep133-browser-title');
-  const memoryUsed=document.getElementById('ep133-memory-used');
-  const fileCount=document.getElementById('ep133-file-count');
   const sampleCount=document.getElementById('ep133-sample-count');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
@@ -40,11 +38,13 @@ export function initEp133Browser({showError}={}){
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatSize=size=>{if(!size)return '—';if(size<1024)return size+' B';if(size<1024*1024)return(size/1024).toFixed(1)+' KB';return(size/1024/1024).toFixed(2)+' MB';};
   const renderDeviceStats=(files=[],samples=[])=>{
-    const filesUsed=files.filter(item=>item.fileType==='file');
     const usedBytes=samples.reduce((total,item)=>total+(Number(item.fileSize)||0),0);
-    if(memoryUsed)memoryUsed.textContent=usedBytes?formatSize(usedBytes):'0 B';
-    if(fileCount)fileCount.textContent=String(filesUsed.length);
-    if(sampleCount)sampleCount.textContent=String(samples.length);
+    const sku=String(state?.device?.sku||'').toUpperCase();
+    const capacityBytes=sku==='TE032AS006'?128*1024*1024:sku==='TE032AS005'?32*1024*1024:64*1024*1024;
+    const freeBytes=Math.max(0,capacityBytes-usedBytes);
+    const memoryStats=document.getElementById('ep133-memory-stats');
+    if(memoryStats)memoryStats.textContent=(usedBytes?formatSize(usedBytes):'0 B')+' USED · '+formatSize(freeBytes)+' FREE';
+    if(sampleCount)sampleCount.textContent=String(samples.length)+' / 999';
   };
   const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';

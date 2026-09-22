@@ -351,7 +351,7 @@
 }
 
 
-.ep133-device-stats{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
+.ep133-device-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ep133-device-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:5px 7px;border:2px inset var(--win-dark);background:#fff;min-width:0}
 .ep133-device-stats span{font-size:10px;font-weight:bold;color:#555;white-space:nowrap}
 .ep133-device-stats strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
