@@ -7,7 +7,7 @@ test('resampler uses the reference dynamic WASM runtime',async()=>{
   const source=await fs.readFile(new URL('../js/ep133/resampler.js',import.meta.url),'utf8');
   const runtime=await fs.readFile(new URL('../js/ep133/resampleModule.js',import.meta.url),'utf8');
   assert.match(source,/DYNAMIC_LIBRARIES=\['libsndfile\.wasm','libsamplerate\.wasm','libtag\.wasm','libtag_c\.wasm'\]/);
-  assert.match(source,/createResampleModule\(\{dynamicLibraries:DYNAMIC_LIBRARIES\}\)/);
+  assert.match(source,/createResampleModule\(\{dynamicLibraries:DYNAMIC_LIBRARIES,locateFile:file=>new URL\(`\.\/wasm\/\$\{file\}`,import\.meta\.url\)\.href\}\)/);
   assert.match(runtime,/resample\.wasm/);
   assert.match(runtime,/Module\.resampleAudioData/);
 });
