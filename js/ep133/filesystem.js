@@ -32,14 +32,15 @@ export function parseMetadataResponse(raw,page){if(raw.length<=2)return null;con
 
 function parseList(data){const out=[];let offset=0;while(offset+7<=data.length){const nodeId=u16(data,offset),flags=data[offset+2],fileSize=u32(data,offset+3),fileName=parseNullTerminatedString(data,offset+7);out.push({nodeId,flags,fileSize,fileName,fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)});offset+=7+fileName.length+1;}return out;}
 
-async function getMetadataByNodeId(nodeId){
+async function getMetadataByNodeId(nodeId,key=null){
   let lastError;
   for(let attempt=0;attempt<3;attempt++){
     try{
       let page=0,text='';
       for(;;){
         if(page>0xffff)throw new Error('EP-series metadata page limit exceeded.');
-        const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);
+        const keyBytes=key?new TextEncoder().encode(String(key)):null;
+        const p=new Uint8Array(6+(keyBytes?.length||0)+(keyBytes?1:0)),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);if(keyBytes){p.set(keyBytes,6);p[6+keyBytes.length]=0;}
         const response=await requestRead(TE_SYSEX_FILE,p);
         const parsed=parseMetadataResponse(response.rawData,page);
         if(!parsed)break;
@@ -48,13 +49,14 @@ async function getMetadataByNodeId(nodeId){
       return JSON.parse(text);
     }catch(error){
       lastError=error;
-      if(attempt<2)await new Promise(r=>setTimeout(r,200));
+      if(!(error instanceof SyntaxError)||attempt>=2)throw error;
+      await new Promise(r=>setTimeout(r,200));
     }
   }
   throw lastError||new Error('EP metadata request failed.');
 }
 
-export async function getFileMetadata(nodeId){return runFileOperation(()=>getMetadataByNodeId(nodeId));}
+export async function getFileMetadata(nodeId,key=null){return runFileOperation(()=>getMetadataByNodeId(nodeId,key));}
 
 export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();return listDeviceFilesUnlocked(onProgress);});}
 
