@@ -122,7 +122,7 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   return runFileOperation(async()=>{
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
-  if(jsonBytes.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
+  if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
   await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
   let offset=0,page=0;
