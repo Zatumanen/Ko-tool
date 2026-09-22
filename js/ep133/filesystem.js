@@ -73,7 +73,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>999)throw new Error('Invalid EP-133 sample destination.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
-  const chunkSize=getCachedChunkSize()||await initFileSystem();
+  const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata),timeout);
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
@@ -95,7 +95,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
 
 export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   return runFileOperation(async()=>{
-  const chunkSize=getCachedChunkSize()||await initFileSystem();
+  const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(jsonBytes.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
