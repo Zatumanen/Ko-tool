@@ -113,8 +113,8 @@ export function createSampleMemory({
         '<div><b>SIZE</b> '+formatSize(slot.file.size)+'</div>'+
         (metadata.samplerate?'<div><b>RATE</b> '+escapeHtml(metadata.samplerate)+' Hz</div>':'')+
         (metadata.channels?'<div><b>CHANNELS</b> '+escapeHtml(metadata.channels)+'</div>':'')+
-        '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+\
-        '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'\
+        '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+
+        '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
   };
 
