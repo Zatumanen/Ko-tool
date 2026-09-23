@@ -1,6 +1,6 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,moveFile,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js?v=20260923-5';
 import{prepareEp133Sample}from './audio.js?v=20260923-1';
-import{createSampleSlots,createSampleMemory}from './sampleMemory.js';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -162,7 +162,7 @@ export function initEp133Browser({showError}={}){
       soundFormats=[];
       let soundsMeta=null;
       if(soundsParentId){try{soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
-      memory.setTabs(soundsMeta?.tabs);
+      memory.setTabs(DEFAULT_SAMPLE_TABS);
       const slots=createSampleSlots(files);memory.setSlots(slots);
       const occupied=slots.filter(slot=>slot.file);renderDeviceStats(soundsMeta,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
