@@ -64,6 +64,7 @@ export function createSampleMemory({
   let selectedId=null;
   let selectionAnchor=null;
   let selectionCurrent=null;
+  const slotOperations=new Map();
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -210,10 +211,13 @@ export function createSampleMemory({
       const movable=!!slot.file&&slot.node?.isMovable===true;
       const draggable=movable?' draggable="true"':'';
       const occupied=!!slot.file;
-      return '<div class="ep133-sample-row'+selected+multiSelected+'" data-slot="'+slot.id+'"'+draggable+'>'+
+      const operation=slotOperations.get(slot.id)||null;
+      const operationClass=operation?.status?' operation-'+String(operation.status).toLowerCase().replace(/[^a-z0-9_-]/g,''):'';
+      const operationText=operation?.label||'';
+      return '<div class="ep133-sample-row'+selected+multiSelected+operationClass+'" data-slot="'+slot.id+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
         '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'')+'</span>'+
-        '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
+        '<span class="ep133-sample-size">'+escapeHtml(operationText||(occupied?formatSize(slot.file.size):'—'))+'</span>'+
         '</div>';
     }).join('');
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
@@ -381,6 +385,18 @@ export function createSampleMemory({
       render();
     },
     countOccupied(){return slots.reduce((count,slot)=>count+(slot?.file?1:0),0);},
+    setOperation(id,{status='pending',label='',progress=null}={}){
+      const nodeId=Number(id);
+      if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;
+      const numericProgress=Number(progress);
+      const suffix=Number.isFinite(numericProgress)?' '+Math.max(0,Math.min(100,Math.round(numericProgress)))+'%':'';
+      slotOperations.set(nodeId,{status,label:String(label||status).toUpperCase()+suffix,progress:Number.isFinite(numericProgress)?numericProgress:null});
+      render();
+    },
+    clearOperation(id){
+      slotOperations.delete(Number(id));
+      render();
+    },
     refresh(){render();renderInfo();},
     getSelected(){return selectedId?slots[selectedId-1]:null;},
     getSelectedSlots(){return selectedRange().map(id=>slots[id-1]).filter(Boolean);},

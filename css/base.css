@@ -443,6 +443,15 @@
 .ep133-sample-number{font-weight:bold}
 .ep133-sample-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ep133-sample-size{text-align:right;color:#555}
+.ep133-sample-row.operation-pending .ep133-sample-size{color:#777;font-weight:bold}
+.ep133-sample-row.operation-preparing .ep133-sample-size,
+.ep133-sample-row.operation-decoding .ep133-sample-size,
+.ep133-sample-row.operation-resampling .ep133-sample-size,
+.ep133-sample-row.operation-encoding .ep133-sample-size,
+.ep133-sample-row.operation-ready .ep133-sample-size,
+.ep133-sample-row.operation-uploading .ep133-sample-size{color:#c04b00;font-weight:bold}
+.ep133-sample-row.operation-failed .ep133-sample-size{color:#b00000;font-weight:bold}
+.ep133-sample-row.operation-complete .ep133-sample-size{font-weight:bold}
 .ep133-sample-row.selected .ep133-sample-size{color:#fff}
 .ep133-slot-info-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
 .ep133-slot-info-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
