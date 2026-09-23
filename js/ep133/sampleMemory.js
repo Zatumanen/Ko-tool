@@ -124,6 +124,42 @@ export function createSampleMemory({
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
   };
 
+  let dragSourceId=0;
+  let suppressClick=false;
+
+  if(infoEl){
+    infoEl.addEventListener('click',async event=>{
+      const downloadButton=event.target.closest('[data-download-slot]');
+      if(downloadButton){
+        event.stopPropagation();
+        const slot=slots[Number(downloadButton.dataset.downloadSlot)-1];
+        if(!slot?.file)return;
+        downloadButton.disabled=true;
+        try{await onDownload?.(slot);}
+        catch(error){throw error;}
+        finally{downloadButton.disabled=false;}
+        return;
+      }
+      const deleteButton=event.target.closest('[data-delete-slot]');
+      if(deleteButton){
+        event.stopPropagation();
+        const slot=slots[Number(deleteButton.dataset.deleteSlot)-1];
+        if(!slot?.file)return;
+        deleteButton.disabled=true;
+        try{
+          await onDelete?.(slot);
+          slot.file=null;
+          slot.meta=null;
+          slot.node=null;
+          slot.nodeId=slot.id;
+          render();
+          renderInfo();
+        }catch(error){throw error;}
+        finally{deleteButton.disabled=false;}
+      }
+    });
+  }
+
   const render=()=>{
     if(!listEl)return;
     const rows=visible();
@@ -137,18 +173,23 @@ export function createSampleMemory({
         '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
         '</button>';
     }).join('');
-    infoEl?.querySelectorAll('[data-download-slot]').forEach(button=>{button.onclick=async event=>{event.stopPropagation();const slot=slots[Number(button.dataset.downloadSlot)-1];if(!slot?.file)return;button.disabled=true;try{await onDownload?.(slot);}catch(error){throw error;}finally{button.disabled=false;}};});
-    infoEl?.querySelectorAll('[data-delete-slot]').forEach(button=>{button.onclick=async event=>{event.stopPropagation();const slot=slots[Number(button.dataset.deleteSlot)-1];if(!slot?.file)return;button.disabled=true;try{await onDelete?.(slot);slot.file=null;slot.meta=null;slot.node=null;slot.nodeId=slot.id;render();renderInfo();}catch(error){throw error;}finally{button.disabled=false;}};});
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
       const slot=slots[Number(row.dataset.slot)-1];
       row.addEventListener('dragstart',event=>{
-        if(!slot.file)return;
+        if(!slot.file){event.preventDefault();return;}
+        dragSourceId=slot.id;
+        suppressClick=true;
         event.dataTransfer.effectAllowed='move';
         event.dataTransfer.setData('application/x-speeduppercut-slot',String(slot.id));
+        event.dataTransfer.setData('text/plain',String(slot.id));
         row.classList.add('dragging');
       });
-      row.addEventListener('dragend',()=>row.classList.remove('dragging'));
+      row.addEventListener('dragend',()=>{
+        row.classList.remove('dragging');
+        setTimeout(()=>{suppressClick=false;dragSourceId=0;},0);
+      });
       row.onclick=()=>{
+        if(suppressClick)return;
         selectedId=slot.id;
         render();
         renderInfo();
@@ -157,7 +198,7 @@ export function createSampleMemory({
       };
       row.addEventListener('dragover',event=>{
         event.preventDefault();
-        const sourceId=Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||0);
+        const sourceId=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||event.dataTransfer?.getData('text/plain')||0);
         const movingSlot=sourceId?slots[sourceId-1]:null;
         event.dataTransfer.dropEffect=movingSlot?'move':'copy';
         row.classList.add('dragover');
@@ -169,7 +210,7 @@ export function createSampleMemory({
       row.addEventListener('drop',async event=>{
         event.preventDefault();
         row.classList.remove('dragover');
-        const sourceId=Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||0);
+        const sourceId=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||event.dataTransfer?.getData('text/plain')||0);
         const source=sourceId?slots[sourceId-1]:null;
         if(source?.file){
           if(source.id===slot.id)return;
