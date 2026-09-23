@@ -165,18 +165,19 @@ export function createSampleMemory({
     const rows=visible();
     listEl.innerHTML=rows.map(slot=>{
       const selected=slot.id===selectedId?' selected':'';
-      const draggable=slot.file?' draggable="true"':'';
+      const movable=!!slot.file&&slot.node?.isMovable===true;
+      const draggable=movable?' draggable="true"':'';
       const occupied=!!slot.file;
-      return '<button type="button" class="ep133-sample-row'+selected+'" data-slot="'+slot.id+'"'+draggable+'>'+
+      return '<div class="ep133-sample-row'+selected+'" data-slot="'+slot.id+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
         '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'')+'</span>'+
         '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
-        '</button>';
+        '</div>';
     }).join('');
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
       const slot=slots[Number(row.dataset.slot)-1];
       row.addEventListener('dragstart',event=>{
-        if(!slot.file){event.preventDefault();return;}
+        if(!slot.file||slot.node?.isMovable!==true){event.preventDefault();return;}
         dragSourceId=slot.id;
         suppressClick=true;
         event.dataTransfer.effectAllowed='move';
