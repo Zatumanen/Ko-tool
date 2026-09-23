@@ -331,7 +331,11 @@ export function createSampleMemory({
   const keyboardActive=()=>{
     if(!listEl||listEl.offsetParent===null)return false;
     const active=document.activeElement;
-    if(active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName))return false;
+    if(active?.tagName==='TEXTAREA'||active?.tagName==='SELECT')return false;
+    if(active?.tagName==='INPUT'){
+      const readonlySampleName=active.matches?.('.ep133-sample-name-input[readonly]')===true;
+      if(!readonlySampleName)return false;
+    }
     return true;
   };
   const moveSelection=(direction,{extend=false}={})=>{

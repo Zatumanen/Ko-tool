@@ -141,6 +141,13 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
+test('readonly EP sample name input does not block library keyboard navigation',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/\.ep133-sample-name-input\[readonly\]/);
+  assert.match(source,/if\(!readonlySampleName\)return false/);
+});
+
 test('EP sample rename uses the reference METADATA SET name payload',async()=>{
   const {normalizeFileName,buildMetadataSetPayload}=await import('../js/ep133/filesystem.js');
   const name=normalizeFileName('Snärë Renamed.wav');
