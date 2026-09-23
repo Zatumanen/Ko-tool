@@ -330,6 +330,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
+  assert.match(source,/maxLength=audioMeta\.channels===1\?40:20/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
@@ -376,6 +377,20 @@ test('EP upload metadata follows the reference Teenage Engineering metadata rule
   assert.equal(meta['sound.playmode'],'loop');
   assert.equal(meta['sound.pitch'],2);
   assert.equal(meta['sound.amplitude'],100);
+});
+
+test('EP sample metadata accepts current device edge ranges and rejects excess amplitude',()=>{
+  const meta=prepareTeenageMetadata({
+    sample_rate:46875,
+    extra:{
+      midi_root_note:0,
+      bpm:200,
+      json:JSON.stringify({'sound.amplitude':101,'sound.rootnote':12,'sound.bpm':90})
+    }
+  },46875);
+  assert.equal(meta['sound.rootnote'],0);
+  assert.equal(meta['sound.bpm'],200);
+  assert.equal('sound.amplitude' in meta,false);
 });
 
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
