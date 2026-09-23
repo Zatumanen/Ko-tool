@@ -305,7 +305,7 @@ export function initEp133Browser({showError}={}){
 
   const closePanel=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true');};
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
-  open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
+  open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-series device to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');if(!isConnected())void autoConnect();};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
   const setView=view=>{
@@ -363,8 +363,16 @@ export function initEp133Browser({showError}={}){
       if(soundsParentId){try{soundsMetadata=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
       memory.setTabs(soundsMetadata?.tabs);
       const occupied=createSampleSlots(files).filter(slot=>slot.file);
-      renderDeviceStats(soundsMetadata,occupied);let loaded=0;
-      for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
+      renderDeviceStats(soundsMetadata,occupied);
+      setBusy(false);
+      setStatus('READY · '+occupied.length+' SAMPLES · LOADING DETAILS');
+      let loaded=0;
+      for(const slot of occupied){
+        try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}
+        catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}
+        loaded+=1;
+        if(loaded%8===0)await new Promise(resolve=>setTimeout(resolve,0));
+      }
       renderDeviceStats(soundsMetadata,occupied);
       setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
@@ -400,14 +408,29 @@ export function initEp133Browser({showError}={}){
   });
   // Match the reference MIDI lifecycle: request MIDI immediately so an
   // already-connected EP-133 is discovered without requiring a statechange.
+  let midiPermissionBlocked=false;
   const autoConnect=async()=>{
-    if(isConnected())return;
+    if(isConnected()||midiPermissionBlocked)return;
     try{
       await connectEp133();
     }catch(error){
-      // No device / denied MIDI is intentionally silent here. The reference
-      // keeps checking for devices instead of requiring a Connect button.
-      console.debug('EP auto-connect:',error?.message||error);
+      const message=String(error?.message||error);
+      if(error?.name==='NotAllowedError'||/permission|denied/i.test(message)){
+        midiPermissionBlocked=true;
+        setStatus('MIDI ACCESS DENIED · ALLOW SYSEX AND RELOAD');
+        return;
+      }
+      if(/not supported/i.test(message)){
+        midiPermissionBlocked=true;
+        setStatus('WEB MIDI NOT SUPPORTED');
+        return;
+      }
+      if(/No MIDI ports|was not found/i.test(message)){
+        setStatus('NOT CONNECTED · WAITING FOR EP');
+        return;
+      }
+      setStatus('CONNECTION ERROR');
+      console.debug('EP auto-connect:',message);
     }
   };
   const fileItemFromInfo=info=>{
