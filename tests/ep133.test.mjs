@@ -29,7 +29,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -122,6 +122,32 @@ test('EP transfer move filters metadata that is unsafe to write back',()=>{
   );
 });
 
+test('EP post-upload metadata only writes mutable sample fields',()=>{
+  assert.deepEqual(
+    prepareSampleWritableMetadata({
+      channels:1,samplerate:46875,format:'s16',crc:123,name:'kick',
+      'sample.start':10,'sample.end':100,'sound.playmode':'oneshot',
+      'envelope.release':255,'sound.pitch':2,'time.mode':'off',regions:[{start:0,end:100}]
+    }),
+    {
+      name:'kick','sample.start':10,'sample.end':100,'sound.playmode':'oneshot',
+      'envelope.release':255,'sound.pitch':2,'time.mode':'off'
+    }
+  );
+});
+
+test('EP slot transfer uses a temporary filesystem name distinct from display metadata',async()=>{
+  assert.equal(createTransferFileName(7,42),'mv007_042');
+  const fs=await import('node:fs/promises');
+  const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(filesystemSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
+  assert.match(filesystemSource,/filename:wireName/);
+  const uiSource=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(uiSource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
+  assert.match(uiSource,/destinationCreated=true/);
+  assert.match(uiSource,/if\(destinationCreated&&!sourceDeleted&&isConnected\(\)\)/);
+});
+
 test('EP sample slot move uses verified GET PUT DELETE flow instead of native FILE_MOVE',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:true}}),false);
@@ -129,17 +155,11 @@ test('EP sample slot move uses verified GET PUT DELETE flow instead of native FI
   assert.match(sampleMemorySource,/const movable=canTransferMoveSample\(slot\)/);
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const handler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\n    \} ,/)?.[0]||'';
+  const handler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\n    \},/)?.[0]||'';
   assert.match(handler,/await getFile\(source\.nodeId/);
   assert.match(handler,/await uploadSampleToSlot\(/);
   assert.match(handler,/await deleteFile\(source\.nodeId\)/);
   assert.doesNotMatch(handler,/moveFile\(/);
-});
-
-test('EP FILE_MOVE request and response match the reference protocol',()=>{
-  const payload=buildFileMovePayload(7,42,8);
-  assert.deepEqual([...payload],[12,0,7,0,42,0,8]);
-  assert.deepEqual(parseFileMoveResponse(Uint8Array.from([0,7,0,42,0,8])),{oldFileId:7,parentId:42,newFileId:8});
 });
 
 test('My EP applies external FILE_MOVED events without a full device reread',async()=>{
