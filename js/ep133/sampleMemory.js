@@ -1,4 +1,5 @@
 export const EP_SAMPLE_SLOT_COUNT=999;
+export const EP_SAMPLE_PAGE_SIZE=29;
 
 export const DEFAULT_SAMPLE_TABS=[
   {name:'KICK',range:[1,99]},
@@ -349,6 +350,22 @@ export function createSampleMemory({
     const tab=sampleTabs[activeTab]||sampleTabs[0];
     if(tab)selectSlotById(edge==='start'?tab.range[0]:tab.range[1],{extend});
   };
+  const getTopVisibleSlotId=()=>{
+    if(!listEl)return selectedId;
+    const bounds=listEl.getBoundingClientRect?.();
+    const rows=Array.from(listEl.querySelectorAll?.('[data-slot]')||[]);
+    if(!bounds||!rows.length)return selectedId;
+    const row=rows.find(item=>item.getBoundingClientRect?.().bottom>bounds.top);
+    return Number(row?.dataset?.slot)||selectedId;
+  };
+  const movePage=(direction,{extend=false}={})=>{
+    const tab=sampleTabs[activeTab]||sampleTabs[0];
+    if(!tab)return;
+    const first=tab.range[0],last=tab.range[1];
+    const top=Math.max(first,Math.min(last,getTopVisibleSlotId()||selectedId||first));
+    const target=direction<0?Math.max(first,top-1):Math.min(last,top+EP_SAMPLE_PAGE_SIZE);
+    if(target!==selectedId)selectSlotById(target,{extend});
+  };
   const changeTab=direction=>{
     const next=Math.max(0,Math.min(sampleTabs.length-1,activeTab+direction));
     if(next===activeTab)return;
@@ -359,6 +376,11 @@ export function createSampleMemory({
   };
   const keyDown=event=>{
     if(!keyboardActive())return;
+    if((event.key==='ArrowUp'||event.key==='ArrowDown')&&event.altKey){
+      event.preventDefault();
+      movePage(event.key==='ArrowUp'?-1:1,{extend:!!event.shiftKey});
+      return;
+    }
     if((event.key==='ArrowUp'||event.key==='ArrowDown')&&event.metaKey){
       event.preventDefault();
       selectTabEdge(event.key==='ArrowUp'?'start':'end',{extend:!!event.shiftKey});

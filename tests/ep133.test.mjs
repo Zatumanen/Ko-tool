@@ -27,7 +27,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
@@ -147,6 +147,16 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
   assert.deepEqual([...payload.slice(4)],[0,127,128,255]);
 });
 
+
+test('EP library Alt+Arrow page navigation matches the reference 29-row paging',async()=>{
+  assert.equal(EP_SAMPLE_PAGE_SIZE,29);
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/event\.altKey/);
+  assert.match(source,/movePage\(event\.key==='ArrowUp'\?-1:1,\{extend:!!event\.shiftKey\}\)/);
+  assert.match(source,/top\+EP_SAMPLE_PAGE_SIZE/);
+  assert.match(source,/top-1/);
+});
 
 test('readonly EP sample name input does not block library keyboard navigation',async()=>{
   const fs=await import('node:fs/promises');
