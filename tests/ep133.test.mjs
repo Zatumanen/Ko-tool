@@ -238,6 +238,16 @@ test('My EP Shift-click extends selection without auditioning the sample',async(
   assert.match(source,/preview:!!slot\.file&&!event\.shiftKey,extend:!!event\.shiftKey/);
 });
 
+test('EP library wheel navigation matches the reference threshold and Shift scroll behavior',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/wheelDelta\+=Number\(event\.deltaY\)\|\|0/);
+  assert.match(source,/Math\.abs\(wheelDelta\)<15/);
+  assert.match(source,/if\(event\.shiftKey\)\{[\s\S]*listEl\.scrollTop\+=direction\*rowHeight/);
+  assert.match(source,/moveSelection\(direction\)/);
+  assert.match(source,/addEventListener\('wheel',handleWheel,\{passive:false\}\)/);
+});
+
 test('EP library Alt+Arrow page navigation matches the reference 29-row paging',async()=>{
   assert.equal(EP_SAMPLE_PAGE_SIZE,29);
   const fs=await import('node:fs/promises');

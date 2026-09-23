@@ -364,6 +364,24 @@ export function createSampleMemory({
     const current=selectedId>=first&&selectedId<=last?selectedId:first;
     selectSlotById(Math.max(first,Math.min(last,current+direction)),{extend});
   };
+  let wheelDelta=0;
+  const handleWheel=event=>{
+    if(editingId!==null)return;
+    wheelDelta+=Number(event.deltaY)||0;
+    if(Math.abs(wheelDelta)<15)return;
+    const direction=wheelDelta>0?1:-1;
+    wheelDelta=0;
+    event.preventDefault();
+    if(event.shiftKey){
+      const row=listEl?.querySelector?.('.ep133-sample-row');
+      const rowHeight=row?.getBoundingClientRect?.().height||30;
+      if(listEl)listEl.scrollTop+=direction*rowHeight;
+      return;
+    }
+    moveSelection(direction);
+  };
+  listEl?.addEventListener('wheel',handleWheel,{passive:false});
+
   const selectTabEdge=(edge,{extend=false}={})=>{
     const tab=sampleTabs[activeTab]||sampleTabs[0];
     if(tab)selectSlotById(edge==='start'?tab.range[0]:tab.range[1],{extend});
