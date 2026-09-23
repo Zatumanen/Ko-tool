@@ -73,6 +73,7 @@ export function createSampleMemory({
   onStop,
   onDrop,
   onMove,
+  onBlockedDrop,
   onDelete,
   onDownload,
   onDownloadMany,
@@ -261,6 +262,7 @@ export function createSampleMemory({
       const movable=canTransferMoveSample(slot);
       const draggable=movable?' draggable="true"':'';
       const occupied=!!slot.file;
+      const occupancyClass=occupied?' occupied':' empty';
       const operation=slotOperations.get(slot.id)||null;
       const operationClass=operation?.status?' operation-'+String(operation.status).toLowerCase().replace(/[^a-z0-9_-]/g,''):'';
       const operationText=operation?.label||'';
@@ -268,7 +270,7 @@ export function createSampleMemory({
       const nameControl=occupied
         ? '<input class="ep133-sample-name-input" data-name-input="'+slot.id+'" maxlength="16" value="'+escapeHtml(editing?editingValue:slotName(slot))+'" '+(editing?'':'readonly')+' aria-label="Sample name">'
         : '<span class="ep133-sample-name"></span>';
-      return '<div class="ep133-sample-row'+selected+multiSelected+operationClass+'" data-slot="'+slot.id+'"'+draggable+'>'+
+      return '<div class="ep133-sample-row'+selected+multiSelected+occupancyClass+operationClass+'" data-slot="'+slot.id+'" role="option" aria-selected="'+(slot.id===selectedId?'true':'false')+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
         nameControl+
         '<span class="ep133-sample-size">'+escapeHtml(operationText||(occupied?formatSize(slot.file.size):'—'))+'</span>'+
@@ -320,21 +322,23 @@ export function createSampleMemory({
         const sourceId=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||event.dataTransfer?.getData('text/plain')||0);
         const movingSlot=sourceId?slots[sourceId-1]:null;
         event.dataTransfer.dropEffect=movingSlot?'move':'copy';
+        row.classList.toggle('drag-blocked',!!movingSlot&&!!slot.file);
         row.classList.add('dragover');
       });
       row.addEventListener('dragleave',event=>{
         if(event.relatedTarget&&row.contains(event.relatedTarget))return;
-        row.classList.remove('dragover');
+        row.classList.remove('dragover','drag-blocked');
       });
       row.addEventListener('drop',async event=>{
         event.preventDefault();
-        row.classList.remove('dragover');
+        row.classList.remove('dragover','drag-blocked');
         const sourceId=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||event.dataTransfer?.getData('text/plain')||0);
         const source=sourceId?slots[sourceId-1]:null;
         if(source?.file){
           if(source.id===slot.id)return;
           if(slot.file){
             selectSlotById(slot.id);
+            onBlockedDrop?.(source,slot);
             return;
           }
           selectSlotById(slot.id);

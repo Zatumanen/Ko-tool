@@ -1,4 +1,4 @@
-import{getLibSampleRateModule}from './resampler.js?v=20260923-2';
+import{getLibSampleRateModule}from './resampler.js?v=20260924-1';
 
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
@@ -57,11 +57,11 @@ function parseKo2Metadata(bytes){
 const TEENAGE_META_VALIDATORS={
   "sound.loopstart":value=>value!=null&&value>=0,
   "sound.loopend":value=>value!=null&&value>=0,
-  "sound.rootnote":value=>value!=null&&value>0&&value<=127,
-  "sound.bpm":value=>value!=null&&value>=60&&value<=180,
+  "sound.rootnote":value=>value!=null&&value>=0&&value<=127,
+  "sound.bpm":value=>value!=null&&value>=1&&value<=200,
   "sound.pitch":value=>value!=null&&value>=-12&&value<=12,
   "sound.pan":value=>value!=null&&value>=-16&&value<=16,
-  "sound.amplitude":value=>value!=null&&value>=0&&value<=200,
+  "sound.amplitude":value=>value!=null&&value>=0&&value<=100,
   "envelope.attack":value=>value!=null&&value>=0&&value<=255,
   "envelope.release":value=>value!=null&&value>=0&&value<=255,
   "sound.playmode":value=>value!=null&&String(value).length>0,
@@ -101,12 +101,6 @@ export function prepareTeenageMetadata(audioMeta,targetSampleRate){
   return cleanTeenageMetadata(metadata);
 }
 
-function parseNativeWav(bytes){
-  const meta=parseWavAudioMeta(bytes);
-  if(!meta||meta.format!==1||meta.bits!==16||(meta.channels!==1&&meta.channels!==2)||meta.rate!==DEFAULT_SAMPLE_RATE)return null;
-  return{data:bytes.slice(meta.dataOffset,meta.dataOffset+meta.dataSize),channels:meta.channels,rate:meta.rate};
-}
-
 async function decode(file,sourceRate){
   const C=window.AudioContext||window.webkitAudioContext;
   if(!C)throw new Error('Web Audio API is not supported by this browser.');
@@ -126,19 +120,6 @@ function flattenAudioBuffer(buffer){
   return{data:out,channels};
 }
 
-function encodePcm16(interleaved,channels,targetRate){
-  const frames=Math.floor(interleaved.length/channels);
-  const out=new Uint8Array(frames*channels*2);
-  const view=new DataView(out.buffer);
-  let offset=0;
-  for(let i=0;i<interleaved.length;i++){
-    const x=Math.max(-1,Math.min(1,interleaved[i]));
-    view.setInt16(offset,x<0?Math.round(x*32768):Math.round(x*32767),true);
-    offset+=2;
-  }
-  return{data:out,channels,samplerate:targetRate,format:'s16'};
-}
-
 export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,onProgress}={}){
   if(!file)throw new Error('No audio file supplied.');
   const name=String(file.name||'sample.wav');
@@ -149,8 +130,9 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{throw new Error('Could not read audio metadata.');}
   if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
   if(audioMeta.rate&&!audioMeta.sample_rate)audioMeta={...audioMeta,sample_rate:audioMeta.rate,container:'WAV',format:audioMeta.format===1?'pcm':audioMeta.format,bits:audioMeta.bits,extra:{data_start:audioMeta.dataOffset,data_end:audioMeta.dataOffset+audioMeta.dataSize}};
-  if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-133 samples must be 1 or 2 channels.');
-  if((audioMeta.length??0)>20)throw new Error('Maximum EP-133 sample length is 20 seconds.');
+  if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-series samples must be mono or stereo.');
+  const maxLength=audioMeta.channels===1?40:20;
+  if((audioMeta.length??0)>maxLength)throw new Error('Maximum EP-series sample length is 40 seconds mono or 20 seconds stereo.');
   if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
   const nativeStart=audioMeta?.extra?.data_start??0;
   const nativeEnd=audioMeta?.extra?.data_end??0;

@@ -1,4 +1,4 @@
-import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_MOVED}from './constants.js';
+import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE}from './constants.js';
 import{requestRead,requestFile,onConnectionChange}from './device.js?v=20260923-3';
 import{parseNullTerminatedString}from './packing.js';
 
@@ -63,6 +63,24 @@ export async function listDeviceFiles(onProgress){return runFileOperation(async(
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
+const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
+  'name','sample.start','sample.end','sound.loopstart','sound.loopend','sound.amplitude',
+  'sound.playmode','sound.rootnote','sound.bpm','sound.pitch','sound.pan','sound.bars',
+  'envelope.attack','envelope.release','time.mode'
+]);
+
+export function prepareSampleWritableMetadata(metadata={}){
+  const result={};
+  for(const[key,value]of Object.entries(metadata||{})){
+    if(SAMPLE_WRITABLE_METADATA_KEYS.has(key))result[key]=value;
+  }
+  for(const key of ['sound.playmode','time.mode']){
+    if(key in result&&typeof result[key]!=='string')delete result[key];
+  }
+  if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
+  return result;
+}
+
 export function prepareSampleTransferMetadata(metadata={}){
   const result={...(metadata||{})};
   delete result.crc;
@@ -73,12 +91,15 @@ export function prepareSampleTransferMetadata(metadata={}){
   return result;
 }
 
+export function createTransferFileName(sourceId,targetId){
+  const source=String(Math.max(0,Number(sourceId)||0)).padStart(3,'0');
+  const target=String(Math.max(0,Number(targetId)||0)).padStart(3,'0');
+  return normalizeFileName('mv'+source+'_'+target);
+}
+
 export function buildFileInfoPayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INFO;view.setUint16(1,fileId);return p;}
 export function parseFileInfoResponse(raw){if(raw.length<10)throw new Error('Invalid EP-series FILE_INFO response.');return{nodeId:u16(raw,0),parentId:u16(raw,2),flags:raw[4],fileSize:u32(raw,5),fileName:parseNullTerminatedString(raw,9)};}
-export function buildFileMovePayload(fileId,parentId,newFileId){const p=new Uint8Array(7),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_MOVED;view.setUint16(1,fileId);view.setUint16(3,parentId);view.setUint16(5,newFileId);return p;}
-export function parseFileMoveResponse(raw){if(raw.length<6)throw new Error('Invalid EP-series FILE_MOVE response.');return{oldFileId:u16(raw,0),parentId:u16(raw,2),newFileId:u16(raw,4)};}
 export async function getFileInfo(fileId){return runFileOperation(async()=>{const response=await requestRead(TE_SYSEX_FILE,buildFileInfoPayload(fileId));return parseFileInfoResponse(response.rawData);});}
-export async function moveFile(fileId,parentId,newFileId,{timeout=15000}={}){return runFileOperation(async()=>{const response=await requestFile(TE_SYSEX_FILE,buildFileMovePayload(fileId,parentId,newFileId),timeout);return parseFileMoveResponse(response.rawData);});}
 
 export function buildFileDeletePayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_DELETE;view.setUint16(1,fileId);return p;}
 
@@ -97,7 +118,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   return runFileOperation(async()=>{
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>0xffff)throw new Error('Invalid EP-series destination id.');
-  if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
+  if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-series sample parent.');
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
@@ -142,15 +163,18 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   });
 }
 
-export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress}){
+export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress,onCreated}){
 
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
-  const normalizedName=normalizeFileName(name);
-  const uploadMetadata={...metadata,name:normalizedName};
-  const fileId=await putFile({data:bytes,filename:normalizedName,parentId,destinationId,metadata:uploadMetadata,onProgress});
-  await setFileMetadata(fileId,uploadMetadata);
+  const wireName=normalizeFileName(name);
+  const displayName=normalizeFileName(metadata?.name||name);
+  const uploadMetadata={...metadata,name:displayName};
+  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  onCreated?.(fileId);
+  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
+  if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
   await initFileSystem();
   return fileId;
 }
