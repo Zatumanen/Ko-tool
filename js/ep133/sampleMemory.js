@@ -252,7 +252,7 @@ export function createSampleMemory({
     listEl.innerHTML=rows.map(slot=>{
       const selected=slot.id===selectedId?' selected':'';
       const multiSelected=selectedRange().includes(slot.id)&&slot.id!==selectedId?' multi-selected':'';
-      const movable=!!slot.file&&slot.node?.isMovable===true;
+      const movable=canTransferMoveSample(slot);
       const draggable=movable?' draggable="true"':'';
       const occupied=!!slot.file;
       const operation=slotOperations.get(slot.id)||null;

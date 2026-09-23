@@ -106,6 +106,8 @@ test('EP device rejection preserves the firmware reason text',()=>{
 test('EP sample slot move uses verified GET PUT DELETE flow instead of native FILE_MOVE',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:true}}),false);
+  const sampleMemorySource=await (await import('node:fs/promises')).readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(sampleMemorySource,/const movable=canTransferMoveSample\(slot\)/);
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const handler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\n    \} ,/)?.[0]||'';
