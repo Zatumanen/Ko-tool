@@ -179,13 +179,13 @@ export function initEp133Browser({showError}={}){
           parentId:soundsParentId,
           destinationId:target.id,
           metadata:{...metadata,name:displayName},
+          onCreated:()=>{destinationCreated=true;},
           onProgress:(done,total)=>{
             const progress=Math.round(done/Math.max(1,total)*100);
             memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress});
             setSlotStatus(source,'MOVING TO '+destinationLabel+' · '+progress+'%');
           }
         });
-        destinationCreated=true;
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote the moved sample to an unexpected slot.');
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
