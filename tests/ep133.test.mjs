@@ -216,6 +216,15 @@ test('My EP throttles sample audition requests to the reference 200ms window',as
   assert.match(source,/onPlay:auditionSample/);
 });
 
+test('My EP deletes a selected sample range sequentially after confirmation',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/const deleteTargets=selectedFiles\.length>1\?selectedFiles:\[slot\]/);
+  assert.match(source,/deleteTargets\.length>1&&!window\.confirm\('Delete '\+deleteTargets\.length\+' selected samples\?'\)/);
+  assert.match(source,/for\(const selectedSlot of deleteTargets\)\{[\s\S]*await onDelete\?\.\(selectedSlot\)/);
+  assert.match(source,/if\(deleteTargets\.length>1\)selectSlotById\(deleteTargets\[deleteTargets\.length-1\]\.id\)/);
+});
+
 test('My EP Shift-click extends selection without auditioning the sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');

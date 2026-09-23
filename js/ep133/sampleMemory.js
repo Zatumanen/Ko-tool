@@ -211,15 +211,21 @@ export function createSampleMemory({
         event.stopPropagation();
         const slot=slots[Number(deleteButton.dataset.deleteSlot)-1];
         if(!slot?.file)return;
+        const selectedFiles=selectedRange().map(id=>slots[id-1]).filter(item=>item?.file);
+        const deleteTargets=selectedFiles.length>1?selectedFiles:[slot];
+        if(deleteTargets.length>1&&!window.confirm('Delete '+deleteTargets.length+' selected samples?'))return;
         deleteButton.disabled=true;
         try{
-          await onDelete?.(slot);
-          slot.file=null;
-          slot.meta=null;
-          slot.node=null;
-          slot.nodeId=slot.id;
-          render();
-          renderInfo();
+          for(const selectedSlot of deleteTargets){
+            await onDelete?.(selectedSlot);
+            selectedSlot.file=null;
+            selectedSlot.meta=null;
+            selectedSlot.node=null;
+            selectedSlot.nodeId=selectedSlot.id;
+            render();
+            renderInfo();
+          }
+          if(deleteTargets.length>1)selectSlotById(deleteTargets[deleteTargets.length-1].id);
         }catch(error){throw error;}
         finally{deleteButton.disabled=false;}
       }
