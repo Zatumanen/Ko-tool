@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata}from './index.js?v=20260923-10';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,createTransferFileName}from './index.js?v=20260924-1';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-14';
@@ -10,7 +10,6 @@ export function initEp133Browser({showError}={}){
   const panel=document.getElementById('ep133-browser');
   const close=document.getElementById('ep133-close');
   const title=document.getElementById('ep133-browser-title');
-  const sampleCount=document.getElementById('ep133-sample-count');
   const txIndicator=document.getElementById('ep133-tx-indicator');
   const rxIndicator=document.getElementById('ep133-rx-indicator');
   const fileList=document.getElementById('ep133-file-list');
@@ -36,7 +35,11 @@ export function initEp133Browser({showError}={}){
     const model=sku==='TE032AS001'?'-133':sku==='TE032AS005'?'-1320':sku==='TE032AS006'?'-40':'';
     title.textContent=model?'MY EP'+model:'MY EP';
   };
-  const setBusy=()=>{};
+  const setBusy=busy=>{
+    const body=panel.querySelector('.ep133-browser-body');
+    panel.classList.toggle('busy',!!busy);
+    body?.setAttribute('aria-busy',busy?'true':'false');
+  };
   const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -64,8 +67,8 @@ export function initEp133Browser({showError}={}){
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
   const renderFileInfo=()=>{
     const item=selectedFile;
-    fileDownload.disabled=!item||item.fileType!=='file'||!isConnected();
-    fileDelete.disabled=!item||item.fileType!=='file'||!isConnected();
+    fileDownload.disabled=!item||item.fileType!=='file'||item.isReadable!==true||!isConnected();
+    fileDelete.disabled=!item||item.fileType!=='file'||item.isDeletable!==true||!isConnected();
     if(!item){fileInfo.innerHTML='<div class="ep133-info-empty">Select a file.</div>';return;}
     fileInfo.innerHTML='<div><b>NAME</b> '+escapeHtml(baseName(item.fileName))+'</div><div><b>PATH</b> '+escapeHtml(item.fileName)+'</div><div><b>TYPE</b> '+escapeHtml(item.fileType.toUpperCase())+'</div>'+(item.fileType==='file'?'<div><b>SIZE</b> '+formatSize(item.fileSize)+'</div>':'');
   };
@@ -92,11 +95,11 @@ export function initEp133Browser({showError}={}){
     renderFileInfo();
   };
   const downloadFile=async()=>{
-    if(!selectedFile||selectedFile.fileType!=='file'||!isConnected())return;
+    if(!selectedFile||selectedFile.fileType!=='file'||selectedFile.isReadable!==true||!isConnected())return;
     try{setStatus('DOWNLOADING '+baseName(selectedFile.fileName)+' · 0%');const result=await getFile(selectedFile.nodeId,(done,total)=>setStatus('DOWNLOADING '+baseName(selectedFile.fileName)+' · '+Math.round(done/Math.max(1,total)*100)+'%'));const blob=new Blob([result.data],{type:'application/octet-stream'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=result.name||baseName(selectedFile.fileName);document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);setStatus('DOWNLOADED · '+baseName(selectedFile.fileName));}catch(error){showError?.(error?.message||error);}
   };
   const deleteSelectedFile=async()=>{
-    if(!selectedFile||selectedFile.fileType!=='file'||!isConnected())return;
+    if(!selectedFile||selectedFile.fileType!=='file'||selectedFile.isDeletable!==true||!isConnected())return;
     try{const name=baseName(selectedFile.fileName);setStatus('DELETING '+name+'...');await deleteFile(selectedFile.nodeId);deviceFiles=deviceFiles.filter(item=>item.nodeId!==selectedFile.nodeId);selectedFile=null;renderFiles();setStatus('DELETED · '+name);}catch(error){showError?.(error?.message||error);}
   };
   const getDroppedFiles=event=>{
@@ -149,44 +152,64 @@ export function initEp133Browser({showError}={}){
       }
     },
     onMove:async(source,target)=>{
-      if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');
-      if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');
-      if(source.node?.isReadable!==true||source.node?.isDeletable!==true)throw new Error('This EP sample cannot be moved safely.');
+      if(!isConnected())throw new Error('Connect an EP-series device before moving a sample.');
+      if(!soundsParentId)throw new Error('The device sample library is not ready yet.');
+      if(source.node?.isReadable!==true||source.node?.isDeletable!==true)throw new Error('This sample cannot be moved safely on the connected device.');
+      let destinationCreated=false;
+      let sourceDeleted=false;
       try{
         const destinationLabel=String(target.id).padStart(3,'0');
         setSlotStatus(source,'READING FOR MOVE...');
         const downloaded=await getFile(source.nodeId,(done,total)=>setSlotStatus(source,'READING FOR MOVE '+Math.round(done/Math.max(1,total)*100)+'%'));
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
-        if(!bytes.byteLength)throw new Error('EP-series returned an empty sample during move.');
+        if(!bytes.byteLength)throw new Error('The device returned an empty sample during the move.');
         const sourceMetadata=source.meta||await getFileMetadata(source.nodeId);
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
-        const filename=metadata?.name||downloaded?.name||source.file?.name||'sample';
+        const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
+        const transferName=createTransferFileName(source.id,target.id);
         memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress:0});
-        const fileId=await uploadSampleToSlot({data:bytes,filename,parentId:soundsParentId,destinationId:target.id,metadata,onProgress:(done,total)=>{
-          const progress=Math.round(done/Math.max(1,total)*100);
-          memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress});
-          setSlotStatus(source,'MOVING TO '+destinationLabel+' · '+progress+'%');
-        }});
-        if(Number(fileId)!==Number(target.id))throw new Error('EP-series wrote the moved sample to an unexpected slot.');
+        const fileId=await uploadSampleToSlot({
+          data:bytes,
+          filename:transferName,
+          parentId:soundsParentId,
+          destinationId:target.id,
+          metadata:{...metadata,name:displayName},
+          onProgress:(done,total)=>{
+            const progress=Math.round(done/Math.max(1,total)*100);
+            memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress});
+            setSlotStatus(source,'MOVING TO '+destinationLabel+' · '+progress+'%');
+          }
+        });
+        destinationCreated=true;
+        if(Number(fileId)!==Number(target.id))throw new Error('The device wrote the moved sample to an unexpected slot.');
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
-        if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('EP-series destination slot could not be verified after move upload.');
+        if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified after transfer.');
         await deleteFile(source.nodeId);
+        sourceDeleted=true;
         deviceFiles=deviceFiles.filter(existing=>Number(existing.nodeId)!==Number(source.nodeId));
         updateDeviceFile(item);
         memory.clearSlot(source.id);
         memory.setSlot(item);
         try{memory.setMetadata(target.id,await getFileMetadata(target.id));}
-        catch(error){memory.setMetadata(target.id,metadata||null);}
+        catch(error){memory.setMetadata(target.id,{...metadata,name:normalizeFileName(displayName)});}
         memory.clearOperation(target.id);
         renderDeviceStats(soundsMetadata,memory.countOccupied());
         setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+destinationLabel);
       }catch(error){
+        if(destinationCreated&&!sourceDeleted&&isConnected()){
+          try{await deleteFile(target.id);}
+          catch(rollbackError){console.warn('EP move rollback failed',rollbackError);}
+        }
         memory.clearOperation(target.id);
         setSlotStatus(source,'MOVE ERROR');
+        try{await readDevice();}catch(refreshError){console.warn('EP refresh after move error failed',refreshError);}
         showError?.(error?.message||error);
       }
-    } ,
+    },
+    onBlockedDrop:(source,target)=>{
+      setStatus('SLOT '+String(target.id).padStart(3,'0')+' OCCUPIED · DROP ON AN EMPTY SLOT');
+    },
     onDownload:async slot=>{
       if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
       setSlotStatus(slot,'DOWNLOADING 0%');
@@ -280,6 +303,18 @@ export function initEp133Browser({showError}={}){
   open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
+  const setView=view=>{
+    const showFiles=view==='files';
+    if(filesPanel)filesPanel.hidden=!showFiles;
+    if(samplesPanel)samplesPanel.hidden=showFiles;
+    filesTab?.classList.toggle('selected',showFiles);
+    samplesTab?.classList.toggle('selected',!showFiles);
+    filesTab?.setAttribute('aria-selected',showFiles?'true':'false');
+    samplesTab?.setAttribute('aria-selected',showFiles?'false':'true');
+  };
+  filesTab?.addEventListener('click',()=>setView('files'));
+  samplesTab?.addEventListener('click',()=>setView('samples'));
+  setView('samples');
   fileSearch?.addEventListener('input',()=>{currentPath='/';selectedFile=null;renderFiles();});
   fileDownload?.addEventListener('click',downloadFile);
   fileDelete?.addEventListener('click',deleteSelectedFile);
