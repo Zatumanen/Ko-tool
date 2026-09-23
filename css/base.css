@@ -437,6 +437,7 @@
 .ep133-sample-list{flex:1;max-height:none;min-height:160px;overflow:auto;padding:2px}
 .ep133-sample-row{width:100%;display:grid;grid-template-columns:46px minmax(0,1fr) 90px;gap:7px;align-items:center;padding:5px 6px;border:0;border-bottom:1px solid #eee;background:#fff;color:#000;text-align:left;font:12px "Courier New",monospace;cursor:pointer;touch-action:none}
 .ep133-sample-row:hover{background:#dbe8ff}
+.ep133-sample-row.multi-selected{background:#dbe8ff}
 .ep133-sample-row.selected{background:var(--primary-blue);color:#fff}
 .ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}
 .ep133-sample-number{font-weight:bold}

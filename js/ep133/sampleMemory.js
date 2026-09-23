@@ -61,6 +61,8 @@ export function createSampleMemory({
   let sampleTabs=DEFAULT_SAMPLE_TABS;
   let activeTab=0;
   let selectedId=null;
+  let selectionAnchor=null;
+  let selectionCurrent=null;
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -90,10 +92,23 @@ export function createSampleMemory({
     row?.scrollIntoView?.({block:'nearest'});
   };
 
-  const selectSlotById=(id,{preview=false}={})=>{
+  const selectedRange=()=>{
+    if(!selectionAnchor||!selectionCurrent)return selectedId?[selectedId]:[];
+    const start=Math.min(selectionAnchor,selectionCurrent);
+    const end=Math.max(selectionAnchor,selectionCurrent);
+    return Array.from({length:end-start+1},(_,i)=>start+i);
+  };
+
+  const selectSlotById=(id,{preview=false,extend=false}={})=>{
     const slot=slots[id-1];
     if(!slot)return;
     selectedId=slot.id;
+    if(extend&&selectionAnchor){
+      selectionCurrent=slot.id;
+    }else{
+      selectionAnchor=slot.id;
+      selectionCurrent=slot.id;
+    }
     render();
     renderInfo();
     scrollSelectedIntoView();
@@ -112,7 +127,9 @@ export function createSampleMemory({
       button.onclick=()=>{
         activeTab=Number(button.dataset.tab);
         renderTabs();
-        render();
+        const tab=sampleTabs[activeTab];
+        if(tab)selectSlotById(tab.range[0]);
+        else render();
       };
     });
   };
@@ -183,10 +200,11 @@ export function createSampleMemory({
     const rows=visible();
     listEl.innerHTML=rows.map(slot=>{
       const selected=slot.id===selectedId?' selected':'';
+      const multiSelected=selectedRange().includes(slot.id)&&slot.id!==selectedId?' multi-selected':'';
       const movable=!!slot.file&&slot.node?.isMovable===true;
       const draggable=movable?' draggable="true"':'';
       const occupied=!!slot.file;
-      return '<div class="ep133-sample-row'+selected+'" data-slot="'+slot.id+'"'+draggable+'>'+
+      return '<div class="ep133-sample-row'+selected+multiSelected+'" data-slot="'+slot.id+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
         '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'')+'</span>'+
         '<span class="ep133-sample-size">'+(occupied?formatSize(slot.file.size):'—')+'</span>'+
@@ -207,9 +225,9 @@ export function createSampleMemory({
         row.classList.remove('dragging');
         setTimeout(()=>{suppressClick=false;dragSourceId=0;},0);
       });
-      row.onclick=()=>{
+      row.onclick=event=>{
         if(suppressClick)return;
-        selectSlotById(slot.id,{preview:!!slot.file});
+        selectSlotById(slot.id,{preview:!!slot.file,extend:!!event.shiftKey});
       };
       row.addEventListener('dragover',event=>{
         event.preventDefault();
@@ -230,15 +248,10 @@ export function createSampleMemory({
         if(source?.file){
           if(source.id===slot.id)return;
           if(slot.file){
-            onSelect?.(slot);
-            selectedId=slot.id;
-            render();
-            renderInfo();
+            selectSlotById(slot.id);
             return;
           }
-          selectedId=slot.id;
-          render();
-          renderInfo();
+          selectSlotById(slot.id);
           try{await onMove?.(source,slot);}catch(error){onSelect?.(source);throw error;}
           return;
         }
@@ -254,16 +267,16 @@ export function createSampleMemory({
     if(active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName))return false;
     return true;
   };
-  const moveSelection=direction=>{
+  const moveSelection=(direction,{extend=false}={})=>{
     const tab=sampleTabs[activeTab]||sampleTabs[0];
     if(!tab)return;
     const first=tab.range[0],last=tab.range[1];
     const current=selectedId>=first&&selectedId<=last?selectedId:first;
-    selectSlotById(Math.max(first,Math.min(last,current+direction)));
+    selectSlotById(Math.max(first,Math.min(last,current+direction)),{extend});
   };
-  const selectTabEdge=edge=>{
+  const selectTabEdge=(edge,{extend=false}={})=>{
     const tab=sampleTabs[activeTab]||sampleTabs[0];
-    if(tab)selectSlotById(edge==='start'?tab.range[0]:tab.range[1]);
+    if(tab)selectSlotById(edge==='start'?tab.range[0]:tab.range[1],{extend});
   };
   const changeTab=direction=>{
     const next=Math.max(0,Math.min(sampleTabs.length-1,activeTab+direction));
@@ -277,13 +290,12 @@ export function createSampleMemory({
     if(!keyboardActive())return;
     if((event.key==='ArrowUp'||event.key==='ArrowDown')&&event.metaKey){
       event.preventDefault();
-      selectTabEdge(event.key==='ArrowUp'?'start':'end');
+      selectTabEdge(event.key==='ArrowUp'?'start':'end',{extend:!!event.shiftKey});
       return;
     }
     if(event.key==='ArrowUp'||event.key==='ArrowDown'){
       event.preventDefault();
-      if(!event.repeat)moveSelection(event.key==='ArrowUp'?-1:1);
-      else moveSelection(event.key==='ArrowUp'?-1:1);
+      moveSelection(event.key==='ArrowUp'?-1:1,{extend:!!event.shiftKey});
       return;
     }
     if(event.key==='PageUp'||event.key==='PageDown'){
@@ -309,6 +321,8 @@ export function createSampleMemory({
     setSlots(next){
       slots=next||[];
       selectedId=null;
+      selectionAnchor=null;
+      selectionCurrent=null;
       activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
       renderTabs();
       render();
@@ -363,6 +377,7 @@ export function createSampleMemory({
     countOccupied(){return slots.reduce((count,slot)=>count+(slot?.file?1:0),0);},
     refresh(){render();renderInfo();},
     getSelected(){return selectedId?slots[selectedId-1]:null;},
+    getSelectedSlots(){return selectedRange().map(id=>slots[id-1]).filter(Boolean);},
     getSlot(id){return slots[id-1]||null;}
   };
 }
