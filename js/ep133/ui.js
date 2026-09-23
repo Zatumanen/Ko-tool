@@ -177,19 +177,15 @@ export function initEp133Browser({showError}={}){
       if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
       const files=getDroppedFiles(event);if(!files.length)return;
       const targets=[];
-      if(files.length===1){
-        targets.push(slot);
-      }else{
-        let searchFrom=slot.id;
-        for(const file of files){
-          const destinationId=memory.findNextFree(searchFrom);
-          if(destinationId===-1){showError?.('No more free sample slots in the library.');return;}
-          const destination=memory.getSlot(destinationId);
-          if(!destination){showError?.('Invalid sample destination.');return;}
-          targets.push(destination);
-          memory.setOperation(destination.id,{status:'pending',label:'PENDING'});
-          searchFrom=destinationId+1;
-        }
+      let searchFrom=slot.id;
+      for(const file of files){
+        const destinationId=memory.findNextFree(searchFrom);
+        if(destinationId===-1){showError?.('No more free sample slots in the library.');return;}
+        const destination=memory.getSlot(destinationId);
+        if(!destination){showError?.('Invalid sample destination.');return;}
+        targets.push(destination);
+        memory.setOperation(destination.id,{status:'pending',label:'PENDING'});
+        searchFrom=destinationId+1;
       }
       let completed=0;
       const failures=[];

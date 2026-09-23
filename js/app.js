@@ -1,7 +1,7 @@
 import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260921-15';
 import{createZip}from './zip.js?v=20260921-7';
 import{outputFileName}from './output-name.js';
-import{initEp133Browser}from './ep133/ui.js?v=20260923-15';
+import{initEp133Browser}from './ep133/ui.js?v=20260923-16';
 const state={ctx:null,fileResults:[],folderResults:[],folderName:'',cancelled:false,urls:new Set(),startedAt:0,folderZipUrl:null};
 window.__speedUpperCutFiles=window.__speedUpperCutFiles||new Map();let openPreviewPromise=null;const loadPreview=()=>openPreviewPromise||(openPreviewPromise=import('./player.js?v=20260921-8').then(m=>m.openPreview));
 const $=id=>document.getElementById(id);const selected=g=>document.querySelector(`.win95-list[data-group="${g}"] .list-item.selected`)?.dataset.value||(g==='fidelity'?'cd':'stereo');const selectedPlaymode=()=>document.querySelector('.playmode-control .list-item.selected')?.dataset.value||'oneshot';const status=t=>$('status-bar').textContent=t;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const bytes=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
