@@ -1,7 +1,7 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-6';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-7';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
-import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-4';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-5';
 import{outputFileName}from '../output-name.js';
 import{createZip}from '../zip.js?v=20260921-7';
 
@@ -124,6 +124,21 @@ export function initEp133Browser({showError}={}){
       try{await stopPlayback(slot.nodeId||slot.id);}catch(error){console.warn('EP sample playback stop failed',error);}
     },
     onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
+    onRename:async(slot,value)=>{
+      if(!isConnected()){showError?.('Connect EP-133 before renaming a sample.');return null;}
+      if(slot.node?.isWritable!==true){showError?.('This EP sample is not writable.');return null;}
+      const name=normalizeFileName(value);
+      if(!name)return null;
+      try{
+        await setFileMetadata(slot.nodeId||slot.id,{name});
+        slot.meta={...(slot.meta||{}),name};
+        setSlotStatus(slot,'RENAMED · '+name);
+        return name;
+      }catch(error){
+        showError?.(error?.message||error);
+        return null;
+      }
+    },
     onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');try{setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');await readDevice();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));}catch(error){setSlotStatus(source,'MOVE ERROR');showError?.(error?.message||error);}} ,
     onDownload:async slot=>{
       if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');

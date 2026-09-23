@@ -62,7 +62,8 @@ export function createSampleMemory({
   onMove,
   onDelete,
   onDownload,
-  onDownloadMany
+  onDownloadMany,
+  onRename
 }){
   let slots=[];
   let sampleTabs=DEFAULT_SAMPLE_TABS;
@@ -70,6 +71,10 @@ export function createSampleMemory({
   let selectedId=null;
   let selectionAnchor=null;
   let selectionCurrent=null;
+  let editingId=null;
+  let editingOriginalName='';
+  let editingValue='';
+  let renamePending=false;
   const slotOperations=new Map();
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
@@ -208,6 +213,26 @@ export function createSampleMemory({
     });
   }
 
+  const finishRename=async(slot,{save=true}={})=>{
+    if(editingId!==slot?.id||renamePending)return;
+    const original=editingOriginalName;
+    const value=editingValue;
+    if(!save||!value.trim()||value===original){
+      editingId=null;editingOriginalName='';editingValue='';
+      render();renderInfo();
+      return;
+    }
+    renamePending=true;
+    try{
+      const renamed=await onRename?.(slot,value);
+      if(renamed)slot.meta={...(slot.meta||{}),name:renamed};
+    }finally{
+      renamePending=false;
+      editingId=null;editingOriginalName='';editingValue='';
+      render();renderInfo();
+    }
+  };
+
   const render=()=>{
     if(!listEl)return;
     const rows=visible();
@@ -220,14 +245,40 @@ export function createSampleMemory({
       const operation=slotOperations.get(slot.id)||null;
       const operationClass=operation?.status?' operation-'+String(operation.status).toLowerCase().replace(/[^a-z0-9_-]/g,''):'';
       const operationText=operation?.label||'';
+      const editing=editingId===slot.id;
+      const nameControl=occupied
+        ? '<input class="ep133-sample-name-input" data-name-input="'+slot.id+'" maxlength="16" value="'+escapeHtml(editing?editingValue:slotName(slot))+'" '+(editing?'':'readonly')+' aria-label="Sample name">'
+        : '<span class="ep133-sample-name"></span>';
       return '<div class="ep133-sample-row'+selected+multiSelected+operationClass+'" data-slot="'+slot.id+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
-        '<span class="ep133-sample-name">'+escapeHtml(occupied?slotName(slot):'')+'</span>'+
+        nameControl+
         '<span class="ep133-sample-size">'+escapeHtml(operationText||(occupied?formatSize(slot.file.size):'—'))+'</span>'+
         '</div>';
     }).join('');
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
       const slot=slots[Number(row.dataset.slot)-1];
+      const nameInput=row.querySelector('[data-name-input]');
+      if(nameInput){
+        nameInput.addEventListener('click',event=>{if(editingId===slot.id)event.stopPropagation();});
+        nameInput.addEventListener('dblclick',event=>{
+          if(!slot.file||slot.node?.isWritable!==true||selectedRange().length>1)return;
+          event.preventDefault();event.stopPropagation();
+          editingId=slot.id;
+          editingOriginalName=slotName(slot);
+          editingValue=editingOriginalName;
+          render();
+        });
+        if(editingId===slot.id){
+          nameInput.readOnly=false;
+          nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
+          nameInput.addEventListener('keydown',event=>{
+            if(event.key==='Enter'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:true});}
+            else if(event.key==='Escape'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:false});}
+          });
+          nameInput.addEventListener('blur',()=>{void finishRename(slot,{save:true});});
+          setTimeout(()=>{if(editingId===slot.id&&nameInput.isConnected){nameInput.focus();nameInput.select();}},0);
+        }
+      }
       row.addEventListener('dragstart',event=>{
         if(!slot.file||slot.node?.isMovable!==true){event.preventDefault();return;}
         dragSourceId=slot.id;

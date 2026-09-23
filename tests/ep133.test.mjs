@@ -140,6 +140,18 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
+test('EP sample rename uses the reference METADATA SET name payload',async()=>{
+  const {normalizeFileName,buildMetadataSetPayload}=await import('../js/ep133/filesystem.js');
+  const name=normalizeFileName('Snärë Renamed.wav');
+  assert.equal(name,'snare renamed');
+  const payload=buildMetadataSetPayload(7,{name});
+  assert.equal(payload[0],7);
+  assert.equal(payload[1],1);
+  assert.equal(new DataView(payload.buffer).getUint16(2),7);
+  const end=payload.indexOf(0,4);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(payload.slice(4,end))),{name:'snare renamed'});
+});
+
 test('EP sample filename normalization matches the device naming rules',async()=>{
   const {normalizeFileName}=await import('../js/ep133/filesystem.js');
   assert.equal(normalizeFileName('001 Kick 808.wav'),'kick 808');

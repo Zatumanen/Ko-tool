@@ -447,6 +447,9 @@
 .ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}
 .ep133-sample-number{font-weight:bold}
 .ep133-sample-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-sample-name-input{min-width:0;width:100%;height:20px;padding:0;border:0;background:transparent;color:inherit;font:inherit;outline:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-sample-name-input[readonly]{cursor:inherit}
+.ep133-sample-name-input:not([readonly]){background:#fff;color:#000;outline:1px solid #000;padding:0 2px}
 .ep133-sample-size{text-align:right;color:#555}
 .ep133-sample-row.operation-pending .ep133-sample-size{color:#777;font-weight:bold}
 .ep133-sample-row.operation-preparing .ep133-sample-size,
