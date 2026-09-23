@@ -136,8 +136,6 @@ export function initEp133Browser({showError}={}){
   open.onclick=()=>{if(isMobileDevice()){showError?.('My EP works on desktop computers only. Connect your EP-133 to a computer to use this feature.');return;}panel.style.display='flex';panel.setAttribute('aria-hidden','false');};
   open.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;e.preventDefault();open.click();});
   close.onclick=closePanel;
-  filesTab?.addEventListener('click',()=>{filesPanel.hidden=false;samplesPanel.hidden=true;filesTab.classList.add('selected');samplesTab.classList.remove('selected');});
-  samplesTab?.addEventListener('click',()=>{filesPanel.hidden=true;samplesPanel.hidden=false;samplesTab.classList.add('selected');filesTab.classList.remove('selected');});
   fileSearch?.addEventListener('input',()=>{currentPath='/';selectedFile=null;renderFiles();});
   fileDownload?.addEventListener('click',downloadFile);
   fileDelete?.addEventListener('click',deleteSelectedFile);
@@ -179,7 +177,8 @@ export function initEp133Browser({showError}={}){
       setStatus('CONNECTED · READ/WRITE');
       return;
     }
-    setDevice('NO DEVICE');
+    const deviceEl=document.getElementById('ep133-device');
+    if(deviceEl)deviceEl.textContent='NO DEVICE';
     setStatus('NOT CONNECTED');
     soundsParentId=0;
     soundFormats=[];
