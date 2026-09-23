@@ -496,7 +496,7 @@
   min-height:0;
   flex-direction:column;
 }
-#ep133-sample-tabs{display:none!important}
+#ep133-sample-tabs{display:flex!important;flex-wrap:wrap}
 #ep133-samples-panel .ep133-sample-memory{
   flex:1;
   min-height:0;
