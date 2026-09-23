@@ -142,9 +142,9 @@ export function initEp133Browser({showError}={}){
     onStop:async slot=>{
       try{await stopPlayback(slot.nodeId||slot.id);}catch(error){console.warn('EP sample playback stop failed',error);}
     },
-    onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
+    onDelete:async slot=>{if(!isConnected())throw new Error('Connect an EP-series device before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
     onRename:async(slot,value)=>{
-      if(!isConnected()){showError?.('Connect EP-133 before renaming a sample.');return null;}
+      if(!isConnected()){showError?.('Connect an EP-series device before renaming a sample.');return null;}
       if(slot.node?.isWritable!==true){showError?.('This EP sample is not writable.');return null;}
       const name=normalizeFileName(value);
       if(!name)return null;
@@ -223,7 +223,7 @@ export function initEp133Browser({showError}={}){
       setStatus('SLOT '+String(target.id).padStart(3,'0')+' OCCUPIED · DROP ON AN EMPTY SLOT');
     },
     onDownload:async slot=>{
-      if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
+      if(!isConnected())throw new Error('Connect an EP-series device before downloading a sample.');
       setSlotStatus(slot,'DOWNLOADING 0%');
       const result=await getFile(slot.nodeId,(done,total)=>setSlotStatus(slot,'DOWNLOADING '+Math.round(done/Math.max(1,total)*100)+'%'));
       const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
@@ -235,7 +235,7 @@ export function initEp133Browser({showError}={}){
       setSlotStatus(slot,'DOWNLOADED');
     },
     onDownloadMany:async selectedSlots=>{
-      if(!isConnected())throw new Error('Connect EP-133 before downloading samples.');
+      if(!isConnected())throw new Error('Connect an EP-series device before downloading samples.');
       const files=[];
       for(let index=0;index<selectedSlots.length;index++){
         const slot=selectedSlots[index];
@@ -257,8 +257,8 @@ export function initEp133Browser({showError}={}){
     onDrop:async(slot,event)=>{await uploadFilesToSlot(slot,getDroppedFiles(event));}
   })
   async function uploadFilesToSlot(slot,files){
-    if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
-    if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
+    if(!isConnected()){showError?.('Connect an EP-series device before writing a sample.');return;}
+    if(!soundsParentId){showError?.('The device sample library is not ready yet.');return;}
     if(!slot||!files?.length)return;
     const targets=[];
     let searchFrom=slot.id;
@@ -423,7 +423,7 @@ export function initEp133Browser({showError}={}){
     activityTimers[direction]=setTimeout(()=>element.classList.remove('active'),direction==='rx'?275:250);
   });
   // Match the reference MIDI lifecycle: request MIDI immediately so an
-  // already-connected EP-133 is discovered without requiring a statechange.
+  // already-connected EP-series device is discovered without requiring a statechange.
   let midiPermissionBlocked=false;
   const autoConnect=async()=>{
     if(isConnected()||midiPermissionBlocked)return;
