@@ -115,6 +115,15 @@ function waitForIdentity(timeout=2000){
 let requestQueue=Promise.resolve();
 let connectionEpoch=0;
 
+export function formatDeviceRejection(response){
+  const status=Number(response?.status);
+  const raw=response?.rawData instanceof Uint8Array?response.rawData:new Uint8Array(response?.rawData||[]);
+  const reason=raw.length?parseNullTerminatedString(raw,0).trim():'';
+  return reason
+    ? `EP-series device returned status ${status}: ${reason}`
+    : `EP-series device returned status ${status}`;
+}
+
 async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
   const epoch=connectionEpoch;
   const task=requestQueue.then(async()=>{
@@ -122,7 +131,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
     const frame=buildTeSysex(command,payload,identityCode,output.id);
     return new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
-      pending.set(frame.id,{inputPort:input,resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));else resolve(v);}});
+      pending.set(frame.id,{inputPort:input,resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(formatDeviceRejection(v)));else resolve(v);}});
       try{notifyMidiActivity('tx',{command,requestId:frame.id});output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
     });
   });
