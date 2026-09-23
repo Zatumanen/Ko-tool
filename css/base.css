@@ -365,9 +365,6 @@
 #ep133-rx-indicator.active{animation-duration:275ms}
 @keyframes ep133-midi-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 /* My EP — consolidated Win95/CRT UI */
-.ep133-connect-row{margin-top:9px}
-.ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}
-
 .ep133-browser{display:none;position:static;width:0;height:0;pointer-events:none}
 .ep133-browser-window{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -387,10 +384,6 @@
 .ep133-device-head>div:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}
 .ep133-device-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ep133-device-head span{font-size:11px}
-.ep133-actions{display:flex;gap:5px}
-.ep133-actions button{min-width:92px;min-height:30px;padding:4px 8px;background:var(--win-gray);border:2px outset var(--win-gray);font:12px "Courier New",monospace;cursor:pointer}
-.ep133-actions button:disabled{color:#666;cursor:default}
-.ep133-readonly{padding:5px 7px;border:1px solid var(--win-dark);background:#fff3e0;color:var(--warning-color);font-size:11px;font-weight:bold}
 .ep133-safety{font-size:10px;color:#555}
 
 .my-ep-icon{left:112px}
@@ -493,8 +486,6 @@
   .ep133-browser-body{overflow:auto}
   .ep133-device-stats{grid-template-columns:1fr 1fr 1fr}
   .ep133-device-stats>div{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-  .ep133-actions{width:100%}
-  .ep133-actions button{flex:1}
   .ep133-file-toolbar{flex-direction:column;gap:0}
   .ep133-file-tools{padding:4px}
   .ep133-file-tools input{flex:1;width:auto}
