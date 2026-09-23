@@ -1,6 +1,6 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
-import{metadataStringToObject}from './packing.js';
+import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set();
@@ -18,6 +18,30 @@ function validateFirmware(sku,metadata){
   const channel=version.startsWith('0.')?'beta':'production';
   const minimum=minimums[channel];
   if(compareVersion(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
+}
+
+const eventU16=(data,offset)=>(data[offset]<<8)|data[offset+1];
+const eventU32=(data,offset)=>((data[offset]<<24)|(data[offset+1]<<16)|(data[offset+2]<<8)|data[offset+3])>>>0;
+export function parseFileEvent(type,data=new Uint8Array()){
+  const bytes=data instanceof Uint8Array?data:new Uint8Array(data||[]);
+  switch(type){
+    case TE_SYSEX_FILE_EVENT_FILE_ADDED:
+    case TE_SYSEX_FILE_EVENT_FILE_UPDATED:
+      if(bytes.length<8)throw new Error('Invalid EP-series FILE_ADDED/UPDATED event.');
+      return{nodeId:eventU16(bytes,0),parentId:eventU16(bytes,2),fileSize:eventU32(bytes,4),name:parseNullTerminatedString(bytes,8)};
+    case TE_SYSEX_FILE_EVENT_FILE_DELETED:
+      if(bytes.length<2)throw new Error('Invalid EP-series FILE_DELETED event.');
+      return{nodeId:eventU16(bytes,0)};
+    case TE_SYSEX_FILE_EVENT_METADATA_UPDATED:{
+      if(bytes.length<3)throw new Error('Invalid EP-series METADATA_UPDATED event.');
+      const json=parseNullTerminatedString(bytes,2);
+      return{nodeId:eventU16(bytes,0),metadata:JSON.parse(json)};
+    }
+    case TE_SYSEX_FILE_EVENT_FILE_MOVED:
+      if(bytes.length<6)throw new Error('Invalid EP-series FILE_MOVED event.');
+      return{oldNodeId:eventU16(bytes,0),parentId:eventU16(bytes,2),nodeId:eventU16(bytes,4)};
+    default:return null;
+  }
 }
 
 function notifyConnection(){
@@ -49,7 +73,10 @@ function onMessage(inputPort,event){
   const fileEventTypes=new Set([TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED]);
   const eventType=msg.command===TE_SYSEX_FILE?msg.rawData?.[0]:undefined;
   if(msg.command===TE_SYSEX_FILE&&fileEventTypes.has(eventType)&&!pending.has(msg.requestId)){
-    for(const listener of fileEventListeners){try{listener({type:eventType,data:msg.rawData.slice(1),inputPort});}catch{}}
+    const rawData=msg.rawData.slice(1);
+    let parsed=null;
+    try{parsed=parseFileEvent(eventType,rawData);}catch(error){console.warn('EP file event parse failed',error);}
+    if(parsed)for(const listener of fileEventListeners){try{listener({type:eventType,data:parsed,rawData,inputPort});}catch{}}
     return;
   }
   const p=pending.get(msg.requestId);

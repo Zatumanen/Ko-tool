@@ -253,6 +253,29 @@ export function createSampleMemory({
       applySampleMetadata(slots,nodeId,meta);
       render();
     },
+    mergeMetadata(nodeId,meta){
+      const slot=slots[nodeId-1];
+      if(!slot)return;
+      slot.meta={...(slot.meta||{}),...(meta||{})};
+      render();
+    },
+    setSlot(entry){
+      const nodeId=Number(entry?.nodeId);
+      if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;
+      const next=createSampleSlots([entry])[nodeId-1];
+      if(!next?.file)return;
+      const previous=slots[nodeId-1];
+      if(previous?.meta)next.meta=previous.meta;
+      slots[nodeId-1]=next;
+      render();
+    },
+    clearSlot(id){
+      const nodeId=Number(id);
+      if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;
+      slots[nodeId-1]={id:nodeId,file:null,meta:null,node:null};
+      render();
+    },
+    countOccupied(){return slots.reduce((count,slot)=>count+(slot?.file?1:0),0);},
     refresh(){render();renderInfo();},
     getSelected(){return selectedId?slots[selectedId-1]:null;},
     getSlot(id){return slots[id-1]||null;}

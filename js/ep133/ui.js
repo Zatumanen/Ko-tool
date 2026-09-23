@@ -1,4 +1,5 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,moveFile,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js?v=20260923-5';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js?v=20260923-5';
+import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createPcmWav}from './audio.js?v=20260923-1';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js';
 import{outputFileName}from '../output-name.js';
@@ -53,7 +54,8 @@ export function initEp133Browser({showError}={}){
     if(memoryStats)memoryStats.textContent=maxCapacity>0&&Number.isFinite(freeSpace)
       ? formatMemory(usedBytes)+' / '+formatMemory(maxCapacity)
       : '—';
-    if(sampleCount)sampleCount.textContent=String(samples.length).padStart(3,'0');
+    const count=Array.isArray(samples)?samples.length:Number(samples||0);
+    if(sampleCount)sampleCount.textContent=String(Math.max(0,count)).padStart(3,'0');
   };
   const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
@@ -106,6 +108,7 @@ export function initEp133Browser({showError}={}){
 
   let soundsParentId=0;
   let soundFormats=[];
+  let soundsMetadata={};
   let deviceFiles=[];
   let currentPath='/';
   let selectedFile=null;
@@ -175,13 +178,13 @@ export function initEp133Browser({showError}={}){
       const files=deviceFiles;
       soundsParentId=getSoundsParentId(files);
       soundFormats=[];
-      let soundsMeta=null;
-      if(soundsParentId){try{soundsMeta=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMeta?.formats)?soundsMeta.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
+      soundsMetadata={};
+      if(soundsParentId){try{soundsMetadata=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
       memory.setTabs(DEFAULT_SAMPLE_TABS);
       const slots=createSampleSlots(files);memory.setSlots(slots);
-      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(soundsMeta,occupied);let loaded=0;
+      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(soundsMetadata,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
-      renderDeviceStats(soundsMeta,occupied);
+      renderDeviceStats(soundsMetadata,occupied);
     setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
   };
@@ -199,6 +202,7 @@ export function initEp133Browser({showError}={}){
     setStatus('NOT CONNECTED');
     soundsParentId=0;
     soundFormats=[];
+    soundsMetadata={};
     deviceFiles=[];selectedFile=null;renderFiles();memory.setSlots([]);
   };
   renderFiles();
@@ -215,13 +219,77 @@ export function initEp133Browser({showError}={}){
       console.debug('EP auto-connect:',error?.message||error);
     }
   };
-  let eventRefreshTimer=null;
-  const scheduleDeviceRefresh=()=>{
-    if(!isConnected()||panel.style.display==='none')return;
-    clearTimeout(eventRefreshTimer);
-    eventRefreshTimer=setTimeout(()=>readDevice(),300);
+  const fileItemFromInfo=info=>{
+    const parent=Number(info?.parentId)===0?null:deviceFiles.find(item=>Number(item.nodeId)===Number(info?.parentId));
+    const parentPath=Number(info?.parentId)===0?'':parent?.fileName;
+    if(Number(info?.parentId)!==0&&!parentPath)return null;
+    const fileName=(parentPath||'')+'/'+String(info?.fileName||'').replace(/^\/+/, '');
+    const flags=Number(info?.flags)||0;
+    return{
+      nodeId:Number(info.nodeId),flags,fileSize:Number(info.fileSize)||0,fileName,
+      fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',
+      isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
+      isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
+      isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
+      isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
+      isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
+    };
   };
-  onFileEvent(()=>scheduleDeviceRefresh());
+  const updateDeviceFile=item=>{
+    const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
+    if(index>=0)deviceFiles[index]=item;else deviceFiles.push(item);
+    renderFiles();
+  };
+  const handleFileEvent=async event=>{
+    if(!event?.data||!isConnected())return;
+    const payload=event.data;
+    try{
+      if(event.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED){
+        if(Number(payload.nodeId)===Number(soundsParentId)){
+          soundsMetadata={...soundsMetadata,...(payload.metadata||{})};
+          if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
+          renderDeviceStats(soundsMetadata,memory.countOccupied());
+        }else if(Number(payload.nodeId)>=1&&Number(payload.nodeId)<=999){
+          memory.mergeMetadata(Number(payload.nodeId),payload.metadata||{});
+        }
+        return;
+      }
+      if(event.type===TE_SYSEX_FILE_EVENT_FILE_ADDED||event.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED){
+        const info=await getFileInfo(Number(payload.nodeId));
+        const item=fileItemFromInfo(info);
+        if(!item)return;
+        updateDeviceFile(item);
+        if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
+          memory.setSlot(item);
+          try{memory.setMetadata(item.nodeId,await getFileMetadata(item.nodeId));}catch(error){console.warn('EP sample event metadata read failed',error);}
+          renderDeviceStats(soundsMetadata,memory.countOccupied());
+        }
+        return;
+      }
+      if(event.type===TE_SYSEX_FILE_EVENT_FILE_DELETED){
+        const nodeId=Number(payload.nodeId);
+        const existing=deviceFiles.find(item=>Number(item.nodeId)===nodeId);
+        deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==nodeId);
+        if(selectedFile&&Number(selectedFile.nodeId)===nodeId)selectedFile=null;
+        renderFiles();
+        if(existing&&/^\/sounds\/[^/]+$/.test(existing.fileName)&&nodeId>=1&&nodeId<=999){
+          memory.clearSlot(nodeId);
+          renderDeviceStats(soundsMetadata,memory.countOccupied());
+        }
+        return;
+      }
+      if(event.type===TE_SYSEX_FILE_EVENT_FILE_MOVED){
+        // The reference parser exposes FILE_MOVED, but its high-level sample UI
+        // does not define slot-move semantics. Keep our explicit move refresh
+        // path authoritative instead of inventing an event-side mutation.
+        return;
+      }
+    }catch(error){
+      console.warn('EP file event update failed',error);
+      showError?.(error?.message||error);
+    }
+  };
+  onFileEvent(event=>{void handleFileEvent(event);});
 
   onConnectionChange(state=>{
     renderConnection(state);

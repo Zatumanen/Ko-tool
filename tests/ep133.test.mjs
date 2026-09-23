@@ -28,7 +28,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 });
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
-import{requestRead}from '../js/ep133/device.js';
+import{requestRead,parseFileEvent}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
@@ -210,4 +210,18 @@ test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
 
 test('EP FILE_DELETE payload encodes the file id',()=>{
   assert.deepEqual([...buildFileDeletePayload(0x1234)],[6,0x12,0x34]);
+});
+
+test('EP FILE event parser matches reference event payloads',()=>{
+  const enc=new TextEncoder();
+  const added=new Uint8Array(8+enc.encode('kick').length+1);
+  const av=new DataView(added.buffer);
+  av.setUint16(0,7);av.setUint16(2,42);av.setUint32(4,1234);added.set(enc.encode('kick'),8);
+  assert.deepEqual(parseFileEvent(8,added),{nodeId:7,parentId:42,fileSize:1234,name:'kick'});
+  assert.deepEqual(parseFileEvent(10,Uint8Array.from([0,7])),{nodeId:7});
+  const metadataText=enc.encode('{"free_space_in_bytes":99}');
+  const metadata=new Uint8Array(2+metadataText.length+1);
+  new DataView(metadata.buffer).setUint16(0,42);metadata.set(metadataText,2);
+  assert.deepEqual(parseFileEvent(3,metadata),{nodeId:42,metadata:{free_space_in_bytes:99}});
+  assert.deepEqual(parseFileEvent(13,Uint8Array.from([0,7,0,42,0,8])),{oldNodeId:7,parentId:42,nodeId:8});
 });
