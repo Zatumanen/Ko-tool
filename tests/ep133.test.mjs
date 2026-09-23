@@ -29,7 +29,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -101,6 +101,25 @@ test('EP device rejection preserves the firmware reason text',()=>{
   const raw=new TextEncoder().encode('invalid id\0');
   assert.equal(formatDeviceRejection({status:3,rawData:raw}),'EP-series device returned status 3: invalid id');
   assert.equal(formatDeviceRejection({status:3,rawData:new Uint8Array()}),'EP-series device returned status 3');
+});
+
+test('EP transfer move filters metadata that is unsafe to write back',()=>{
+  assert.deepEqual(
+    prepareSampleTransferMetadata({
+      channels:1,samplerate:46875,format:'s16',crc:123,
+      name:'kick','sound.playmode':'oneshot','time.mode':'off',
+      'envelope.release':255,'sound.pitch':0
+    }),
+    {
+      channels:1,samplerate:46875,format:'s16',name:'kick',
+      'sound.playmode':'oneshot','time.mode':'off',
+      'envelope.release':255,'sound.pitch':0
+    }
+  );
+  assert.deepEqual(
+    prepareSampleTransferMetadata({'sound.playmode':'oneshot','time.mode':2,name:'short'}),
+    {name:'short'}
+  );
 });
 
 test('EP sample slot move uses verified GET PUT DELETE flow instead of native FILE_MOVE',async()=>{

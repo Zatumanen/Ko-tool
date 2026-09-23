@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-9';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata}from './index.js?v=20260923-10';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-14';
@@ -158,7 +158,8 @@ export function initEp133Browser({showError}={}){
         const downloaded=await getFile(source.nodeId,(done,total)=>setSlotStatus(source,'READING FOR MOVE '+Math.round(done/Math.max(1,total)*100)+'%'));
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('EP-series returned an empty sample during move.');
-        const metadata=source.meta||await getFileMetadata(source.nodeId);
+        const sourceMetadata=source.meta||await getFileMetadata(source.nodeId);
+        const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const filename=metadata?.name||downloaded?.name||source.file?.name||'sample';
         memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress:0});
         const fileId=await uploadSampleToSlot({data:bytes,filename,parentId:soundsParentId,destinationId:target.id,metadata,onProgress:(done,total)=>{

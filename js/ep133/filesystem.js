@@ -63,6 +63,16 @@ export async function listDeviceFiles(onProgress){return runFileOperation(async(
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
+export function prepareSampleTransferMetadata(metadata={}){
+  const result={...(metadata||{})};
+  delete result.crc;
+  for(const key of ['sound.playmode','time.mode']){
+    if(key in result&&typeof result[key]!=='string')delete result[key];
+  }
+  if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
+  return result;
+}
+
 export function buildFileInfoPayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INFO;view.setUint16(1,fileId);return p;}
 export function parseFileInfoResponse(raw){if(raw.length<10)throw new Error('Invalid EP-series FILE_INFO response.');return{nodeId:u16(raw,0),parentId:u16(raw,2),flags:raw[4],fileSize:u32(raw,5),fileName:parseNullTerminatedString(raw,9)};}
 export function buildFileMovePayload(fileId,parentId,newFileId){const p=new Uint8Array(7),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_MOVED;view.setUint16(1,fileId);view.setUint16(3,parentId);view.setUint16(5,newFileId);return p;}
