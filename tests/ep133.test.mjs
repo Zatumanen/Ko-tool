@@ -195,6 +195,14 @@ test('My EP pastes clipboard audio into the selected slot through the shared upl
   assert.match(source,/onDrop:async\(slot,event\)=>\{await uploadFilesToSlot\(slot,getDroppedFiles\(event\)\);\}/);
 });
 
+test('My EP throttles sample audition requests to the reference 200ms window',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/if\(playbackThrottleTimer\)return/);
+  assert.match(source,/setTimeout\(\(\)=>\{playbackThrottleTimer=null;\},200\)/);
+  assert.match(source,/onPlay:auditionSample/);
+});
+
 test('My EP Shift-click extends selection without auditioning the sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');

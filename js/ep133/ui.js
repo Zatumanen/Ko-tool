@@ -118,12 +118,17 @@ export function initEp133Browser({showError}={}){
   let deviceFiles=[];
   let currentPath='/';
   let selectedFile=null;
+  let playbackThrottleTimer=null;
+  const auditionSample=async slot=>{
+    if(playbackThrottleTimer)return;
+    playbackThrottleTimer=setTimeout(()=>{playbackThrottleTimer=null;},200);
+    try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}
+    catch(error){showError?.(error?.message||error);}
+  };
   const memory=createSampleMemory({
     listEl:list,tabsEl:tabs,searchEl:search,infoEl:info,
     onSelect:slot=>setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY'),
-    onPlay:async slot=>{
-      try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
-    },
+    onPlay:auditionSample,
     onStop:async slot=>{
       try{await stopPlayback(slot.nodeId||slot.id);}catch(error){console.warn('EP sample playback stop failed',error);}
     },
