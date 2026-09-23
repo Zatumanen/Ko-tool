@@ -39,19 +39,20 @@
 <div id="my-ep-mode-root"><div id="ep133-browser" class="ep133-browser" aria-hidden="false">
 <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="false" aria-labelledby="ep133-browser-title">
 <div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
-<div class="ep133-browser-body"><div class="ep133-device-head"><div><strong id="ep133-device">MY EP</strong><span id="ep133-status">NOT CONNECTED</span></div><div class="ep133-device-stats" aria-label="Device memory, sample count, and MIDI activity"><div><span>MEMORY</span><strong id="ep133-memory-stats">—</strong></div><div><span>SAMPLES</span><strong id="ep133-sample-count">000</strong></div><div class="ep133-midi-activity" aria-label="MIDI activity"><strong id="ep133-tx-indicator">TX</strong><strong id="ep133-rx-indicator">RX</strong></div></div></div>
-
-<section id="ep133-files-panel" class="ep133-view-panel"><div class="ep133-file-browser">
-<div class="ep133-file-toolbar"><div class="ep133-file-browser-title"><strong>DEVICE FILE SYSTEM</strong> <span>READ / DOWNLOAD / DELETE</span></div><div class="ep133-file-tools"><input id="ep133-file-search" type="search" placeholder="Search files" aria-label="Search device files"></div></div>
+<div class="ep133-browser-body"><div class="ep133-device-head"><div><strong id="ep133-device">MY EP</strong><span id="ep133-status">NOT CONNECTED</span></div><div class="ep133-device-stats" aria-label="Device memory, sample count, and MIDI activity"><div class="ep133-memory-stat"><span>MEMORY</span><strong id="ep133-memory-stats">—</strong><div class="ep133-memory-meter" aria-hidden="true"><span id="ep133-memory-meter-fill"></span></div></div><div><span>SAMPLES</span><strong id="ep133-sample-count">000</strong></div><div class="ep133-midi-activity" aria-label="MIDI activity"><strong id="ep133-tx-indicator">TX</strong><strong id="ep133-rx-indicator">RX</strong></div></div></div>
+<div class="ep133-view-tabs" role="tablist" aria-label="My EP view"><button id="ep133-samples-tab" class="selected" type="button" role="tab" aria-selected="true" aria-controls="ep133-samples-panel">SAMPLES</button><button id="ep133-files-tab" type="button" role="tab" aria-selected="false" aria-controls="ep133-files-panel">FILES</button></div>
+<section id="ep133-samples-panel" class="ep133-view-panel" role="tabpanel" aria-labelledby="ep133-samples-tab">
+<div class="ep133-library-hint">CLICK PREVIEW · SPACE HOLD · SHIFT RANGE · DOUBLE-CLICK RENAME · DRAG MOVE · DROP AUDIO IMPORT</div>
+<div class="ep133-sample-memory"><div class="ep133-sample-header"><div><strong>SAMPLE MEMORY</strong><span>999 SLOTS · DEVICE LIBRARY</span></div><input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots"></div>
+<div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-columns" aria-hidden="true"><span>SLOT</span><span>NAME</span><span>SIZE / STATE</span></div><div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
+<div class="ep133-safety">Slot moves require an empty destination. Imports automatically continue into the next free slots.</div></section>
+<section id="ep133-files-panel" class="ep133-view-panel" role="tabpanel" aria-labelledby="ep133-files-tab" hidden><div class="ep133-file-browser">
+<div class="ep133-file-toolbar"><div class="ep133-file-browser-title"><strong>DEVICE FILE SYSTEM</strong> <span>ADVANCED · READ / DOWNLOAD / DELETE</span></div><div class="ep133-file-tools"><input id="ep133-file-search" type="search" placeholder="Search files" aria-label="Search device files"></div></div>
 <div id="ep133-breadcrumbs" class="ep133-breadcrumbs"></div>
 <div id="ep133-file-list" class="ep133-file-list"><div class="ep133-empty">Connect a device to read its file system.</div></div>
 <div id="ep133-file-info" class="ep133-info"><div class="ep133-info-empty">Select a file.</div></div>
 <div class="ep133-file-actions"><button id="ep133-file-download" type="button" disabled>DOWNLOAD</button><button id="ep133-file-delete" type="button" disabled>DELETE</button></div>
-</div></section>
-<section id="ep133-samples-panel" class="ep133-view-panel">
-<div class="ep133-readonly">SAMPLE MEMORY · 999 SLOTS</div><div class="ep133-sample-memory"><div class="ep133-sample-header"><div><strong>SAMPLE MEMORY</strong><span>999 POSITIONS</span></div><input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots"></div>
-<div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-list" id="ep133-sample-list"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
-<div class="ep133-safety">Drop an audio file onto a slot to write it to that EP position. Click a sample to preview it on the device.</div></div></section></div></div></div>
-<script type="module" src="js/app.js?v=20260923-30"></script>
+</div></section></div></div></div>
+<script type="module" src="js/app.js?v=20260924-1"></script>
 
 </body></html>
