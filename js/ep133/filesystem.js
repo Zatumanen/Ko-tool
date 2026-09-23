@@ -118,7 +118,7 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   return runFileOperation(async()=>{
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>0xffff)throw new Error('Invalid EP-series destination id.');
-  if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-133 sample parent.');
+  if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-series sample parent.');
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
