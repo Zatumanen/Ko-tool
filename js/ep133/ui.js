@@ -116,7 +116,7 @@ export function initEp133Browser({showError}={}){
       try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
     },
     onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
-    onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');await moveFile(source.nodeId,soundsParentId,target.id);await readDevice();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));},
+    onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');if(!source?.nodeId||!source?.node?.isMovable)throw new Error('This EP-133 sample cannot be moved.');setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');target.file=source.file;target.meta=source.meta;target.node={...source.node,nodeId:moved.newFileId,id:moved.newFileId,parentId:soundsParentId};target.nodeId=moved.newFileId;source.file=null;source.meta=null;source.node=null;source.nodeId=source.id;memory.refresh();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));readDevice().catch(error=>console.warn('EP sample refresh after move failed',error));},
     onDownload:async slot=>{
       if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
       setSlotStatus(slot,'DOWNLOADING 0%');
@@ -128,7 +128,7 @@ export function initEp133Browser({showError}={}){
       if(!Number.isInteger(channels)||!samplerate)throw new Error('Missing required sample metadata.');
       const wav=createPcmWav(bytes,{channels,samplerate});
       const base=String(meta?.name||slot.file?.name||result?.name||'sample').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_').trim()||'sample';
-      const filename=String(slot.id).padStart(3,'0')+' '+base+'.wav';
+      const filename=base+'.wav';
       const url=URL.createObjectURL(wav);const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
       setSlotStatus(slot,'DOWNLOADED');
     },
