@@ -29,7 +29,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -174,6 +174,10 @@ test('My EP applies external FILE_MOVED events without a full device reread',asy
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
   assert.equal(calculateMaxPayloadLength(512-6),433);
   assert.equal(calculateMaxPayloadLength(1024-6),881);
+});
+
+test('EP FILE_INFO payload uses the imported STAT opcode',()=>{
+  assert.deepEqual([...buildFileInfoPayload(817)],[11,3,49]);
 });
 
 test('EP FILE_PUT init targets the requested destination slot',()=>{
