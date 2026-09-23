@@ -181,7 +181,7 @@ export function createSampleMemory({
         '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+
         '<div class="ep133-slot-actions">'+
         '<button type="button" class="ep133-download-sample" data-download-slot="'+slot.id+'">'+(selectedFiles.length>1?'DOWNLOAD '+selectedFiles.length+' SAMPLES':'DOWNLOAD SAMPLE')+'</button>'+
-        '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'+
+        (slot.node?.isDeletable===true?'<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>':'')+
         '</div>'
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
   };
@@ -210,7 +210,7 @@ export function createSampleMemory({
       if(deleteButton){
         event.stopPropagation();
         const slot=slots[Number(deleteButton.dataset.deleteSlot)-1];
-        if(!slot?.file)return;
+        if(!slot?.file||slot.node?.isDeletable!==true)return;
         const selectedFiles=selectedRange().map(id=>slots[id-1]).filter(item=>item?.file);
         const deleteTargets=selectedFiles.length>1?selectedFiles:[slot];
         if(deleteTargets.length>1&&!window.confirm('Delete '+deleteTargets.length+' selected samples?'))return;
