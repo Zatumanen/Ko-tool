@@ -1,7 +1,7 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,createTransferFileName}from './index.js?v=20260924-1';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
-import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-14';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260924-1';
 import{outputFileName}from '../output-name.js';
 import{createZip}from '../zip.js?v=20260921-7';
 
@@ -56,10 +56,15 @@ export function initEp133Browser({showError}={}){
     const freeSpace=Number(metadata?.free_space_in_bytes);
     const usedBytes=maxCapacity>0&&Number.isFinite(freeSpace)?Math.max(0,maxCapacity-freeSpace):0;
     const memoryStats=document.getElementById('ep133-memory-stats');
+    const memoryMeter=document.getElementById('ep133-memory-meter-fill');
     const sampleCount=document.getElementById('ep133-sample-count');
     if(memoryStats)memoryStats.textContent=maxCapacity>0&&Number.isFinite(freeSpace)
       ? formatMemory(usedBytes)+' / '+formatMemory(maxCapacity)
       : '—';
+    if(memoryMeter){
+      const ratio=maxCapacity>0?Math.max(0,Math.min(1,usedBytes/maxCapacity)):0;
+      memoryMeter.style.width=(ratio*100).toFixed(1)+'%';
+    }
     const count=Array.isArray(samples)?samples.length:Number(samples||0);
     if(sampleCount)sampleCount.textContent=String(Math.max(0,count)).padStart(3,'0');
   };
@@ -367,13 +372,15 @@ export function initEp133Browser({showError}={}){
 
   const renderConnection=state=>{
     setTitleDevice(state);
+    const deviceEl=document.getElementById('ep133-device');
     if(!state.connected)renderDeviceStats({},[]);
     if(state.connected){
-      const meta=state.device?.metadata||{};
+      const sku=String(state.device?.sku||'').toUpperCase();
+      const model=sku==='TE032AS001'?'EP-133':sku==='TE032AS005'?'EP-1320':sku==='TE032AS006'?'EP-40':'EP SERIES';
+      if(deviceEl)deviceEl.textContent=model;
       setStatus('CONNECTED · READ/WRITE');
       return;
     }
-    const deviceEl=document.getElementById('ep133-device');
     if(deviceEl)deviceEl.textContent='NO DEVICE';
     setStatus('NOT CONNECTED');
     soundsParentId=0;
