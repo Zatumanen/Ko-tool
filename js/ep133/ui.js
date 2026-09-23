@@ -173,19 +173,35 @@ export function initEp133Browser({showError}={}){
   const readDevice=async()=>{
     setBusy(true);setStatus('READING FILES...');
     try{
-      deviceFiles=await listDeviceFiles((item,total)=>setStatus('READING FILES... '+total));
+      memory.setTabs(DEFAULT_SAMPLE_TABS);
+      memory.setSlots(createSampleSlots([]));
+      renderDeviceStats({},0);
+      const progressiveBatchSize=29;
+      const progressiveEntries=[];
+      const flushProgressiveEntries=()=>{
+        if(!progressiveEntries.length)return;
+        memory.setEntries(progressiveEntries.splice(0,progressiveEntries.length));
+        renderDeviceStats(soundsMetadata,memory.countOccupied());
+      };
+      deviceFiles=await listDeviceFiles((item,total)=>{
+        setStatus('READING FILES... '+total);
+        if(/^\/sounds\/[^/]+$/.test(item?.fileName||'')){
+          progressiveEntries.push(item);
+          if(progressiveEntries.length>=progressiveBatchSize)flushProgressiveEntries();
+        }
+      });
+      flushProgressiveEntries();
       currentPath='/';selectedFile=null;renderFiles();
       const files=deviceFiles;
       soundsParentId=getSoundsParentId(files);
       soundFormats=[];
       soundsMetadata={};
       if(soundsParentId){try{soundsMetadata=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
-      memory.setTabs(DEFAULT_SAMPLE_TABS);
-      const slots=createSampleSlots(files);memory.setSlots(slots);
-      const occupied=slots.filter(slot=>slot.file);renderDeviceStats(soundsMetadata,occupied);let loaded=0;
+      const occupied=createSampleSlots(files).filter(slot=>slot.file);
+      renderDeviceStats(soundsMetadata,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
       renderDeviceStats(soundsMetadata,occupied);
-    setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
+      setStatus('READY · '+occupied.length+' SAMPLES · 999 SLOTS');
     }catch(e){setStatus('READ ERROR');showError?.(e?.message||e);}finally{setBusy(false);}
   };
 

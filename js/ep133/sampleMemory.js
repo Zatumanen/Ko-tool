@@ -269,6 +269,20 @@ export function createSampleMemory({
       slots[nodeId-1]=next;
       render();
     },
+    setEntries(entries){
+      let changed=false;
+      for(const entry of entries||[]){
+        const nodeId=Number(entry?.nodeId);
+        if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)continue;
+        const next=createSampleSlots([entry])[nodeId-1];
+        if(!next?.file)continue;
+        const previous=slots[nodeId-1];
+        if(previous?.meta)next.meta=previous.meta;
+        slots[nodeId-1]=next;
+        changed=true;
+      }
+      if(changed)render();
+    },
     clearSlot(id){
       const nodeId=Number(id);
       if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;
