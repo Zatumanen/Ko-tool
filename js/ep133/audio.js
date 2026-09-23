@@ -101,12 +101,6 @@ export function prepareTeenageMetadata(audioMeta,targetSampleRate){
   return cleanTeenageMetadata(metadata);
 }
 
-function parseNativeWav(bytes){
-  const meta=parseWavAudioMeta(bytes);
-  if(!meta||meta.format!==1||meta.bits!==16||(meta.channels!==1&&meta.channels!==2)||meta.rate!==DEFAULT_SAMPLE_RATE)return null;
-  return{data:bytes.slice(meta.dataOffset,meta.dataOffset+meta.dataSize),channels:meta.channels,rate:meta.rate};
-}
-
 async function decode(file,sourceRate){
   const C=window.AudioContext||window.webkitAudioContext;
   if(!C)throw new Error('Web Audio API is not supported by this browser.');
@@ -124,19 +118,6 @@ function flattenAudioBuffer(buffer){
   let offset=0;
   for(let frame=0;frame<frames;frame++)for(let channel=0;channel<channels;channel++)out[offset++]=data[channel][frame];
   return{data:out,channels};
-}
-
-function encodePcm16(interleaved,channels,targetRate){
-  const frames=Math.floor(interleaved.length/channels);
-  const out=new Uint8Array(frames*channels*2);
-  const view=new DataView(out.buffer);
-  let offset=0;
-  for(let i=0;i<interleaved.length;i++){
-    const x=Math.max(-1,Math.min(1,interleaved[i]));
-    view.setInt16(offset,x<0?Math.round(x*32768):Math.round(x*32767),true);
-    offset+=2;
-  }
-  return{data:out,channels,samplerate:targetRate,format:'s16'};
 }
 
 export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,onProgress}={}){
