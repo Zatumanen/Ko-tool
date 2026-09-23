@@ -178,3 +178,16 @@ export {parseKo2Metadata};
 
 export const EP133_SAMPLE_RATE=DEFAULT_SAMPLE_RATE;
 export const EP133_AUDIO_FORMAT=DEVICE_AUDIO_FORMAT;
+
+export function createPcmWav(data,{channels,samplerate}={}){
+  const pcm=data instanceof Uint8Array?data:new Uint8Array(data||[]);
+  const ch=Number(channels),rate=Number(samplerate);
+  if(!Number.isInteger(ch)||ch<1||ch>2||!Number.isFinite(rate)||rate<=0)throw new Error('Invalid PCM WAV parameters.');
+  const blockAlign=ch*2,byteRate=rate*blockAlign;
+  const out=new ArrayBuffer(44+pcm.byteLength),view=new DataView(out);
+  const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));};
+  write(0,'RIFF');view.setUint32(4,36+pcm.byteLength,true);write(8,'WAVE');write(12,'fmt ');
+  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,ch,true);view.setUint32(24,rate,true);
+  view.setUint32(28,byteRate,true);view.setUint16(32,blockAlign,true);view.setUint16(34,16,true);write(36,'data');view.setUint32(40,pcm.byteLength,true);
+  new Uint8Array(out,44).set(pcm);return new Blob([out],{type:'audio/wav'});
+}

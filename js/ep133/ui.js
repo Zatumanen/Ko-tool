@@ -1,5 +1,5 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,moveFile,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js?v=20260923-5';
-import{prepareEp133Sample}from './audio.js?v=20260923-1';
+import{prepareEp133Sample,createPcmWav}from './audio.js?v=20260923-1';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js';
 import{outputFileName}from '../output-name.js';
 
@@ -117,7 +117,21 @@ export function initEp133Browser({showError}={}){
     },
     onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
     onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');await moveFile(source.nodeId,soundsParentId,target.id);await readDevice();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));},
-    onDownload:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');setSlotStatus(slot,'DOWNLOADING 0%');const result=await getFile(slot.nodeId,(done,total)=>setSlotStatus(slot,'DOWNLOADING '+Math.round(done/Math.max(1,total)*100)+'%'));const blob=new Blob([result.data],{type:'audio/wav'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download=result.name||slot.file?.name||('sample_'+String(slot.id).padStart(3,'0')+'.wav');document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);setSlotStatus(slot,'DOWNLOADED');},
+    onDownload:async slot=>{
+      if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
+      setSlotStatus(slot,'DOWNLOADING 0%');
+      const result=await getFile(slot.nodeId,(done,total)=>setSlotStatus(slot,'DOWNLOADING '+Math.round(done/Math.max(1,total)*100)+'%'));
+      const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
+      const meta=slot.meta||await getFileMetadata(slot.nodeId);
+      const channels=Number(meta?.channels);
+      const samplerate=Number(meta?.samplerate??meta?.sample_rate);
+      if(!Number.isInteger(channels)||!samplerate)throw new Error('Missing required sample metadata.');
+      const wav=createPcmWav(bytes,{channels,samplerate});
+      const base=String(meta?.name||slot.file?.name||result?.name||'sample').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_').trim()||'sample';
+      const filename=String(slot.id).padStart(3,'0')+' '+base+'.wav';
+      const url=URL.createObjectURL(wav);const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
+      setSlotStatus(slot,'DOWNLOADED');
+    },
     onDrop:async(slot,event)=>{
       if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
       if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
