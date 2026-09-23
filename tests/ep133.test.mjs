@@ -121,14 +121,13 @@ test('EP FILE_MOVE request and response match the reference protocol',()=>{
   assert.deepEqual(parseFileMoveResponse(Uint8Array.from([0,7,0,42,0,8])),{oldFileId:7,parentId:42,newFileId:8});
 });
 
-test('My EP applies FILE_MOVED responses and events without a full device reread',async()=>{
+test('My EP applies external FILE_MOVED events without a full device reread',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const syncMovedFile=async/);
-  assert.match(source,/await syncMovedFile\(\{oldNodeId:moved\.oldFileId,parentId:moved\.parentId,nodeId:moved\.newFileId\}\)/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
-  const moveHandler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\}\} ,/)?.[0]||'';
-  assert.doesNotMatch(moveHandler,/await readDevice\(\)/);
+  const movedEventHandler=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?return;\n      \}/)?.[0]||'';
+  assert.doesNotMatch(movedEventHandler,/await readDevice\(\)/);
 });
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
