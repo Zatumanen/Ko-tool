@@ -482,3 +482,33 @@
   .ep133-info{max-height:120px}
 }
 
+
+/* My EP: single-window Sample Memory layout */
+.ep133-browser-body{
+  flex:1;
+  min-height:0;
+  overflow:hidden;
+}
+#ep133-files-panel{display:none!important}
+#ep133-samples-panel{
+  display:flex;
+  flex:1;
+  min-height:0;
+  flex-direction:column;
+}
+#ep133-sample-tabs{display:none!important}
+#ep133-samples-panel .ep133-sample-memory{
+  flex:1;
+  min-height:0;
+  overflow:hidden;
+}
+#ep133-samples-panel .ep133-sample-list{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+}
+@media(max-width:600px){
+  .ep133-browser-body{overflow:hidden}
+  #ep133-samples-panel .ep133-sample-list{min-height:0}
+}
