@@ -351,10 +351,15 @@
 }
 
 
-.ep133-device-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ep133-device-stats{display:grid;grid-template-columns:1fr 1fr auto;gap:6px}
 .ep133-device-stats>div{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:5px 7px;border:2px inset var(--win-dark);background:#fff;min-width:0}
 .ep133-device-stats span{font-size:10px;font-weight:bold;color:#555;white-space:nowrap}
 .ep133-device-stats strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ep133-device-stats .ep133-midi-activity{gap:7px;justify-content:center;min-width:58px}
+.ep133-midi-activity strong{opacity:.35}
+.ep133-midi-activity strong.active{opacity:1;animation:ep133-midi-pulse .25s ease-in-out infinite}
+#ep133-rx-indicator.active{animation-duration:275ms}
+@keyframes ep133-midi-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 /* My EP — consolidated Win95/CRT UI */
 .ep133-connect-row{margin-top:9px}
 .ep133-connect-row button{width:100%;min-height:38px;padding:7px;font:700 14px "Courier New",monospace;background:var(--win-gray);border:2px outset var(--win-gray);cursor:pointer}

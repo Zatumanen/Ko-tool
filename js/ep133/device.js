@@ -3,7 +3,7 @@ import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
-const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set();
+const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
   TE032AS005:{beta:'0.2.13',production:'1.0.2'},
@@ -48,6 +48,9 @@ function notifyConnection(){
   const state={connected:isConnected(),device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null};
   for(const listener of connectionListeners){try{listener(state);}catch{}}
 }
+function notifyMidiActivity(direction,detail={}){
+  for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch{}}
+}
 
 function handleMidiStateChange(){
   if(initialized){
@@ -70,6 +73,7 @@ function onMessage(inputPort,event){
   }
   const msg=parseTeSysex(data);
   if(!msg)return;
+  notifyMidiActivity('rx',{command:msg.command,requestId:msg.requestId});
   const fileEventTypes=new Set([TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED]);
   const eventType=msg.command===TE_SYSEX_FILE?msg.rawData?.[0]:undefined;
   if(msg.command===TE_SYSEX_FILE&&fileEventTypes.has(eventType)&&!pending.has(msg.requestId)){
@@ -119,7 +123,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
     return new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
       pending.set(frame.id,{inputPort:input,resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(`EP-series device returned status ${v.status}`));else resolve(v);}});
-      try{output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
+      try{notifyMidiActivity('tx',{command,requestId:frame.id});output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
     });
   });
   requestQueue=task.catch(()=>{});
@@ -207,6 +211,12 @@ export function onFileEvent(listener){
   if(typeof listener!=='function')return()=>{};
   fileEventListeners.add(listener);
   return()=>fileEventListeners.delete(listener);
+}
+
+export function onMidiActivity(listener){
+  if(typeof listener!=='function')return()=>{};
+  midiActivityListeners.add(listener);
+  return()=>midiActivityListeners.delete(listener);
 }
 
 export function onConnectionChange(listener){

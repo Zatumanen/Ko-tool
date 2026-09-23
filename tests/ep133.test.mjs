@@ -254,6 +254,14 @@ test('EP FILE_DELETE payload encodes the file id',()=>{
   assert.deepEqual([...buildFileDeletePayload(0x1234)],[6,0x12,0x34]);
 });
 
+test('EP MIDI activity hooks are tied to real SysEx send and receive paths',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  assert.match(source,/notifyMidiActivity\('tx'/);
+  assert.match(source,/notifyMidiActivity\('rx'/);
+  assert.match(source,/export function onMidiActivity/);
+});
+
 test('EP FILE event parser matches reference event payloads',()=>{
   const enc=new TextEncoder();
   const added=new Uint8Array(8+enc.encode('kick').length+1);

@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-5';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-6';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-4';
@@ -11,6 +11,8 @@ export function initEp133Browser({showError}={}){
   const close=document.getElementById('ep133-close');
   const title=document.getElementById('ep133-browser-title');
   const sampleCount=document.getElementById('ep133-sample-count');
+  const txIndicator=document.getElementById('ep133-tx-indicator');
+  const rxIndicator=document.getElementById('ep133-rx-indicator');
   const fileList=document.getElementById('ep133-file-list');
   const fileSearch=document.getElementById('ep133-file-search');
   const breadcrumbs=document.getElementById('ep133-breadcrumbs');
@@ -285,6 +287,14 @@ export function initEp133Browser({showError}={}){
   };
   renderFiles();
   renderFileInfo();
+  const activityTimers={tx:null,rx:null};
+  onMidiActivity(({direction})=>{
+    const element=direction==='tx'?txIndicator:direction==='rx'?rxIndicator:null;
+    if(!element)return;
+    element.classList.add('active');
+    clearTimeout(activityTimers[direction]);
+    activityTimers[direction]=setTimeout(()=>element.classList.remove('active'),direction==='rx'?275:250);
+  });
   // Match the reference MIDI lifecycle: request MIDI immediately so an
   // already-connected EP-133 is discovered without requiring a statechange.
   const autoConnect=async()=>{
