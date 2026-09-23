@@ -63,6 +63,24 @@ export async function listDeviceFiles(onProgress){return runFileOperation(async(
 
 export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
 
+const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
+  'name','sample.start','sample.end','sound.loopstart','sound.loopend','sound.amplitude',
+  'sound.playmode','sound.rootnote','sound.bpm','sound.pitch','sound.pan','sound.bars',
+  'envelope.attack','envelope.release','time.mode'
+]);
+
+export function prepareSampleWritableMetadata(metadata={}){
+  const result={};
+  for(const[key,value]of Object.entries(metadata||{})){
+    if(SAMPLE_WRITABLE_METADATA_KEYS.has(key))result[key]=value;
+  }
+  for(const key of ['sound.playmode','time.mode']){
+    if(key in result&&typeof result[key]!=='string')delete result[key];
+  }
+  if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
+  return result;
+}
+
 export function prepareSampleTransferMetadata(metadata={}){
   const result={...(metadata||{})};
   delete result.crc;
@@ -73,12 +91,15 @@ export function prepareSampleTransferMetadata(metadata={}){
   return result;
 }
 
+export function createTransferFileName(sourceId,targetId){
+  const source=String(Math.max(0,Number(sourceId)||0)).padStart(3,'0');
+  const target=String(Math.max(0,Number(targetId)||0)).padStart(3,'0');
+  return normalizeFileName('mv'+source+'_'+target);
+}
+
 export function buildFileInfoPayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INFO;view.setUint16(1,fileId);return p;}
 export function parseFileInfoResponse(raw){if(raw.length<10)throw new Error('Invalid EP-series FILE_INFO response.');return{nodeId:u16(raw,0),parentId:u16(raw,2),flags:raw[4],fileSize:u32(raw,5),fileName:parseNullTerminatedString(raw,9)};}
-export function buildFileMovePayload(fileId,parentId,newFileId){const p=new Uint8Array(7),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_MOVED;view.setUint16(1,fileId);view.setUint16(3,parentId);view.setUint16(5,newFileId);return p;}
-export function parseFileMoveResponse(raw){if(raw.length<6)throw new Error('Invalid EP-series FILE_MOVE response.');return{oldFileId:u16(raw,0),parentId:u16(raw,2),newFileId:u16(raw,4)};}
 export async function getFileInfo(fileId){return runFileOperation(async()=>{const response=await requestRead(TE_SYSEX_FILE,buildFileInfoPayload(fileId));return parseFileInfoResponse(response.rawData);});}
-export async function moveFile(fileId,parentId,newFileId,{timeout=15000}={}){return runFileOperation(async()=>{const response=await requestFile(TE_SYSEX_FILE,buildFileMovePayload(fileId,parentId,newFileId),timeout);return parseFileMoveResponse(response.rawData);});}
 
 export function buildFileDeletePayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_DELETE;view.setUint16(1,fileId);return p;}
 
@@ -147,10 +168,12 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
-  const normalizedName=normalizeFileName(name);
-  const uploadMetadata={...metadata,name:normalizedName};
-  const fileId=await putFile({data:bytes,filename:normalizedName,parentId,destinationId,metadata:uploadMetadata,onProgress});
-  await setFileMetadata(fileId,uploadMetadata);
+  const wireName=normalizeFileName(name);
+  const displayName=normalizeFileName(metadata?.name||name);
+  const uploadMetadata={...metadata,name:displayName};
+  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
+  if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
   await initFileSystem();
   return fileId;
 }
