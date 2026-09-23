@@ -1,4 +1,4 @@
-import{getLibSampleRateModule}from './resampler.js?v=20260923-2';
+import{getLibSampleRateModule}from './resampler.js?v=20260924-1';
 
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
