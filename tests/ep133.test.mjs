@@ -27,7 +27,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
@@ -65,6 +65,20 @@ test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   assert.deepEqual(DEFAULT_SAMPLE_TABS.map(x=>x.range),[[1,99],[100,199],[200,299],[300,399],[400,499],[500,599],[600,699],[700,799],[800,899],[900,999]]);
 });
 
+
+test('EP sample duration matches the reference PCM length calculation',()=>{
+  const slot={file:{size:93750},meta:{samplerate:46875,channels:1}};
+  assert.equal(calculateSampleDuration(slot),1);
+  assert.equal(calculateSampleDuration({file:{size:46874},meta:{samplerate:46875,channels:1}})<1,true);
+  assert.equal(calculateSampleDuration({file:{size:100},meta:{}}),null);
+});
+
+test('My EP lets sub-second samples finish after Space release',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/const duration=calculateSampleDuration\(slot\)/);
+  assert.match(source,/if\(duration&&duration<1\)return/);
+});
 
 test('sample display name prefers device metadata name over filesystem slot filename',()=>{
   const slots=createSampleSlots([{nodeId:7,fileName:'/sounds/007.wav',fileSize:123}]);

@@ -45,6 +45,14 @@ export function applySampleMetadata(slots,nodeId,meta){
 
 export function getSampleDisplayName(slot){return slot?.meta?.name||slot?.file?.name||'';}
 
+export function calculateSampleDuration(slot){
+  const size=Number(slot?.file?.size);
+  const samplerate=Number(slot?.meta?.samplerate);
+  const channels=Number(slot?.meta?.channels);
+  if(!Number.isFinite(size)||!Number.isFinite(samplerate)||!Number.isFinite(channels)||size<0||samplerate<=0||channels<=0)return null;
+  return size/2/samplerate/channels;
+}
+
 export function findNextFreeSampleSlot(slots,start=1){
   const first=Math.max(1,Number(start)||1);
   for(let id=first;id<=EP_SAMPLE_SLOT_COUNT;id++)if(!slots[id-1]?.file)return id;
@@ -405,7 +413,11 @@ export function createSampleMemory({
     if(!keyboardActive())return;
     const slot=selectedId?slots[selectedId-1]:null;
     if((event.key==='ArrowUp'||event.key==='ArrowDown')&&slot?.file)onPlay?.(slot);
-    if(event.key===' '&&slot?.file){event.preventDefault();onStop?.(slot);}
+    if(event.key===' '&&slot?.file){
+      const duration=calculateSampleDuration(slot);
+      if(duration&&duration<1)return;
+      event.preventDefault();onStop?.(slot);
+    }
   };
   document.addEventListener('keydown',keyDown);
   document.addEventListener('keyup',keyUp);
