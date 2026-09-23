@@ -143,7 +143,7 @@ export function initEp133Browser({showError}={}){
         return null;
       }
     },
-    onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');try{setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');await readDevice();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));}catch(error){setSlotStatus(source,'MOVE ERROR');showError?.(error?.message||error);}} ,
+    onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');try{setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');const item=await syncMovedFile({oldNodeId:moved.oldFileId,parentId:moved.parentId,nodeId:moved.newFileId});if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('EP-133 acknowledged FILE_MOVE but the destination slot could not be verified.');setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));}catch(error){setSlotStatus(source,'MOVE ERROR');showError?.(error?.message||error);}} ,
     onDownload:async slot=>{
       if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
       setSlotStatus(slot,'DOWNLOADING 0%');
@@ -346,6 +346,29 @@ export function initEp133Browser({showError}={}){
     if(index>=0)deviceFiles[index]=item;else deviceFiles.push(item);
     renderFiles();
   };
+  const syncMovedFile=async({oldNodeId,parentId,nodeId})=>{
+    const oldId=Number(oldNodeId),newId=Number(nodeId),destinationParentId=Number(parentId);
+    if(!Number.isInteger(oldId)||!Number.isInteger(newId)||!Number.isInteger(destinationParentId))throw new Error('Invalid EP-series FILE_MOVED identifiers.');
+    const oldItem=deviceFiles.find(item=>Number(item.nodeId)===oldId)||null;
+    const oldWasSound=!!oldItem&&/^\/sounds\/[^/]+$/.test(oldItem.fileName||'');
+    const oldMeta=oldId>=1&&oldId<=999?memory.getSlot(oldId)?.meta||null:null;
+    const selectedWasOld=selectedFile&&Number(selectedFile.nodeId)===oldId;
+    if(oldId!==newId)deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==oldId);
+    const info=await getFileInfo(newId);
+    const item=fileItemFromInfo(info);
+    if(!item)throw new Error('EP-series FILE_MOVED destination node could not be resolved.');
+    updateDeviceFile(item);
+    if(selectedWasOld){selectedFile=item;renderFiles();}
+    if(oldWasSound&&oldId>=1&&oldId<=999&&oldId!==newId)memory.clearSlot(oldId);
+    const newIsSound=destinationParentId===Number(soundsParentId)&&/^\/sounds\/[^/]+$/.test(item.fileName||'')&&newId>=1&&newId<=999;
+    if(newIsSound){
+      memory.setSlot(item);
+      try{memory.setMetadata(newId,await getFileMetadata(newId));}
+      catch(error){if(oldMeta)memory.setMetadata(newId,oldMeta);else console.warn('EP moved sample metadata read failed',error);}
+    }
+    if(oldWasSound||newIsSound)renderDeviceStats(soundsMetadata,memory.countOccupied());
+    return item;
+  };
   const handleFileEvent=async event=>{
     if(!event?.data||!isConnected())return;
     const payload=event.data;
@@ -385,9 +408,7 @@ export function initEp133Browser({showError}={}){
         return;
       }
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_MOVED){
-        // The reference parser exposes FILE_MOVED, but its high-level sample UI
-        // does not define slot-move semantics. Keep our explicit move refresh
-        // path authoritative instead of inventing an event-side mutation.
+        await syncMovedFile(payload);
         return;
       }
     }catch(error){

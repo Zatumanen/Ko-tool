@@ -29,7 +29,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -82,6 +82,22 @@ test('EP metadata GET is permitted by the read-only request gate',()=>{
   assert.equal(typeof requestRead,'function');
 });
 
+
+test('EP FILE_MOVE request and response match the reference protocol',()=>{
+  const payload=buildFileMovePayload(7,42,8);
+  assert.deepEqual([...payload],[12,0,7,0,42,0,8]);
+  assert.deepEqual(parseFileMoveResponse(Uint8Array.from([0,7,0,42,0,8])),{oldFileId:7,parentId:42,newFileId:8});
+});
+
+test('My EP applies FILE_MOVED responses and events without a full device reread',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/const syncMovedFile=async/);
+  assert.match(source,/await syncMovedFile\(\{oldNodeId:moved\.oldFileId,parentId:moved\.parentId,nodeId:moved\.newFileId\}\)/);
+  assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
+  const moveHandler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\}\} ,/)?.[0]||'';
+  assert.doesNotMatch(moveHandler,/await readDevice\(\)/);
+});
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
   assert.equal(calculateMaxPayloadLength(512-6),433);
