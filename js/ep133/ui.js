@@ -1,8 +1,9 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-5';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createPcmWav}from './audio.js?v=20260923-1';
-import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-1';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-2';
 import{outputFileName}from '../output-name.js';
+import{createZip}from '../zip.js?v=20260921-7';
 
 export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
@@ -137,6 +138,27 @@ export function initEp133Browser({showError}={}){
       const filename=base+'.wav';
       const url=URL.createObjectURL(wav);const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
       setSlotStatus(slot,'DOWNLOADED');
+    },
+    onDownloadMany:async selectedSlots=>{
+      if(!isConnected())throw new Error('Connect EP-133 before downloading samples.');
+      const files=[];
+      for(let index=0;index<selectedSlots.length;index++){
+        const slot=selectedSlots[index];
+        const slotNumber=String(slot.id).padStart(3,'0');
+        setStatus('DOWNLOADING '+(index+1)+'/'+selectedSlots.length+' · SLOT '+slotNumber+' · 0%');
+        const result=await getFile(slot.nodeId,(done,total)=>setStatus('DOWNLOADING '+(index+1)+'/'+selectedSlots.length+' · SLOT '+slotNumber+' · '+Math.round(done/Math.max(1,total)*100)+'%'));
+        const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
+        const meta=slot.meta||await getFileMetadata(slot.nodeId);
+        const channels=Number(meta?.channels);
+        const samplerate=Number(meta?.samplerate??meta?.sample_rate);
+        if(!Number.isInteger(channels)||!samplerate)throw new Error('Missing required sample metadata for slot '+slotNumber+'.');
+        const wav=createPcmWav(bytes,{channels,samplerate});
+        const base=String(meta?.name||slot.file?.name||result?.name||'sample').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_').trim()||'sample';
+        files.push({path:slotNumber+' '+base+'.wav',blob:wav});
+      }
+      const zip=await createZip(files);
+      const url=URL.createObjectURL(zip);const anchor=document.createElement('a');anchor.href=url;anchor.download='samples.zip';document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
+      setStatus('DOWNLOADED · '+selectedSlots.length+' SAMPLES');
     },
     onDrop:async(slot,event)=>{
       if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}

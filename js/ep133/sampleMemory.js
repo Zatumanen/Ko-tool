@@ -55,7 +55,8 @@ export function createSampleMemory({
   onDrop,
   onMove,
   onDelete,
-  onDownload
+  onDownload,
+  onDownloadMany
 }){
   let slots=[];
   let sampleTabs=DEFAULT_SAMPLE_TABS;
@@ -142,6 +143,7 @@ export function createSampleMemory({
       return;
     }
     const occupied=!!slot.file;
+    const selectedFiles=selectedRange().map(id=>slots[id-1]).filter(item=>item?.file);
     const name=occupied?slotName(slot):'';
     const metadata=slot.meta||{};
     infoEl.innerHTML=
@@ -153,7 +155,7 @@ export function createSampleMemory({
         (metadata.channels?'<div><b>CHANNELS</b> '+escapeHtml(metadata.channels)+'</div>':'')+
         '<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>'+
         '<div class="ep133-slot-actions">'+
-        '<button type="button" class="ep133-download-sample" data-download-slot="'+slot.id+'">DOWNLOAD SAMPLE</button>'+
+        '<button type="button" class="ep133-download-sample" data-download-slot="'+slot.id+'">'+(selectedFiles.length>1?'DOWNLOAD '+selectedFiles.length+' SAMPLES':'DOWNLOAD SAMPLE')+'</button>'+
         '<button type="button" class="ep133-delete-sample" data-delete-slot="'+slot.id+'">DELETE SAMPLE</button>'+
         '</div>'
       :'<div class="ep133-slot-destination">Selected destination: #'+String(slot.id).padStart(3,'0')+'</div>');
@@ -169,8 +171,12 @@ export function createSampleMemory({
         event.stopPropagation();
         const slot=slots[Number(downloadButton.dataset.downloadSlot)-1];
         if(!slot?.file)return;
+        const selectedFiles=selectedRange().map(id=>slots[id-1]).filter(item=>item?.file);
         downloadButton.disabled=true;
-        try{await onDownload?.(slot);}
+        try{
+          if(selectedFiles.length>1)await onDownloadMany?.(selectedFiles);
+          else await onDownload?.(slot);
+        }
         catch(error){throw error;}
         finally{downloadButton.disabled=false;}
         return;
