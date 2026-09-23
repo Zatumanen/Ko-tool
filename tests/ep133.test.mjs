@@ -148,6 +148,17 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
+test('My EP pastes clipboard audio into the selected slot through the shared uploader',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/clipboardData\?\.items/);
+  assert.match(source,/includes\('audio'\)/);
+  assert.match(source,/window\.addEventListener\('paste'/);
+  assert.match(source,/memory\.getSelected\(\)/);
+  assert.match(source,/uploadFilesToSlot\(slot,files\)/);
+  assert.match(source,/onDrop:async\(slot,event\)=>\{await uploadFilesToSlot\(slot,getDroppedFiles\(event\)\);\}/);
+});
+
 test('EP library Alt+Arrow page navigation matches the reference 29-row paging',async()=>{
   assert.equal(EP_SAMPLE_PAGE_SIZE,29);
   const fs=await import('node:fs/promises');
