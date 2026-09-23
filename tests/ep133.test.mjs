@@ -44,6 +44,19 @@ test('EP uploader always starts at the next free slot, including single-file dro
   assert.equal(findNextFreeSampleSlot(slots,999),-1);
 });
 
+test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{
+  const fs=await import('node:fs/promises');
+  const read=path=>fs.readFile(new URL('../'+path,import.meta.url),'utf8');
+  const [html,app,ui,index]=await Promise.all([
+    read('index.html'),read('js/app.js'),read('js/ep133/ui.js'),read('js/ep133/index.js')
+  ]);
+  const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
+  assert.ok(token);
+  assert.equal(app.includes("./ep133/ui.js?v="+token),true);
+  assert.equal(ui.includes("./index.js?v="+token),true);
+  assert.equal(index.includes("./filesystem.js?v="+token),true);
+});
+
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
