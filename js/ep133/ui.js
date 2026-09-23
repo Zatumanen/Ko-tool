@@ -1,7 +1,7 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-9';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-9';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
-import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-9';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-10';
 import{outputFileName}from '../output-name.js';
 import{createZip}from '../zip.js?v=20260921-7';
 
@@ -148,7 +148,44 @@ export function initEp133Browser({showError}={}){
         return null;
       }
     },
-    onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');try{setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');const item=await syncMovedFile({oldNodeId:moved.oldFileId,parentId:moved.parentId,nodeId:moved.newFileId});if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('EP-133 acknowledged FILE_MOVE but the destination slot could not be verified.');setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));}catch(error){setSlotStatus(source,'MOVE ERROR');showError?.(error?.message||error);}} ,
+    onMove:async(source,target)=>{
+      if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');
+      if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');
+      if(source.node?.isReadable!==true||source.node?.isDeletable!==true)throw new Error('This EP sample cannot be moved safely.');
+      try{
+        const destinationLabel=String(target.id).padStart(3,'0');
+        setSlotStatus(source,'READING FOR MOVE...');
+        const downloaded=await getFile(source.nodeId,(done,total)=>setSlotStatus(source,'READING FOR MOVE '+Math.round(done/Math.max(1,total)*100)+'%'));
+        const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
+        if(!bytes.byteLength)throw new Error('EP-series returned an empty sample during move.');
+        const metadata=source.meta||await getFileMetadata(source.nodeId);
+        const filename=metadata?.name||downloaded?.name||source.file?.name||'sample';
+        memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress:0});
+        const fileId=await uploadSampleToSlot({data:bytes,filename,parentId:soundsParentId,destinationId:target.id,metadata,onProgress:(done,total)=>{
+          const progress=Math.round(done/Math.max(1,total)*100);
+          memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress});
+          setSlotStatus(source,'MOVING TO '+destinationLabel+' · '+progress+'%');
+        }});
+        if(Number(fileId)!==Number(target.id))throw new Error('EP-series wrote the moved sample to an unexpected slot.');
+        const info=await getFileInfo(fileId);
+        const item=fileItemFromInfo(info);
+        if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('EP-series destination slot could not be verified after move upload.');
+        await deleteFile(source.nodeId);
+        deviceFiles=deviceFiles.filter(existing=>Number(existing.nodeId)!==Number(source.nodeId));
+        updateDeviceFile(item);
+        memory.clearSlot(source.id);
+        memory.setSlot(item);
+        try{memory.setMetadata(target.id,await getFileMetadata(target.id));}
+        catch(error){memory.setMetadata(target.id,metadata||null);}
+        memory.clearOperation(target.id);
+        renderDeviceStats(soundsMetadata,memory.countOccupied());
+        setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+destinationLabel);
+      }catch(error){
+        memory.clearOperation(target.id);
+        setSlotStatus(source,'MOVE ERROR');
+        showError?.(error?.message||error);
+      }
+    } ,
     onDownload:async slot=>{
       if(!isConnected())throw new Error('Connect EP-133 before downloading a sample.');
       setSlotStatus(slot,'DOWNLOADING 0%');

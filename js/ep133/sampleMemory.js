@@ -59,6 +59,10 @@ export function findNextFreeSampleSlot(slots,start=1){
   return -1;
 }
 
+export function canTransferMoveSample(slot){
+  return !!slot?.file&&slot.node?.isReadable===true&&slot.node?.isDeletable===true;
+}
+
 export function createSampleMemory({
   listEl,
   tabsEl,
@@ -289,7 +293,7 @@ export function createSampleMemory({
         }
       }
       row.addEventListener('dragstart',event=>{
-        if(!slot.file||slot.node?.isMovable!==true){event.preventDefault();return;}
+        if(!canTransferMoveSample(slot)){event.preventDefault();return;}
         dragSourceId=slot.id;
         suppressClick=true;
         event.dataTransfer.effectAllowed='move';

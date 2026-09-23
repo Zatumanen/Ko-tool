@@ -27,7 +27,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
@@ -101,6 +101,18 @@ test('EP device rejection preserves the firmware reason text',()=>{
   const raw=new TextEncoder().encode('invalid id\0');
   assert.equal(formatDeviceRejection({status:3,rawData:raw}),'EP-series device returned status 3: invalid id');
   assert.equal(formatDeviceRejection({status:3,rawData:new Uint8Array()}),'EP-series device returned status 3');
+});
+
+test('EP sample slot move uses verified GET PUT DELETE flow instead of native FILE_MOVE',async()=>{
+  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
+  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:true}}),false);
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const handler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\n    \} ,/)?.[0]||'';
+  assert.match(handler,/await getFile\(source\.nodeId/);
+  assert.match(handler,/await uploadSampleToSlot\(/);
+  assert.match(handler,/await deleteFile\(source\.nodeId\)/);
+  assert.doesNotMatch(handler,/moveFile\(/);
 });
 
 test('EP FILE_MOVE request and response match the reference protocol',()=>{
