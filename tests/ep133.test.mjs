@@ -44,6 +44,13 @@ test('EP uploader always starts at the next free slot, including single-file dro
   assert.equal(findNextFreeSampleSlot(slots,999),-1);
 });
 
+test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/soundsMetadata=await getFileMetadata\(soundsParentId\)/);
+  assert.match(source,/memory\.setTabs\(soundsMetadata\?\.tabs\)/);
+});
+
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},

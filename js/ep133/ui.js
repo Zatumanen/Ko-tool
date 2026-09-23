@@ -272,6 +272,7 @@ export function initEp133Browser({showError}={}){
       soundFormats=[];
       soundsMetadata={};
       if(soundsParentId){try{soundsMetadata=await getFileMetadata(soundsParentId);soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];}catch(e){console.warn('EP /sounds metadata read failed',e);}}
+      memory.setTabs(soundsMetadata?.tabs);
       const occupied=createSampleSlots(files).filter(slot=>slot.file);
       renderDeviceStats(soundsMetadata,occupied);let loaded=0;
       for(const slot of occupied){try{const meta=await getFileMetadata(slot.nodeId);memory.setMetadata(slot.id,meta);}catch(e){console.warn('EP sample metadata read failed for slot '+slot.id,e);}loaded+=1;setStatus('READING SAMPLE METADATA... '+loaded+'/'+occupied.length);}
