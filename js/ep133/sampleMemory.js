@@ -44,6 +44,12 @@ export function applySampleMetadata(slots,nodeId,meta){
 
 export function getSampleDisplayName(slot){return slot?.meta?.name||slot?.file?.name||'';}
 
+export function findNextFreeSampleSlot(slots,start=1){
+  const first=Math.max(1,Number(start)||1);
+  for(let id=first;id<=EP_SAMPLE_SLOT_COUNT;id++)if(!slots[id-1]?.file)return id;
+  return -1;
+}
+
 export function createSampleMemory({
   listEl,
   tabsEl,
@@ -385,6 +391,7 @@ export function createSampleMemory({
       render();
     },
     countOccupied(){return slots.reduce((count,slot)=>count+(slot?.file?1:0),0);},
+    findNextFree(start=1){return findNextFreeSampleSlot(slots,start);},
     setOperation(id,{status='pending',label='',progress=null}={}){
       const nodeId=Number(id);
       if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;

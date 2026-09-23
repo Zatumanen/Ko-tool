@@ -1,7 +1,7 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-5';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
-import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-3';
+import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-4';
 import{outputFileName}from '../output-name.js';
 import{createZip}from '../zip.js?v=20260921-7';
 
@@ -97,14 +97,13 @@ export function initEp133Browser({showError}={}){
     if(!selectedFile||selectedFile.fileType!=='file'||!isConnected())return;
     try{const name=baseName(selectedFile.fileName);setStatus('DELETING '+name+'...');await deleteFile(selectedFile.nodeId);deviceFiles=deviceFiles.filter(item=>item.nodeId!==selectedFile.nodeId);selectedFile=null;renderFiles();setStatus('DELETED · '+name);}catch(error){showError?.(error?.message||error);}
   };
-  const getDroppedFile=event=>{
+  const getDroppedFiles=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
       const sourceWindows=[window,window.opener].filter(Boolean);const item=sourceWindows.map(w=>w.__speedUpperCutFiles?.get(resultId)).find(Boolean);
-      if(item?.result?.blob)return new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'});
+      if(item?.result?.blob)return[new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'})];
     }
-    const file=event.dataTransfer?.files?.[0];
-    return file||null;
+    return Array.from(event.dataTransfer?.files||[]);
   };
 
   let soundsParentId=0;
@@ -159,36 +158,58 @@ export function initEp133Browser({showError}={}){
     onDrop:async(slot,event)=>{
       if(!isConnected()){showError?.('Connect EP-133 before writing a sample.');return;}
       if(!soundsParentId){showError?.('EP-133 /sounds destination is not available. Refresh the device.');return;}
-      const file=getDroppedFile(event);if(!file)return;
-      memory.setOperation(slot.id,{status:'pending',label:'PENDING'});
-      try{
-        setSlotStatus(slot,'PREPARING...');
-        memory.setOperation(slot.id,{status:'preparing',label:'PREPARING'});
-        const prepared=await prepareEp133Sample(file,{formats:soundFormats,onProgress:(value,info)=>{
-          const status=String(info?.status||'preparing').toLowerCase();
-          const label=status==='ready'?'READY':status.toUpperCase();
-          memory.setOperation(slot.id,{status,label,progress:value});
-          setSlotStatus(slot,label+' '+Math.round(value)+'%');
-        }});
-        const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format,...(prepared.metadata||{})};
-        memory.setOperation(slot.id,{status:'uploading',label:'UPLOADING',progress:0});
-        const fileId=await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:slot.id,metadata,onProgress:(done,total)=>{
-          const progress=Math.round(done/Math.max(1,total)*100);
-          memory.setOperation(slot.id,{status:'uploading',label:'UPLOADING',progress});
-          setSlotStatus(slot,'UPLOADING '+progress+'%');
-        }});
-        const normalizedName=normalizeFileName(file.name);
-        slot.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
-        slot.nodeId=fileId;slot.meta={...metadata,name:normalizedName};memory.refresh();
-        memory.setOperation(slot.id,{status:'complete',label:'WRITTEN',progress:100});
-        setSlotStatus(slot,'WRITTEN');
-        setTimeout(()=>memory.clearOperation(slot.id),1200);
-      }catch(error){
-        memory.setOperation(slot.id,{status:'failed',label:'FAIL'});
-        setSlotStatus(slot,'WRITE ERROR');
-        showError?.(error?.message||error);
-        setTimeout(()=>memory.clearOperation(slot.id),2000);
+      const files=getDroppedFiles(event);if(!files.length)return;
+      const targets=[];
+      if(files.length===1){
+        targets.push(slot);
+      }else{
+        let searchFrom=slot.id;
+        for(const file of files){
+          const destinationId=memory.findNextFree(searchFrom);
+          if(destinationId===-1){showError?.('No more free sample slots in the library.');return;}
+          const destination=memory.getSlot(destinationId);
+          if(!destination){showError?.('Invalid sample destination.');return;}
+          targets.push(destination);
+          memory.setOperation(destination.id,{status:'pending',label:'PENDING'});
+          searchFrom=destinationId+1;
+        }
       }
+      let completed=0;
+      const failures=[];
+      for(let index=0;index<files.length;index++){
+        const file=files[index],target=targets[index];
+        if(files.length===1)memory.setOperation(target.id,{status:'pending',label:'PENDING'});
+        try{
+          setSlotStatus(target,'PREPARING...');
+          memory.setOperation(target.id,{status:'preparing',label:'PREPARING'});
+          const prepared=await prepareEp133Sample(file,{formats:soundFormats,onProgress:(value,info)=>{
+            const status=String(info?.status||'preparing').toLowerCase();
+            const label=status==='ready'?'READY':status.toUpperCase();
+            memory.setOperation(target.id,{status,label,progress:value});
+            setSlotStatus(target,label+' '+Math.round(value)+'%');
+          }});
+          const metadata={channels:prepared.channels,samplerate:prepared.samplerate,format:prepared.format,...(prepared.metadata||{})};
+          memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+          const fileId=await uploadSampleToSlot({file,data:prepared.data,filename:file.name,parentId:soundsParentId,destinationId:target.id,metadata,onProgress:(done,total)=>{
+            const progress=Math.round(done/Math.max(1,total)*100);
+            memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress});
+            setSlotStatus(target,'UPLOADING '+progress+'%');
+          }});
+          const normalizedName=normalizeFileName(file.name);
+          target.file={name:normalizedName,path:'/sounds/'+normalizedName,size:prepared.data.byteLength};
+          target.nodeId=fileId;target.meta={...metadata,name:normalizedName};memory.refresh();
+          memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
+          completed++;
+          setTimeout(()=>memory.clearOperation(target.id),1200);
+        }catch(error){
+          failures.push({file,error});
+          memory.setOperation(target.id,{status:'failed',label:'FAIL'});
+          setTimeout(()=>memory.clearOperation(target.id),2000);
+        }
+      }
+      if(files.length>1)setStatus('UPLOADED · '+completed+'/'+files.length+' FILES');
+      else if(completed===1)setSlotStatus(targets[0],'WRITTEN');
+      if(failures.length)showError?.(failures.length===1?(failures[0].error?.message||failures[0].error):failures.length+' files failed to upload.');
     }
   });
 

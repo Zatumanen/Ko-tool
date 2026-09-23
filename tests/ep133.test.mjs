@@ -27,9 +27,22 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,findNextFreeSampleSlot}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildMetadataSetPayload,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+test('EP multi-file placement finds the next free slots like the reference uploader',()=>{
+  const slots=createSampleSlots([
+    {nodeId:1,fileName:'/sounds/one',fileSize:2},
+    {nodeId:3,fileName:'/sounds/three',fileSize:2},
+    {nodeId:4,fileName:'/sounds/four',fileSize:2}
+  ]);
+  assert.equal(findNextFreeSampleSlot(slots,1),2);
+  assert.equal(findNextFreeSampleSlot(slots,3),5);
+  assert.equal(findNextFreeSampleSlot(slots,999),999);
+  slots[998].file={name:'last'};
+  assert.equal(findNextFreeSampleSlot(slots,999),-1);
+});
+
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/kick.wav',fileSize:1234},
