@@ -1,16 +1,16 @@
 export const EP_SAMPLE_SLOT_COUNT=999;
 
 export const DEFAULT_SAMPLE_TABS=[
-  {name:'001–099',range:[1,99]},
-  {name:'100–199',range:[100,199]},
-  {name:'200–299',range:[200,299]},
-  {name:'300–399',range:[300,399]},
-  {name:'400–499',range:[400,499]},
-  {name:'500–599',range:[500,599]},
-  {name:'600–699',range:[600,699]},
-  {name:'700–799',range:[700,799]},
-  {name:'800–899',range:[800,899]},
-  {name:'900–999',range:[900,999]}
+  {name:'KICK',range:[1,99]},
+  {name:'SNARE',range:[100,199]},
+  {name:'CYMB',range:[200,299]},
+  {name:'PERC',range:[300,399]},
+  {name:'BASS',range:[400,499]},
+  {name:'MELOD',range:[500,599]},
+  {name:'LOOP',range:[600,699]},
+  {name:'USER 1',range:[700,799]},
+  {name:'USER 2',range:[800,899]},
+  {name:'SFX',range:[900,999]}
 ];
 
 export function createSampleSlots(entries=[]){

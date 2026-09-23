@@ -37,20 +37,23 @@ export function initEp133Browser({showError}={}){
   const setSlotStatus=(slot,message)=>{setStatus('SLOT '+String(slot.id).padStart(3,'0')+' · '+message);};
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const formatSize=size=>{if(!size)return '—';if(size<1024)return size+' B';if(size<1024*1024)return(size/1024).toFixed(1)+' KB';return(size/1024/1024).toFixed(2)+' MB';};
-  const formatMemoryMb=bytes=>{
-    const mb=Number(bytes||0)/1e6;
-    if(!Number.isFinite(mb)||mb<=0)return '0 MB';
-    return mb.toFixed(1).replace(/\.0$/,'')+' MB';
+  const formatMemory=bytes=>{
+    const value=Number(bytes||0);
+    if(!Number.isFinite(value)||value<=0)return '0.0KB';
+    const kb=value/1e3;
+    const mb=kb/1e3;
+    return mb>1?mb.toFixed(2)+'MB':Math.max(kb,0).toFixed(1)+'KB';
   };
   const renderDeviceStats=(metadata={},samples=[])=>{
     const maxCapacity=Number(metadata?.max_capacity)||0;
     const freeSpace=Number(metadata?.free_space_in_bytes);
     const usedBytes=maxCapacity>0&&Number.isFinite(freeSpace)?Math.max(0,maxCapacity-freeSpace):0;
     const memoryStats=document.getElementById('ep133-memory-stats');
+    const sampleCount=document.getElementById('ep133-sample-count');
     if(memoryStats)memoryStats.textContent=maxCapacity>0&&Number.isFinite(freeSpace)
-      ? formatMemoryMb(usedBytes)+' / '+formatMemoryMb(maxCapacity)
+      ? formatMemory(usedBytes)+' / '+formatMemory(maxCapacity)
       : '—';
-    if(sampleCount)sampleCount.textContent=String(samples.length);
+    if(sampleCount)sampleCount.textContent=String(samples.length).padStart(3,'0');
   };
   const parentPath=path=>{if(path==='/')return '/';const parts=path.split('/').filter(Boolean);parts.pop();return parts.length?'/'+parts.join('/'):'/';};
   const baseName=path=>String(path||'').split('/').filter(Boolean).pop()||'/';
