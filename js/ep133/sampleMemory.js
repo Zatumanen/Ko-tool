@@ -295,7 +295,7 @@ export function createSampleMemory({
       });
       row.onclick=event=>{
         if(suppressClick)return;
-        selectSlotById(slot.id,{preview:!!slot.file,extend:!!event.shiftKey});
+        selectSlotById(slot.id,{preview:!!slot.file&&!event.shiftKey,extend:!!event.shiftKey});
       };
       row.addEventListener('dragover',event=>{
         event.preventDefault();

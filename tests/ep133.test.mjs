@@ -181,6 +181,12 @@ test('My EP pastes clipboard audio into the selected slot through the shared upl
   assert.match(source,/onDrop:async\(slot,event\)=>\{await uploadFilesToSlot\(slot,getDroppedFiles\(event\)\);\}/);
 });
 
+test('My EP Shift-click extends selection without auditioning the sample',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/preview:!!slot\.file&&!event\.shiftKey,extend:!!event\.shiftKey/);
+});
+
 test('EP library Alt+Arrow page navigation matches the reference 29-row paging',async()=>{
   assert.equal(EP_SAMPLE_PAGE_SIZE,29);
   const fs=await import('node:fs/promises');
