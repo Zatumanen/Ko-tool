@@ -51,6 +51,7 @@ export function createSampleMemory({
   infoEl,
   onSelect,
   onPlay,
+  onStop,
   onDrop,
   onMove,
   onDelete,
@@ -81,6 +82,23 @@ export function createSampleMemory({
       if(!query)return true;
       return String(slot.id).includes(query)||slotName(slot).toLowerCase().includes(query);
     });
+  };
+
+  const scrollSelectedIntoView=()=>{
+    if(!selectedId||!listEl)return;
+    const row=listEl.querySelector('[data-slot="'+selectedId+'"]');
+    row?.scrollIntoView?.({block:'nearest'});
+  };
+
+  const selectSlotById=(id,{preview=false}={})=>{
+    const slot=slots[id-1];
+    if(!slot)return;
+    selectedId=slot.id;
+    render();
+    renderInfo();
+    scrollSelectedIntoView();
+    onSelect?.(slot);
+    if(preview&&slot.file)onPlay?.(slot);
   };
 
   const renderTabs=()=>{
@@ -191,11 +209,7 @@ export function createSampleMemory({
       });
       row.onclick=()=>{
         if(suppressClick)return;
-        selectedId=slot.id;
-        render();
-        renderInfo();
-        onSelect?.(slot);
-        if(slot.file)onPlay?.(slot);
+        selectSlotById(slot.id,{preview:!!slot.file});
       };
       row.addEventListener('dragover',event=>{
         event.preventDefault();
@@ -233,6 +247,63 @@ export function createSampleMemory({
     });
     renderInfo();
   };
+
+  const keyboardActive=()=>{
+    if(!listEl||listEl.offsetParent===null)return false;
+    const active=document.activeElement;
+    if(active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName))return false;
+    return true;
+  };
+  const moveSelection=direction=>{
+    const tab=sampleTabs[activeTab]||sampleTabs[0];
+    if(!tab)return;
+    const first=tab.range[0],last=tab.range[1];
+    const current=selectedId>=first&&selectedId<=last?selectedId:first;
+    selectSlotById(Math.max(first,Math.min(last,current+direction)));
+  };
+  const selectTabEdge=edge=>{
+    const tab=sampleTabs[activeTab]||sampleTabs[0];
+    if(tab)selectSlotById(edge==='start'?tab.range[0]:tab.range[1]);
+  };
+  const changeTab=direction=>{
+    const next=Math.max(0,Math.min(sampleTabs.length-1,activeTab+direction));
+    if(next===activeTab)return;
+    activeTab=next;
+    renderTabs();
+    const tab=sampleTabs[activeTab];
+    selectSlotById(tab.range[0]);
+  };
+  const keyDown=event=>{
+    if(!keyboardActive())return;
+    if((event.key==='ArrowUp'||event.key==='ArrowDown')&&event.metaKey){
+      event.preventDefault();
+      selectTabEdge(event.key==='ArrowUp'?'start':'end');
+      return;
+    }
+    if(event.key==='ArrowUp'||event.key==='ArrowDown'){
+      event.preventDefault();
+      if(!event.repeat)moveSelection(event.key==='ArrowUp'?-1:1);
+      else moveSelection(event.key==='ArrowUp'?-1:1);
+      return;
+    }
+    if(event.key==='PageUp'||event.key==='PageDown'){
+      event.preventDefault();
+      changeTab(event.key==='PageUp'?-1:1);
+      return;
+    }
+    if(event.key===' '&&!event.repeat){
+      const slot=selectedId?slots[selectedId-1]:null;
+      if(slot?.file){event.preventDefault();onPlay?.(slot);}
+    }
+  };
+  const keyUp=event=>{
+    if(!keyboardActive())return;
+    const slot=selectedId?slots[selectedId-1]:null;
+    if((event.key==='ArrowUp'||event.key==='ArrowDown')&&slot?.file)onPlay?.(slot);
+    if(event.key===' '&&slot?.file){event.preventDefault();onStop?.(slot);}
+  };
+  document.addEventListener('keydown',keyDown);
+  document.addEventListener('keyup',keyUp);
 
   return {
     setSlots(next){

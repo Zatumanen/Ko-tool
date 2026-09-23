@@ -1,4 +1,4 @@
-import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,normalizeFileName}from './index.js?v=20260923-5';
+import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-5';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
 import{prepareEp133Sample,createPcmWav}from './audio.js?v=20260923-1';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js';
@@ -117,6 +117,9 @@ export function initEp133Browser({showError}={}){
     onSelect:slot=>setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'READY'),
     onPlay:async slot=>{
       try{await startPlayback(slot.nodeId||slot.id,true);setSlotStatus(slot,'PLAYING');}catch(error){showError?.(error?.message||error);}
+    },
+    onStop:async slot=>{
+      try{await stopPlayback(slot.nodeId||slot.id);}catch(error){console.warn('EP sample playback stop failed',error);}
     },
     onDelete:async slot=>{if(!isConnected())throw new Error('Connect EP-133 before deleting a sample.');setSlotStatus(slot,'DELETING...');await deleteFile(slot.nodeId);setSlotStatus(slot,'DELETED');},
     onMove:async(source,target)=>{if(!isConnected())throw new Error('Connect EP-133 before moving a sample.');if(!soundsParentId)throw new Error('EP-133 /sounds destination is not available. Refresh the device.');try{setSlotStatus(source,'MOVING TO '+String(target.id).padStart(3,'0')+'...');const moved=await moveFile(source.nodeId,soundsParentId,target.id);if(Number(moved?.oldFileId)!==Number(source.nodeId)||Number(moved?.parentId)!==Number(soundsParentId)||Number(moved?.newFileId)!==Number(target.id))throw new Error('EP-133 returned an unexpected FILE_MOVE response.');await readDevice();setStatus('MOVED · '+String(source.id).padStart(3,'0')+' → '+String(target.id).padStart(3,'0'));}catch(error){setSlotStatus(source,'MOVE ERROR');showError?.(error?.message||error);}} ,
