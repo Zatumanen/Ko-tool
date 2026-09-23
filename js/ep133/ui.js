@@ -105,7 +105,9 @@ export function initEp133Browser({showError}={}){
   };
   const deleteSelectedFile=async()=>{
     if(!selectedFile||selectedFile.fileType!=='file'||selectedFile.isDeletable!==true||!isConnected())return;
-    try{const name=baseName(selectedFile.fileName);setStatus('DELETING '+name+'...');await deleteFile(selectedFile.nodeId);deviceFiles=deviceFiles.filter(item=>item.nodeId!==selectedFile.nodeId);selectedFile=null;renderFiles();setStatus('DELETED · '+name);}catch(error){showError?.(error?.message||error);}
+    const name=baseName(selectedFile.fileName);
+    if(!window.confirm('Delete '+name+' from the connected device?'))return;
+    try{setStatus('DELETING '+name+'...');await deleteFile(selectedFile.nodeId);deviceFiles=deviceFiles.filter(item=>item.nodeId!==selectedFile.nodeId);selectedFile=null;renderFiles();setStatus('DELETED · '+name);}catch(error){showError?.(error?.message||error);}
   };
   const getDroppedFiles=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
@@ -162,8 +164,10 @@ export function initEp133Browser({showError}={}){
       if(source.node?.isReadable!==true||source.node?.isDeletable!==true)throw new Error('This sample cannot be moved safely on the connected device.');
       let destinationCreated=false;
       let sourceDeleted=false;
+      const sourceLabel=String(source.id).padStart(3,'0');
+      const destinationLabel=String(target.id).padStart(3,'0');
+      let moveStage='READING SOURCE';
       try{
-        const destinationLabel=String(target.id).padStart(3,'0');
         setSlotStatus(source,'READING FOR MOVE...');
         const downloaded=await getFile(source.nodeId,(done,total)=>setSlotStatus(source,'READING FOR MOVE '+Math.round(done/Math.max(1,total)*100)+'%'));
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
@@ -172,6 +176,7 @@ export function initEp133Browser({showError}={}){
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
+        moveStage='WRITING DESTINATION';
         memory.setOperation(target.id,{status:'uploading',label:'MOVING',progress:0});
         const fileId=await uploadSampleToSlot({
           data:bytes,
@@ -187,9 +192,11 @@ export function initEp133Browser({showError}={}){
           }
         });
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote the moved sample to an unexpected slot.');
+        moveStage='VERIFYING DESTINATION';
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified after transfer.');
+        moveStage='DELETING SOURCE';
         await deleteFile(source.nodeId);
         sourceDeleted=true;
         deviceFiles=deviceFiles.filter(existing=>Number(existing.nodeId)!==Number(source.nodeId));
@@ -207,9 +214,9 @@ export function initEp133Browser({showError}={}){
           catch(rollbackError){console.warn('EP move rollback failed',rollbackError);}
         }
         memory.clearOperation(target.id);
-        setSlotStatus(source,'MOVE ERROR');
+        setSlotStatus(source,'MOVE ERROR · '+moveStage);
         try{await readDevice();}catch(refreshError){console.warn('EP refresh after move error failed',refreshError);}
-        showError?.(error?.message||error);
+        showError?.('MOVE '+sourceLabel+' → '+destinationLabel+' · '+moveStage+': '+(error?.message||error));
       }
     },
     onBlockedDrop:(source,target)=>{
@@ -319,6 +326,15 @@ export function initEp133Browser({showError}={}){
   };
   filesTab?.addEventListener('click',()=>setView('files'));
   samplesTab?.addEventListener('click',()=>setView('samples'));
+  const viewTabs=[samplesTab,filesTab].filter(Boolean);
+  viewTabs.forEach((button,index)=>button.addEventListener('keydown',event=>{
+    if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+    event.preventDefault();
+    const direction=event.key==='ArrowRight'?1:-1;
+    const next=viewTabs[(index+direction+viewTabs.length)%viewTabs.length];
+    next?.click();
+    next?.focus();
+  }));
   setView('samples');
   fileSearch?.addEventListener('input',()=>{currentPath='/';selectedFile=null;renderFiles();});
   fileDownload?.addEventListener('click',downloadFile);
