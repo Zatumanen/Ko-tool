@@ -163,7 +163,7 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   });
 }
 
-export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress}){
+export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress,onCreated}){
 
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
@@ -172,6 +172,7 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   const displayName=normalizeFileName(metadata?.name||name);
   const uploadMetadata={...metadata,name:displayName};
   const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  onCreated?.(fileId);
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
   await initFileSystem();
