@@ -134,7 +134,7 @@ test('EP sample filename normalization matches the device naming rules',async()=
   assert.equal(normalizeFileName('Long sample filename here.wav'),'long sample file');
 });
 
-import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata}from '../js/ep133/audio.js';
+import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata,buildEp133DownloadAudioMeta}from '../js/ep133/audio.js';
 
 test('EP audio pipeline binds the local resampler module and has no stale fallback reference',async()=>{
   const fs=await import('node:fs/promises');
@@ -199,6 +199,35 @@ test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   ascii(12,'LIST');view.setUint32(16,12+paddedJsonLength,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,json.length,true);
   new TextEncoder().encodeInto(json,bytes.subarray(32));
   assert.equal(parseKo2Metadata(bytes)['sound.playmode'],'loop');
+});
+
+test('EP download WAV metadata matches the reference createWav contract',()=>{
+  const source={
+    channels:1,samplerate:46875,format:'s16',
+    'sound.rootnote':60,'sound.loopstart':10,'sound.loopend':100,'sound.bpm':120,
+    'sound.playmode':'loop','sound.pitch':2,'sound.pan':-1,'sound.amplitude':100,
+    'envelope.attack':3,'envelope.release':4,'time.mode':'free','sample.mode':'one',
+    regions:[{start:0,end:100}],ignored:'nope'
+  };
+  const meta=buildEp133DownloadAudioMeta(source);
+  assert.equal(meta.channels,1);
+  assert.equal(meta.sample_rate,46875);
+  assert.equal(meta.format,'s16');
+  assert.equal(meta.extra.midi_root_note,60);
+  assert.equal(meta.extra.loop_start,10);
+  assert.equal(meta.extra.loop_end,100);
+  assert.equal(meta.extra.bpm,120);
+  const json=JSON.parse(meta.extra.json);
+  assert.equal(json['sound.playmode'],'loop');
+  assert.deepEqual(json.regions,[{start:0,end:100}]);
+  assert.equal('ignored' in json,false);
+});
+
+test('EP download WAV uses the reference WASM createWav encoder',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
+  assert.match(source,/resampler\.createWav\(String\(name\|\|'sample'\),audioMeta,pcm\)/);
+  assert.doesNotMatch(source,/44\+pcm\.byteLength/);
 });
 
 

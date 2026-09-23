@@ -1,6 +1,6 @@
 import{connectEp133,isConnected,onConnectionChange,onFileEvent,listDeviceFiles,getFile,getFileMetadata,getFileInfo,moveFile,uploadSampleToSlot,deleteFile,startPlayback,stopPlayback,normalizeFileName}from './index.js?v=20260923-5';
 import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED}from './constants.js';
-import{prepareEp133Sample,createPcmWav}from './audio.js?v=20260923-1';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260923-2';
 import{createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS}from './sampleMemory.js?v=20260923-2';
 import{outputFileName}from '../output-name.js';
 import{createZip}from '../zip.js?v=20260921-7';
@@ -130,10 +130,7 @@ export function initEp133Browser({showError}={}){
       const result=await getFile(slot.nodeId,(done,total)=>setSlotStatus(slot,'DOWNLOADING '+Math.round(done/Math.max(1,total)*100)+'%'));
       const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
       const meta=slot.meta||await getFileMetadata(slot.nodeId);
-      const channels=Number(meta?.channels);
-      const samplerate=Number(meta?.samplerate??meta?.sample_rate);
-      if(!Number.isInteger(channels)||!samplerate)throw new Error('Missing required sample metadata.');
-      const wav=createPcmWav(bytes,{channels,samplerate});
+      const wav=await createEp133Wav(bytes,{name:result?.name||slot.file?.name||'sample',metadata:meta});
       const base=String(meta?.name||slot.file?.name||result?.name||'sample').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_').trim()||'sample';
       const filename=base+'.wav';
       const url=URL.createObjectURL(wav);const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
@@ -149,10 +146,9 @@ export function initEp133Browser({showError}={}){
         const result=await getFile(slot.nodeId,(done,total)=>setStatus('DOWNLOADING '+(index+1)+'/'+selectedSlots.length+' · SLOT '+slotNumber+' · '+Math.round(done/Math.max(1,total)*100)+'%'));
         const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
         const meta=slot.meta||await getFileMetadata(slot.nodeId);
-        const channels=Number(meta?.channels);
-        const samplerate=Number(meta?.samplerate??meta?.sample_rate);
-        if(!Number.isInteger(channels)||!samplerate)throw new Error('Missing required sample metadata for slot '+slotNumber+'.');
-        const wav=createPcmWav(bytes,{channels,samplerate});
+        let wav;
+        try{wav=await createEp133Wav(bytes,{name:result?.name||slot.file?.name||'sample',metadata:meta});}
+        catch(error){throw new Error('Could not create reference WAV for slot '+slotNumber+': '+(error?.message||error));}
         const base=String(meta?.name||slot.file?.name||result?.name||'sample').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_').trim()||'sample';
         files.push({path:slotNumber+' '+base+'.wav',blob:wav});
       }

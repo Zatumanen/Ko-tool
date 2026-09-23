@@ -179,15 +179,46 @@ export {parseKo2Metadata};
 export const EP133_SAMPLE_RATE=DEFAULT_SAMPLE_RATE;
 export const EP133_AUDIO_FORMAT=DEVICE_AUDIO_FORMAT;
 
-export function createPcmWav(data,{channels,samplerate}={}){
+const DOWNLOAD_TE_METADATA_KEYS=[
+  'sound.loopstart','sound.loopend','sound.playmode','sound.rootnote','sound.bpm',
+  'sound.pitch','sound.pan','sound.amplitude','envelope.attack','envelope.release',
+  'time.mode','sample.mode','regions'
+];
+
+export function buildEp133DownloadAudioMeta(metadata={}){
+  const channels=Number(metadata?.channels);
+  const samplerate=Number(metadata?.samplerate??metadata?.sample_rate);
+  const format=String(metadata?.format||'');
+  if(!Number.isInteger(channels)||channels<1||channels>2||!Number.isFinite(samplerate)||samplerate<=0||!format)
+    throw new Error('Missing required sample metadata.');
+  const teenage={};
+  for(const key of DOWNLOAD_TE_METADATA_KEYS){
+    if(Object.prototype.hasOwnProperty.call(metadata,key))teenage[key]=metadata[key];
+  }
+  return{
+    channels,
+    sample_rate:samplerate,
+    format,
+    length:0,
+    bit_rate:0,
+    container:'',
+    extra:{
+      midi_root_note:metadata['sound.rootnote'],
+      loop_start:metadata['sound.loopstart'],
+      loop_end:metadata['sound.loopend'],
+      bpm:metadata['sound.bpm'],
+      json:JSON.stringify(cleanTeenageMetadata(teenage))
+    }
+  };
+}
+
+export async function createEp133Wav(data,{name='sample',metadata={}}={}){
   const pcm=data instanceof Uint8Array?data:new Uint8Array(data||[]);
-  const ch=Number(channels),rate=Number(samplerate);
-  if(!Number.isInteger(ch)||ch<1||ch>2||!Number.isFinite(rate)||rate<=0)throw new Error('Invalid PCM WAV parameters.');
-  const blockAlign=ch*2,byteRate=rate*blockAlign;
-  const out=new ArrayBuffer(44+pcm.byteLength),view=new DataView(out);
-  const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));};
-  write(0,'RIFF');view.setUint32(4,36+pcm.byteLength,true);write(8,'WAVE');write(12,'fmt ');
-  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,ch,true);view.setUint32(24,rate,true);
-  view.setUint32(28,byteRate,true);view.setUint16(32,blockAlign,true);view.setUint16(34,16,true);write(36,'data');view.setUint32(40,pcm.byteLength,true);
-  new Uint8Array(out,44).set(pcm);return new Blob([out],{type:'audio/wav'});
+  const audioMeta=buildEp133DownloadAudioMeta(metadata);
+  const resampler=await getLibSampleRateModule();
+  if(typeof resampler?.createWav!=='function')throw new Error('EP-series reference WAV encoder is unavailable.');
+  const result=resampler.createWav(String(name||'sample'),audioMeta,pcm);
+  const bytes=result instanceof Uint8Array?result:new Uint8Array(result?.buffer||result||[]);
+  if(bytes.byteLength<12)throw new Error('EP-series reference WAV encoder returned invalid data.');
+  return new Blob([bytes],{type:'audio/wav'});
 }
