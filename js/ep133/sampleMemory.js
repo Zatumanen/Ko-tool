@@ -351,7 +351,12 @@ export function createSampleMemory({
 
       row.addEventListener('dragstart',event=>{
         if(!mutationsEnabled||!slot.file||slot.node?.isReadable!==true){event.preventDefault();return;}
-        if(!selectedIds.has(slot.id))setSelection([slot.id],slot.id,{preview:false});
+        if(!selectedIds.has(slot.id)){
+          selectedIds=new Set([slot.id]);
+          selectedId=slot.id;
+          selectionAnchor=slot.id;
+          onSelect?.(slot);
+        }
         dragSourceId=slot.id;
         suppressClick=true;
         onDragStart?.();
@@ -363,6 +368,7 @@ export function createSampleMemory({
       });
       row.addEventListener('dragend',()=>{
         listEl.querySelectorAll('.ep133-sample-row.dragging').forEach(item=>item.classList.remove('dragging'));
+        render();
         setTimeout(()=>{suppressClick=false;dragSourceId=0;},0);
       });
       row.addEventListener('dragover',event=>{
