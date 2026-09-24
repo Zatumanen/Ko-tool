@@ -4,7 +4,7 @@
 <meta charset="utf-8"><base href="./"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="css/base.css?v=20260924-1">
+<link rel="stylesheet" href="css/base.css?v=20260924-3">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
@@ -36,23 +36,80 @@
   <div class="start-menu-item" data-menu="errors"><span><i class="fas fa-exclamation-circle"></i> Errors</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">ERRORS</div><div class="start-submenu-content" id="errors-tab"><div><i class="fas fa-check-circle"></i> No errors yet.</div></div></div></div>
   <div class="start-menu-item" data-menu="stats"><span><i class="fas fa-chart-pie"></i> Statistics</span><b>›</b><div class="start-submenu"><div class="start-submenu-title">STATISTICS</div><div class="start-submenu-content" id="stats-tab"><div><i class="fas fa-chart-pie"></i> No statistics yet.</div></div></div></div>
 </div><div class="taskbar"><div class="start-button"><i class="fas fa-bars"></i> Start</div><div class="status-bar" id="status-bar">Ready</div></div>
-<div id="my-ep-mode-root"><div id="ep133-browser" class="ep133-browser" aria-hidden="true">
-<div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="false" aria-labelledby="ep133-browser-title">
-<div class="title-bar"><span id="ep133-browser-title">MY EP</span><button id="ep133-close" type="button" aria-label="Close">×</button></div>
-<div class="ep133-browser-body"><div class="ep133-device-head"><div><strong id="ep133-device">MY EP</strong><span id="ep133-status">NOT CONNECTED</span></div><div class="ep133-device-stats" aria-label="Device memory, sample count, and MIDI activity"><div class="ep133-memory-stat"><span>MEMORY</span><strong id="ep133-memory-stats">—</strong><div class="ep133-memory-meter" aria-hidden="true"><span id="ep133-memory-meter-fill"></span></div></div><div><span>SAMPLES</span><strong id="ep133-sample-count">000</strong></div><div class="ep133-midi-activity" aria-label="MIDI activity"><strong id="ep133-tx-indicator">TX</strong><strong id="ep133-rx-indicator">RX</strong></div></div></div>
-<div class="ep133-view-tabs" role="tablist" aria-label="My EP view"><button id="ep133-samples-tab" class="selected" type="button" role="tab" aria-selected="true" aria-controls="ep133-samples-panel">SAMPLES</button><button id="ep133-files-tab" type="button" role="tab" aria-selected="false" aria-controls="ep133-files-panel">FILES</button></div>
-<section id="ep133-samples-panel" class="ep133-view-panel" role="tabpanel" aria-labelledby="ep133-samples-tab">
-<div class="ep133-library-hint">CLICK PREVIEW · SPACE HOLD · SHIFT RANGE · DOUBLE-CLICK RENAME · DRAG MOVE · DROP AUDIO IMPORT</div>
-<div class="ep133-sample-memory"><div class="ep133-sample-header"><div><strong>SAMPLE MEMORY</strong><span>999 SLOTS · DEVICE LIBRARY</span></div><input id="ep133-sample-search" type="search" placeholder="Search slot or name" aria-label="Search sample slots"></div>
-<div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-sample-columns" aria-hidden="true"><span>SLOT</span><span>NAME</span><span>SIZE / STATE</span></div><div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots"><div class="ep133-empty">Connect a device to read its sample memory.</div></div><div id="ep133-sample-info" class="ep133-info"><div class="ep133-info-empty">Select a sample slot.</div></div></div>
-<div class="ep133-safety">Slot moves require an empty destination. Imports automatically continue into the next free slots.</div></section>
-<section id="ep133-files-panel" class="ep133-view-panel" role="tabpanel" aria-labelledby="ep133-files-tab" hidden><div class="ep133-file-browser">
-<div class="ep133-file-toolbar"><div class="ep133-file-browser-title"><strong>DEVICE FILE SYSTEM</strong> <span>ADVANCED · READ / DOWNLOAD / DELETE</span></div><div class="ep133-file-tools"><input id="ep133-file-search" type="search" placeholder="Search files" aria-label="Search device files"></div></div>
-<div id="ep133-breadcrumbs" class="ep133-breadcrumbs"></div>
-<div id="ep133-file-list" class="ep133-file-list"><div class="ep133-empty">Connect a device to read its file system.</div></div>
-<div id="ep133-file-info" class="ep133-info"><div class="ep133-info-empty">Select a file.</div></div>
-<div class="ep133-file-actions"><button id="ep133-file-download" type="button" disabled>DOWNLOAD</button><button id="ep133-file-delete" type="button" disabled>DELETE</button></div>
-</div></section></div></div></div>
-<script type="module" src="js/app.js?v=20260924-2"></script>
+<div id="my-ep-mode-root">
+  <div id="ep133-browser" class="ep133-browser" aria-hidden="true">
+    <div class="ep133-browser-window my-ep-window" role="dialog" aria-modal="false" aria-labelledby="ep133-browser-title">
+      <div class="title-bar">
+        <span id="ep133-browser-title">MY EP</span>
+        <button id="ep133-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="ep133-browser-body">
+        <div class="ep133-device-head" id="ep133-device-head">
+          <div class="ep133-device-name"><strong id="ep133-device">MY EP</strong></div>
+          <div class="ep133-device-stats" aria-label="Device memory, sample count, and MIDI activity">
+            <div class="ep133-device-metrics">
+              <div class="ep133-memory-stat">
+                <span>MEMORY</span>
+                <strong id="ep133-memory-stats">—</strong>
+                <div class="ep133-memory-meter" aria-hidden="true"><span id="ep133-memory-meter-fill"></span></div>
+              </div>
+              <div class="ep133-sample-stat"><span>SAMPLES</span><strong id="ep133-sample-count">0</strong></div>
+            </div>
+            <div class="ep133-midi-activity" aria-label="MIDI activity">
+              <div><span>TX</span><i id="ep133-tx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div>
+              <div><span>RX</span><i id="ep133-rx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div>
+            </div>
+          </div>
+          <div id="ep133-connection-overlay" class="ep133-connection-overlay">CONNECT EP SERIES</div>
+        </div>
+
+        <div id="ep133-global-progress" class="ep133-global-progress" hidden>
+          <span id="ep133-global-progress-label">WORKING</span>
+          <div class="ep133-global-progress-track"><span id="ep133-global-progress-fill"></span></div>
+          <strong id="ep133-global-progress-text">0%</strong>
+        </div>
+
+        <section id="ep133-samples-panel" class="ep133-view-panel">
+          <div class="ep133-sample-memory">
+            <div class="ep133-sample-nav">
+              <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div>
+              <div class="ep133-search-box">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="ep133-sample-search" type="text" autocomplete="off" aria-label="Search sample slots">
+                <button id="ep133-search-clear" type="button" title="Clear search" aria-label="Clear search">×</button>
+              </div>
+            </div>
+            <div class="ep133-sample-columns" aria-hidden="true">
+              <span>SLOT</span><span>NAME</span><span>SIZE</span><span>CH</span><span>RATE</span>
+            </div>
+            <div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots">
+              <div class="ep133-empty">Connect an EP-series device to read its sample memory.</div>
+            </div>
+          </div>
+        </section>
+
+        <div id="ep133-status" class="ep133-visually-hidden" aria-live="polite"></div>
+      </div>
+
+      <div id="ep133-properties" class="ep133-properties" role="dialog" aria-label="Sample properties" hidden>
+        <div id="ep133-properties-grid" class="ep133-properties-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ep133-confirm-dialog" class="ep133-confirm-dialog" role="alertdialog" aria-modal="true" hidden>
+  <div class="ep133-confirm-window">
+    <div class="title-bar"><span>MY EP</span></div>
+    <div class="ep133-confirm-body">
+      <div class="ep133-confirm-message"><span class="error-icon">!</span><span id="ep133-confirm-message"></span></div>
+      <div class="ep133-confirm-actions">
+        <button id="ep133-confirm-ok" type="button">OK</button>
+        <button id="ep133-confirm-cancel" type="button">CANCEL</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/app.js?v=20260924-3"></script>
 
 </body></html>
