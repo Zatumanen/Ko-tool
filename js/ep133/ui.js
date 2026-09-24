@@ -642,9 +642,10 @@ export function initEp133Browser({showError}={}){
         setGlobalProgress('DELETE',(index/targets.length)*100);
         await deleteFile(slot.nodeId||slot.id);
         deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(slot.nodeId||slot.id));
+        memory.clearSlot(slot.id);
         setGlobalProgress('DELETE',((index+1)/targets.length)*100);
       }
-      renderDeviceStats(soundsMetadata,Math.max(0,memory.countOccupied()-targets.length));
+      renderDeviceStats(soundsMetadata,memory.countOccupied());
       return true;
     }catch(error){
       if(isConnected()){
