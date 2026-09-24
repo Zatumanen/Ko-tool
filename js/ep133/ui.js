@@ -332,7 +332,7 @@ export function initEp133Browser({showError}={}){
     properties.style.top=Math.max(gap,top)+'px';
   };
   const openProperties=(slot,event)=>{
-    if(!slot?.file)return;
+    if(!slot?.file||!isConnected()||!synchronized||mutating)return;
     currentPropertySlotId=slot.id;
     renderProperties(slot);
     positionProperties(event);
