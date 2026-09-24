@@ -76,6 +76,7 @@ export function initEp133Browser({showError}={}){
   let synchronized=false;
   let mutating=false;
   let everConnected=false;
+  let lastDeviceInfo={title:'MY EP',name:''};
   let playingSlotId=null;
   let previewTimer=null;
   let currentPropertySlotId=null;
@@ -99,9 +100,10 @@ export function initEp133Browser({showError}={}){
     return{title:'MY EP',name:''};
   };
   const setTitleDevice=state=>{
-    const info=modelInfo(state);
+    if(state?.connected)lastDeviceInfo=modelInfo(state);
+    const info=state?.connected?lastDeviceInfo:(everConnected?lastDeviceInfo:modelInfo(state));
     if(title)title.textContent=info.title;
-    if(deviceName)deviceName.textContent=state?.connected?info.name:'';
+    if(deviceName)deviceName.textContent=info.name;
   };
   const setConnectionOverlay=text=>{
     if(!deviceHead||!connectionOverlay)return;
@@ -914,6 +916,7 @@ export function initEp133Browser({showError}={}){
     setTitleDevice(state);
     if(state.connected){
       everConnected=true;
+      panel.classList.remove('device-disconnected');
       setConnectionOverlay('');
       setStatus('CONNECTED');
       return;
@@ -923,13 +926,16 @@ export function initEp133Browser({showError}={}){
     void stopCurrentPreview();
     closeProperties();
     hideGlobalProgress();
+    panel.classList.add('device-disconnected');
     setConnectionOverlay(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
-    renderDeviceStats({},0);
+    if(!everConnected){
+      renderDeviceStats({},0);
+      memory.setSlots(createSampleSlots([]));
+    }
     soundsParentId=0;
     soundFormats=[];
     soundsMetadata={};
     deviceFiles=[];
-    memory.setSlots(createSampleSlots([]));
     setStatus(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 
