@@ -1153,3 +1153,9 @@
   .ep133-search-box{flex-basis:100px}
   .ep133-sample-columns,.ep133-sample-row{grid-template-columns:38px minmax(0,1fr) 62px 30px 66px}
 }
+
+.ep133-browser.device-disconnected #ep133-samples-panel{
+  opacity:.38;
+  filter:grayscale(1);
+  pointer-events:none;
+}
