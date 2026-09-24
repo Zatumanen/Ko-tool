@@ -44,6 +44,14 @@ test('EP uploader always starts at the next free slot, including single-file dro
   assert.equal(findNextFreeSampleSlot(slots,999),-1);
 });
 
+test('My EP browser modules pass a real Node syntax check',async()=>{
+  const {execFileSync}=await import('node:child_process');
+  const {fileURLToPath}=await import('node:url');
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js']){
+    execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
+  }
+});
+
 test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{
   const fs=await import('node:fs/promises');
   const read=path=>fs.readFile(new URL('../'+path,import.meta.url),'utf8');
