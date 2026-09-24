@@ -27,7 +27,7 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,EP_SAMPLE_PAGE_SIZE,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample}from '../js/ep133/sampleMemory.js';
+import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample,planSampleTransferTargets}from '../js/ep133/sampleMemory.js';
 import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
@@ -42,6 +42,14 @@ test('EP uploader always starts at the next free slot, including single-file dro
   assert.equal(findNextFreeSampleSlot(slots,999),999);
   slots[998].file={name:'last'};
   assert.equal(findNextFreeSampleSlot(slots,999),-1);
+});
+
+test('My EP browser modules pass a real Node syntax check',async()=>{
+  const {execFileSync}=await import('node:child_process');
+  const {fileURLToPath}=await import('node:url');
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js']){
+    execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
+  }
 });
 
 test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{
@@ -86,11 +94,12 @@ test('EP sample duration matches the reference PCM length calculation',()=>{
   assert.equal(calculateSampleDuration({file:{size:100},meta:{}}),null);
 });
 
-test('My EP lets sub-second samples finish after Space release',async()=>{
+test('My EP leaves Space unused and previews occupied samples on Arrow navigation',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/const duration=calculateSampleDuration\(slot\)/);
-  assert.match(source,/if\(duration&&duration<1\)return/);
+  assert.doesNotMatch(source,/event\.key===' '/);
+  assert.match(source,/event\.key==='ArrowUp'\|\|event\.key==='ArrowDown'/);
+  assert.match(source,/setSelection\(\[target\],target,\{preview:!!slots\[target-1\]\?\.file/);
 });
 
 test('sample display name prefers device metadata name over filesystem slot filename',()=>{
@@ -149,7 +158,7 @@ test('EP post-upload metadata only writes mutable sample fields',()=>{
   );
 });
 
-test('EP slot transfer uses a temporary filesystem name distinct from display metadata',async()=>{
+test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
   const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
@@ -157,31 +166,30 @@ test('EP slot transfer uses a temporary filesystem name distinct from display me
   assert.match(filesystemSource,/filename:wireName/);
   const uiSource=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(uiSource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
-  assert.match(uiSource,/destinationCreated=true/);
-  assert.match(uiSource,/if\(destinationCreated&&!sourceDeleted&&isConnected\(\)\)/);
+  assert.match(uiSource,/created\.push\(target\.id\)/);
+  assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP sample slot move uses verified GET PUT DELETE flow instead of native FILE_MOVE',async()=>{
+test('EP sample slot move/copy uses verified GET PUT INFO flow and deletes sources only for move',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:true}}),false);
-  const sampleMemorySource=await (await import('node:fs/promises')).readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(sampleMemorySource,/const movable=canTransferMoveSample\(slot\)/);
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const handler=source.match(/onMove:async\(source,target\)=>\{[\s\S]*?\n    \},/)?.[0]||'';
-  assert.match(handler,/await getFile\(source\.nodeId/);
-  assert.match(handler,/await uploadSampleToSlot\(/);
-  assert.match(handler,/await deleteFile\(source\.nodeId\)/);
-  assert.doesNotMatch(handler,/moveFile\(/);
+  assert.match(source,/const transactionalTransfer=async/);
+  assert.match(source,/await getFile\(source\.nodeId\|\|source\.id/);
+  assert.match(source,/await uploadSampleToSlot\(/);
+  assert.match(source,/const info=await getFileInfo\(fileId\)/);
+  assert.match(source,/if\(!copy\)[\s\S]*await deleteFile\(source\.nodeId\|\|source\.id\)/);
+  assert.doesNotMatch(source,/moveFile\(/);
 });
 
-test('My EP applies external FILE_MOVED events without a full device reread',async()=>{
+test('My EP applies external FILE_MOVED events incrementally',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const syncMovedFile=async/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
-  const movedEventHandler=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?return;\n      \}/)?.[0]||'';
-  assert.doesNotMatch(movedEventHandler,/await readDevice\(\)/);
+  const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
+  assert.doesNotMatch(movedBlock,/readDevice\(/);
 });
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
@@ -253,72 +261,135 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
-test('My EP pastes clipboard audio into the selected slot through the shared uploader',async()=>{
+test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/clipboardData\?\.items/);
-  assert.match(source,/includes\('audio'\)/);
   assert.match(source,/window\.addEventListener\('paste'/);
-  assert.match(source,/memory\.getSelected\(\)/);
+  assert.match(source,/const slot=memory\.getSelected\(\)/);
   assert.match(source,/uploadFilesToSlot\(slot,files\)/);
-  assert.match(source,/onDrop:async\(slot,event\)=>\{await uploadFilesToSlot\(slot,getDroppedFiles\(event\)\);\}/);
+  assert.match(source,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
+  assert.match(source,/const destinationId=memory\.findNextFree\(searchFrom\)/);
+  assert.match(source,/searchFrom=destinationId\+1/);
 });
 
-test('My EP throttles sample audition requests to the reference 200ms window',async()=>{
+test('My EP stops the previous preview before starting the newly selected sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/if\(playbackThrottleTimer\)return/);
-  assert.match(source,/setTimeout\(\(\)=>\{playbackThrottleTimer=null;\},200\)/);
-  assert.match(source,/onPlay:auditionSample/);
+  assert.match(source,/if\(playingSlotId\)await stopCurrentPreview\(\)/);
+  assert.match(source,/await startPlayback\(nodeId,true\)/);
+  assert.match(source,/memory\.setPreviewing\(slot\.id\)/);
+  assert.doesNotMatch(source,/playbackThrottleTimer/);
 });
 
-test('My EP exposes delete only for device-deletable samples',async()=>{
+test('My EP exposes row delete only for a deletable selected sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/slot\.node\?\.isDeletable===true\?'<button type="button" class="ep133-delete-sample"/);
-  assert.match(source,/if\(!slot\?\.file\|\|slot\.node\?\.isDeletable!==true\)return/);
+  assert.match(source,/slot\.node\?\.isDeletable===true\?'<button type="button" data-delete-row/);
+  assert.match(source,/selectedFiles\(\)\.filter\(item=>item\.node\?\.isDeletable===true\)/);
 });
 
-test('My EP deletes a selected sample range sequentially after confirmation',async()=>{
+test('My EP confirms one multi-delete and deletes selected samples sequentially',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/const deleteTargets=selectedFiles\.length>1\?selectedFiles:\[slot\]/);
-  assert.match(source,/deleteTargets\.length>1&&!window\.confirm\('Delete '\+deleteTargets\.length\+' selected samples\?'\)/);
-  assert.match(source,/for\(const selectedSlot of deleteTargets\)\{[\s\S]*await onDelete\?\.\(selectedSlot\)/);
-  assert.match(source,/if\(deleteTargets\.length>1\)selectSlotById\(deleteTargets\[deleteTargets\.length-1\]\.id\)/);
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/DELETE '\+targets\.length\+' SELECTED SAMPLES\?/);
+  assert.match(source,/if\(!await confirmAction\(message\)\)return false/);
+  assert.match(source,/for\(let index=0;index<targets\.length;index\+\+\)[\s\S]*await deleteFile\(slot\.nodeId\|\|slot\.id\)/);
 });
 
-test('My EP Shift-click extends selection without auditioning the sample',async()=>{
+test('My EP uses Explorer-style Shift range and Ctrl/Cmd additive selection',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/preview:!!slot\.file&&!event\.shiftKey,extend:!!event\.shiftKey/);
+  assert.match(source,/const additive=!!\(event\?\.ctrlKey\|\|event\?\.metaKey\)/);
+  assert.match(source,/const extend=!!event\?\.shiftKey/);
+  assert.match(source,/Array\.from\(\{length:end-start\+1\}/);
+  assert.match(source,/if\(additive\)\{/);
 });
 
-test('EP library wheel navigation matches the reference threshold and Shift scroll behavior',async()=>{
+test('EP library mouse wheel is native scrolling and never changes selection',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/wheelDelta\+=Number\(event\.deltaY\)\|\|0/);
-  assert.match(source,/Math\.abs\(wheelDelta\)<15/);
-  assert.match(source,/if\(event\.shiftKey\)\{[\s\S]*listEl\.scrollTop\+=direction\*rowHeight/);
-  assert.match(source,/moveSelection\(direction\)/);
-  assert.match(source,/addEventListener\('wheel',handleWheel,\{passive:false\}\)/);
+  assert.doesNotMatch(source,/addEventListener\('wheel'/);
+  assert.doesNotMatch(source,/wheelDelta/);
 });
 
-test('EP library Alt+Arrow page navigation matches the reference 29-row paging',async()=>{
-  assert.equal(EP_SAMPLE_PAGE_SIZE,29);
+test('EP library Page Up/Down switches folder tabs while Home/End remain unused',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/event\.altKey/);
-  assert.match(source,/movePage\(event\.key==='ArrowUp'\?-1:1,\{extend:!!event\.shiftKey\}\)/);
-  assert.match(source,/top\+EP_SAMPLE_PAGE_SIZE/);
-  assert.match(source,/top-1/);
+  assert.match(source,/event\.key==='PageUp'\|\|event\.key==='PageDown'/);
+  assert.match(source,/changeTab\(event\.key==='PageUp'\?-1:1\)/);
+  assert.doesNotMatch(source,/event\.altKey/);
+  assert.doesNotMatch(source,/event\.key==='Home'/);
+  assert.doesNotMatch(source,/event\.key==='End'/);
 });
 
-test('readonly EP sample name input does not block library keyboard navigation',async()=>{
+test('readonly EP sample name input permits list navigation while editable inputs capture keys',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/\.ep133-sample-name-input\[readonly\]/);
-  assert.match(source,/if\(!readonlySampleName\)return false/);
+  assert.match(source,/active\?\.tagName==='INPUT'&&!active\.matches\?\.\('\.ep133-sample-name-input\[readonly\]'\)/);
+  assert.match(source,/maxlength="16"/);
+});
+
+test('My EP transfer target planner finds the nearest free single slot and skips occupied group targets',()=>{
+  const slots=createSampleSlots([
+    {nodeId:20,fileName:'/sounds/020.pcm',fileSize:10},
+    {nodeId:21,fileName:'/sounds/021.pcm',fileSize:10},
+    {nodeId:22,fileName:'/sounds/022.pcm',fileSize:10}
+  ]);
+  assert.deepEqual(planSampleTransferTargets(slots,[10],10,20),[{sourceId:10,targetId:19}]);
+  assert.deepEqual(
+    planSampleTransferTargets(slots,[10,12,13],10,20),
+    [{sourceId:10,targetId:23},{sourceId:12,targetId:25},{sourceId:13,targetId:26}]
+  );
+});
+
+test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato','loop'\]/);
+  assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
+  assert.match(source,/const BAR_VALUES=\[1,2,4,8,16,32,64,128,256\]/);
+  assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
+  assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
+  assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
+  assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
+});
+
+test('My EP header shows model once in the title and only the human product name below',async()=>{
+  const fs=await import('node:fs/promises');
+  const [html,ui]=await Promise.all([
+    fs.readFile(new URL('../index.html',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+  ]);
+  assert.match(ui,/title:'MY EP-133',name:'K\.O\. II'/);
+  assert.match(ui,/title:'MY EP-1320',name:'MEDIEVAL'/);
+  assert.match(ui,/title:'MY EP-40',name:'RIDDIM'/);
+  assert.doesNotMatch(html,/id="ep133-device">MY EP-133/);
+});
+
+test('My EP is sample-only and uses SLOT NAME SIZE CH RATE columns',async()=>{
+  const fs=await import('node:fs/promises');
+  const html=await fs.readFile(new URL('../index.html',import.meta.url),'utf8');
+  assert.doesNotMatch(html,/ep133-files-tab/);
+  assert.doesNotMatch(html,/DEVICE FILE SYSTEM/);
+  assert.match(html,/SLOT<\/span><span>NAME<\/span><span>SIZE<\/span><span>CH<\/span><span>RATE/);
+  assert.doesNotMatch(html,/SLOT<\/span><span>NAME<\/span><span>SIZE<\/span><span>FORMAT/);
+});
+
+test('My EP multi-download emits individual WAV downloads instead of ZIP',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/for\(let index=0;index<selectedSlots\.length;index\+\+\)[\s\S]*performDownload\(selectedSlots\[index\]/);
+  assert.doesNotMatch(source,/createZip/);
+  assert.doesNotMatch(source,/samples\.zip/);
+});
+
+test('My EP search highlights matches without filtering the current folder rows',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/const visible=\(\)=>\{[\s\S]*slots\.slice\(tab\.range\[0\]-1,tab\.range\[1\]\)/);
+  assert.match(source,/matchesSearch\(slot\)\?' search-match'/);
+  assert.doesNotMatch(source,/\.filter\(slot=>\{\s*if\(!query/);
 });
 
 test('EP sample rename uses the reference METADATA SET name payload',async()=>{
