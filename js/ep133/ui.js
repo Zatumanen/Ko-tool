@@ -19,7 +19,7 @@ import{
 }from './sampleMemory.js?v=20260925-1';
 import{outputFileName}from '../output-name.js';
 
-const PLAY_MODES=['oneshot','key','legato'];
+const PLAY_MODES=['oneshot','key','legato','loop'];
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2,4,8,16,32,64,128,256];
 const PROPERTY_DEBOUNCE_MS=120;
