@@ -125,7 +125,11 @@ function startListeners(inputs){
 function waitForIdentity(timeout=2000){
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{pending.delete(0);reject(new Error('EP-series identity timeout'));},timeout);
-    pending.set(0,{identityWait:true,resolve:v=>{clearTimeout(timer);resolve(v);}});
+    pending.set(0,{
+      identityWait:true,
+      resolve:v=>{clearTimeout(timer);pending.delete(0);resolve(v);},
+      reject:error=>{clearTimeout(timer);pending.delete(0);reject(error);}
+    });
   });
 }
 
@@ -227,6 +231,7 @@ export async function connectEp133(){
   startListeners(inputs);
   let found=null;
   for(const out of outputs){
+    if(deviceUnsafe)throw unsafeError();
     try{
       const identityPromise=waitForIdentity();
       out.send(IDENTITY_SYSEX);
