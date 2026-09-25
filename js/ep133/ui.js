@@ -245,6 +245,23 @@ export function initEp133Browser({showError}={}){
       if(!matches)throw new Error('Metadata readback mismatch for slot '+String(slotId).padStart(3,'0')+' field '+key+'.');
     }
   };
+  const assertSourceSnapshot=async(slot,snapshot)=>{
+    await verifyPcmReadback(slot.nodeId||slot.id,snapshot.bytes);
+    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
+    if(snapshot.metadata?.crc!=null&&Number(currentMetadata?.crc)!==Number(snapshot.metadata.crc))
+      throw new Error('Source sample changed before MOVE delete: CRC mismatch in slot '+String(slot.id).padStart(3,'0')+'.');
+    assertMetadataReadback(slot.id,snapshot.metadata,currentMetadata);
+  };
+  const assertDeleteTargetUnchanged=async slot=>{
+    const info=await getFileInfo(slot.nodeId||slot.id);
+    if(Number(info.nodeId)!==Number(slot.id)||Number(info.parentId)!==Number(soundsParentId)||Number(info.fileSize)!==Number(slot.file?.size||0))
+      throw new Error('Sample slot changed before delete; reload the library and confirm again.');
+    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
+    if(slot.meta?.crc!=null&&Number(currentMetadata?.crc)!==Number(slot.meta.crc))
+      throw new Error('Sample slot changed before delete; CRC no longer matches the selected sample.');
+    if(slot.meta?.name!=null&&String(currentMetadata?.name)!==String(slot.meta.name))
+      throw new Error('Sample slot changed before delete; name no longer matches the selected sample.');
+  };
 
   const getDroppedFiles=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
@@ -438,6 +455,11 @@ export function initEp133Browser({showError}={}){
       }
       await setFileMetadata(slot.nodeId||slot.id,payload);
       const readback=await getFileMetadata(slot.nodeId||slot.id);
+      for(const[key,value]of Object.entries(payload)){
+        const got=readback?.[key];
+        const matches=typeof value==='number'?Number(got)===Number(value):String(got)===String(value);
+        if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
+      }
       memory.setMetadata(slot.id,readback);
       state.committed=readback?.[state.key]??sentValue;
       if(state.version!==version){
@@ -597,6 +619,7 @@ export function initEp133Browser({showError}={}){
     if(!copy&&sources.some(item=>item.node?.isDeletable!==true))throw new Error('One or more source samples cannot be deleted safely.');
     if(sources.some(item=>item.node?.isReadable!==true))throw new Error('One or more source samples cannot be read.');
     const created=[];
+    const sourceSnapshots=new Map();
     let deletePhase=false;
     setMutating(true);
     try{
@@ -615,10 +638,12 @@ export function initEp133Browser({showError}={}){
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
         const sourceMetadata=source.meta||await getFileMetadata(source.nodeId||source.id);
+        sourceSnapshots.set(source.id,{bytes,metadata:sourceMetadata});
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
         const expectedMetadata={...metadata,name:displayName};
+        await assertSlotsEmpty([target.id]);
         const fileId=await uploadSampleToSlot({
           data:bytes,
           filename:transferName,
@@ -657,6 +682,9 @@ export function initEp133Browser({showError}={}){
         const deletedIds=[];
         for(let index=0;index<plan.length;index++){
           const source=sourceById.get(plan[index].sourceId);
+          const snapshot=sourceSnapshots.get(source.id);
+          if(!snapshot)throw new Error('MOVE source snapshot is missing; delete aborted.');
+          await assertSourceSnapshot(source,snapshot);
           await deleteFile(source.nodeId||source.id);
           deletedIds.push(source.id);
           deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(source.nodeId||source.id));
@@ -703,6 +731,7 @@ export function initEp133Browser({showError}={}){
       for(let index=0;index<targets.length;index++){
         const slot=targets[index];
         setGlobalProgress('DELETE',(index/targets.length)*100);
+        await assertDeleteTargetUnchanged(slot);
         await deleteFile(slot.nodeId||slot.id);
         deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(slot.nodeId||slot.id));
         memory.clearSlot(slot.id);
@@ -805,6 +834,7 @@ export function initEp133Browser({showError}={}){
             format:prepared.format,
             ...(prepared.metadata||{})
           };
+          await assertSlotsEmpty([target.id]);
           memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
           let createdId=null;
           const fileId=await uploadSampleToSlot({
