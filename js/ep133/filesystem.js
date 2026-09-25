@@ -81,21 +81,73 @@ const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
 
 export function prepareSampleCreateMetadata(metadata={}){
   const result={};
-  for(const key of ['name','channels','samplerate','format','crc']){
-    const value=metadata?.[key];
-    if(value!==undefined&&value!==null)result[key]=value;
-  }
-  if('name' in result)result.name=normalizeFileName(result.name);
+  if(metadata?.name!=null)result.name=normalizeFileName(metadata.name);
+  const channels=Number(metadata?.channels);
+  const samplerate=Number(metadata?.samplerate);
+  const format=String(metadata?.format||'');
+  const crc=Number(metadata?.crc);
+  if(Number.isInteger(channels)&&(channels===1||channels===2))result.channels=channels;
+  if(Number.isFinite(samplerate)&&samplerate>=3000&&samplerate<=768000)result.samplerate=samplerate;
+  if(format==='s16')result.format=format;
+  if(Number.isInteger(crc)&&crc>=0&&crc<=0xffffffff)result.crc=crc;
   return result;
 }
+
+const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato']);
+const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
+const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
+const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
+const integerRange=(value,min,max)=>Number.isInteger(Number(value))&&Number(value)>=min&&Number(value)<=max;
 
 export function prepareSampleWritableMetadata(metadata={}){
   const result={};
   for(const[key,value]of Object.entries(metadata||{})){
-    if(SAMPLE_WRITABLE_METADATA_KEYS.has(key))result[key]=value;
-  }
-  for(const key of ['sound.playmode','time.mode']){
-    if(key in result&&typeof result[key]!=='string')delete result[key];
+    if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key))continue;
+    if(key==='name'){result.name=normalizeFileName(value);continue;}
+    if(key==='sample.start'||key==='sample.end'){
+      if(integerRange(value,0,0x7fffffff))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.loopstart'||key==='sound.loopend'){
+      if(integerRange(value,-1,0x7fffffff))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.amplitude'){
+      if(finiteRange(value,0,100))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.playmode'){
+      if(typeof value==='string'&&SAMPLE_PLAY_MODES.has(value))result[key]=value;
+      continue;
+    }
+    if(key==='sound.rootnote'){
+      if(integerRange(value,0,127))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.bpm'){
+      if(finiteRange(value,1,200))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.pitch'){
+      if(finiteRange(value,-12,12))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.pan'){
+      if(finiteRange(value,-16,16))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.bars'){
+      const bars=Number(value);
+      if(SAMPLE_BAR_VALUES.has(bars))result[key]=bars;
+      continue;
+    }
+    if(key==='envelope.attack'||key==='envelope.release'){
+      if(integerRange(value,0,255))result[key]=Number(value);
+      continue;
+    }
+    if(key==='time.mode'){
+      if(typeof value==='string'&&SAMPLE_TIME_MODES.has(value))result[key]=value;
+    }
   }
   if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
   return result;
@@ -207,6 +259,8 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   const displayName=normalizeFileName(metadata?.name||name);
   const uploadMetadata={...metadata,name:displayName};
   const createMetadata=prepareSampleCreateMetadata(uploadMetadata);
+  if(!createMetadata.name||!createMetadata.channels||!createMetadata.samplerate||createMetadata.format!=='s16')
+    throw new Error('EP-series upload metadata is incomplete or unsupported.');
   const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
   onCreated?.(fileId);
 
