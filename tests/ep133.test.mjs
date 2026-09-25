@@ -208,7 +208,7 @@ test('EP writable sample metadata rejects unsupported enums and out-of-range val
       'time.mode':'free','sound.bars':3,'sound.pitch':99,'sound.pan':17,
       'sound.bpm':0,'sound.amplitude':101,'sound.rootnote':128
     }),
-    {name:'safe','envelope.release':255}
+    {name:'safe','sound.playmode':'loop','envelope.release':255}
   );
 });
 
