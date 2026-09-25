@@ -163,9 +163,9 @@ test('EP transfer move filters metadata that is unsafe to write back',()=>{
     prepareSampleTransferMetadata({'time.mode':2,name:'short'}),
     {'time.mode':'bar',name:'short'}
   );
-  assert.throws(
-    ()=>prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255,name:'unsafe'}),
-    /Unsupported source sample play mode/
+  assert.deepEqual(
+    prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255,name:'looped'}),
+    {'sound.playmode':'loop','envelope.release':255,name:'looped'}
   );
   assert.throws(
     ()=>prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'missing-release'}),
@@ -456,7 +456,7 @@ test('My EP transfer target planner finds the nearest free single slot and skips
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato'\]/);
+  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato','loop'\]/);
   assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
   assert.match(source,/const BAR_VALUES=\[1,2,4,8,16,32,64,128,256\]/);
   assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
@@ -566,14 +566,14 @@ test('EP upload metadata follows the reference Teenage Engineering metadata rule
       loop_end:22050,
       midi_root_note:60,
       bpm:120,
-      json:JSON.stringify({'sound.playmode':'legato','envelope.release':20,'sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
+      json:JSON.stringify({'sound.playmode':'loop','envelope.release':20,'sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
     }
   },46875);
   assert.equal(meta['sound.loopstart'],4687);
   assert.equal(meta['sound.loopend'],23437);
   assert.equal(meta['sound.rootnote'],60);
   assert.equal(meta['sound.bpm'],120);
-  assert.equal(meta['sound.playmode'],'legato');
+  assert.equal(meta['sound.playmode'],'loop');
   assert.equal(meta['envelope.release'],20);
   assert.equal(meta['sound.pitch'],2);
   assert.equal(meta['sound.amplitude'],100);
