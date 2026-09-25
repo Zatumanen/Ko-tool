@@ -9,7 +9,17 @@ const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextE
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
 let fileOperationQueue=Promise.resolve();
-function runFileOperation(operation){const task=fileOperationQueue.then(operation);fileOperationQueue=task.catch(()=>{});return task;}
+async function withBrowserFileLock(operation){
+  const locks=globalThis.navigator?.locks;
+  if(!locks?.request)return operation();
+  const key=String(activeDeviceKey||'connected').replace(/[^a-z0-9_.:-]/gi,'_');
+  return locks.request('ko-tool-ep-file:'+key,{mode:'exclusive'},operation);
+}
+function runFileOperation(operation){
+  const task=fileOperationQueue.then(()=>withBrowserFileLock(operation));
+  fileOperationQueue=task.catch(()=>{});
+  return task;
+}
 export function resetFileSystemState(){deviceChunkSizes.clear();fileOperationQueue=Promise.resolve();}
 const getDeviceKey=device=>device?.deviceKey||device?.metadata?.serialNumber||device?.metadata?.serial||null;
 let activeDeviceKey=null;
@@ -68,6 +78,16 @@ const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
   'sound.playmode','sound.rootnote','sound.bpm','sound.pitch','sound.pan','sound.bars',
   'envelope.attack','envelope.release','time.mode'
 ]);
+
+export function prepareSampleCreateMetadata(metadata={}){
+  const result={};
+  for(const key of ['name','channels','samplerate','format','crc']){
+    const value=metadata?.[key];
+    if(value!==undefined&&value!==null)result[key]=value;
+  }
+  if('name' in result)result.name=normalizeFileName(result.name);
+  return result;
+}
 
 export function prepareSampleWritableMetadata(metadata={}){
   const result={};
@@ -164,17 +184,27 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
 }
 
 export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress,onCreated}){
-
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
   const wireName=normalizeFileName(name);
   const displayName=normalizeFileName(metadata?.name||name);
   const uploadMetadata={...metadata,name:displayName};
-  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  const createMetadata=prepareSampleCreateMetadata(uploadMetadata);
+  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
   onCreated?.(fileId);
+
+  const verifyCreated=await getFileInfo(fileId);
+  if(Number(verifyCreated.nodeId)!==Number(destinationId)||Number(verifyCreated.parentId)!==Number(parentId)||Number(verifyCreated.fileSize)!==bytes.byteLength)
+    throw new Error('EP-series upload verification failed before metadata write.');
+
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
+
+  const verifyMetadata=await getFileInfo(fileId);
+  if(Number(verifyMetadata.nodeId)!==Number(destinationId)||Number(verifyMetadata.parentId)!==Number(parentId)||Number(verifyMetadata.fileSize)!==bytes.byteLength)
+    throw new Error('EP-series upload verification failed after metadata write.');
+
   await initFileSystem();
   return fileId;
 }
