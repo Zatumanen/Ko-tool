@@ -156,10 +156,21 @@ export function prepareSampleWritableMetadata(metadata={}){
 export function prepareSampleTransferMetadata(metadata={}){
   const result={...(metadata||{})};
   delete result.crc;
-  for(const key of ['sound.playmode','time.mode']){
-    if(key in result&&typeof result[key]!=='string')delete result[key];
+
+  if('sound.playmode' in result){
+    const raw=result['sound.playmode'];
+    const normalized=typeof raw==='number'?['oneshot','key','legato'][raw]:String(raw);
+    if(!SAMPLE_PLAY_MODES.has(normalized))throw new Error('Unsupported source sample play mode; transfer aborted before writing.');
+    if(!('envelope.release' in result))throw new Error('Source sample play mode has no paired release; transfer aborted before writing.');
+    result['sound.playmode']=normalized;
   }
-  if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
+
+  if('time.mode' in result){
+    const raw=result['time.mode'];
+    const normalized=typeof raw==='number'?['off','bpm','bar'][raw]:String(raw);
+    if(!SAMPLE_TIME_MODES.has(normalized))throw new Error('Unsupported source sample time mode; transfer aborted before writing.');
+    result['time.mode']=normalized;
+  }
   return result;
 }
 
