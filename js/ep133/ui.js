@@ -19,7 +19,7 @@ import{
 }from './sampleMemory.js?v=20260924-3';
 import{outputFileName}from '../output-name.js';
 
-const PLAY_MODES=['oneshot','key','legato','loop'];
+const PLAY_MODES=['oneshot','key','legato'];
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2,4,8,16,32,64,128,256];
 const PROPERTY_DEBOUNCE_MS=120;
@@ -75,6 +75,7 @@ export function initEp133Browser({showError}={}){
   let deviceFiles=[];
   let synchronized=false;
   let mutating=false;
+  let deviceUnsafe=false;
   let everConnected=false;
   let lastDeviceInfo={title:'MY EP',name:''};
   let playingSlotId=null;
@@ -85,7 +86,7 @@ export function initEp133Browser({showError}={}){
   const pendingPropertyKeys=new Set();
 
   const updateMutationAvailability=()=>{
-    memory?.setMutationsEnabled?.(!!(isConnected()&&synchronized&&!mutating));
+    memory?.setMutationsEnabled?.(!!(isConnected()&&!deviceUnsafe&&synchronized&&!mutating));
   };
   const setMutating=value=>{
     mutating=!!value;
@@ -196,6 +197,41 @@ export function initEp133Browser({showError}={}){
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
+  };
+  const soundSlotIds=files=>new Set(
+    (files||[])
+      .filter(item=>/^\/sounds\/[^/]+$/.test(item?.fileName||'')&&Number(item?.nodeId)>=1&&Number(item?.nodeId)<=999)
+      .map(item=>Number(item.nodeId))
+  );
+  const readAuthoritativeFiles=async()=>{
+    const files=await listDeviceFiles();
+    return Array.isArray(files)?files:[];
+  };
+  const assertSlotsEmpty=async ids=>{
+    const requested=[...new Set((ids||[]).map(Number))];
+    const files=await readAuthoritativeFiles();
+    const occupied=soundSlotIds(files);
+    const collisions=requested.filter(id=>occupied.has(id));
+    if(collisions.length)throw new Error('Target sample slot changed on the device: '+collisions.map(id=>String(id).padStart(3,'0')).join(', ')+'. Reload before retrying.');
+    return files;
+  };
+  const assertSlotsDeleted=async ids=>{
+    const requested=[...new Set((ids||[]).map(Number))];
+    const files=await readAuthoritativeFiles();
+    const occupied=soundSlotIds(files);
+    const remaining=requested.filter(id=>occupied.has(id));
+    if(remaining.length)throw new Error('EP-series delete was not confirmed by /sounds LIST for slot(s): '+remaining.map(id=>String(id).padStart(3,'0')).join(', '));
+    deviceFiles=files;
+    return files;
+  };
+  const verifyPcmReadback=async(fileId,expected,onProgress)=>{
+    const readback=await getFile(fileId,onProgress);
+    const actual=readback?.data instanceof Uint8Array?readback.data:new Uint8Array(readback?.data||[]);
+    if(actual.byteLength!==expected.byteLength)throw new Error('PCM readback size mismatch for slot '+String(fileId).padStart(3,'0')+'.');
+    for(let i=0;i<actual.byteLength;i++){
+      if(actual[i]!==expected[i])throw new Error('PCM readback mismatch for slot '+String(fileId).padStart(3,'0')+' at byte '+i+'.');
+    }
+    return readback;
   };
 
   const getDroppedFiles=event=>{
@@ -551,6 +587,7 @@ export function initEp133Browser({showError}={}){
     let deletePhase=false;
     setMutating(true);
     try{
+      await assertSlotsEmpty(plan.map(pair=>pair.targetId));
       for(let index=0;index<plan.length;index++){
         const pair=plan[index];
         const source=sourceById.get(pair.sourceId);
@@ -585,6 +622,12 @@ export function initEp133Browser({showError}={}){
         });
         if(destinationCreated)created.push(target.id);
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote a sample to an unexpected slot.');
+        memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
+        await verifyPcmReadback(fileId,bytes,(done,total)=>{
+          const local=total?done/total:0;
+          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
+          setGlobalProgress(copy?'COPY':'MOVE',((index+.90+local*.05)/plan.length)*100);
+        });
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
@@ -598,13 +641,17 @@ export function initEp133Browser({showError}={}){
 
       if(!copy){
         deletePhase=true;
+        const deletedIds=[];
         for(let index=0;index<plan.length;index++){
           const source=sourceById.get(plan[index].sourceId);
           await deleteFile(source.nodeId||source.id);
+          deletedIds.push(source.id);
           deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(source.nodeId||source.id));
           memory.clearSlot(source.id);
-          setGlobalProgress('MOVE',95+(index+1)/plan.length*5);
+          setGlobalProgress('MOVE',95+(index+1)/plan.length*4);
         }
+        await assertSlotsDeleted(deletedIds);
+        setGlobalProgress('MOVE',100);
       }
       renderDeviceStats(soundsMetadata,memory.countOccupied());
       for(const id of created)memory.clearOperation(id);
@@ -647,6 +694,7 @@ export function initEp133Browser({showError}={}){
         memory.clearSlot(slot.id);
         setGlobalProgress('DELETE',((index+1)/targets.length)*100);
       }
+      await assertSlotsDeleted(targets.map(slot=>slot.id));
       renderDeviceStats(soundsMetadata,memory.countOccupied());
       return true;
     }catch(error){
@@ -722,6 +770,7 @@ export function initEp133Browser({showError}={}){
     const successes=[];
     const failures=[];
     try{
+      await assertSlotsEmpty(targets.map(item=>item.slot.id));
       for(let index=0;index<targets.length;index++){
         const item=targets[index];
         const target=item.slot;
@@ -743,6 +792,7 @@ export function initEp133Browser({showError}={}){
             ...(prepared.metadata||{})
           };
           memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+          let createdId=null;
           const fileId=await uploadSampleToSlot({
             file:item.file,
             data:prepared.data,
@@ -750,11 +800,18 @@ export function initEp133Browser({showError}={}){
             parentId:soundsParentId,
             destinationId:target.id,
             metadata,
+            onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
             onProgress:(done,total)=>{
               const local=total?done/total:0;
               memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:local*100});
               setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
             }
+          });
+          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
+          await verifyPcmReadback(fileId,prepared.data,(done,total)=>{
+            const local=total?done/total:0;
+            memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
+            setGlobalProgress('UPLOAD',((index+.94+local*.06)/targets.length)*100);
           });
           const info=await getFileInfo(fileId);
           const fileItem=fileItemFromInfo(info);
@@ -773,6 +830,17 @@ export function initEp133Browser({showError}={}){
           failures.push({file:item.file,error});
           memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
           logTechnical('UPLOAD '+item.file.name,error);
+          const createdId=Number(item.createdId)||0;
+          if(createdId&&isConnected()&&!deviceUnsafe){
+            try{
+              await deleteFile(createdId);
+              await assertSlotsDeleted([createdId]);
+              memory.clearSlot(createdId);
+            }catch(rollbackError){
+              logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
+            }
+          }
+          if(deviceUnsafe)break;
         }
       }
       renderDeviceStats(soundsMetadata,memory.countOccupied());
@@ -913,7 +981,20 @@ export function initEp133Browser({showError}={}){
   onFileEvent(event=>{void handleFileEvent(event);});
 
   const renderConnection=state=>{
+    deviceUnsafe=!!state?.unsafe;
     setTitleDevice(state);
+    if(deviceUnsafe){
+      synchronized=false;
+      updateMutationAvailability();
+      void stopCurrentPreview();
+      closeProperties();
+      hideGlobalProgress();
+      panel.classList.add('device-disconnected');
+      setConnectionOverlay('POWER CYCLE EP · THEN RELOAD');
+      setStatus('EP FILE SAFETY LOCK · POWER CYCLE DEVICE AND RELOAD PAGE');
+      if(state?.unsafeReason)logTechnical('EP FILE SAFETY LOCK',state.unsafeReason);
+      return;
+    }
     if(state.connected){
       everConnected=true;
       panel.classList.remove('device-disconnected');
@@ -1008,7 +1089,7 @@ export function initEp133Browser({showError}={}){
 
   let midiPermissionBlocked=false;
   const autoConnect=async()=>{
-    if(isConnected()||midiPermissionBlocked)return;
+    if(deviceUnsafe||isConnected()||midiPermissionBlocked)return;
     try{
       await connectEp133();
     }catch(error){
@@ -1029,10 +1110,10 @@ export function initEp133Browser({showError}={}){
 
   onConnectionChange(state=>{
     renderConnection(state);
-    if(state.connected)void readDevice();
+    if(state.connected&&!state.unsafe)void readDevice();
   });
   void autoConnect();
-  const autoConnectTimer=setInterval(()=>{if(!isConnected())void autoConnect();},4000);
+  const autoConnectTimer=setInterval(()=>{if(!deviceUnsafe&&!isConnected())void autoConnect();},4000);
   window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
 
   window.addEventListener('paste',event=>{
