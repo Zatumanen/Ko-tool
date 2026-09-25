@@ -1,2 +1,2 @@
 export{connectEp133,disconnectEp133,isConnected,getMidiPorts,onConnectionChange,onFileEvent,onMidiActivity}from './device.js?v=20260923-3';
-export{listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive}from './filesystem.js?v=20260924-3';
+export{listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive}from './filesystem.js?v=20260925-1';
