@@ -3,7 +3,7 @@ import{
   listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,createTransferFileName
-}from './index.js?v=20260924-3';
+}from './index.js?v=20260925-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,11 +12,11 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260924-3';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260925-1';
 import{
   createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260924-3';
+}from './sampleMemory.js?v=20260925-1';
 import{outputFileName}from '../output-name.js';
 
 const PLAY_MODES=['oneshot','key','legato'];
