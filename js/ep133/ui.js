@@ -2,7 +2,7 @@ import{
   connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,
   listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
-  prepareSampleTransferMetadata,createTransferFileName
+  prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
 }from './index.js?v=20260925-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -232,6 +232,18 @@ export function initEp133Browser({showError}={}){
       if(actual[i]!==expected[i])throw new Error('PCM readback mismatch for slot '+String(fileId).padStart(3,'0')+' at byte '+i+'.');
     }
     return readback;
+  };
+  const assertMetadataReadback=(slotId,expected,actual)=>{
+    const expectedCreate=prepareSampleCreateMetadata(expected);
+    const expectedWritable=prepareSampleWritableMetadata(expected);
+    const fields={...expectedCreate,...expectedWritable};
+    for(const[key,value]of Object.entries(fields)){
+      if(key==='crc')continue;
+      const got=actual?.[key];
+      const numeric=typeof value==='number';
+      const matches=numeric?Number(got)===Number(value):String(got)===String(value);
+      if(!matches)throw new Error('Metadata readback mismatch for slot '+String(slotId).padStart(3,'0')+' field '+key+'.');
+    }
   };
 
   const getDroppedFiles=event=>{
@@ -577,6 +589,7 @@ export function initEp133Browser({showError}={}){
   const transactionalTransfer=async(sources,dropSlot,{copy=false,draggedId}={})=>{
     if(!isConnected())throw new Error('EP device is disconnected.');
     if(!synchronized||!soundsParentId)throw new Error('Sample library is still synchronizing.');
+    if(pendingPropertyKeys.size)throw new Error('Wait for the pending sample property write to finish before moving or copying samples.');
     const sourceIds=sources.map(item=>item.id);
     const plan=planSampleTransferTargets(memory.getSlots(),sourceIds,draggedId,dropSlot.id);
     if(plan.length!==sources.length)throw new Error('No valid free destination slots are available.');
@@ -605,14 +618,14 @@ export function initEp133Browser({showError}={}){
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
-        let destinationCreated=false;
+        const expectedMetadata={...metadata,name:displayName};
         const fileId=await uploadSampleToSlot({
           data:bytes,
           filename:transferName,
           parentId:soundsParentId,
           destinationId:target.id,
-          metadata:{...metadata,name:displayName},
-          onCreated:()=>{destinationCreated=true;},
+          metadata:expectedMetadata,
+          onCreated:id=>{const createdId=Number(id)||target.id;if(!created.includes(createdId))created.push(createdId);},
           onProgress:(done,total)=>{
             const local=total?done/total:0;
             const rowProgress=Math.round(local*100);
@@ -620,7 +633,6 @@ export function initEp133Browser({showError}={}){
             setGlobalProgress(copy?'COPY':'MOVE',((index+.35+local*.55)/plan.length)*100);
           }
         });
-        if(destinationCreated)created.push(target.id);
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote a sample to an unexpected slot.');
         memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
         await verifyPcmReadback(fileId,bytes,(done,total)=>{
@@ -633,8 +645,9 @@ export function initEp133Browser({showError}={}){
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
         updateDeviceFile(item);
         memory.setSlot(item);
-        try{memory.setMetadata(target.id,await getFileMetadata(target.id));}
-        catch(error){memory.setMetadata(target.id,{...metadata,name:normalizeFileName(displayName)});}
+        const destinationMetadata=await getFileMetadata(target.id);
+        assertMetadataReadback(target.id,expectedMetadata,destinationMetadata);
+        memory.setMetadata(target.id,destinationMetadata);
         memory.setOperation(target.id,{status:'complete',label:copy?'COPIED':'MOVED',progress:100});
         setGlobalProgress(copy?'COPY':'MOVE',((index+.95)/plan.length)*100);
       }
@@ -680,6 +693,7 @@ export function initEp133Browser({showError}={}){
 
   const deleteSamples=async targets=>{
     if(!targets?.length||!isConnected()||!synchronized)return false;
+    if(pendingPropertyKeys.size)throw new Error('Wait for the pending sample property write to finish before deleting samples.');
     const message=targets.length>1
       ?'DELETE '+targets.length+' SELECTED SAMPLES?'
       :'DELETE "'+String(targets[0]?.meta?.name||targets[0]?.file?.name||'SAMPLE').toUpperCase()+'"?';
