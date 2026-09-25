@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260925-1';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260925-2';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -93,7 +93,7 @@ export function prepareSampleCreateMetadata(metadata={}){
   return result;
 }
 
-const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato']);
+const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato','loop']);
 const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
 const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
 const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
@@ -159,7 +159,7 @@ export function prepareSampleTransferMetadata(metadata={}){
 
   if('sound.playmode' in result){
     const raw=result['sound.playmode'];
-    const normalized=typeof raw==='number'?['oneshot','key','legato'][raw]:String(raw);
+    const normalized=typeof raw==='number'?['oneshot','key','legato','loop'][raw]:String(raw);
     if(!SAMPLE_PLAY_MODES.has(normalized))throw new Error('Unsupported source sample play mode; transfer aborted before writing.');
     if(!('envelope.release' in result))throw new Error('Source sample play mode has no paired release; transfer aborted before writing.');
     result['sound.playmode']=normalized;
