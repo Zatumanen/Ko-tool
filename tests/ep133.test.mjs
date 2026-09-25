@@ -220,7 +220,7 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(filesystemSource,/filename:wireName/);
   const uiSource=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(uiSource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
-  assert.match(uiSource,/created\.push\(target\.id\)/);
+  assert.match(uiSource,/created\.push\(createdId\)/);
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
@@ -254,7 +254,8 @@ test('My EP verifies destination PCM byte-for-byte before entering MOVE delete p
   const verify=block.indexOf('await verifyPcmReadback(fileId,bytes',upload);
   const deletePhase=block.indexOf('deletePhase=true',verify);
   const deletion=block.indexOf('await deleteFile(source.nodeId||source.id)',deletePhase);
-  assert.ok(upload>=0&&verify>upload&&deletePhase>verify&&deletion>deletePhase);
+  const metadataReadback=block.indexOf('assertMetadataReadback(target.id,expectedMetadata,destinationMetadata)',verify);
+  assert.ok(upload>=0&&verify>upload&&metadataReadback>verify&&deletePhase>metadataReadback&&deletion>deletePhase);
   assert.match(block,/await assertSlotsEmpty\(plan\.map\(pair=>pair\.targetId\)\)/);
 });
 
