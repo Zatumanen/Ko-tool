@@ -150,6 +150,7 @@ function enterUnsafeState(reason){
 }
 
 export function isDeviceUnsafe(){return deviceUnsafe;}
+export function markDeviceUnsafe(reason){enterUnsafeState(reason);}
 
 export function formatDeviceRejection(response){
   const status=Number(response?.status);
