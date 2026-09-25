@@ -255,8 +255,10 @@ test('My EP verifies destination PCM byte-for-byte before entering MOVE delete p
   const deletePhase=block.indexOf('deletePhase=true',verify);
   const deletion=block.indexOf('await deleteFile(source.nodeId||source.id)',deletePhase);
   const metadataReadback=block.indexOf('assertMetadataReadback(target.id,expectedMetadata,destinationMetadata)',verify);
-  assert.ok(upload>=0&&verify>upload&&metadataReadback>verify&&deletePhase>metadataReadback&&deletion>deletePhase);
+  const sourceRecheck=block.indexOf('await assertSourceSnapshot(source,snapshot)',metadataReadback);
+  assert.ok(upload>=0&&verify>upload&&metadataReadback>verify&&sourceRecheck>metadataReadback&&deletePhase>sourceRecheck&&deletion>deletePhase);
   assert.match(block,/await assertSlotsEmpty\(plan\.map\(pair=>pair\.targetId\)\)/);
+  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
 });
 
 test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
@@ -264,6 +266,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const assertSlotsDeleted=async ids=>/);
   assert.match(source,/const files=await readAuthoritativeFiles\(\)/);
+  assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
@@ -358,6 +361,16 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
+test('My EP rechecks each upload target immediately before PUT and verifies PCM readback',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function uploadFilesToSlot');
+  const block=source.slice(start,source.indexOf('const readDevice=async',start));
+  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
+  assert.match(block,/await verifyPcmReadback\(fileId,prepared\.data/);
+  assert.match(block,/onCreated:id=>\{createdId=Number\(id\)\|\|target\.id;item\.createdId=createdId;\}/);
+});
+
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
@@ -450,6 +463,7 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
 });
 
 test('My EP header shows model once in the title and only the human product name below',async()=>{
