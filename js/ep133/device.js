@@ -1,8 +1,9 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
+let deviceUnsafe=false,deviceUnsafeReason='';
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
@@ -18,6 +19,12 @@ function validateFirmware(sku,metadata){
   const channel=version.startsWith('0.')?'beta':'production';
   const minimum=minimums[channel];
   if(compareVersion(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
+}
+
+export function parseFirmwareDebugFrame(bytes){
+  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes||[]);
+  if(data.length<7||data[0]!==0xF0||data[1]!==0x00||data[2]!==0x20||data[3]!==0x76||data[5]!==0x33||data.at(-1)!==0xF7)return null;
+  return new TextDecoder().decode(data.slice(6,-1)).trim()||'unknown firmware debug frame';
 }
 
 const eventU16=(data,offset)=>(data[offset]<<8)|data[offset+1];
@@ -45,7 +52,12 @@ export function parseFileEvent(type,data=new Uint8Array()){
 }
 
 function notifyConnection(){
-  const state={connected:isConnected(),device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null};
+  const state={
+    connected:isConnected(),
+    unsafe:deviceUnsafe,
+    unsafeReason:deviceUnsafeReason,
+    device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null
+  };
   for(const listener of connectionListeners){try{listener(state);}catch{}}
 }
 function notifyMidiActivity(direction,detail={}){
@@ -66,6 +78,11 @@ function handleMidiStateChange(){
 function onMessage(inputPort,event){
   const data=new Uint8Array(event.data||[]);
   if(data[0]!==0xF0)return;
+  const debugText=parseFirmwareDebugFrame(data);
+  if(debugText){
+    enterUnsafeState('EP firmware/debug SysEx: '+debugText);
+    return;
+  }
   if(data[1]===0x7E){
     const p=pending.get(0);
     if(p?.identityWait){pending.delete(0);p.resolve({kind:'identity',data,inputPort});}
@@ -115,6 +132,25 @@ function waitForIdentity(timeout=2000){
 let requestQueue=Promise.resolve();
 let connectionEpoch=0;
 
+function unsafeError(){
+  return new Error('EP-series FILE safety lock is active. Power-cycle the device, then reload this page before sending more FILE traffic. '+deviceUnsafeReason);
+}
+
+function enterUnsafeState(reason){
+  if(deviceUnsafe)return;
+  deviceUnsafe=true;
+  deviceUnsafeReason=String(reason||'Unknown EP-series FILE session failure.');
+  connectionEpoch+=1;
+  requestQueue=Promise.resolve();
+  for(const p of pending.values()){
+    try{p.reject?.(unsafeError());}catch{}
+  }
+  pending.clear();
+  notifyConnection();
+}
+
+export function isDeviceUnsafe(){return deviceUnsafe;}
+
 export function formatDeviceRejection(response){
   const status=Number(response?.status);
   const raw=response?.rawData instanceof Uint8Array?response.rawData:new Uint8Array(response?.rawData||[]);
@@ -125,14 +161,47 @@ export function formatDeviceRejection(response){
 }
 
 async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
+  if(deviceUnsafe)throw unsafeError();
   const epoch=connectionEpoch;
   const task=requestQueue.then(async()=>{
+    if(deviceUnsafe)throw unsafeError();
     if(epoch!==connectionEpoch||!output||!input)throw new Error('EP-series device is not connected.');
     const frame=buildTeSysex(command,payload,identityCode,output.id);
     return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{pending.delete(frame.id);reject(new Error(`EP-series request timeout (command ${command})`));},timeout);
-      pending.set(frame.id,{inputPort:input,resolve:v=>{clearTimeout(timer);if(v.status!==STATUS_OK)reject(new Error(formatDeviceRejection(v)));else resolve(v);}});
-      try{notifyMidiActivity('tx',{command,requestId:frame.id});output.send(frame.bytes);}catch(error){clearTimeout(timer);pending.delete(frame.id);reject(error);}
+      let settled=false;
+      const finishReject=error=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        pending.delete(frame.id);
+        reject(error);
+      };
+      const finishResolve=value=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        pending.delete(frame.id);
+        resolve(value);
+      };
+      const timer=setTimeout(()=>{
+        const error=new Error(`EP-series request timeout (command ${command})`);
+        if(command===TE_SYSEX_FILE)enterUnsafeState(error.message);
+        finishReject(deviceUnsafe?unsafeError():error);
+      },timeout);
+      pending.set(frame.id,{
+        inputPort:input,
+        reject:finishReject,
+        resolve:v=>{
+          if(v.status!==STATUS_OK)finishReject(new Error(formatDeviceRejection(v)));
+          else finishResolve(v);
+        }
+      });
+      try{
+        notifyMidiActivity('tx',{command,requestId:frame.id});
+        output.send(frame.bytes);
+      }catch(error){
+        finishReject(error);
+      }
     });
   });
   requestQueue=task.catch(()=>{});
@@ -140,6 +209,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
 }
 
 export async function connectEp133(){
+  if(deviceUnsafe)throw unsafeError();
   if(initialized){
     if(input?.state==='connected'&&output?.state==='connected')return{sku:deviceInfo?.sku,metadata:deviceInfo?.metadata,input,output};
     disconnectEp133();
@@ -195,10 +265,10 @@ export function disconnectEp133(){
   notifyConnection();
 }
 
-export function isConnected(){return initialized&&!!input&&!!output;}
+export function isConnected(){return !deviceUnsafe&&initialized&&!!input&&!!output;}
 
 const READ_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_INFO]);
-const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_MOVED]);
+const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_DELETE]);
 
 export function requestRead(command,payload=new Uint8Array(),timeout=5000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
@@ -231,6 +301,6 @@ export function onMidiActivity(listener){
 export function onConnectionChange(listener){
   if(typeof listener!=='function')return()=>{};
   connectionListeners.add(listener);
-  try{listener({connected:isConnected(),device:deviceInfo});}catch{}
+  try{listener({connected:isConnected(),unsafe:deviceUnsafe,unsafeReason:deviceUnsafeReason,device:deviceInfo});}catch{}
   return()=>connectionListeners.delete(listener);
 }
