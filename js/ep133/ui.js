@@ -637,7 +637,7 @@ export function initEp133Browser({showError}={}){
         });
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
-        const sourceMetadata=source.meta||await getFileMetadata(source.nodeId||source.id);
+        const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
         sourceSnapshots.set(source.id,{bytes,metadata:sourceMetadata});
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
@@ -678,13 +678,16 @@ export function initEp133Browser({showError}={}){
       }
 
       if(!copy){
+        for(const pair of plan){
+          const source=sourceById.get(pair.sourceId);
+          const snapshot=sourceSnapshots.get(source.id);
+          if(!snapshot)throw new Error('MOVE source snapshot is missing; delete aborted.');
+          await assertSourceSnapshot(source,snapshot);
+        }
         deletePhase=true;
         const deletedIds=[];
         for(let index=0;index<plan.length;index++){
           const source=sourceById.get(plan[index].sourceId);
-          const snapshot=sourceSnapshots.get(source.id);
-          if(!snapshot)throw new Error('MOVE source snapshot is missing; delete aborted.');
-          await assertSourceSnapshot(source,snapshot);
           await deleteFile(source.nodeId||source.id);
           deletedIds.push(source.id);
           deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(source.nodeId||source.id));
