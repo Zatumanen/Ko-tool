@@ -64,7 +64,7 @@ const TEENAGE_META_VALIDATORS={
   "sound.amplitude":value=>value!=null&&value>=0&&value<=100,
   "envelope.attack":value=>value!=null&&value>=0&&value<=255,
   "envelope.release":value=>value!=null&&value>=0&&value<=255,
-  "sound.playmode":value=>['oneshot','key','legato'].includes(String(value)),
+  "sound.playmode":value=>['oneshot','key','legato','loop'].includes(String(value)),
   "time.mode":value=>['off','bpm','bar'].includes(String(value))
 };
 
