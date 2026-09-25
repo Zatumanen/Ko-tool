@@ -93,7 +93,7 @@ export function prepareSampleCreateMetadata(metadata={}){
   return result;
 }
 
-const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato']);
+const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato','loop']);
 const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
 const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
 const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
@@ -159,7 +159,7 @@ export function prepareSampleTransferMetadata(metadata={}){
 
   if('sound.playmode' in result){
     const raw=result['sound.playmode'];
-    const normalized=typeof raw==='number'?['oneshot','key','legato'][raw]:String(raw);
+    const normalized=typeof raw==='number'?['oneshot','key','legato','loop'][raw]:String(raw);
     if(!SAMPLE_PLAY_MODES.has(normalized))throw new Error('Unsupported source sample play mode; transfer aborted before writing.');
     if(!('envelope.release' in result))throw new Error('Source sample play mode has no paired release; transfer aborted before writing.');
     result['sound.playmode']=normalized;
