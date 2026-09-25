@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO}from './constants.js';
-import{requestRead,requestFile,onConnectionChange}from './device.js?v=20260923-3';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260923-3';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -137,10 +137,13 @@ export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(
 export async function putFile({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=15000,isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}){
   return runFileOperation(async()=>{
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
+  let streamOpened=false,streamClosed=false;
+  try{
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>0xffff)throw new Error('Invalid EP-series destination id.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-series sample parent.');
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
+  streamOpened=true;
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
   const maxPayload=calculateMaxPayloadLength(chunkSize-6);
@@ -157,7 +160,12 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   }
   if(page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');
   await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
+  streamClosed=true;
   return fileId;
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('FILE_PUT stream was interrupted before EOF: '+String(error?.message||error));
+    throw error;
+  }
   });
 }
 
@@ -175,11 +183,19 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
-  await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
-  let offset=0,page=0;
-  while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
-  if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');
-  await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+  let streamOpened=false,streamClosed=false;
+  try{
+    await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
+    streamOpened=true;
+    let offset=0,page=0;
+    while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
+    if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');
+    await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+    streamClosed=true;
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('Paged METADATA SET was interrupted before EOF: '+String(error?.message||error));
+    throw error;
+  }
   });
 }
 
@@ -214,6 +230,34 @@ export async function stopPlayback(nodeId){return runFileOperation(async()=>{con
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
 
-async function getFileUnlocked(nodeId,onProgress){await initRead();const init=new Uint8Array(8),view=new DataView(init.buffer);init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);const start=await requestRead(TE_SYSEX_FILE,init);if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];let done=0,page=0;while(done<fileSize){if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);const response=await requestRead(TE_SYSEX_FILE,requestPayload);const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;}if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);const data=new Uint8Array(done);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}return{name:fileName,size:fileSize,data};}
+async function getFileUnlocked(nodeId,onProgress){
+  await initRead();
+  let streamOpened=false,streamClosed=false;
+  try{
+    const init=new Uint8Array(8),view=new DataView(init.buffer);
+    init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);
+    const start=await requestRead(TE_SYSEX_FILE,init);
+    streamOpened=true;
+    if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');
+    const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];
+    let done=0,page=0;
+    while(done<fileSize){
+      if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');
+      const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);
+      requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);
+      const response=await requestRead(TE_SYSEX_FILE,requestPayload);
+      const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);
+      chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;
+    }
+    if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);
+    streamClosed=true;
+    const data=new Uint8Array(done);let offset=0;
+    for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}
+    return{name:fileName,size:fileSize,data};
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('FILE_GET stream was interrupted before the declared byte count: '+String(error?.message||error));
+    throw error;
+  }
+}
 
 export async function getFile(nodeId,onProgress){return runFileOperation(()=>getFileUnlocked(nodeId,onProgress));}
