@@ -2,8 +2,8 @@ import{
   connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,
   listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
-  prepareSampleTransferMetadata,createTransferFileName
-}from './index.js?v=20260924-3';
+  prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
+}from './index.js?v=20260925-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,14 +12,14 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260924-3';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260925-1';
 import{
   createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260924-3';
+}from './sampleMemory.js?v=20260925-1';
 import{outputFileName}from '../output-name.js';
 
-const PLAY_MODES=['oneshot','key','legato','loop'];
+const PLAY_MODES=['oneshot','key','legato'];
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2,4,8,16,32,64,128,256];
 const PROPERTY_DEBOUNCE_MS=120;
@@ -75,6 +75,7 @@ export function initEp133Browser({showError}={}){
   let deviceFiles=[];
   let synchronized=false;
   let mutating=false;
+  let deviceUnsafe=false;
   let everConnected=false;
   let lastDeviceInfo={title:'MY EP',name:''};
   let playingSlotId=null;
@@ -85,7 +86,7 @@ export function initEp133Browser({showError}={}){
   const pendingPropertyKeys=new Set();
 
   const updateMutationAvailability=()=>{
-    memory?.setMutationsEnabled?.(!!(isConnected()&&synchronized&&!mutating));
+    memory?.setMutationsEnabled?.(!!(isConnected()&&!deviceUnsafe&&synchronized&&!mutating));
   };
   const setMutating=value=>{
     mutating=!!value;
@@ -196,6 +197,70 @@ export function initEp133Browser({showError}={}){
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
+  };
+  const soundSlotIds=files=>new Set(
+    (files||[])
+      .filter(item=>/^\/sounds\/[^/]+$/.test(item?.fileName||'')&&Number(item?.nodeId)>=1&&Number(item?.nodeId)<=999)
+      .map(item=>Number(item.nodeId))
+  );
+  const readAuthoritativeFiles=async()=>{
+    const files=await listDeviceFiles();
+    return Array.isArray(files)?files:[];
+  };
+  const assertSlotsEmpty=async ids=>{
+    const requested=[...new Set((ids||[]).map(Number))];
+    const files=await readAuthoritativeFiles();
+    const occupied=soundSlotIds(files);
+    const collisions=requested.filter(id=>occupied.has(id));
+    if(collisions.length)throw new Error('Target sample slot changed on the device: '+collisions.map(id=>String(id).padStart(3,'0')).join(', ')+'. Reload before retrying.');
+    return files;
+  };
+  const assertSlotsDeleted=async ids=>{
+    const requested=[...new Set((ids||[]).map(Number))];
+    const files=await readAuthoritativeFiles();
+    const occupied=soundSlotIds(files);
+    const remaining=requested.filter(id=>occupied.has(id));
+    if(remaining.length)throw new Error('EP-series delete was not confirmed by /sounds LIST for slot(s): '+remaining.map(id=>String(id).padStart(3,'0')).join(', '));
+    deviceFiles=files;
+    return files;
+  };
+  const verifyPcmReadback=async(fileId,expected,onProgress)=>{
+    const readback=await getFile(fileId,onProgress);
+    const actual=readback?.data instanceof Uint8Array?readback.data:new Uint8Array(readback?.data||[]);
+    if(actual.byteLength!==expected.byteLength)throw new Error('PCM readback size mismatch for slot '+String(fileId).padStart(3,'0')+'.');
+    for(let i=0;i<actual.byteLength;i++){
+      if(actual[i]!==expected[i])throw new Error('PCM readback mismatch for slot '+String(fileId).padStart(3,'0')+' at byte '+i+'.');
+    }
+    return readback;
+  };
+  const assertMetadataReadback=(slotId,expected,actual)=>{
+    const expectedCreate=prepareSampleCreateMetadata(expected);
+    const expectedWritable=prepareSampleWritableMetadata(expected);
+    const fields={...expectedCreate,...expectedWritable};
+    for(const[key,value]of Object.entries(fields)){
+      if(key==='crc')continue;
+      const got=actual?.[key];
+      const numeric=typeof value==='number';
+      const matches=numeric?Number(got)===Number(value):String(got)===String(value);
+      if(!matches)throw new Error('Metadata readback mismatch for slot '+String(slotId).padStart(3,'0')+' field '+key+'.');
+    }
+  };
+  const assertSourceSnapshot=async(slot,snapshot)=>{
+    await verifyPcmReadback(slot.nodeId||slot.id,snapshot.bytes);
+    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
+    if(snapshot.metadata?.crc!=null&&Number(currentMetadata?.crc)!==Number(snapshot.metadata.crc))
+      throw new Error('Source sample changed before MOVE delete: CRC mismatch in slot '+String(slot.id).padStart(3,'0')+'.');
+    assertMetadataReadback(slot.id,snapshot.metadata,currentMetadata);
+  };
+  const assertDeleteTargetUnchanged=async slot=>{
+    const info=await getFileInfo(slot.nodeId||slot.id);
+    if(Number(info.nodeId)!==Number(slot.id)||Number(info.parentId)!==Number(soundsParentId)||Number(info.fileSize)!==Number(slot.file?.size||0))
+      throw new Error('Sample slot changed before delete; reload the library and confirm again.');
+    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
+    if(slot.meta?.crc!=null&&Number(currentMetadata?.crc)!==Number(slot.meta.crc))
+      throw new Error('Sample slot changed before delete; CRC no longer matches the selected sample.');
+    if(slot.meta?.name!=null&&String(currentMetadata?.name)!==String(slot.meta.name))
+      throw new Error('Sample slot changed before delete; name no longer matches the selected sample.');
   };
 
   const getDroppedFiles=event=>{
@@ -390,6 +455,11 @@ export function initEp133Browser({showError}={}){
       }
       await setFileMetadata(slot.nodeId||slot.id,payload);
       const readback=await getFileMetadata(slot.nodeId||slot.id);
+      for(const[key,value]of Object.entries(payload)){
+        const got=readback?.[key];
+        const matches=typeof value==='number'?Number(got)===Number(value):String(got)===String(value);
+        if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
+      }
       memory.setMetadata(slot.id,readback);
       state.committed=readback?.[state.key]??sentValue;
       if(state.version!==version){
@@ -541,6 +611,7 @@ export function initEp133Browser({showError}={}){
   const transactionalTransfer=async(sources,dropSlot,{copy=false,draggedId}={})=>{
     if(!isConnected())throw new Error('EP device is disconnected.');
     if(!synchronized||!soundsParentId)throw new Error('Sample library is still synchronizing.');
+    if(pendingPropertyKeys.size)throw new Error('Wait for the pending sample property write to finish before moving or copying samples.');
     const sourceIds=sources.map(item=>item.id);
     const plan=planSampleTransferTargets(memory.getSlots(),sourceIds,draggedId,dropSlot.id);
     if(plan.length!==sources.length)throw new Error('No valid free destination slots are available.');
@@ -548,9 +619,11 @@ export function initEp133Browser({showError}={}){
     if(!copy&&sources.some(item=>item.node?.isDeletable!==true))throw new Error('One or more source samples cannot be deleted safely.');
     if(sources.some(item=>item.node?.isReadable!==true))throw new Error('One or more source samples cannot be read.');
     const created=[];
+    const sourceSnapshots=new Map();
     let deletePhase=false;
     setMutating(true);
     try{
+      await assertSlotsEmpty(plan.map(pair=>pair.targetId));
       for(let index=0;index<plan.length;index++){
         const pair=plan[index];
         const source=sourceById.get(pair.sourceId);
@@ -564,18 +637,20 @@ export function initEp133Browser({showError}={}){
         });
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
-        const sourceMetadata=source.meta||await getFileMetadata(source.nodeId||source.id);
+        const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
+        sourceSnapshots.set(source.id,{bytes,metadata:sourceMetadata});
         const metadata=prepareSampleTransferMetadata(sourceMetadata);
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
-        let destinationCreated=false;
+        const expectedMetadata={...metadata,name:displayName};
+        await assertSlotsEmpty([target.id]);
         const fileId=await uploadSampleToSlot({
           data:bytes,
           filename:transferName,
           parentId:soundsParentId,
           destinationId:target.id,
-          metadata:{...metadata,name:displayName},
-          onCreated:()=>{destinationCreated=true;},
+          metadata:expectedMetadata,
+          onCreated:id=>{const createdId=Number(id)||target.id;if(!created.includes(createdId))created.push(createdId);},
           onProgress:(done,total)=>{
             const local=total?done/total:0;
             const rowProgress=Math.round(local*100);
@@ -583,28 +658,44 @@ export function initEp133Browser({showError}={}){
             setGlobalProgress(copy?'COPY':'MOVE',((index+.35+local*.55)/plan.length)*100);
           }
         });
-        if(destinationCreated)created.push(target.id);
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote a sample to an unexpected slot.');
+        memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
+        await verifyPcmReadback(fileId,bytes,(done,total)=>{
+          const local=total?done/total:0;
+          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
+          setGlobalProgress(copy?'COPY':'MOVE',((index+.90+local*.05)/plan.length)*100);
+        });
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
         updateDeviceFile(item);
         memory.setSlot(item);
-        try{memory.setMetadata(target.id,await getFileMetadata(target.id));}
-        catch(error){memory.setMetadata(target.id,{...metadata,name:normalizeFileName(displayName)});}
+        const destinationMetadata=await getFileMetadata(target.id);
+        assertMetadataReadback(target.id,expectedMetadata,destinationMetadata);
+        memory.setMetadata(target.id,destinationMetadata);
         memory.setOperation(target.id,{status:'complete',label:copy?'COPIED':'MOVED',progress:100});
         setGlobalProgress(copy?'COPY':'MOVE',((index+.95)/plan.length)*100);
       }
 
       if(!copy){
+        for(const pair of plan){
+          const source=sourceById.get(pair.sourceId);
+          const snapshot=sourceSnapshots.get(source.id);
+          if(!snapshot)throw new Error('MOVE source snapshot is missing; delete aborted.');
+          await assertSourceSnapshot(source,snapshot);
+        }
         deletePhase=true;
+        const deletedIds=[];
         for(let index=0;index<plan.length;index++){
           const source=sourceById.get(plan[index].sourceId);
           await deleteFile(source.nodeId||source.id);
+          deletedIds.push(source.id);
           deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(source.nodeId||source.id));
           memory.clearSlot(source.id);
-          setGlobalProgress('MOVE',95+(index+1)/plan.length*5);
+          setGlobalProgress('MOVE',95+(index+1)/plan.length*4);
         }
+        await assertSlotsDeleted(deletedIds);
+        setGlobalProgress('MOVE',100);
       }
       renderDeviceStats(soundsMetadata,memory.countOccupied());
       for(const id of created)memory.clearOperation(id);
@@ -633,6 +724,7 @@ export function initEp133Browser({showError}={}){
 
   const deleteSamples=async targets=>{
     if(!targets?.length||!isConnected()||!synchronized)return false;
+    if(pendingPropertyKeys.size)throw new Error('Wait for the pending sample property write to finish before deleting samples.');
     const message=targets.length>1
       ?'DELETE '+targets.length+' SELECTED SAMPLES?'
       :'DELETE "'+String(targets[0]?.meta?.name||targets[0]?.file?.name||'SAMPLE').toUpperCase()+'"?';
@@ -642,11 +734,13 @@ export function initEp133Browser({showError}={}){
       for(let index=0;index<targets.length;index++){
         const slot=targets[index];
         setGlobalProgress('DELETE',(index/targets.length)*100);
+        await assertDeleteTargetUnchanged(slot);
         await deleteFile(slot.nodeId||slot.id);
         deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(slot.nodeId||slot.id));
         memory.clearSlot(slot.id);
         setGlobalProgress('DELETE',((index+1)/targets.length)*100);
       }
+      await assertSlotsDeleted(targets.map(slot=>slot.id));
       renderDeviceStats(soundsMetadata,memory.countOccupied());
       return true;
     }catch(error){
@@ -722,6 +816,7 @@ export function initEp133Browser({showError}={}){
     const successes=[];
     const failures=[];
     try{
+      await assertSlotsEmpty(targets.map(item=>item.slot.id));
       for(let index=0;index<targets.length;index++){
         const item=targets[index];
         const target=item.slot;
@@ -742,7 +837,9 @@ export function initEp133Browser({showError}={}){
             format:prepared.format,
             ...(prepared.metadata||{})
           };
+          await assertSlotsEmpty([target.id]);
           memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+          let createdId=null;
           const fileId=await uploadSampleToSlot({
             file:item.file,
             data:prepared.data,
@@ -750,11 +847,18 @@ export function initEp133Browser({showError}={}){
             parentId:soundsParentId,
             destinationId:target.id,
             metadata,
+            onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
             onProgress:(done,total)=>{
               const local=total?done/total:0;
               memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:local*100});
               setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
             }
+          });
+          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
+          await verifyPcmReadback(fileId,prepared.data,(done,total)=>{
+            const local=total?done/total:0;
+            memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
+            setGlobalProgress('UPLOAD',((index+.94+local*.06)/targets.length)*100);
           });
           const info=await getFileInfo(fileId);
           const fileItem=fileItemFromInfo(info);
@@ -773,6 +877,17 @@ export function initEp133Browser({showError}={}){
           failures.push({file:item.file,error});
           memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
           logTechnical('UPLOAD '+item.file.name,error);
+          const createdId=Number(item.createdId)||0;
+          if(createdId&&isConnected()&&!deviceUnsafe){
+            try{
+              await deleteFile(createdId);
+              await assertSlotsDeleted([createdId]);
+              memory.clearSlot(createdId);
+            }catch(rollbackError){
+              logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
+            }
+          }
+          if(deviceUnsafe)break;
         }
       }
       renderDeviceStats(soundsMetadata,memory.countOccupied());
@@ -913,7 +1028,20 @@ export function initEp133Browser({showError}={}){
   onFileEvent(event=>{void handleFileEvent(event);});
 
   const renderConnection=state=>{
+    deviceUnsafe=!!state?.unsafe;
     setTitleDevice(state);
+    if(deviceUnsafe){
+      synchronized=false;
+      updateMutationAvailability();
+      void stopCurrentPreview();
+      closeProperties();
+      hideGlobalProgress();
+      panel.classList.add('device-disconnected');
+      setConnectionOverlay('POWER CYCLE EP · THEN RELOAD');
+      setStatus('EP FILE SAFETY LOCK · POWER CYCLE DEVICE AND RELOAD PAGE');
+      if(state?.unsafeReason)logTechnical('EP FILE SAFETY LOCK',state.unsafeReason);
+      return;
+    }
     if(state.connected){
       everConnected=true;
       panel.classList.remove('device-disconnected');
@@ -1008,7 +1136,7 @@ export function initEp133Browser({showError}={}){
 
   let midiPermissionBlocked=false;
   const autoConnect=async()=>{
-    if(isConnected()||midiPermissionBlocked)return;
+    if(deviceUnsafe||isConnected()||midiPermissionBlocked)return;
     try{
       await connectEp133();
     }catch(error){
@@ -1029,10 +1157,10 @@ export function initEp133Browser({showError}={}){
 
   onConnectionChange(state=>{
     renderConnection(state);
-    if(state.connected)void readDevice();
+    if(state.connected&&!state.unsafe)void readDevice();
   });
   void autoConnect();
-  const autoConnectTimer=setInterval(()=>{if(!isConnected())void autoConnect();},4000);
+  const autoConnectTimer=setInterval(()=>{if(!deviceUnsafe&&!isConnected())void autoConnect();},4000);
   window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
 
   window.addEventListener('paste',event=>{

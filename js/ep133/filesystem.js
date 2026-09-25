@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO}from './constants.js';
-import{requestRead,requestFile,onConnectionChange}from './device.js?v=20260923-3';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260925-1';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -9,7 +9,17 @@ const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextE
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
 let fileOperationQueue=Promise.resolve();
-function runFileOperation(operation){const task=fileOperationQueue.then(operation);fileOperationQueue=task.catch(()=>{});return task;}
+async function withBrowserFileLock(operation){
+  const locks=globalThis.navigator?.locks;
+  if(!locks?.request)return operation();
+  const key=String(activeDeviceKey||'connected').replace(/[^a-z0-9_.:-]/gi,'_');
+  return locks.request('ko-tool-ep-file:'+key,{mode:'exclusive'},operation);
+}
+function runFileOperation(operation){
+  const task=fileOperationQueue.then(()=>withBrowserFileLock(operation));
+  fileOperationQueue=task.catch(()=>{});
+  return task;
+}
 export function resetFileSystemState(){deviceChunkSizes.clear();fileOperationQueue=Promise.resolve();}
 const getDeviceKey=device=>device?.deviceKey||device?.metadata?.serialNumber||device?.metadata?.serial||null;
 let activeDeviceKey=null;
@@ -69,13 +79,75 @@ const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
   'envelope.attack','envelope.release','time.mode'
 ]);
 
+export function prepareSampleCreateMetadata(metadata={}){
+  const result={};
+  if(metadata?.name!=null)result.name=normalizeFileName(metadata.name);
+  const channels=Number(metadata?.channels);
+  const samplerate=Number(metadata?.samplerate);
+  const format=String(metadata?.format||'');
+  const crc=Number(metadata?.crc);
+  if(Number.isInteger(channels)&&(channels===1||channels===2))result.channels=channels;
+  if(Number.isFinite(samplerate)&&samplerate>=3000&&samplerate<=768000)result.samplerate=samplerate;
+  if(format==='s16')result.format=format;
+  if(Number.isInteger(crc)&&crc>=0&&crc<=0xffffffff)result.crc=crc;
+  return result;
+}
+
+const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato']);
+const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
+const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
+const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
+const integerRange=(value,min,max)=>Number.isInteger(Number(value))&&Number(value)>=min&&Number(value)<=max;
+
 export function prepareSampleWritableMetadata(metadata={}){
   const result={};
   for(const[key,value]of Object.entries(metadata||{})){
-    if(SAMPLE_WRITABLE_METADATA_KEYS.has(key))result[key]=value;
-  }
-  for(const key of ['sound.playmode','time.mode']){
-    if(key in result&&typeof result[key]!=='string')delete result[key];
+    if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key))continue;
+    if(key==='name'){result.name=normalizeFileName(value);continue;}
+    if(key==='sample.start'||key==='sample.end'){
+      if(integerRange(value,0,0x7fffffff))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.loopstart'||key==='sound.loopend'){
+      if(integerRange(value,-1,0x7fffffff))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.amplitude'){
+      if(finiteRange(value,0,100))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.playmode'){
+      if(typeof value==='string'&&SAMPLE_PLAY_MODES.has(value))result[key]=value;
+      continue;
+    }
+    if(key==='sound.rootnote'){
+      if(integerRange(value,0,127))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.bpm'){
+      if(finiteRange(value,1,200))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.pitch'){
+      if(finiteRange(value,-12,12))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.pan'){
+      if(finiteRange(value,-16,16))result[key]=Number(value);
+      continue;
+    }
+    if(key==='sound.bars'){
+      const bars=Number(value);
+      if(SAMPLE_BAR_VALUES.has(bars))result[key]=bars;
+      continue;
+    }
+    if(key==='envelope.attack'||key==='envelope.release'){
+      if(integerRange(value,0,255))result[key]=Number(value);
+      continue;
+    }
+    if(key==='time.mode'){
+      if(typeof value==='string'&&SAMPLE_TIME_MODES.has(value))result[key]=value;
+    }
   }
   if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
   return result;
@@ -84,10 +156,21 @@ export function prepareSampleWritableMetadata(metadata={}){
 export function prepareSampleTransferMetadata(metadata={}){
   const result={...(metadata||{})};
   delete result.crc;
-  for(const key of ['sound.playmode','time.mode']){
-    if(key in result&&typeof result[key]!=='string')delete result[key];
+
+  if('sound.playmode' in result){
+    const raw=result['sound.playmode'];
+    const normalized=typeof raw==='number'?['oneshot','key','legato'][raw]:String(raw);
+    if(!SAMPLE_PLAY_MODES.has(normalized))throw new Error('Unsupported source sample play mode; transfer aborted before writing.');
+    if(!('envelope.release' in result))throw new Error('Source sample play mode has no paired release; transfer aborted before writing.');
+    result['sound.playmode']=normalized;
   }
-  if('sound.playmode' in result&&!('envelope.release' in result))delete result['sound.playmode'];
+
+  if('time.mode' in result){
+    const raw=result['time.mode'];
+    const normalized=typeof raw==='number'?['off','bpm','bar'][raw]:String(raw);
+    if(!SAMPLE_TIME_MODES.has(normalized))throw new Error('Unsupported source sample time mode; transfer aborted before writing.');
+    result['time.mode']=normalized;
+  }
   return result;
 }
 
@@ -117,10 +200,13 @@ export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(
 export async function putFile({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=15000,isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}){
   return runFileOperation(async()=>{
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
+  let streamOpened=false,streamClosed=false;
+  try{
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>0xffff)throw new Error('Invalid EP-series destination id.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-series sample parent.');
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
+  streamOpened=true;
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
   const maxPayload=calculateMaxPayloadLength(chunkSize-6);
@@ -137,7 +223,12 @@ export async function putFile({data,filename,parentId,destinationId,metadata=nul
   }
   if(page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');
   await requestFile(TE_SYSEX_FILE,buildFilePutDataPayload(page,new Uint8Array(0)),timeout);
+  streamClosed=true;
   return fileId;
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('FILE_PUT stream was interrupted before EOF: '+String(error?.message||error));
+    throw error;
+  }
   });
 }
 
@@ -155,26 +246,46 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
-  await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
-  let offset=0,page=0;
-  while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
-  if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');
-  await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+  let streamOpened=false,streamClosed=false;
+  try{
+    await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
+    streamOpened=true;
+    let offset=0,page=0;
+    while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
+    if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');
+    await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,new Uint8Array(0)),timeout);
+    streamClosed=true;
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('Paged METADATA SET was interrupted before EOF: '+String(error?.message||error));
+    throw error;
+  }
   });
 }
 
 export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress,onCreated}){
-
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
   const wireName=normalizeFileName(name);
   const displayName=normalizeFileName(metadata?.name||name);
   const uploadMetadata={...metadata,name:displayName};
-  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:uploadMetadata,onProgress});
+  const createMetadata=prepareSampleCreateMetadata(uploadMetadata);
+  if(!createMetadata.name||!createMetadata.channels||!createMetadata.samplerate||createMetadata.format!=='s16')
+    throw new Error('EP-series upload metadata is incomplete or unsupported.');
+  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
   onCreated?.(fileId);
+
+  const verifyCreated=await getFileInfo(fileId);
+  if(Number(verifyCreated.nodeId)!==Number(destinationId)||Number(verifyCreated.parentId)!==Number(parentId)||Number(verifyCreated.fileSize)!==bytes.byteLength)
+    throw new Error('EP-series upload verification failed before metadata write.');
+
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
+
+  const verifyMetadata=await getFileInfo(fileId);
+  if(Number(verifyMetadata.nodeId)!==Number(destinationId)||Number(verifyMetadata.parentId)!==Number(parentId)||Number(verifyMetadata.fileSize)!==bytes.byteLength)
+    throw new Error('EP-series upload verification failed after metadata write.');
+
   await initFileSystem();
   return fileId;
 }
@@ -184,6 +295,34 @@ export async function stopPlayback(nodeId){return runFileOperation(async()=>{con
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
 
-async function getFileUnlocked(nodeId,onProgress){await initRead();const init=new Uint8Array(8),view=new DataView(init.buffer);init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);const start=await requestRead(TE_SYSEX_FILE,init);if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];let done=0,page=0;while(done<fileSize){if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);const response=await requestRead(TE_SYSEX_FILE,requestPayload);const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;}if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);const data=new Uint8Array(done);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}return{name:fileName,size:fileSize,data};}
+async function getFileUnlocked(nodeId,onProgress){
+  await initRead();
+  let streamOpened=false,streamClosed=false;
+  try{
+    const init=new Uint8Array(8),view=new DataView(init.buffer);
+    init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);
+    const start=await requestRead(TE_SYSEX_FILE,init);
+    streamOpened=true;
+    if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');
+    const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];
+    let done=0,page=0;
+    while(done<fileSize){
+      if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');
+      const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);
+      requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);
+      const response=await requestRead(TE_SYSEX_FILE,requestPayload);
+      const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);
+      chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;
+    }
+    if(done!==fileSize)throw new Error(`Incomplete FILE_GET: received ${done} of ${fileSize} bytes.`);
+    streamClosed=true;
+    const data=new Uint8Array(done);let offset=0;
+    for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}
+    return{name:fileName,size:fileSize,data};
+  }catch(error){
+    if(streamOpened&&!streamClosed)markDeviceUnsafe('FILE_GET stream was interrupted before the declared byte count: '+String(error?.message||error));
+    throw error;
+  }
+}
 
 export async function getFile(nodeId,onProgress){return runFileOperation(()=>getFileUnlocked(nodeId,onProgress));}

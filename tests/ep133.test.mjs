@@ -28,8 +28,8 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
 });
 
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample,planSampleTransferTargets}from '../js/ep133/sampleMemory.js';
-import{requestRead,parseFileEvent,formatDeviceRejection}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{requestRead,parseFileEvent,formatDeviceRejection,parseFirmwareDebugFrame}from '../js/ep133/device.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -47,7 +47,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -60,9 +60,13 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   ]);
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
+  const filesystem=await read('js/ep133/filesystem.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
+  assert.equal(ui.includes("./audio.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
+  assert.equal(index.includes("./device.js?v="+token),true);
+  assert.equal(filesystem.includes("./device.js?v="+token),true);
 });
 
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
@@ -125,6 +129,23 @@ test('EP device rejection preserves the firmware reason text',()=>{
   assert.equal(formatDeviceRejection({status:3,rawData:new Uint8Array()}),'EP-series device returned status 3');
 });
 
+test('EP firmware debug frames are detected before normal protocol parsing',()=>{
+  const frame=Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x33,...new TextEncoder().encode('err lfs 6327'),0xF7]);
+  assert.equal(parseFirmwareDebugFrame(frame),'err lfs 6327');
+  assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
+});
+
+test('EP device transport fails closed on debug/timeout and never exposes native FILE_MOVE as a write',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  assert.match(source,/const debugText=parseFirmwareDebugFrame\(data\)/);
+  assert.match(source,/enterUnsafeState\('EP firmware\/debug SysEx: '\+debugText\)/);
+  assert.match(source,/if\(command===TE_SYSEX_FILE\)enterUnsafeState\(error\.message\)/);
+  const writeSet=source.match(/const WRITE_SUBCOMMANDS=new Set\(\[[^\]]+\]\)/)?.[0]||'';
+  assert.doesNotMatch(writeSet,/TE_SYSEX_FILE_MOVED/);
+});
+
+
 test('EP transfer move filters metadata that is unsafe to write back',()=>{
   assert.deepEqual(
     prepareSampleTransferMetadata({
@@ -139,8 +160,16 @@ test('EP transfer move filters metadata that is unsafe to write back',()=>{
     }
   );
   assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'oneshot','time.mode':2,name:'short'}),
-    {name:'short'}
+    prepareSampleTransferMetadata({'time.mode':2,name:'short'}),
+    {'time.mode':'bar',name:'short'}
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255,name:'unsafe'}),
+    /Unsupported source sample play mode/
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'missing-release'}),
+    /no paired release/
   );
 });
 
@@ -158,6 +187,31 @@ test('EP post-upload metadata only writes mutable sample fields',()=>{
   );
 });
 
+test('EP upload create metadata is limited to the official stream fields',()=>{
+  assert.deepEqual(
+    prepareSampleCreateMetadata({
+      name:'Kick Long Filename.wav',channels:2,samplerate:46875,format:'s16',crc:123,
+      'sound.pitch':2,regions:[{start:0,end:100}]
+    }),
+    {name:'kick long filena',channels:2,samplerate:46875,format:'s16',crc:123}
+  );
+  assert.deepEqual(
+    prepareSampleCreateMetadata({name:'bad',channels:3,samplerate:1,format:'f32'}),
+    {name:'bad'}
+  );
+});
+
+test('EP writable sample metadata rejects unsupported enums and out-of-range values',()=>{
+  assert.deepEqual(
+    prepareSampleWritableMetadata({
+      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,
+      'time.mode':'free','sound.bars':3,'sound.pitch':99,'sound.pan':17,
+      'sound.bpm':0,'sound.amplitude':101,'sound.rootnote':128
+    }),
+    {name:'safe','envelope.release':255}
+  );
+});
+
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
@@ -166,8 +220,54 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(filesystemSource,/filename:wireName/);
   const uiSource=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(uiSource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
-  assert.match(uiSource,/created\.push\(target\.id\)/);
+  assert.match(uiSource,/created\.push\(createdId\)/);
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
+});
+
+test('EP uploads follow PUT then FILE_INFO verify then metadata SET then FILE_INFO verify',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function uploadSampleToSlot');
+  const block=source.slice(start,source.indexOf('export async function startPlayback',start));
+  const put=block.indexOf('await putFile(');
+  const verify1=block.indexOf('await getFileInfo(fileId)',put);
+  const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',verify1);
+  const verify2=block.indexOf('await getFileInfo(fileId)',metadata);
+  assert.ok(put>=0&&verify1>put&&metadata>verify1&&verify2>metadata);
+});
+
+test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(source,/FILE_PUT stream was interrupted before EOF/);
+  assert.match(source,/FILE_GET stream was interrupted before the declared byte count/);
+  assert.match(source,/Paged METADATA SET was interrupted before EOF/);
+  assert.match(source,/navigator\?\.locks/);
+});
+
+test('My EP verifies destination PCM byte-for-byte before entering MOVE delete phase',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('const transactionalTransfer=async');
+  const block=source.slice(start,source.indexOf('const deleteSamples=async',start));
+  const upload=block.indexOf('await uploadSampleToSlot(');
+  const verify=block.indexOf('await verifyPcmReadback(fileId,bytes',upload);
+  const deletePhase=block.indexOf('deletePhase=true',verify);
+  const deletion=block.indexOf('await deleteFile(source.nodeId||source.id)',deletePhase);
+  const metadataReadback=block.indexOf('assertMetadataReadback(target.id,expectedMetadata,destinationMetadata)',verify);
+  const sourceRecheck=block.indexOf('await assertSourceSnapshot(source,snapshot)',metadataReadback);
+  assert.ok(upload>=0&&verify>upload&&metadataReadback>verify&&sourceRecheck>metadataReadback&&deletePhase>sourceRecheck&&deletion>deletePhase);
+  assert.match(block,/await assertSlotsEmpty\(plan\.map\(pair=>pair\.targetId\)\)/);
+  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
+});
+
+test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/const assertSlotsDeleted=async ids=>/);
+  assert.match(source,/const files=await readAuthoritativeFiles\(\)/);
+  assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
+  assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
 test('EP sample slot move/copy uses verified GET PUT INFO flow and deletes sources only for move',async()=>{
@@ -261,6 +361,16 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
+test('My EP rechecks each upload target immediately before PUT and verifies PCM readback',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function uploadFilesToSlot');
+  const block=source.slice(start,source.indexOf('const readDevice=async',start));
+  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
+  assert.match(block,/await verifyPcmReadback\(fileId,prepared\.data/);
+  assert.match(block,/onCreated:id=>\{createdId=Number\(id\)\|\|target\.id;item\.createdId=createdId;\}/);
+});
+
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
@@ -346,13 +456,14 @@ test('My EP transfer target planner finds the nearest free single slot and skips
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato','loop'\]/);
+  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato'\]/);
   assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
   assert.match(source,/const BAR_VALUES=\[1,2,4,8,16,32,64,128,256\]/);
   assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
 });
 
 test('My EP header shows model once in the title and only the human product name below',async()=>{
@@ -418,7 +529,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
-  assert.match(source,/maxLength=audioMeta\.channels===1\?40:20/);
+  assert.match(source,/const maxLength=20/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
@@ -455,14 +566,15 @@ test('EP upload metadata follows the reference Teenage Engineering metadata rule
       loop_end:22050,
       midi_root_note:60,
       bpm:120,
-      json:JSON.stringify({'sound.playmode':'loop','sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
+      json:JSON.stringify({'sound.playmode':'legato','envelope.release':20,'sound.pitch':2,'sound.amplitude':100,'sound.rootnote':61})
     }
   },46875);
   assert.equal(meta['sound.loopstart'],4687);
   assert.equal(meta['sound.loopend'],23437);
   assert.equal(meta['sound.rootnote'],60);
   assert.equal(meta['sound.bpm'],120);
-  assert.equal(meta['sound.playmode'],'loop');
+  assert.equal(meta['sound.playmode'],'legato');
+  assert.equal(meta['envelope.release'],20);
   assert.equal(meta['sound.pitch'],2);
   assert.equal(meta['sound.amplitude'],100);
 });
