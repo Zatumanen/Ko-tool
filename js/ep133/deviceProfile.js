@@ -27,12 +27,27 @@ const GENERIC_FALLBACK_TABS=Object.freeze([
 ]);
 
 const PROFILES=Object.freeze({
-  TE032AS001:Object.freeze({id:'ep133',title:'MY EP-133',name:'K.O. II',playModes:COMMON_PLAY_MODES,fallbackTabs:EP133_FALLBACK_TABS}),
-  TE032AS005:Object.freeze({id:'ep1320',title:'MY EP-1320',name:'MEDIEVAL',playModes:COMMON_PLAY_MODES,fallbackTabs:EP1320_FALLBACK_TABS}),
-  TE032AS006:Object.freeze({id:'ep40',title:'MY EP-40',name:'RIDDIM',playModes:Object.freeze([...COMMON_PLAY_MODES,'loop']),fallbackTabs:GENERIC_FALLBACK_TABS})
+  TE032AS001:Object.freeze({
+    id:'ep133',title:'MY EP-133',name:'K.O. II',
+    playModes:COMMON_PLAY_MODES,fallbackTabs:EP133_FALLBACK_TABS,
+    advancedSampleMetadataWrites:true,sampleTransfers:true
+  }),
+  TE032AS005:Object.freeze({
+    id:'ep1320',title:'MY EP-1320',name:'MEDIEVAL',
+    playModes:COMMON_PLAY_MODES,fallbackTabs:EP1320_FALLBACK_TABS,
+    advancedSampleMetadataWrites:false,sampleTransfers:false
+  }),
+  TE032AS006:Object.freeze({
+    id:'ep40',title:'MY EP-40',name:'RIDDIM',
+    playModes:Object.freeze([...COMMON_PLAY_MODES,'loop']),fallbackTabs:GENERIC_FALLBACK_TABS,
+    advancedSampleMetadataWrites:true,sampleTransfers:true
+  })
 });
 
-const GENERIC_PROFILE=Object.freeze({id:'ep',title:'MY EP',name:'',playModes:COMMON_PLAY_MODES,fallbackTabs:GENERIC_FALLBACK_TABS});
+const GENERIC_PROFILE=Object.freeze({
+  id:'ep',title:'MY EP',name:'',playModes:COMMON_PLAY_MODES,fallbackTabs:GENERIC_FALLBACK_TABS,
+  advancedSampleMetadataWrites:false,sampleTransfers:false
+});
 const cloneTabs=tabs=>tabs.map(tab=>({name:tab.name,range:[...tab.range],color:tab.color}));
 
 export function getEpDeviceProfile(sku=''){
@@ -44,6 +59,8 @@ export function getEpDeviceProfile(sku=''){
     title:profile.title,
     name:profile.name,
     playModes:[...profile.playModes],
-    fallbackTabs:cloneTabs(profile.fallbackTabs)
+    fallbackTabs:cloneTabs(profile.fallbackTabs),
+    advancedSampleMetadataWrites:profile.advancedSampleMetadataWrites===true,
+    sampleTransfers:profile.sampleTransfers===true
   };
 }

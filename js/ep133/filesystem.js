@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260926-1';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260926-2';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -99,16 +99,23 @@ const allowedPlayModeSet=allowed=>{
   return new Set(values.length?values:SAMPLE_PLAY_MODES);
 };
 const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
-const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
+const DEFAULT_CONFIRMED_BAR_VALUES=Object.freeze([1,2]);
+const allowedBarValueSet=allowed=>{
+  const values=Array.isArray(allowed)?allowed.map(Number).filter(value=>Number.isInteger(value)&&value>0):[];
+  return new Set(values.length?values:DEFAULT_CONFIRMED_BAR_VALUES);
+};
 const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
 const integerRange=(value,min,max)=>Number.isInteger(Number(value))&&Number(value)>=min&&Number(value)<=max;
 
 export function prepareSampleWritableMetadata(metadata={},options={}){
   const result={};
   const allowedPlayModes=allowedPlayModeSet(options?.allowedPlayModes);
+  const allowedBarValues=allowedBarValueSet(options?.allowedBarValues);
+  const allowAdvancedMetadata=options?.allowAdvancedMetadata!==false;
   for(const[key,value]of Object.entries(metadata||{})){
     if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key))continue;
     if(key==='name'){result.name=normalizeFileName(value);continue;}
+    if(!allowAdvancedMetadata)continue;
     if(key==='sample.start'||key==='sample.end'){
       if(integerRange(value,0,0x7fffffff))result[key]=Number(value);
       continue;
@@ -143,7 +150,7 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
     }
     if(key==='sound.bars'){
       const bars=Number(value);
-      if(SAMPLE_BAR_VALUES.has(bars))result[key]=bars;
+      if(allowedBarValues.has(bars))result[key]=bars;
       continue;
     }
     if(key==='envelope.attack'||key==='envelope.release'){
@@ -161,6 +168,7 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
 export function prepareSampleTransferMetadata(metadata={},options={}){
   const result={...(metadata||{})};
   const allowedPlayModes=allowedPlayModeSet(options?.allowedPlayModes);
+  const allowedBarValues=allowedBarValueSet(options?.allowedBarValues);
   delete result.crc;
 
   if('sound.playmode' in result){
@@ -176,6 +184,11 @@ export function prepareSampleTransferMetadata(metadata={},options={}){
     const normalized=typeof raw==='number'?['off','bpm','bar'][raw]:String(raw);
     if(!SAMPLE_TIME_MODES.has(normalized))throw new Error('Unsupported source sample time mode; transfer aborted before writing.');
     result['time.mode']=normalized;
+  }
+  if('sound.bars' in result){
+    const bars=Number(result['sound.bars']);
+    if(!allowedBarValues.has(bars))throw new Error('Unverified source sample bar value; transfer aborted before writing.');
+    result['sound.bars']=bars;
   }
   return result;
 }
@@ -268,7 +281,11 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   });
 }
 
-export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},allowedPlayModes=null,onProgress,onCreated}){
+export async function uploadSampleToSlot({
+  file,data,filename,parentId,destinationId,metadata={},
+  allowedPlayModes=null,allowAdvancedMetadata=true,allowedBarValues=null,
+  onProgress,onCreated
+}){
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
@@ -285,7 +302,9 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   if(Number(verifyCreated.nodeId)!==Number(destinationId)||Number(verifyCreated.parentId)!==Number(parentId)||Number(verifyCreated.fileSize)!==bytes.byteLength)
     throw new Error('EP-series upload verification failed before metadata write.');
 
-  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{allowedPlayModes});
+  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
+    allowedPlayModes,allowAdvancedMetadata,allowedBarValues
+  });
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
 
   const verifyMetadata=await getFileInfo(fileId);

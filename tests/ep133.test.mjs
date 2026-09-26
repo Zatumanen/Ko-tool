@@ -34,6 +34,10 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
   assert.deepEqual(ep133.playModes,['oneshot','key','legato']);
   assert.deepEqual(ep1320.playModes,['oneshot','key','legato']);
   assert.deepEqual(ep40.playModes,['oneshot','key','legato','loop']);
+  assert.equal(ep133.advancedSampleMetadataWrites,true);
+  assert.equal(ep40.advancedSampleMetadataWrites,true);
+  assert.equal(ep1320.advancedSampleMetadataWrites,false);
+  assert.equal(ep1320.sampleTransfers,false);
   assert.deepEqual(ep1320.fallbackTabs.map(tab=>tab.range),[[1,69],[70,114],[115,127],[128,155],[156,220],[221,999]]);
   assert.deepEqual(ep40.fallbackTabs.map(tab=>tab.range),[[1,999]]);
 });
@@ -234,6 +238,32 @@ test('EP sample playmode writes are gated by the connected device profile',()=>{
   );
 });
 
+test('Medieval profile fails closed for unverified advanced sample metadata writes',()=>{
+  const source={
+    name:'chant','sound.playmode':'oneshot','envelope.release':255,
+    'sound.pitch':2,'time.mode':'bpm','sound.bpm':120,'sound.bars':2
+  };
+  assert.deepEqual(
+    prepareSampleWritableMetadata(source,{
+      allowedPlayModes:['oneshot','key','legato'],
+      allowAdvancedMetadata:false,
+      allowedBarValues:[1,2]
+    }),
+    {name:'chant'}
+  );
+});
+
+test('My EP only generates source-confirmed BAR values and never writes reverse as sample time.mode',()=>{
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':1},{allowedBarValues:[1,2]}),{'sound.bars':1});
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':2},{allowedBarValues:[1,2]}),{'sound.bars':2});
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),{});
+  assert.deepEqual(prepareSampleWritableMetadata({'time.mode':'reverse'}),{});
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),
+    /Unverified source sample bar value/
+  );
+});
+
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
@@ -246,7 +276,7 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads follow PUT then FILE_INFO verify then metadata SET then FILE_INFO verify',async()=>{
+test('EP uploads follow PUT EOF then FILE_INFO STAT then metadata SET then FILE_INFO STAT',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadSampleToSlot');
@@ -480,13 +510,23 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const modes=activeDeviceProfile\.playModes/);
   assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
-  assert.match(source,/const BAR_VALUES=\[1,2,4,8,16,32,64,128,256\]/);
+  assert.match(source,/const BAR_VALUES=\[1,2\]/);
   assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
 });
+test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/!activeDeviceProfile\.advancedSampleMetadataWrites/);
+  assert.match(source,/SAMPLE PROPERTIES ARE NOT VERIFIED FOR/);
+  assert.match(source,/!activeDeviceProfile\.sampleTransfers/);
+  assert.match(source,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
+  assert.match(source,/allowAdvancedMetadata:activeDeviceProfile\.advancedSampleMetadataWrites/);
+});
+
 
 test('My EP header shows model once in the title and only the human product name below',async()=>{
   const fs=await import('node:fs/promises');
