@@ -56,7 +56,7 @@ export function findNextFreeSampleSlot(slots,start=1){
 }
 
 export function canTransferMoveSample(slot){
-  return !!slot?.file&&slot.node?.isReadable===true&&slot.node?.isDeletable===true;
+  return !!slot?.file&&(slot.node?.isMovable===true||(slot.node?.isReadable===true&&slot.node?.isDeletable===true));
 }
 
 export function planSampleTransferTargets(slots,sourceIds,draggedId,dropId){

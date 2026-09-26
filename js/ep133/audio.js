@@ -57,11 +57,11 @@ function parseKo2Metadata(bytes){
 const TEENAGE_META_VALIDATORS={
   "sound.loopstart":value=>value!=null&&value>=0,
   "sound.loopend":value=>value!=null&&value>=0,
-  "sound.rootnote":value=>value!=null&&value>=0&&value<=127,
-  "sound.bpm":value=>value!=null&&value>=1&&value<=200,
+  "sound.rootnote":value=>value!=null&&value>0&&value<=127,
+  "sound.bpm":value=>value!=null&&value>=60&&value<=180,
   "sound.pitch":value=>value!=null&&value>=-12&&value<=12,
   "sound.pan":value=>value!=null&&value>=-16&&value<=16,
-  "sound.amplitude":value=>value!=null&&value>=0&&value<=100,
+  "sound.amplitude":value=>value!=null&&value>=0&&value<=200,
   "envelope.attack":value=>value!=null&&value>=0&&value<=255,
   "envelope.release":value=>value!=null&&value>=0&&value<=255,
   "sound.playmode":value=>['oneshot','key','legato','loop'].includes(String(value)),
@@ -129,6 +129,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   let audioMeta;
   try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{throw new Error('Could not read audio metadata.');}
   if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
+  if(Number.isFinite(Number(audioMeta.length))&&Number(audioMeta.length)>20)throw new Error('Maximum EP-series sample length is 20 seconds.');
   if(audioMeta.rate&&!audioMeta.sample_rate)audioMeta={...audioMeta,sample_rate:audioMeta.rate,container:'WAV',format:audioMeta.format===1?'pcm':audioMeta.format,bits:audioMeta.bits,extra:{data_start:audioMeta.dataOffset,data_end:audioMeta.dataOffset+audioMeta.dataSize}};
   if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-series samples must be mono or stereo.');
   if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
