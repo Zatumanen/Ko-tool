@@ -3,7 +3,7 @@ import{
   listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260925-2';
+}from './index.js?v=20260926-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,14 +12,13 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260925-2';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260926-1';
 import{
-  createSampleSlots,createSampleMemory,DEFAULT_SAMPLE_TABS,
+  createSampleSlots,createSampleMemory,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260925-2';
+}from './sampleMemory.js?v=20260926-1';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260926-1';
 import{outputFileName}from '../output-name.js';
-
-const PLAY_MODES=['oneshot','key','legato','loop'];
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2,4,8,16,32,64,128,256];
 const PROPERTY_DEBOUNCE_MS=120;
@@ -77,6 +76,7 @@ export function initEp133Browser({showError}={}){
   let mutating=false;
   let deviceUnsafe=false;
   let everConnected=false;
+  let activeDeviceProfile=getEpDeviceProfile();
   let lastDeviceInfo={title:'MY EP',name:''};
   let playingSlotId=null;
   let previewTimer=null;
@@ -94,14 +94,14 @@ export function initEp133Browser({showError}={}){
   };
 
   const modelInfo=state=>{
-    const sku=String(state?.device?.sku||'').toUpperCase();
-    if(sku==='TE032AS001')return{title:'MY EP-133',name:'K.O. II'};
-    if(sku==='TE032AS005')return{title:'MY EP-1320',name:'MEDIEVAL'};
-    if(sku==='TE032AS006')return{title:'MY EP-40',name:'RIDDIM'};
-    return{title:'MY EP',name:''};
+    const profile=getEpDeviceProfile(state?.device?.sku);
+    return{title:profile.title,name:profile.name};
   };
   const setTitleDevice=state=>{
-    if(state?.connected)lastDeviceInfo=modelInfo(state);
+    if(state?.connected){
+      activeDeviceProfile=getEpDeviceProfile(state?.device?.sku);
+      lastDeviceInfo={title:activeDeviceProfile.title,name:activeDeviceProfile.name};
+    }
     const info=state?.connected?lastDeviceInfo:(everConnected?lastDeviceInfo:modelInfo(state));
     if(title)title.textContent=info.title;
     if(deviceName)deviceName.textContent=info.name;
@@ -235,7 +235,7 @@ export function initEp133Browser({showError}={}){
   };
   const assertMetadataReadback=(slotId,expected,actual)=>{
     const expectedCreate=prepareSampleCreateMetadata(expected);
-    const expectedWritable=prepareSampleWritableMetadata(expected);
+    const expectedWritable=prepareSampleWritableMetadata(expected,{allowedPlayModes:activeDeviceProfile.playModes});
     const fields={...expectedCreate,...expectedWritable};
     for(const[key,value]of Object.entries(fields)){
       if(key==='crc')continue;
@@ -328,9 +328,10 @@ export function initEp133Browser({showError}={}){
     currentPropertySlotId=null;
   };
   const normalizePlayMode=value=>{
-    if(typeof value==='number'&&PLAY_MODES[value])return PLAY_MODES[value];
+    const modes=activeDeviceProfile.playModes;
+    if(typeof value==='number'&&modes[value])return modes[value];
     const normalized=String(value||'oneshot').toLowerCase();
-    return PLAY_MODES.includes(normalized)?normalized:'oneshot';
+    return modes.includes(normalized)?normalized:'oneshot';
   };
   const normalizeTimeMode=value=>{
     if(typeof value==='number'&&TIME_MODES[value])return TIME_MODES[value];
@@ -493,9 +494,10 @@ export function initEp133Browser({showError}={}){
     if(!slot?.file||slot.node?.isWritable!==true)return;
     const meta=slot.meta||{};
     if(key==='sound.playmode'){
+      const modes=activeDeviceProfile.playModes;
       const current=normalizePlayMode(meta[key]);
-      const index=PLAY_MODES.indexOf(current);
-      const next=PLAY_MODES[(index+direction+PLAY_MODES.length)%PLAY_MODES.length];
+      const index=modes.indexOf(current);
+      const next=modes[(index+direction+modes.length)%modes.length];
       schedulePropertyWrite(slot,key,next);
       return;
     }
@@ -562,6 +564,21 @@ export function initEp133Browser({showError}={}){
   });
 
   let memory;
+  const refreshSoundsRuntimeMetadata=async()=>{
+    if(!soundsParentId)return soundsMetadata;
+    const latest=await getFileMetadata(soundsParentId);
+    if(latest&&typeof latest==='object')soundsMetadata={...soundsMetadata,...latest};
+    if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
+    if(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length)memory?.setTabs(soundsMetadata.tabs);
+    renderDeviceStats(soundsMetadata,memory?.countOccupied?.()||0);
+    return soundsMetadata;
+  };
+  const assertSampleFitsAvailableMemory=async byteLength=>{
+    const latest=await refreshSoundsRuntimeMetadata();
+    const freeSpace=Number(latest?.free_space_in_bytes);
+    if(Number.isFinite(freeSpace)&&freeSpace>=0&&Number(byteLength)>freeSpace)
+      throw new Error('Not enough free sample memory on the connected EP.');
+  };
   const stopCurrentPreview=async()=>{
     clearTimeout(previewTimer);
     previewTimer=null;
@@ -639,10 +656,11 @@ export function initEp133Browser({showError}={}){
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
         const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
         sourceSnapshots.set(source.id,{bytes,metadata:sourceMetadata});
-        const metadata=prepareSampleTransferMetadata(sourceMetadata);
+        const metadata=prepareSampleTransferMetadata(sourceMetadata,{allowedPlayModes:activeDeviceProfile.playModes});
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
         const expectedMetadata={...metadata,name:displayName};
+        await assertSampleFitsAvailableMemory(bytes.byteLength);
         await assertSlotsEmpty([target.id]);
         const fileId=await uploadSampleToSlot({
           data:bytes,
@@ -650,6 +668,7 @@ export function initEp133Browser({showError}={}){
           parentId:soundsParentId,
           destinationId:target.id,
           metadata:expectedMetadata,
+          allowedPlayModes:activeDeviceProfile.playModes,
           onCreated:id=>{const createdId=Number(id)||target.id;if(!created.includes(createdId))created.push(createdId);},
           onProgress:(done,total)=>{
             const local=total?done/total:0;
@@ -837,6 +856,7 @@ export function initEp133Browser({showError}={}){
             format:prepared.format,
             ...(prepared.metadata||{})
           };
+          await assertSampleFitsAvailableMemory(prepared.data.byteLength);
           await assertSlotsEmpty([target.id]);
           memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
           let createdId=null;
@@ -847,6 +867,7 @@ export function initEp133Browser({showError}={}){
             parentId:soundsParentId,
             destinationId:target.id,
             metadata,
+            allowedPlayModes:activeDeviceProfile.playModes,
             onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
             onProgress:(done,total)=>{
               const local=total?done/total:0;
@@ -909,7 +930,7 @@ export function initEp133Browser({showError}={}){
     closeProperties();
     setGlobalProgress('SYNC',0);
     try{
-      memory.setTabs(DEFAULT_SAMPLE_TABS);
+      memory.setTabs(activeDeviceProfile.fallbackTabs);
       memory.setSlots(createSampleSlots([]));
       renderDeviceStats({},0);
       soundsParentId=0;
@@ -934,7 +955,7 @@ export function initEp133Browser({showError}={}){
       if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
       soundsMetadata=await getFileMetadata(soundsParentId);
       soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];
-      memory.setTabs(soundsMetadata?.tabs);
+      memory.setTabs(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs);
       const occupied=createSampleSlots(deviceFiles).filter(slot=>slot.file);
       renderDeviceStats(soundsMetadata,occupied.length);
       let loaded=0;
@@ -987,6 +1008,7 @@ export function initEp133Browser({showError}={}){
         if(Number(payload.nodeId)===Number(soundsParentId)){
           soundsMetadata={...soundsMetadata,...(payload.metadata||{})};
           if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
+          if(Array.isArray(payload.metadata?.tabs)&&payload.metadata.tabs.length)memory.setTabs(payload.metadata.tabs);
           renderDeviceStats(soundsMetadata,memory.countOccupied());
         }else if(Number(payload.nodeId)>=1&&Number(payload.nodeId)<=999){
           memory.mergeMetadata(Number(payload.nodeId),payload.metadata||{});

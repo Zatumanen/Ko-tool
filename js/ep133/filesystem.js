@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260925-2';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260926-1';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -94,13 +94,18 @@ export function prepareSampleCreateMetadata(metadata={}){
 }
 
 const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato','loop']);
+const allowedPlayModeSet=allowed=>{
+  const values=Array.isArray(allowed)?allowed.map(String).filter(value=>SAMPLE_PLAY_MODES.has(value)):[];
+  return new Set(values.length?values:SAMPLE_PLAY_MODES);
+};
 const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
 const SAMPLE_BAR_VALUES=new Set([1,2,4,8,16,32,64,128,256]);
 const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
 const integerRange=(value,min,max)=>Number.isInteger(Number(value))&&Number(value)>=min&&Number(value)<=max;
 
-export function prepareSampleWritableMetadata(metadata={}){
+export function prepareSampleWritableMetadata(metadata={},options={}){
   const result={};
+  const allowedPlayModes=allowedPlayModeSet(options?.allowedPlayModes);
   for(const[key,value]of Object.entries(metadata||{})){
     if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key))continue;
     if(key==='name'){result.name=normalizeFileName(value);continue;}
@@ -117,7 +122,7 @@ export function prepareSampleWritableMetadata(metadata={}){
       continue;
     }
     if(key==='sound.playmode'){
-      if(typeof value==='string'&&SAMPLE_PLAY_MODES.has(value))result[key]=value;
+      if(typeof value==='string'&&allowedPlayModes.has(value))result[key]=value;
       continue;
     }
     if(key==='sound.rootnote'){
@@ -153,14 +158,15 @@ export function prepareSampleWritableMetadata(metadata={}){
   return result;
 }
 
-export function prepareSampleTransferMetadata(metadata={}){
+export function prepareSampleTransferMetadata(metadata={},options={}){
   const result={...(metadata||{})};
+  const allowedPlayModes=allowedPlayModeSet(options?.allowedPlayModes);
   delete result.crc;
 
   if('sound.playmode' in result){
     const raw=result['sound.playmode'];
     const normalized=typeof raw==='number'?['oneshot','key','legato','loop'][raw]:String(raw);
-    if(!SAMPLE_PLAY_MODES.has(normalized))throw new Error('Unsupported source sample play mode; transfer aborted before writing.');
+    if(!allowedPlayModes.has(normalized))throw new Error('Unsupported source sample play mode for the connected EP; transfer aborted before writing.');
     if(!('envelope.release' in result))throw new Error('Source sample play mode has no paired release; transfer aborted before writing.');
     result['sound.playmode']=normalized;
   }
@@ -262,7 +268,7 @@ export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
   });
 }
 
-export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},onProgress,onCreated}){
+export async function uploadSampleToSlot({file,data,filename,parentId,destinationId,metadata={},allowedPlayModes=null,onProgress,onCreated}){
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
@@ -279,7 +285,7 @@ export async function uploadSampleToSlot({file,data,filename,parentId,destinatio
   if(Number(verifyCreated.nodeId)!==Number(destinationId)||Number(verifyCreated.parentId)!==Number(parentId)||Number(verifyCreated.fileSize)!==bytes.byteLength)
     throw new Error('EP-series upload verification failed before metadata write.');
 
-  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata);
+  const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{allowedPlayModes});
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
 
   const verifyMetadata=await getFileInfo(fileId);

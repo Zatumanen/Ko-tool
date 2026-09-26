@@ -27,7 +27,19 @@ test('EP-series identity accepts supported TE032 SKUs',()=>{
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
+test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()=>{
+  const ep133=getEpDeviceProfile('TE032AS001');
+  const ep1320=getEpDeviceProfile('TE032AS005');
+  const ep40=getEpDeviceProfile('TE032AS006');
+  assert.deepEqual(ep133.playModes,['oneshot','key','legato']);
+  assert.deepEqual(ep1320.playModes,['oneshot','key','legato']);
+  assert.deepEqual(ep40.playModes,['oneshot','key','legato','loop']);
+  assert.deepEqual(ep1320.fallbackTabs.map(tab=>tab.range),[[1,69],[70,114],[115,127],[128,155],[156,220],[221,999]]);
+  assert.deepEqual(ep40.fallbackTabs.map(tab=>tab.range),[[1,999]]);
+});
+
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample,planSampleTransferTargets}from '../js/ep133/sampleMemory.js';
+import{getEpDeviceProfile}from '../js/ep133/deviceProfile.js';
 import{requestRead,parseFileEvent,formatDeviceRejection,parseFirmwareDebugFrame}from '../js/ep133/device.js';
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
@@ -47,7 +59,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -64,6 +76,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
+  assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
@@ -73,7 +86,7 @@ test('My EP loads sample-bank tabs from /sounds metadata like the reference tool
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/soundsMetadata=await getFileMetadata\(soundsParentId\)/);
-  assert.match(source,/memory\.setTabs\(soundsMetadata\?\.tabs\)/);
+  assert.match(source,/memory\.setTabs\(Array\.isArray\(soundsMetadata\?\.tabs\).*activeDeviceProfile\.fallbackTabs\)/);
 });
 
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
@@ -209,6 +222,15 @@ test('EP writable sample metadata rejects unsupported enums and out-of-range val
       'sound.bpm':0,'sound.amplitude':101,'sound.rootnote':128
     }),
     {name:'safe','sound.playmode':'loop','envelope.release':255}
+  );
+});
+
+test('EP sample playmode writes are gated by the connected device profile',()=>{
+  assert.equal(prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],undefined);
+  assert.equal(prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato','loop']})['sound.playmode'],'loop');
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']}),
+    /Unsupported source sample play mode for the connected EP/
   );
 });
 
@@ -456,7 +478,7 @@ test('My EP transfer target planner finds the nearest free single slot and skips
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const PLAY_MODES=\['oneshot','key','legato','loop'\]/);
+  assert.match(source,/const modes=activeDeviceProfile\.playModes/);
   assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
   assert.match(source,/const BAR_VALUES=\[1,2,4,8,16,32,64,128,256\]/);
   assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
@@ -468,13 +490,10 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
 
 test('My EP header shows model once in the title and only the human product name below',async()=>{
   const fs=await import('node:fs/promises');
-  const [html,ui]=await Promise.all([
-    fs.readFile(new URL('../index.html',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
-  ]);
-  assert.match(ui,/title:'MY EP-133',name:'K\.O\. II'/);
-  assert.match(ui,/title:'MY EP-1320',name:'MEDIEVAL'/);
-  assert.match(ui,/title:'MY EP-40',name:'RIDDIM'/);
+  const html=await fs.readFile(new URL('../index.html',import.meta.url),'utf8');
+  assert.deepEqual([getEpDeviceProfile('TE032AS001').title,getEpDeviceProfile('TE032AS001').name],['MY EP-133','K.O. II']);
+  assert.deepEqual([getEpDeviceProfile('TE032AS005').title,getEpDeviceProfile('TE032AS005').name],['MY EP-1320','MEDIEVAL']);
+  assert.deepEqual([getEpDeviceProfile('TE032AS006').title,getEpDeviceProfile('TE032AS006').name],['MY EP-40','RIDDIM']);
   assert.doesNotMatch(html,/id="ep133-device">MY EP-133/);
 });
 
@@ -529,7 +548,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
-  assert.match(source,/const maxLength=20/);
+  assert.doesNotMatch(source,/maxLength=20|Maximum EP-series sample length is 20 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
