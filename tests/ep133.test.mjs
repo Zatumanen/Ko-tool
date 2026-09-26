@@ -45,7 +45,7 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample,planSampleTransferTargets}from '../js/ep133/sampleMemory.js';
 import{getEpDeviceProfile}from '../js/ep133/deviceProfile.js';
 import{requestRead,parseFileEvent,formatDeviceRejection,parseFirmwareDebugFrame}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -152,14 +152,14 @@ test('EP firmware debug frames are detected before normal protocol parsing',()=>
   assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
 });
 
-test('EP device transport fails closed on debug/timeout and never exposes native FILE_MOVE as a write',async()=>{
+test('EP device transport fails closed on debug/timeout and exposes verified FILE_MOVE as a write',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   assert.match(source,/const debugText=parseFirmwareDebugFrame\(data\)/);
   assert.match(source,/enterUnsafeState\('EP firmware\/debug SysEx: '\+debugText\)/);
   assert.match(source,/if\(command===TE_SYSEX_FILE\)enterUnsafeState\(error\.message\)/);
   const writeSet=source.match(/const WRITE_SUBCOMMANDS=new Set\(\[[^\]]+\]\)/)?.[0]||'';
-  assert.doesNotMatch(writeSet,/TE_SYSEX_FILE_MOVED/);
+  assert.match(writeSet,/TE_SYSEX_FILE_MOVED/);
 });
 
 
@@ -218,12 +218,19 @@ test('EP upload create metadata is limited to the official stream fields',()=>{
   );
 });
 
-test('EP writable sample metadata rejects unsupported enums and out-of-range values',()=>{
+test('EP writable sample metadata accepts TE reference edges and rejects values outside them',()=>{
+  assert.deepEqual(
+    prepareSampleWritableMetadata({
+      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,
+      'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1
+    }),
+    {name:'safe','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1}
+  );
   assert.deepEqual(
     prepareSampleWritableMetadata({
       name:'Safe.wav','sound.playmode':'loop','envelope.release':255,
       'time.mode':'free','sound.bars':3,'sound.pitch':99,'sound.pan':17,
-      'sound.bpm':0,'sound.amplitude':101,'sound.rootnote':128
+      'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
     }),
     {name:'safe','sound.playmode':'loop','envelope.release':255}
   );
@@ -322,17 +329,18 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
-test('EP sample slot move/copy uses verified GET PUT INFO flow and deletes sources only for move',async()=>{
+test('EP sample move prefers native FILE_MOVE while copy and fallback move retain verified GET PUT flow',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
-  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:true}}),false);
+  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:true}}),true);
+  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:false}}),false);
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const transactionalTransfer=async/);
+  assert.match(source,/const nativeMove=!copy&&sources\.every\(item=>item\.node\?\.isMovable===true\)/);
+  assert.match(source,/await moveFile\(sourceNodeId,soundsParentId,target\.id\)/);
+  assert.match(source,/await moveFile\(pair\.targetId,soundsParentId,pair\.sourceId\)/);
   assert.match(source,/await getFile\(source\.nodeId\|\|source\.id/);
   assert.match(source,/await uploadSampleToSlot\(/);
-  assert.match(source,/const info=await getFileInfo\(fileId\)/);
   assert.match(source,/if\(!copy\)[\s\S]*await deleteFile\(source\.nodeId\|\|source\.id\)/);
-  assert.doesNotMatch(source,/moveFile\(/);
 });
 
 test('My EP applies external FILE_MOVED events incrementally',async()=>{
@@ -353,6 +361,12 @@ test('EP FILE_INFO payload uses the imported STAT opcode',()=>{
   assert.deepEqual([...buildFileInfoPayload(817)],[11,3,49]);
 });
 
+test('EP FILE_MOVE payload and response use the official three-u16 big-endian layout',()=>{
+  assert.deepEqual([...buildFileMovePayload(7,1000,42)],[12,0,7,3,232,0,42]);
+  assert.deepEqual(parseFileMoveResponse(Uint8Array.from([0,7,3,232,0,42])),{oldFileId:7,parentId:1000,newFileId:42});
+  assert.throws(()=>buildFileMovePayload(7,1000,0x10000),/destination id must be a 16-bit integer/);
+});
+
 test('EP FILE_PUT init targets the requested destination slot',()=>{
   const payload=buildFilePutInitPayload(127,42,1234,'Kick 808.wav',{channels:2,samplerate:46875,format:'s16'});
   const view=new DataView(payload.buffer);
@@ -367,6 +381,16 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
 });
 
 test('EP project archive PUT uses directory flags',()=>{const payload=buildFilePutInitPayload(1234,42,99,'01',null,{isDirectory:true,capabilities:[4]});assert.equal(payload[2],6);assert.equal(new DataView(payload.buffer).getUint16(3),1234);assert.equal(new DataView(payload.buffer).getUint16(5),42);});
+
+test('EP project archive upload uses the unlocked PUT primitive inside the outer FILE operation lock',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function uploadProjectArchive');
+  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const block=source.slice(start,end);
+  assert.match(block,/await putFileUnlocked\(/);
+  assert.doesNotMatch(block,/await putFile\(/);
+});
 
 test('EP metadata JSON is encoded as UTF-8 and null-terminated in FILE_PUT init and metadata SET payloads',()=>{
   const metadata={name:'привет',description:'café'};
@@ -588,7 +612,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
-  assert.doesNotMatch(source,/maxLength=20|Maximum EP-series sample length is 20 seconds/);
+  assert.match(source,/Maximum EP-series sample length is 20 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
@@ -638,18 +662,25 @@ test('EP upload metadata follows the reference Teenage Engineering metadata rule
   assert.equal(meta['sound.amplitude'],100);
 });
 
-test('EP sample metadata accepts current device edge ranges and rejects excess amplitude',()=>{
+test('EP sample metadata follows the reference Teenage Engineering value bounds',()=>{
   const meta=prepareTeenageMetadata({
     sample_rate:46875,
     extra:{
       midi_root_note:0,
       bpm:200,
-      json:JSON.stringify({'sound.amplitude':101,'sound.rootnote':12,'sound.bpm':90})
+      json:JSON.stringify({'sound.amplitude':200,'sound.rootnote':1,'sound.bpm':180})
     }
   },46875);
-  assert.equal(meta['sound.rootnote'],0);
-  assert.equal(meta['sound.bpm'],200);
-  assert.equal('sound.amplitude' in meta,false);
+  assert.equal(meta['sound.rootnote'],1);
+  assert.equal(meta['sound.bpm'],180);
+  assert.equal(meta['sound.amplitude'],200);
+  const rejected=prepareTeenageMetadata({
+    sample_rate:46875,
+    extra:{json:JSON.stringify({'sound.amplitude':201,'sound.rootnote':0,'sound.bpm':181})}
+  },46875);
+  assert.equal('sound.rootnote' in rejected,false);
+  assert.equal('sound.bpm' in rejected,false);
+  assert.equal('sound.amplitude' in rejected,false);
 });
 
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
