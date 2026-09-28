@@ -274,7 +274,7 @@ export function createProjectSequencer(model){
       const entry={group:g,parameter:p};
       if(baseValue!=null){
         const base=Number(baseValue);
-        if(base!==-1&&(base<0||base>1)||!Number.isFinite(base))throw new Error('group fader baseValue must be -1 or 0..1.');
+        if(!Number.isFinite(base)||(base!==-1&&(base<0||base>1)))throw new Error('group fader baseValue must be -1 or 0..1.');
         entry.baseValue=base;
       }
       groupFaders.set(g+':'+p,entry);
@@ -304,33 +304,37 @@ export function createProjectSequencer(model){
     setFxSettings(spec){
       if(!spec||typeof spec!=='object'||Array.isArray(spec))throw new Error('FX settings edit must be an object.');
       if(spec.sidechain?.shape!=null)throw new Error('Sidechain shape authoring is not hardware-verified.');
-      fxSettings=structuredClone?structuredClone(spec):JSON.parse(JSON.stringify(spec));
+      fxSettings=typeof structuredClone==='function'?structuredClone(spec):JSON.parse(JSON.stringify(spec));
     },
 
     buildArchive(){
-      const replacements={};
-      for(const pattern of patterns.values())if(pattern.dirty)replacements[pattern.path]=serializePattern(pattern,profile);
-      let archive=Object.keys(replacements).length
-        ?patchProjectArchiveMembers(model.sourceArchive,replacements,{profile,allowAdditions:true})
-        :model.sourceArchive.slice();
-
-      const doc={};
-      if(padEdits.size)doc.pads=[...padEdits.values()].map(item=>({...item}));
-      const sceneSpec={};
-      if(sceneEdits.size)sceneSpec.entries=[...sceneEdits.values()].sort((a,b)=>a.index-b.index);
-      if(currentScene!=null)sceneSpec.currentScene=currentScene;
-      if(song!=null)sceneSpec.song=[...song];
-      if(Object.keys(sceneSpec).length)doc.scenes=sceneSpec;
-      if(Object.prototype.hasOwnProperty.call(settingsDoc,'bpm')||groupFaders.size){
-        doc.settings={...settingsDoc};
-        if(groupFaders.size)doc.settings.groupFaders=[...groupFaders.values()];
-      }
-      if(fxSettings!=null)doc.fxSettings=fxSettings;
-      if(Object.keys(doc).length)archive=buildProjectFromNative(archive,doc,{profile});
-      validateProjectArchive(archive,{profile});
-      return archive;
+      return buildArchiveInternal();
     },
 
-    readBuiltModel(){return readProjectModel(this.buildArchive(),{profile});}
+    readBuiltModel(){return readProjectModel(buildArchiveInternal(),{profile});}
   };
+
+  function buildArchiveInternal(){
+    const replacements={};
+    for(const pattern of patterns.values())if(pattern.dirty)replacements[pattern.path]=serializePattern(pattern,profile);
+    let archive=Object.keys(replacements).length
+      ?patchProjectArchiveMembers(model.sourceArchive,replacements,{profile,allowAdditions:true})
+      :model.sourceArchive.slice();
+
+    const doc={};
+    if(padEdits.size)doc.pads=[...padEdits.values()].map(item=>({...item}));
+    const sceneSpec={};
+    if(sceneEdits.size)sceneSpec.entries=[...sceneEdits.values()].sort((a,b)=>a.index-b.index);
+    if(currentScene!=null)sceneSpec.currentScene=currentScene;
+    if(song!=null)sceneSpec.song=[...song];
+    if(Object.keys(sceneSpec).length)doc.scenes=sceneSpec;
+    if(Object.prototype.hasOwnProperty.call(settingsDoc,'bpm')||groupFaders.size){
+      doc.settings={...settingsDoc};
+      if(groupFaders.size)doc.settings.groupFaders=[...groupFaders.values()];
+    }
+    if(fxSettings!=null)doc.fxSettings=fxSettings;
+    if(Object.keys(doc).length)archive=buildProjectFromNative(archive,doc,{profile});
+    validateProjectArchive(archive,{profile});
+    return archive;
+  }
 }
