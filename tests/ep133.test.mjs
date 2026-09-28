@@ -5,7 +5,7 @@ import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTe
 
 import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload}from '../js/ep133/filesystem.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
-import{getEpProjectProfile,assertProjectAuthoringSupported}from '../js/ep133/projectProfile.js';
+import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -664,8 +664,12 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(ep40.padRecordSize,29);
   assert.equal(ep40.supportsLoop,true);
   assert.equal(ep40.supportsSupertone,true);
+  assert.equal(medieval.projectTransport,true);
   assert.equal(medieval.projectAuthoring,false);
+  assert.equal(medieval.projectReloadVerified,false);
+  assert.equal(assertProjectTransportSupported('TE032AS005','1.0.2').id,'ep1320');
   assert.throws(()=>assertProjectAuthoringSupported('TE032AS005','1.0.2'),/not been hardware-verified/);
+  assert.throws(()=>assertProjectReloadSupported('TE032AS005','1.0.2'),/not hardware-verified/);
 });
 
 test('EP-40 project validator accepts native 29-byte pads and 6-byte patterns',()=>{
@@ -951,6 +955,20 @@ test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 char
   const end=payload.indexOf(0,11);
   assert.equal(end-11,54);
   assert.equal(new TextDecoder().decode(payload.slice(11,end)),longName.slice(0,54));
+});
+
+test('EP-1320 project transport stays opaque while semantic validation and reload remain blocked',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function uploadProjectArchive');
+  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const block=source.slice(start,end);
+  assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
+  assert.match(block,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
+  assert.match(block,/sampleDependencies=profile\.projectAuthoring/);
+  assert.match(block,/const activation=profile\.projectReloadVerified/);
+  assert.match(block,/const reload=profile\.projectReloadVerified/);
+  assert.match(block,/:null;/);
 });
 
 test('EP project archive upload uses the TE 15s timeout and unlocked PUT primitive',async()=>{
