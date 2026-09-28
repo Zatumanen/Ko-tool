@@ -279,6 +279,34 @@ test('EP firmware debug frames stay production-compatible outside strict transac
   assert.doesNotMatch(block,/if\(debugText\)\{\s*enterUnsafeState/);
 });
 
+test('EP strict project transactions passively preflight firmware debug loops before sending requests',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  assert.match(source,/const FIRMWARE_DEBUG_PREFLIGHT_MS=1200,FIRMWARE_DEBUG_GRACE_MS=2500/);
+  const start=source.indexOf('export async function passiveFirmwareDebugPreflight');
+  const end=source.indexOf('export async function withStrictFirmwareDebugGuard',start);
+  const block=source.slice(start,end);
+  assert.match(block,/const sequence=firmwareDebugSequence/);
+  assert.match(block,/await new Promise\(resolve=>setTimeout\(resolve,wait\)\)/);
+  assert.match(block,/firmwareDebugSequence!==sequence/);
+  const guard=source.slice(end,source.indexOf('export function formatDeviceRejection',end));
+  assert.match(guard,/if\(strictFirmwareDebugDepth===0&&preflightMs>0\)await passiveFirmwareDebugPreflight/);
+  assert.ok(guard.indexOf('passiveFirmwareDebugPreflight')<guard.indexOf('strictFirmwareDebugDepth+=1'));
+});
+
+test('EP strict transactions use a post-timeout debug grace window while normal requests keep the 2s timeout',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function sendRequest');
+  const end=source.indexOf('export async function connectEp133',start);
+  const block=source.slice(start,end);
+  assert.match(block,/timeout=2000/);
+  assert.match(block,/if\(strictFirmwareDebugDepth>0\)/);
+  assert.match(block,/pending\.delete\(frame\.id\)/);
+  assert.match(block,/setTimeout\(resolve,FIRMWARE_DEBUG_GRACE_MS\)/);
+  assert.match(block,/Firmware debug SysEx started after request timeout/);
+});
+
 test('EP request timeouts match TE while interrupted streams keep the safety lock',async()=>{
   const fs=await import('node:fs/promises');
   const deviceSource=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
