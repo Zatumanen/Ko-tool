@@ -4,6 +4,7 @@ import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
+let strictFirmwareDebugDepth=0,strictFirmwareDebugLabel='guarded FILE transaction';
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
@@ -81,6 +82,7 @@ function onMessage(inputPort,event){
   const debugText=parseFirmwareDebugFrame(data);
   if(debugText){
     console.warn('EP firmware/debug SysEx:',debugText);
+    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
     return;
   }
   if(data[1]===0x7E){
@@ -156,6 +158,17 @@ function enterUnsafeState(reason){
 export function isDeviceUnsafe(){return deviceUnsafe;}
 export function markDeviceUnsafe(reason){enterUnsafeState(reason);}
 export function isRequestTimeoutError(error){return error?.code==='EP_SERIES_TIMEOUT'||error?.name==='EPSeriesTimeoutError';}
+export async function withStrictFirmwareDebugGuard(operation,label='guarded FILE transaction'){
+  if(typeof operation!=='function')throw new TypeError('Strict firmware debug guard requires an operation.');
+  const previousLabel=strictFirmwareDebugLabel;
+  strictFirmwareDebugDepth+=1;
+  strictFirmwareDebugLabel=String(label||'guarded FILE transaction');
+  try{return await operation();}
+  finally{
+    strictFirmwareDebugDepth=Math.max(0,strictFirmwareDebugDepth-1);
+    strictFirmwareDebugLabel=previousLabel;
+  }
+}
 
 export function formatDeviceRejection(response){
   const status=Number(response?.status);

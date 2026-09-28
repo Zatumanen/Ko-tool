@@ -1,7 +1,7 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isRequestTimeoutError}from './device.js?v=20260928-5';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard}from './device.js?v=20260928-6';
 import{parseNullTerminatedString}from './packing.js';
-import{validateProjectArchive}from './projectArchive.js?v=20260928-5';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260928-6';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -302,22 +302,131 @@ export async function putFile(args){return runFileOperation(()=>putFileUnlocked(
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000}={}){
-  return runFileOperation(async()=>{
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const positiveActive=value=>{
+  const number=Number(value);
+  return Number.isInteger(number)&&number>0?number:null;
+};
+async function getActiveNodeUnlocked(nodeId){
+  const metadata=await getMetadataByNodeId(nodeId,'active');
+  return positiveActive(metadata?.active);
+}
+async function captureProjectActivationUnlocked(projectId,projectsNodeId){
+  const groupRootId=projectId+100;
+  const activeProject=await getActiveNodeUnlocked(projectsNodeId);
+  const activeGroup=await getActiveNodeUnlocked(groupRootId);
+  const activePad=activeGroup?await getActiveNodeUnlocked(activeGroup):null;
+  return{activeProject,activeGroup,activePad,groupRootId};
+}
+async function reloadProjectUnlocked(projectId,projectsNodeId,{cycle=true,activeGroup=null,activePad=null}={}){
+  const groupRootId=projectId+100;
+  let cycledProject=null;
+  if(cycle){
+    const projects=await listDirectoryUnlocked(projectsNodeId,'/projects');
+    cycledProject=projects.find(item=>item.fileType==='folder'&&Number(item.nodeId)!==Number(projectId))?.nodeId||null;
+    if(cycledProject){
+      await setFileMetadataUnlocked(projectsNodeId,{active:cycledProject});
+      const cycleReadback=await getActiveNodeUnlocked(projectsNodeId);
+      if(cycleReadback!==cycledProject)throw new Error(`EP project cycle readback active=${cycleReadback}, expected ${cycledProject}.`);
+      await sleep(200);
+    }
+  }
+  await setFileMetadataUnlocked(projectsNodeId,{active:projectId});
+  const activeProject=await getActiveNodeUnlocked(projectsNodeId);
+  if(activeProject!==projectId)throw new Error(`EP project reload readback active=${activeProject}, expected ${projectId}.`);
+
+  let groupReadback=null,padReadback=null;
+  if(positiveActive(activeGroup)){
+    await setFileMetadataUnlocked(groupRootId,{active:activeGroup});
+    groupReadback=await getActiveNodeUnlocked(groupRootId);
+    if(groupReadback!==activeGroup)throw new Error(`EP group reload readback active=${groupReadback}, expected ${activeGroup}.`);
+  }
+  if(positiveActive(activePad)&&positiveActive(activeGroup)){
+    await setFileMetadataUnlocked(activeGroup,{active:activePad});
+    padReadback=await getActiveNodeUnlocked(activeGroup);
+    if(padReadback!==activePad)throw new Error(`EP pad reload readback active=${padReadback}, expected ${activePad}.`);
+  }
+  return{activeProjectFid:activeProject,activeGroupFid:groupReadback,activePadFid:padReadback,cycledProjectFid:cycledProject};
+}
+export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
+  return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
+    const project=String(projectNumber).padStart(2,'0');
+    await initRead();
+    const root=await listDirectoryUnlocked(0,'/');
+    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    if(!parent)throw new Error('EP-series /projects node is not available.');
+    const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
+    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
+    const state=await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId);
+    return reloadProjectUnlocked(destination.nodeId,parent.nodeId,{cycle,activeGroup:state.activeGroup,activePad:state.activePad});
+  },'project reload'));
+}
+
+export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,onBackup}={}){
+  return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
     if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
     const project=match[1];
     const data=new Uint8Array(await file.arrayBuffer());
     if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
     validateProjectArchive(data);
+
     await initRead();
-    const files=await listDeviceFilesUnlocked();
-    const parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
-    const destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
-    if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);
-    await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
-    await initFileSystemUnlocked();
-  });
+    const root=await listDirectoryUnlocked(0,'/');
+    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    if(!parent)throw new Error('EP-series /projects node is not available.');
+    const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
+    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
+
+    const backup=await getFileUnlocked(destination.nodeId);
+    parseProjectArchive(backup.data);
+    const activation=await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId);
+    await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
+
+    let candidateWritten=false;
+    try{
+      await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
+      candidateWritten=true;
+      await initFileSystemUnlocked();
+
+      const readback=await getFileUnlocked(destination.nodeId);
+      validateProjectArchive(readback.data);
+      const verification=compareProjectArchiveMembers(data,readback.data);
+      const reload=await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
+        cycle:cycleReload,
+        activeGroup:activation.activeGroup,
+        activePad:activation.activePad
+      });
+      return{
+        project,
+        fileId:destination.nodeId,
+        verification,
+        reload,
+        backup:{name:backup.name,size:backup.size}
+      };
+    }catch(error){
+      if(!candidateWritten||isDeviceUnsafe())throw error;
+      try{
+        await putFileUnlocked({data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
+        await initFileSystemUnlocked();
+        const restored=await getFileUnlocked(destination.nodeId);
+        compareProjectArchiveMembers(backup.data,restored.data);
+        await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
+          cycle:cycleReload,
+          activeGroup:activation.activeGroup,
+          activePad:activation.activePad
+        });
+        error.projectRollbackSucceeded=true;
+      }catch(rollbackError){
+        error.projectRollbackSucceeded=false;
+        error.rollbackError=rollbackError;
+        markDeviceUnsafe('Project rollback failed after a project write verification error: '+String(rollbackError?.message||rollbackError));
+      }
+      throw error;
+    }
+  },'project write transaction'));
 }
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
@@ -344,8 +453,7 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
   });
 }
 
-export async function setFileMetadata(fileId,metadata,{timeout=2000}={}){
-  return runFileOperation(async()=>{
+async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
@@ -363,8 +471,8 @@ export async function setFileMetadata(fileId,metadata,{timeout=2000}={}){
     if(streamOpened&&!streamClosed)markDeviceUnsafe('Paged METADATA SET was interrupted before EOF: '+String(error?.message||error));
     throw error;
   }
-  });
 }
+export async function setFileMetadata(fileId,metadata,options={}){return runFileOperation(()=>setFileMetadataUnlocked(fileId,metadata,options));}
 
 export async function uploadSampleToSlot({
   file,data,filename,parentId,destinationId,metadata={},

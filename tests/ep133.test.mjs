@@ -4,7 +4,7 @@ import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
 import{buildFileDeletePayload}from '../js/ep133/filesystem.js';
-import{parseProjectArchive,validateProjectArchive}from '../js/ep133/projectArchive.js';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from '../js/ep133/projectArchive.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -240,13 +240,14 @@ test('EP firmware debug frames are detected before normal protocol parsing',()=>
   assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
 });
 
-test('EP firmware debug frames are logged and ignored like the production client',async()=>{
+test('EP firmware debug frames stay production-compatible outside strict transactions',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   const start=source.indexOf('const debugText=parseFirmwareDebugFrame(data)');
   const block=source.slice(start,source.indexOf("if(data[1]===0x7E)",start));
   assert.match(block,/console\.warn\('EP firmware\/debug SysEx:',debugText\)/);
-  assert.doesNotMatch(block,/enterUnsafeState/);
+  assert.match(block,/if\(strictFirmwareDebugDepth>0\)enterUnsafeState/);
+  assert.doesNotMatch(block,/if\(debugText\)\{\s*enterUnsafeState/);
 });
 
 test('EP request timeouts match TE while interrupted streams keep the safety lock',async()=>{
@@ -561,6 +562,70 @@ test('EP project TAR parser rejects corrupt header checksums',()=>{
   assert.throws(()=>parseProjectArchive(tar),/checksum mismatch/);
 });
 
+test('EP project readback comparison tolerates firmware-added members but verifies candidate payloads',()=>{
+  const expected=makeProjectTar([
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'patterns/a01',data:notePattern()}
+  ]);
+  const extraPad=validPadRecord();extraPad[1]=2;
+  const actual=makeProjectTar([
+    {path:'pads',type:'5'},
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'pads/a/p02',data:extraPad},
+    {path:'patterns/a01',data:notePattern()}
+  ]);
+  assert.equal(compareProjectArchiveMembers(expected,actual).matched,2);
+});
+
+test('EP project readback comparison rejects payload changes in candidate members',()=>{
+  const expected=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
+  const changed=notePattern();changed[4]=24;
+  const actual=makeProjectTar([{path:'patterns/a01',data:changed}]);
+  assert.throws(()=>compareProjectArchiveMembers(expected,actual),/payload mismatch.*patterns\/a01/);
+});
+
+test('EP project upload checkpoints, verifies, reloads, and rolls back in guarded order',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function uploadProjectArchive');
+  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const block=source.slice(start,end);
+  assert.match(block,/withStrictFirmwareDebugGuard/);
+  assert.match(block,/const backup=await getFileUnlocked\(destination\.nodeId\)/);
+  assert.match(block,/await onBackup\?\.\(/);
+  assert.match(block,/const readback=await getFileUnlocked\(destination\.nodeId\)/);
+  assert.match(block,/compareProjectArchiveMembers\(data,readback\.data\)/);
+  assert.match(block,/reloadProjectUnlocked\(destination\.nodeId,parent\.nodeId/);
+  assert.match(block,/compareProjectArchiveMembers\(backup\.data,restored\.data\)/);
+  assert.match(block,/error\.projectRollbackSucceeded=true/);
+  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)throw error/);
+  assert.ok(block.indexOf('const backup=await getFileUnlocked')<block.indexOf('await putFileUnlocked'));
+  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=await reloadProjectUnlocked'));
+});
+
+test('EP project reload cycles active project and verifies project group and pad metadata',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function reloadProjectUnlocked');
+  const end=source.indexOf('export async function reloadProjectArchive',start);
+  const block=source.slice(start,end);
+  assert.match(block,/setFileMetadataUnlocked\(projectsNodeId,\{active:cycledProject\}\)/);
+  assert.match(block,/await sleep\(200\)/);
+  assert.match(block,/setFileMetadataUnlocked\(projectsNodeId,\{active:projectId\}\)/);
+  assert.match(block,/const activeProject=await getActiveNodeUnlocked\(projectsNodeId\)/);
+  assert.match(block,/setFileMetadataUnlocked\(groupRootId,\{active:activeGroup\}\)/);
+  assert.match(block,/setFileMetadataUnlocked\(activeGroup,\{active:activePad\}\)/);
+});
+
+test('EP guarded firmware debug mode escalates debug SysEx only during strict transactions',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  assert.match(source,/let strictFirmwareDebugDepth=0/);
+  assert.match(source,/if\(strictFirmwareDebugDepth>0\)enterUnsafeState\('Firmware debug SysEx during '/);
+  assert.match(source,/export async function withStrictFirmwareDebugGuard/);
+});
+
+
 
 test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 characters',()=>{
   const longName='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789';
@@ -576,7 +641,7 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const start=source.indexOf('export async function uploadProjectArchive');
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
-  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000\}=\{\}\)/);
+  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,onBackup\}=\{\}\)/);
   assert.match(block,/validateProjectArchive\(data\)/);
   assert.ok(block.indexOf('validateProjectArchive(data)')<block.indexOf('await initRead()'));
   assert.match(block,/await putFileUnlocked\(/);
