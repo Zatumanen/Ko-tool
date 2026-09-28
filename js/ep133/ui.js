@@ -781,9 +781,11 @@ export function initEp133Browser({showError}={}){
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
         updateDeviceFile(item);
         memory.setSlot(item);
-        const destinationMetadata=await getFileMetadata(target.id);
-        assertMetadataReadback(target.id,expectedMetadata,destinationMetadata);
-        memory.setMetadata(target.id,destinationMetadata);
+        memory.setMetadata(target.id,prepareSampleWritableMetadata(expectedMetadata,{
+          allowedPlayModes:activeDeviceProfile.playModes,
+          allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
+          allowedBarValues:BAR_VALUES
+        }));
         memory.setOperation(target.id,{status:'complete',label:copy?'COPIED':'MOVED',progress:100});
         setGlobalProgress(copy?'COPY':'MOVE',((index+.95)/plan.length)*100);
       }
@@ -974,11 +976,11 @@ export function initEp133Browser({showError}={}){
           if(!fileItem)throw new Error('Uploaded sample could not be verified.');
           updateDeviceFile(fileItem);
           memory.setSlot(fileItem);
-          try{memory.setMetadata(target.id,await getFileMetadata(target.id));}
-          catch(error){
-            memory.setMetadata(target.id,{...metadata,name:normalizeFileName(item.file.name)});
-            logTechnical('UPLOAD METADATA READBACK SLOT '+target.id,error);
-          }
+          memory.setMetadata(target.id,prepareSampleWritableMetadata({...metadata,name:normalizeFileName(item.file.name)},{
+            allowedPlayModes:activeDeviceProfile.playModes,
+            allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
+            allowedBarValues:BAR_VALUES
+          }));
           memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
           successes.push(target.id);
           setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
@@ -1241,8 +1243,31 @@ export function initEp133Browser({showError}={}){
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
   let midiPermissionBlocked=false;
+  let instanceLockBlocked=false;
+  let resolveInstanceLock;
+  const instanceLockGate=new Promise(resolve=>{resolveInstanceLock=resolve;});
+  if(globalThis.navigator?.locks?.request){
+    navigator.locks.request('ep-sample-util',{ifAvailable:true},lock=>{
+      if(!lock){
+        instanceLockBlocked=true;
+        resolveInstanceLock(false);
+        setConnectionOverlay('OPEN IN ANOTHER TAB');
+        return;
+      }
+      resolveInstanceLock(true);
+      return new Promise(()=>{});
+    }).catch(error=>{
+      logTechnical('INSTANCE LOCK',error);
+      resolveInstanceLock(true);
+    });
+  }else resolveInstanceLock(true);
+
   const autoConnect=async()=>{
-    if(deviceUnsafe||isConnected()||midiPermissionBlocked)return;
+    if(deviceUnsafe||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
+    if(!await instanceLockGate){
+      setConnectionOverlay('OPEN IN ANOTHER TAB');
+      return;
+    }
     try{
       await connectEp133();
     }catch(error){
