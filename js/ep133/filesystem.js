@@ -1,5 +1,5 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260927-1';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe}from './device.js?v=20260928-1';
 import{parseNullTerminatedString}from './packing.js';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -71,7 +71,7 @@ export async function getFileMetadata(nodeId,key=null){return runFileOperation((
 
 export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();return listDeviceFilesUnlocked(onProgress);});}
 
-export function normalizeFileName(name){let value=String(name||'sample.wav').replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'').substring(0,16);return value.toLowerCase()||'sample';}
+export function normalizeFileName(name,stripSlotPrefix=false){let value=String(name||'sample.wav');if(stripSlotPrefix)value=value.replace(/^\d{3}\s/,'');value=value.split('.').slice(0,-1).join('.')||value;value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'');if(value.length>16)value=value.substring(0,7)+'.'+value.substring(value.length-8);return value.toLowerCase()||'sample';}
 
 const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
   'name','sample.start','sample.end','sound.loopstart','sound.loopend','sound.amplitude',
@@ -222,7 +222,7 @@ export function parseFileMoveResponse(raw){
   return{oldFileId:u16(raw,0),parentId:u16(raw,2),newFileId:u16(raw,4)};
 }
 
-export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata=null,{isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}){const safe=normalizeFileName(filename),meta=metadata==null?'':JSON.stringify(metadata),metaBytes=new TextEncoder().encode(meta),p=new Uint8Array(11+safe.length+1+metaBytes.length+(meta?1:0)),view=new DataView(p.buffer);let flags=isDirectory?TE_SYSEX_FILE_FILE_TYPE_DIR:TE_SYSEX_FILE_FILE_TYPE_FILE;for(const capability of capabilities)flags|=capability;p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=flags;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta){const written=writeUtf8String(view,12+safe.length,meta,false);view.setUint8(12+safe.length+written,0);}return p;}
+export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata=null,{isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}){const safe=String(filename||'').slice(0,54),meta=metadata==null?'':JSON.stringify(metadata),metaBytes=new TextEncoder().encode(meta),p=new Uint8Array(11+safe.length+1+metaBytes.length),view=new DataView(p.buffer);let flags=isDirectory?TE_SYSEX_FILE_FILE_TYPE_DIR:TE_SYSEX_FILE_FILE_TYPE_FILE;for(const capability of capabilities)flags|=capability;p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=flags;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(metaBytes.length)p.set(metaBytes,12+safe.length);return p;}
 
 export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}
 
@@ -281,6 +281,7 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=15000}={}){
     const moved=parseFileMoveResponse(response.rawData);
     if(moved.oldFileId!==fileId||moved.parentId!==parentId||moved.newFileId!==newFileId)
       throw new Error(`EP-series FILE_MOVE verification failed: ${moved.oldFileId}->${moved.newFileId}, expected ${fileId}->${newFileId}.`);
+    await initFileSystemUnlocked();
     return moved;
   });
 }
