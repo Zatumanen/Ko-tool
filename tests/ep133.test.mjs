@@ -367,8 +367,19 @@ test('EP FILE_MOVE payload and response use the official three-u16 big-endian la
   assert.throws(()=>buildFileMovePayload(7,1000,0x10000),/destination id must be a 16-bit integer/);
 });
 
+test('EP native FILE_MOVE reinitializes the FILE subsystem before returning',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function moveFile');
+  const end=source.indexOf('export async function setFileMetadata',start);
+  const block=source.slice(start,end);
+  assert.match(block,/await requestFile\(TE_SYSEX_FILE,buildFileMovePayload/);
+  assert.match(block,/await initFileSystemUnlocked\(\)/);
+  assert.ok(block.indexOf('await initFileSystemUnlocked()')>block.indexOf('parseFileMoveResponse'));
+});
+
 test('EP FILE_PUT init targets the requested destination slot',()=>{
-  const payload=buildFilePutInitPayload(127,42,1234,'Kick 808.wav',{channels:2,samplerate:46875,format:'s16'});
+  const payload=buildFilePutInitPayload(127,42,1234,'kick 808',{channels:2,samplerate:46875,format:'s16'});
   const view=new DataView(payload.buffer);
   assert.equal(payload[0],2);
   assert.equal(payload[1],0);
@@ -382,6 +393,14 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
 
 test('EP project archive PUT uses directory flags',()=>{const payload=buildFilePutInitPayload(1234,42,99,'01',null,{isDirectory:true,capabilities:[4]});assert.equal(payload[2],6);assert.equal(new DataView(payload.buffer).getUint16(3),1234);assert.equal(new DataView(payload.buffer).getUint16(5),42);});
 
+test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 characters',()=>{
+  const longName='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789';
+  const payload=buildFilePutInitPayload(7,42,12,longName,null);
+  const end=payload.indexOf(0,11);
+  assert.equal(end-11,54);
+  assert.equal(new TextDecoder().decode(payload.slice(11,end)),longName.slice(0,54));
+});
+
 test('EP project archive upload uses the unlocked PUT primitive inside the outer FILE operation lock',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
@@ -392,14 +411,15 @@ test('EP project archive upload uses the unlocked PUT primitive inside the outer
   assert.doesNotMatch(block,/await putFile\(/);
 });
 
-test('EP metadata JSON is encoded as UTF-8 and null-terminated in FILE_PUT init and metadata SET payloads',()=>{
+test('EP metadata JSON matches current TE framing: FILE_PUT has no trailing NUL, METADATA SET does',()=>{
   const metadata={name:'привет',description:'café'};
-  const put=buildFilePutInitPayload(7,42,12,'Kick.wav',metadata);
+  const put=buildFilePutInitPayload(7,42,12,'kick',metadata);
   const putNameEnd=11+'kick'.length+1;
-  assert.equal(put[putNameEnd+new TextEncoder().encode(JSON.stringify(metadata)).length],0);
-  const putJson=new TextDecoder().decode(put.slice(putNameEnd,-1));
-  assert.deepEqual(JSON.parse(putJson),metadata);
+  const putJsonBytes=put.slice(putNameEnd);
+  assert.notEqual(putJsonBytes.at(-1),0);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(putJsonBytes)),metadata);
   const set=buildMetadataSetPayload(7,metadata);
+  assert.equal(set.at(-1),0);
   const setJson=new TextDecoder().decode(set.slice(4,-1));
   assert.deepEqual(JSON.parse(setJson),metadata);
 });
@@ -600,9 +620,10 @@ test('EP sample rename uses the reference METADATA SET name payload',async()=>{
 
 test('EP sample filename normalization matches the device naming rules',async()=>{
   const {normalizeFileName}=await import('../js/ep133/filesystem.js');
-  assert.equal(normalizeFileName('001 Kick 808.wav'),'kick 808');
+  assert.equal(normalizeFileName('001 Kick 808.wav'),'001 kick 808');
+  assert.equal(normalizeFileName('001 Kick 808.wav',true),'kick 808');
   assert.equal(normalizeFileName('Snärë/Bad\\Name.wav'),'snarebadname');
-  assert.equal(normalizeFileName('Long sample filename here.wav'),'long sample file');
+  assert.equal(normalizeFileName('Long sample filename here.wav'),'long sa.ame here');
 });
 
 import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata,buildEp133DownloadAudioMeta}from '../js/ep133/audio.js';
@@ -612,7 +633,7 @@ test('EP audio pipeline binds the local resampler module and has no stale fallba
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
-  assert.match(source,/Maximum EP-series sample length is 20 seconds/);
+  assert.match(source,/Maximum EP-series sample length is 40 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
 test('EP target sample rate follows pbarilla format metadata',()=>{
