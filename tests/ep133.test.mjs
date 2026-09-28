@@ -201,6 +201,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
+  assert.equal(index.includes("./projectReader.js?v="+token),true);
+  const reader=await read('js/ep133/projectReader.js');
+  assert.equal(reader.includes("./projectArchive.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
 });
 
@@ -918,6 +921,7 @@ test('unified Project Reader decodes EP-40 native pattern and supertone deltas',
   assert.equal(model.patterns[0].automation[0].flag,8);
   assert.equal(model.patterns[0].automation[0].value,32764);
   assert.equal(model.patterns[0].notes[0].flag,6);
+  assert.equal(model.uncertainties.sceneTimeSignaturePersistence,'unresolved');
   assert.deepEqual([...buildProjectFromModel(model)],[...tar]);
 });
 
