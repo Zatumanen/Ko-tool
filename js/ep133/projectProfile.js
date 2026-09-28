@@ -18,6 +18,8 @@ const PROFILES=Object.freeze({
     supportsLoop:false,
     supportsSupertone:false,
     supportsLive:false,
+    nativeLiveWithPatternsObserved:false,
+    nativeLiveWithFxObserved:false,
     requiresFullSceneRefs:true,
     crossFirmwareScenes:false
   }),
@@ -37,6 +39,8 @@ const PROFILES=Object.freeze({
     supportsLoop:false,
     supportsSupertone:false,
     supportsLive:false,
+    nativeLiveWithPatternsObserved:false,
+    nativeLiveWithFxObserved:false,
     requiresFullSceneRefs:true,
     crossFirmwareScenes:false,
     reason:'EP-1320 project authoring has not been hardware-verified.'
@@ -57,6 +61,8 @@ const PROFILES=Object.freeze({
     supportsLoop:true,
     supportsSupertone:true,
     supportsLive:true,
+    nativeLiveWithPatternsObserved:true,
+    nativeLiveWithFxObserved:false,
     requiresFullSceneRefs:true,
     crossFirmwareScenes:false
   })
