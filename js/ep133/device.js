@@ -80,7 +80,7 @@ function onMessage(inputPort,event){
   if(data[0]!==0xF0)return;
   const debugText=parseFirmwareDebugFrame(data);
   if(debugText){
-    enterUnsafeState('EP firmware/debug SysEx: '+debugText);
+    console.warn('EP firmware/debug SysEx:',debugText);
     return;
   }
   if(data[1]===0x7E){
