@@ -84,6 +84,8 @@ const GENERIC=Object.freeze({
   supportsLoop:false,
   supportsSupertone:false,
   supportsLive:false,
+  nativeLiveWithPatternsObserved:false,
+  nativeLiveWithFxObserved:false,
   requiresFullSceneRefs:true,
   crossFirmwareScenes:false,
   reason:'The connected EP project format has not been hardware-verified.'
