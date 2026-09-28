@@ -843,6 +843,24 @@ test('semantic scenes patch changes only verified chunks cursor and song bytes',
   assert.equal(patched[606],77);
 });
 
+test('native project validation preserves observed but undecoded pattern/settings header bytes',()=>{
+  const pattern=notePattern();
+  pattern[3]=0x7f;
+  const settings=new Uint8Array(224);
+  settings.set([9,8,7,6],0);
+  const view=new DataView(settings.buffer);
+  view.setFloat32(4,120,true);
+  for(let offset=24;offset<216;offset+=4)view.setFloat32(offset,-1,true);
+  const tar=makeProjectTar([
+    {path:'patterns/a01',data:pattern},
+    {path:'settings',data:settings}
+  ]);
+  const report=validateProjectArchive(tar);
+  assert.equal(report.patterns,1);
+  const patched=patchSettingsMember(settings,{bpm:130});
+  assert.deepEqual([...patched.slice(0,4)],[9,8,7,6]);
+});
+
 test('settings patch preserves unknown bytes while changing only decoded fields',()=>{
   const settings=new Uint8Array(224);
   const view=new DataView(settings.buffer);
