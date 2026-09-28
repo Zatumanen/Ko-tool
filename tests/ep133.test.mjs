@@ -329,24 +329,35 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
-test('EP sample move prefers native FILE_MOVE while copy and fallback move retain verified GET PUT flow',async()=>{
-  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:true,isMovable:false}}),true);
-  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:true}}),true);
-  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:true,isDeletable:false,isMovable:false}}),false);
+test('EP sample reorder always tries native FILE_MOVE first and keeps GET PUT only as fallback',async()=>{
+  assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
+  assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const nativeMove=!copy&&sources\.every\(item=>item\.node\?\.isMovable===true\)/);
-  assert.match(source,/await moveFile\(sourceNodeId,soundsParentId,target\.id\)/);
-  assert.match(source,/await moveFile\(pair\.targetId,soundsParentId,pair\.sourceId\)/);
-  assert.match(source,/await getFile\(source\.nodeId\|\|source\.id/);
-  assert.match(source,/await uploadSampleToSlot\(/);
-  assert.match(source,/if\(!copy\)[\s\S]*await deleteFile\(source\.nodeId\|\|source\.id\)/);
+  const start=source.indexOf('const nativeMoveTransfer=async');
+  const end=source.indexOf('const transactionalTransfer=async',start);
+  const nativeBlock=source.slice(start,end);
+  assert.match(nativeBlock,/await moveFile\(sourceNodeId,soundsParentId,target\.id\)/);
+  assert.match(nativeBlock,/applyNativeMoveLocally\(source,target,moved\)/);
+  assert.doesNotMatch(nativeBlock,/assertSlotsEmpty/);
+  assert.doesNotMatch(nativeBlock,/assertSlotsDeleted/);
+  assert.doesNotMatch(nativeBlock,/syncMovedFile/);
+  assert.doesNotMatch(nativeBlock,/getFileInfo/);
+  assert.doesNotMatch(nativeBlock,/getFileMetadata/);
+  const transferBlock=source.slice(end,source.indexOf('const deleteSamples=async',end));
+  assert.match(transferBlock,/if\(!copy\)\{[\s\S]*return await nativeMoveTransfer\(plan,sourceById\)/);
+  assert.match(transferBlock,/isDeviceUnsafe\(\)/);
+  assert.match(transferBlock,/NATIVE FILE_MOVE FAILED · USING VERIFIED GET\/PUT FALLBACK/);
+  assert.match(transferBlock,/await getFile\(source\.nodeId\|\|source\.id/);
+  assert.match(transferBlock,/await uploadSampleToSlot\(/);
+  assert.match(transferBlock,/if\(!copy\)[\s\S]*await deleteFile\(source\.nodeId\|\|source\.id\)/);
 });
 
-test('My EP applies external FILE_MOVED events incrementally',async()=>{
+test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const syncMovedFile=async/);
+  assert.match(source,/const pendingNativeMoveEvents=new Set\(\)/);
+  assert.match(source,/pendingNativeMoveEvents\.has\(key\)\)return/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
   const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
   assert.doesNotMatch(movedBlock,/readDevice\(/);
