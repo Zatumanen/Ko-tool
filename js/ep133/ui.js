@@ -12,12 +12,12 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-6';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-7';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-6';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-7';
 import{outputFileName}from '../output-name.js';
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2];
