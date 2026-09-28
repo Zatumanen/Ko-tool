@@ -5,6 +5,7 @@ import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
 let strictFirmwareDebugDepth=0,strictFirmwareDebugLabel='guarded FILE transaction';
+let lastFirmwareDebugAt=0,lastFirmwareDebugText='';
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
@@ -81,6 +82,8 @@ function onMessage(inputPort,event){
   if(data[0]!==0xF0)return;
   const debugText=parseFirmwareDebugFrame(data);
   if(debugText){
+    lastFirmwareDebugAt=Date.now();
+    lastFirmwareDebugText=debugText;
     console.warn('EP firmware/debug SysEx:',debugText);
     if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
     return;
@@ -163,11 +166,28 @@ export async function withStrictFirmwareDebugGuard(operation,label='guarded FILE
   const previousLabel=strictFirmwareDebugLabel;
   strictFirmwareDebugDepth+=1;
   strictFirmwareDebugLabel=String(label||'guarded FILE transaction');
-  try{return await operation();}
-  finally{
+  try{
+    const result=await operation();
+    if(deviceUnsafe)throw unsafeError();
+    return result;
+  }finally{
     strictFirmwareDebugDepth=Math.max(0,strictFirmwareDebugDepth-1);
     strictFirmwareDebugLabel=previousLabel;
   }
+}
+export async function passiveFirmwareDebugPreflight(timeout=1200,label='FILE write'){
+  if(deviceUnsafe)throw unsafeError();
+  if(!isConnected())throw new Error('EP-series device is not connected.');
+  const recentAge=Date.now()-lastFirmwareDebugAt;
+  if(lastFirmwareDebugAt&&recentAge>=0&&recentAge<2500){
+    enterUnsafeState('Firmware debug SysEx was already active before '+label+': '+lastFirmwareDebugText);
+    throw unsafeError();
+  }
+  const epoch=connectionEpoch;
+  return withStrictFirmwareDebugGuard(async()=>{
+    await new Promise(resolve=>setTimeout(resolve,Math.max(0,Number(timeout)||0)));
+    if(epoch!==connectionEpoch&&!deviceUnsafe)throw new Error('EP-series connection changed during firmware debug preflight.');
+  },label+' preflight');
 }
 
 export function formatDeviceRejection(response){
@@ -284,7 +304,7 @@ export function disconnectEp133(){
   stopListeners();
   for(const p of pending.values())p.reject?.(new Error('Disconnected'));
   pending.clear();
-  input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;
+  input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;lastFirmwareDebugAt=0;lastFirmwareDebugText='';
   notifyConnection();
 }
 
