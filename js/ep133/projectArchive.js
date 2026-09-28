@@ -172,3 +172,42 @@ export function validateProjectArchive(input){
   for(const member of scenesMembers)validateScenes(member,patternPaths);
   return{members:members.length,files,directories,pads,patterns,scenes:scenesMembers.length,unknownFiles};
 }
+
+
+const bytesEqual=(a,b)=>{
+  if(a.length!==b.length)return false;
+  for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;
+  return true;
+};
+
+export function compareProjectArchiveMembers(expectedInput,actualInput,{ignoreDirectories=true,allowAdditional=true}={}){
+  const expected=parseProjectArchive(expectedInput);
+  const actual=parseProjectArchive(actualInput);
+  const actualByPath=new Map(actual.map(member=>[member.path,member]));
+  let matched=0;
+  for(const member of expected){
+    if(ignoreDirectories&&member.type==='5')continue;
+    const got=actualByPath.get(member.path);
+    if(!got)throw new Error('Project readback is missing member '+member.path+'.');
+    if(got.type!==member.type)throw new Error('Project readback member type changed for '+member.path+'.');
+    if(!bytesEqual(member.data,got.data)){
+      let mismatch=-1;
+      const limit=Math.min(member.data.length,got.data.length);
+      for(let i=0;i<limit;i++)if(member.data[i]!==got.data[i]){mismatch=i;break;}
+      if(mismatch<0)mismatch=limit;
+      throw new Error('Project readback payload mismatch for '+member.path+' at byte '+mismatch+'.');
+    }
+    matched+=1;
+  }
+  if(!allowAdditional){
+    const expectedPaths=new Set(expected.filter(member=>!(ignoreDirectories&&member.type==='5')).map(member=>member.path));
+    const extras=actual.filter(member=>!(ignoreDirectories&&member.type==='5')&&!expectedPaths.has(member.path));
+    if(extras.length)throw new Error('Project readback contains unexpected member '+extras[0].path+'.');
+  }
+  return{
+    matched,
+    expectedMembers:expected.length,
+    actualMembers:actual.length,
+    additionalMembers:Math.max(0,actual.length-expected.length)
+  };
+}
