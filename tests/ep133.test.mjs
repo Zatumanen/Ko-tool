@@ -197,7 +197,8 @@ test('EP request timeouts match TE while interrupted streams keep the safety loc
   assert.match(deviceSource,/async function sendRequest\(command,payload=new Uint8Array\(\),timeout=2000\)/);
   assert.match(deviceSource,/export function requestRead\(command,payload=new Uint8Array\(\),timeout=2000\)/);
   assert.match(deviceSource,/export function requestFile\(command,payload=new Uint8Array\(\),timeout=2000\)/);
-  const timerStart=deviceSource.indexOf('const timer=setTimeout');
+  const sendStart=deviceSource.indexOf('async function sendRequest');
+  const timerStart=deviceSource.indexOf('const timer=setTimeout',sendStart);
   const timerBlock=deviceSource.slice(timerStart,deviceSource.indexOf('pending.set',timerStart));
   assert.match(timerBlock,/error\.name='EPSeriesTimeoutError'/);
   assert.doesNotMatch(timerBlock,/enterUnsafeState/);
