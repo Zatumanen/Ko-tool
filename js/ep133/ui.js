@@ -1,9 +1,9 @@
 import{
-  connectEp133,isConnected,onConnectionChange,onFileEvent,onMidiActivity,
+  connectEp133,isConnected,isDeviceUnsafe,onConnectionChange,onFileEvent,onMidiActivity,
   listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260928-1';
+}from './index.js?v=20260928-2';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,12 +12,12 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-1';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-2';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260928-1';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-1';
+}from './sampleMemory.js?v=20260928-2';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-2';
 import{outputFileName}from '../output-name.js';
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2];
@@ -84,6 +84,15 @@ export function initEp133Browser({showError}={}){
   let confirmResolver=null;
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
+  const pendingNativeMoveEvents=new Set();
+  const nativeMoveEventKey=(oldNodeId,newNodeId)=>Number(oldNodeId)+':'+Number(newNodeId);
+  const suppressNativeMoveEvent=(oldNodeId,newNodeId)=>{
+    const key=nativeMoveEventKey(oldNodeId,newNodeId);
+    pendingNativeMoveEvents.add(key);
+    return()=>{
+      setTimeout(()=>pendingNativeMoveEvents.delete(key),1000);
+    };
+  };
 
   const updateMutationAvailability=()=>{
     memory?.setMutationsEnabled?.(!!(isConnected()&&!deviceUnsafe&&synchronized&&!mutating));
@@ -633,39 +642,75 @@ export function initEp133Browser({showError}={}){
     setGlobalProgress('DOWNLOAD',((index+1)/Math.max(1,total))*100);
   };
 
+  const applyNativeMoveLocally=(source,target,moved)=>{
+    const oldId=Number(moved.oldFileId),newId=Number(moved.newFileId);
+    const oldItem=deviceFiles.find(item=>Number(item.nodeId)===oldId)||source.node||null;
+    const oldMeta=source.meta||memory.getSlot(oldId)?.meta||null;
+    const flags=Number(oldItem?.flags)||0;
+    const item={
+      ...(oldItem||{}),
+      nodeId:newId,
+      parentId:Number(moved.parentId),
+      flags,
+      fileSize:Number(oldItem?.fileSize??source.file?.size)||0,
+      fileName:'/sounds/'+String(newId).padStart(3,'0')+'.pcm',
+      fileType:'file',
+      isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
+      isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
+      isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
+      isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
+      isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
+    };
+    deviceFiles=deviceFiles.filter(file=>Number(file.nodeId)!==oldId&&Number(file.nodeId)!==newId);
+    deviceFiles.push(item);
+    if(oldId!==newId)memory.clearSlot(oldId);
+    memory.setSlot(item);
+    if(oldMeta)memory.setMetadata(newId,oldMeta);
+    if(currentPropertySlotId===oldId&&oldId!==newId)currentPropertySlotId=newId;
+    renderDeviceStats(soundsMetadata,memory.countOccupied());
+  };
+
   const nativeMoveTransfer=async(plan,sourceById)=>{
     const completed=[];
     setMutating(true);
     try{
-      await assertSlotsEmpty(plan.map(pair=>pair.targetId));
       for(let index=0;index<plan.length;index++){
         const pair=plan[index];
         const source=sourceById.get(pair.sourceId);
         const target=memory.getSlot(pair.targetId);
         if(!source||!target)throw new Error('Invalid native MOVE plan.');
+        if(target.file)throw new Error('Target sample slot is no longer empty.');
         const sourceNodeId=Number(source.nodeId||source.id);
         memory.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
         setGlobalProgress('MOVE',(index/plan.length)*100);
-        const moved=await moveFile(sourceNodeId,soundsParentId,target.id);
-        completed.push({sourceId:source.id,targetId:target.id});
-        await syncMovedFile({oldNodeId:moved.oldFileId,parentId:moved.parentId,nodeId:moved.newFileId});
-        const movedSlot=memory.getSlot(target.id);
-        if(!movedSlot?.file)throw new Error('The native FILE_MOVE destination could not be verified.');
+        const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
+        let moved;
+        try{
+          moved=await moveFile(sourceNodeId,soundsParentId,target.id);
+        }catch(error){
+          pendingNativeMoveEvents.delete(nativeMoveEventKey(sourceNodeId,target.id));
+          throw error;
+        }
+        releaseSuppression();
+        completed.push({sourceId:source.id,targetId:target.id,source});
+        applyNativeMoveLocally(source,target,moved);
         memory.setOperation(target.id,{status:'complete',label:'MOVED',progress:100});
         setGlobalProgress('MOVE',((index+1)/plan.length)*100);
       }
-      await assertSlotsDeleted(plan.map(pair=>pair.sourceId));
-      renderDeviceStats(soundsMetadata,memory.countOccupied());
       for(const pair of plan)memory.clearOperation(pair.targetId);
       setGlobalProgress('MOVE',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
     }catch(error){
-      if(isConnected()){
+      if(completed.length&&isConnected()){
         for(const pair of [...completed].reverse()){
           try{
-            const rollback=await moveFile(pair.targetId,soundsParentId,pair.sourceId);
-            await syncMovedFile({oldNodeId:rollback.oldFileId,parentId:rollback.parentId,nodeId:rollback.newFileId});
-          }catch(rollbackError){logTechnical('NATIVE MOVE ROLLBACK '+pair.targetId+'->'+pair.sourceId,rollbackError);}
+            const releaseSuppression=suppressNativeMoveEvent(pair.targetId,pair.sourceId);
+            await moveFile(pair.targetId,soundsParentId,pair.sourceId);
+            releaseSuppression();
+          }catch(rollbackError){
+            pendingNativeMoveEvents.delete(nativeMoveEventKey(pair.targetId,pair.sourceId));
+            logTechnical('NATIVE MOVE ROLLBACK '+pair.targetId+'->'+pair.sourceId,rollbackError);
+          }
         }
         try{await readDevice();}
         catch(syncError){logTechnical('RESYNC AFTER NATIVE MOVE ERROR',syncError);}
@@ -688,9 +733,15 @@ export function initEp133Browser({showError}={}){
     const plan=planSampleTransferTargets(memory.getSlots(),sourceIds,draggedId,dropSlot.id);
     if(plan.length!==sources.length)throw new Error('No valid free destination slots are available.');
     const sourceById=new Map(sources.map(item=>[item.id,item]));
-    const nativeMove=!copy&&sources.every(item=>item.node?.isMovable===true);
-    if(nativeMove)return nativeMoveTransfer(plan,sourceById);
-    if(!copy&&sources.some(item=>item.node?.isDeletable!==true))throw new Error('One or more source samples cannot be deleted safely.');
+    if(!copy){
+      try{return await nativeMoveTransfer(plan,sourceById);}
+      catch(error){
+        if(isDeviceUnsafe())throw error;
+        const canFallback=sources.every(item=>item.node?.isReadable===true&&item.node?.isDeletable===true);
+        if(!canFallback)throw error;
+        logTechnical('NATIVE FILE_MOVE FAILED · USING VERIFIED GET/PUT FALLBACK',error);
+      }
+    }
     if(sources.some(item=>item.node?.isReadable!==true))throw new Error('One or more source samples cannot be read.');
     const created=[];
     const sourceSnapshots=new Map();
@@ -1105,6 +1156,8 @@ export function initEp133Browser({showError}={}){
         return;
       }
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_MOVED){
+        const key=nativeMoveEventKey(payload.oldNodeId,payload.nodeId);
+        if(pendingNativeMoveEvents.has(key))return;
         await syncMovedFile(payload);
       }
     }catch(error){
