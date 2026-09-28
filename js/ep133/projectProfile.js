@@ -5,8 +5,9 @@ const PROFILES=Object.freeze({
   TE032AS001:Object.freeze({
     sku:'TE032AS001',
     id:'ep133',
+    projectTransport:true,
     projectAuthoring:true,
-    projectWriteVerified:true,
+    projectReloadVerified:true,
     padRecordSize:26,
     acceptedPadRecordSizes:Object.freeze([26]),
     patternDialect:'ep133',
@@ -23,8 +24,9 @@ const PROFILES=Object.freeze({
   TE032AS005:Object.freeze({
     sku:'TE032AS005',
     id:'ep1320',
+    projectTransport:true,
     projectAuthoring:false,
-    projectWriteVerified:false,
+    projectReloadVerified:false,
     padRecordSize:null,
     acceptedPadRecordSizes:Object.freeze([]),
     patternDialect:'unverified',
@@ -42,8 +44,9 @@ const PROFILES=Object.freeze({
   TE032AS006:Object.freeze({
     sku:'TE032AS006',
     id:'ep40',
+    projectTransport:true,
     projectAuthoring:true,
-    projectWriteVerified:true,
+    projectReloadVerified:true,
     padRecordSize:29,
     acceptedPadRecordSizes:Object.freeze([29]),
     patternDialect:'ep40',
@@ -62,8 +65,9 @@ const PROFILES=Object.freeze({
 const GENERIC=Object.freeze({
   sku:'',
   id:'ep',
+  projectTransport:false,
   projectAuthoring:false,
-  projectWriteVerified:false,
+  projectReloadVerified:false,
   padRecordSize:null,
   acceptedPadRecordSizes:Object.freeze([]),
   patternDialect:'unverified',
@@ -92,9 +96,23 @@ export function getEpProjectProfile(sku='',firmware=''){
   return{...clone(profile),sku:key||profile.sku,firmware:String(firmware||'')};
 }
 
-export function assertProjectAuthoringSupported(sku='',firmware=''){
+export function assertProjectTransportSupported(sku='',firmware=''){
   const profile=getEpProjectProfile(sku,firmware);
-  if(!profile.projectAuthoring||!profile.projectWriteVerified)
+  if(!profile.projectTransport)
+    throw new Error('Project FILE transport is not supported for '+(profile.sku||'this EP')+'.');
+  return profile;
+}
+
+export function assertProjectAuthoringSupported(sku='',firmware=''){
+  const profile=assertProjectTransportSupported(sku,firmware);
+  if(!profile.projectAuthoring)
     throw new Error(profile.reason||('Project authoring is not verified for '+(profile.sku||'this EP')+'.'));
+  return profile;
+}
+
+export function assertProjectReloadSupported(sku='',firmware=''){
+  const profile=assertProjectTransportSupported(sku,firmware);
+  if(!profile.projectReloadVerified)
+    throw new Error('Project reload/activation is not hardware-verified for '+(profile.sku||'this EP')+'.');
   return profile;
 }
