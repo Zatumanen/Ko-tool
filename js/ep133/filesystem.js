@@ -1,7 +1,7 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
 import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-2';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260929-2';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-3';
 import{assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-2';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
@@ -385,6 +385,11 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     const root=await listDirectoryUnlocked(0,'/');
     const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
     if(!parent)throw new Error('EP-series /projects node is not available.');
+    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+    const occupiedSampleSlots=sounds
+      ?(await listDirectoryUnlocked(sounds.nodeId,'/sounds')).map(item=>Number(item.nodeId)).filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
+      :[];
+    const sampleDependencies=preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile});
     const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
     const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
     if(!destination)throw new Error(`EP-series project ${project} is not available.`);
@@ -413,6 +418,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
         fileId:destination.nodeId,
         verification,
         reload,
+        sampleDependencies,
         backup:{name:backup.name,size:backup.size}
       };
     }catch(error){
