@@ -62,7 +62,7 @@ const PROFILES=Object.freeze({
     supportsSupertone:true,
     supportsLive:true,
     nativeLiveWithPatternsObserved:true,
-    nativeLiveWithFxObserved:false,
+    nativeLiveWithFxObserved:true,
     requiresFullSceneRefs:true,
     crossFirmwareScenes:false
   })
