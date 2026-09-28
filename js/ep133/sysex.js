@@ -21,14 +21,19 @@ export function parseIdentityResponse(bytes){
   return{midiId:bytes[2],sku:`TE${String(productCode).padStart(3,'0')}AS${String(assemblyCode).padStart(3,'0')}`};
 }
 
-export function buildTeSysex(command,payload=new Uint8Array(),identityCode=0,outputId='default'){
-  const id=requestId(outputId);
-  const plen=packedLength(payload.length);
+export function encodeTeSysex(command,payload=new Uint8Array(),identityCode=0,id=1){
+  if(!Number.isInteger(id)||id<1||id>0xfff)throw new Error('TE request id must be 1..4095.');
+  const data=payload instanceof Uint8Array?payload:new Uint8Array(payload||[]);
+  const plen=packedLength(data.length);
   const msg=new Uint8Array(10+plen);
   msg.set([MIDI_SYSEX_START,...TE_MIDI_ID,identityCode,MIDI_SYSEX_TE,BIT_IS_REQUEST|BIT_REQUEST_ID_AVAILABLE|((id>>7)&0x1f),id&0x7f,command],0);
-  if(plen)packToBuffer(payload,msg.subarray(9,9+plen));
+  if(plen)packToBuffer(data,msg.subarray(9,9+plen));
   msg[msg.length-1]=MIDI_SYSEX_END;
   return{id,bytes:msg};
+}
+
+export function buildTeSysex(command,payload=new Uint8Array(),identityCode=0,outputId='default'){
+  return encodeTeSysex(command,payload,identityCode,requestId(outputId));
 }
 
 export function parseTeSysex(bytes){
