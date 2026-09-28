@@ -422,7 +422,11 @@ export function patchPadRecord(input,changes,{profile}={}){
     setU16le(data,1,slot);
   }
   if('midiChannel'in changes)data[3]=requireInteger(changes.midiChannel,0,16,'pad midiChannel');
-  if('trimStart'in changes)setU32le(data,4,requireInteger(changes.trimStart,0,0xffffffff,'pad trimStart'));
+  if('trimStart'in changes){
+    const trimStart=requireInteger(changes.trimStart,0,0xffffffff,'pad trimStart');
+    if(trimStart!==0)throw new Error('Nonzero project pad trimStart authoring is not hardware-verified; preserve the native value or reset it to 0.');
+    setU32le(data,4,trimStart);
+  }
   if('trimLength'in changes)setU32le(data,8,requireInteger(changes.trimLength,0,0xffffffff,'pad trimLength'));
   if('sampleBpm'in changes)setF32le(data,12,requireFloat(changes.sampleBpm,1,399,'pad sampleBpm'));
   if('amplitude'in changes)data[16]=requireInteger(changes.amplitude,0,200,'pad amplitude');
