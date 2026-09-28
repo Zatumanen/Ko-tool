@@ -1,4 +1,4 @@
-import{parseProjectArchive,validateProjectArchive,buildProjectFromNative}from './projectArchive.js?v=20260929-10';
+import{parseProjectArchive,validateProjectArchive,buildProjectFromNative}from './projectArchive.js?v=20260929-11';
 
 const GROUPS=['a','b','c','d'];
 const FX_TYPES=['off','delay','reverb','distortion','chorus','filter','compressor'];
@@ -305,7 +305,8 @@ export function readProjectModel(input,{profile}={}){
       patternFlagMeaning:'unknown',
       settingsTail:'disputed',
       fxSidechainShape:'observed',
-      liveWithPatterns:'unresolved',
+      liveWithPatterns:profile.nativeLiveWithPatternsObserved?'observed-native-readonly':'unresolved',
+      liveWithFx:profile.nativeLiveWithFxObserved?'observed-native-readonly':'unresolved',
       ...(profile.id==='ep40'?{sceneTimeSignaturePersistence:'unresolved'}:{})
     }
   };

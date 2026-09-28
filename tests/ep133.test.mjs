@@ -711,6 +711,8 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(ep40.padRecordSize,29);
   assert.equal(ep40.supportsLoop,true);
   assert.equal(ep40.supportsSupertone,true);
+  assert.equal(ep40.nativeLiveWithPatternsObserved,true);
+  assert.equal(ep40.nativeLiveWithFxObserved,false);
   assert.equal(medieval.projectTransport,true);
   assert.equal(medieval.projectAuthoring,false);
   assert.equal(medieval.projectReloadVerified,false);
@@ -951,6 +953,35 @@ test('EP-40 Project Reader exposes live/LSS as read-only armed pad state',()=>{
   assert.equal(model.patterns.length,0);
 });
 
+test('EP-40 native live plus populated patterns is accepted for read-only roundtrip but not promoted to authoring',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const live=new Uint8Array(48);live[0]=1;live[13]=1;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validEp40PadRecord()},
+    {path:'patterns/a01',data:ep40NotePattern()},
+    {path:'live',data:live}
+  ]);
+  const report=validateProjectArchive(tar,{profile});
+  assert.equal(report.patterns,1);
+  assert.equal(report.live,1);
+  const model=readProjectModel(tar,{profile});
+  assert.equal(model.uncertainties.liveWithPatterns,'observed-native-readonly');
+  assert.deepEqual([...buildProjectFromModel(model)],[...tar]);
+  assert.throws(()=>buildProjectFromNative(tar,{live:{armedPads:[]}}, {profile}),/not enabled/);
+});
+
+test('EP-40 live plus fx_settings remains blocked until a native capture proves coexistence',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const live=new Uint8Array(48);
+  const fx=new Uint8Array(160);
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validEp40PadRecord()},
+    {path:'live',data:live},
+    {path:'fx_settings',data:fx}
+  ]);
+  assert.throws(()=>validateProjectArchive(tar,{profile}),/live \+ fx_settings is not a verified project structure for ep40/);
+});
+
 test('Project Reader preserves unknown pattern records instead of inventing semantics',()=>{
   const profile=getEpProjectProfile('TE032AS001','2.5.1');
   const data=Uint8Array.from([0,1,1,0,0,0,3,9,8,7,6,5]);
@@ -1126,6 +1157,21 @@ test('read-only HIL archive audit roundtrips EP-133 and reports missing sample d
   assert.equal(audit.patterns.unknownRecords,1);
   assert.deepEqual(audit.sampleDependencies.referencedSampleSlots,[1,42]);
   assert.deepEqual(audit.sampleDependencies.missingSampleSlots,[42]);
+});
+
+test('read-only HIL audit accepts observed native EP-40 live plus patterns and stays byte-exact',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const live=new Uint8Array(48);live[0]=1;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validEp40PadRecord()},
+    {path:'patterns/a01',data:ep40NotePattern()},
+    {path:'live',data:live}
+  ]);
+  const audit=auditProjectArchiveBytes(tar,{profile,occupiedSlots:[1]});
+  assert.equal(audit.roundtripByteExact,true);
+  assert.equal(audit.livePresent,true);
+  assert.equal(audit.patterns.count,1);
+  assert.equal(audit.uncertainties.liveWithPatterns,'observed-native-readonly');
 });
 
 test('read-only HIL archive audit understands EP-40 supertone without treating it as a missing PCM sample',()=>{

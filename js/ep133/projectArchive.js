@@ -230,8 +230,10 @@ export function validateProjectArchive(input,{profile}={}){
     unknownFiles+=1;
   }
   for(const member of scenesMembers)validateScenes(member,patternPaths,profile);
-  if(live&&patterns)throw new Error('live + populated patterns is not a verified project structure.');
-  if(live&&seen.has('fx_settings'))throw new Error('live + fx_settings is not a verified project structure.');
+  if(live&&patterns&&!profile.nativeLiveWithPatternsObserved)
+    throw new Error('live + populated patterns is not a verified project structure for '+profile.id+'.');
+  if(live&&seen.has('fx_settings')&&!profile.nativeLiveWithFxObserved)
+    throw new Error('live + fx_settings is not a verified project structure for '+profile.id+'.');
   return{members:members.length,files,directories,pads,patterns,scenes:scenesMembers.length,live,unknownFiles,profile:profile.id};
 }
 
