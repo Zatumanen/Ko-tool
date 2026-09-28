@@ -166,7 +166,7 @@ export function formatDeviceRejection(response){
     : `EP-series device returned status ${status}`;
 }
 
-async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
+async function sendRequest(command,payload=new Uint8Array(),timeout=2000){
   if(deviceUnsafe)throw unsafeError();
   const epoch=connectionEpoch;
   const task=requestQueue.then(async()=>{
@@ -193,9 +193,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
         const error=new Error(`EP-series request timeout (command ${command})`);
         error.name='EPSeriesTimeoutError';
         error.code='EP_SERIES_TIMEOUT';
-        const fileSubcommand=command===TE_SYSEX_FILE?Number(payload?.[0]):-1;
-        if(command===TE_SYSEX_FILE&&fileSubcommand!==TE_SYSEX_FILE_MOVED)enterUnsafeState(error.message);
-        finishReject(deviceUnsafe?unsafeError():error);
+        finishReject(error);
       },timeout);
       pending.set(frame.id,{
         inputPort:input,
@@ -256,9 +254,11 @@ export async function connectEp133(){
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
   const metadata=metadataStringToObject(new TextDecoder().decode(greet.rawData));
-  validateFirmware(found.parsed.sku,metadata);
+  const baseSku=String(metadata?.base_sku||'').toUpperCase();
+  const effectiveSku=isSupportedEpSku(baseSku)?baseSku:found.parsed.sku;
+  validateFirmware(effectiveSku,metadata);
   initialized=true;
-  deviceInfo={sku:found.parsed.sku,metadata};
+  deviceInfo={sku:effectiveSku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
   notifyConnection();
   return{...deviceInfo,input,output};
   })();
@@ -280,14 +280,14 @@ export function isConnected(){return !deviceUnsafe&&initialized&&!!input&&!!outp
 const READ_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_INFO]);
 const WRITE_SUBCOMMANDS=new Set([TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_MOVED]);
 
-export function requestRead(command,payload=new Uint8Array(),timeout=5000){
+export function requestRead(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
   if(!READ_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
   return sendRequest(command,payload,timeout);
 }
 
-export function requestFile(command,payload=new Uint8Array(),timeout=20000){
+export function requestFile(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series FILE command rejected: ${command}`));
   const subcommand=payload[0];
   if(!WRITE_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series unsupported FILE subcommand: ${subcommand}`));
