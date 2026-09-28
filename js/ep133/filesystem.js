@@ -1,8 +1,8 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-2';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-3';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260929-2';
-import{assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-2';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-3';
+import{assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-3';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -38,15 +38,22 @@ function connectedProjectProfile(){
 }
 export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYSEX_HEADER_OVERHEAD+2+TE_SYSEX_FOOTER_OVERHEAD;if(maxPacketLength<=overhead)return 0;const available=maxPacketLength-1-overhead;return available-Math.floor(available/8);}
 
-function initPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
+export function buildFileInitPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
 
-async function initFileSystemUnlocked(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,initPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
+async function initFileSystemUnlocked(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,buildFileInitPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
 
 export async function initFileSystem(maxResponseLength=4*1024*1024){return runFileOperation(()=>initFileSystemUnlocked(maxResponseLength));}
 async function initRead(maxResponseLength=4*1024*1024){return initFileSystemUnlocked(maxResponseLength);}
-function listPayload(page,nodeId){const p=new Uint8Array(5),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_LIST;view.setUint16(1,page);view.setUint16(3,nodeId);return p;}
+export function buildFileListPayload(page,nodeId){const p=new Uint8Array(5),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_LIST;view.setUint16(1,page);view.setUint16(3,nodeId);return p;}
 
 export function parseMetadataResponse(raw,page){if(raw.length<=2)return null;const responsePage=u16(raw,0);if(responsePage!==page)throw new Error('Unexpected metadata page '+responsePage+', expected '+page);return{text:parseNullTerminatedString(raw,2),done:raw[raw.length-1]===0};}
+export function buildMetadataGetPayload(nodeId,page=0,key=null){
+  const keyBytes=key?new TextEncoder().encode(String(key)):null;
+  const p=new Uint8Array(6+(keyBytes?.length||0)+(keyBytes?1:0)),view=new DataView(p.buffer);
+  p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);
+  if(keyBytes){p.set(keyBytes,6);p[6+keyBytes.length]=0;}
+  return p;
+}
 
 function parseList(data){const out=[];let offset=0;while(offset+7<=data.length){const nodeId=u16(data,offset),flags=data[offset+2],fileSize=u32(data,offset+3),fileName=parseNullTerminatedString(data,offset+7);out.push({nodeId,flags,fileSize,fileName,fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)});offset+=7+fileName.length+1;}return out;}
 
@@ -57,8 +64,7 @@ async function getMetadataByNodeId(nodeId,key=null){
       let page=0,text='';
       for(;;){
         if(page>0xffff)throw new Error('EP-series metadata page limit exceeded.');
-        const keyBytes=key?new TextEncoder().encode(String(key)):null;
-        const p=new Uint8Array(6+(keyBytes?.length||0)+(keyBytes?1:0)),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);if(keyBytes){p.set(keyBytes,6);p[6+keyBytes.length]=0;}
+        const p=buildMetadataGetPayload(nodeId,page,key);
         const response=await requestRead(TE_SYSEX_FILE,p);
         const parsed=parseMetadataResponse(response.rawData,page);
         if(!parsed)break;
@@ -82,7 +88,7 @@ async function listDirectoryUnlocked(nodeId=0,path='/'){
   const result=[];
   for(let page=0;;page++){
     if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');
-    const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));
+    const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));
     const raw=response.rawData;
     if(raw.length<=2)break;
     const pageNo=u16(raw,0);
@@ -307,7 +313,7 @@ async function putFileUnlocked({data,filename,parentId,destinationId,metadata=nu
 }
 export async function putFile(args){return runFileOperation(()=>putFileUnlocked(args));}
 
-async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
+async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const positiveActive=value=>{
@@ -385,6 +391,11 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     const root=await listDirectoryUnlocked(0,'/');
     const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
     if(!parent)throw new Error('EP-series /projects node is not available.');
+    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+    const occupiedSampleSlots=sounds
+      ?(await listDirectoryUnlocked(sounds.nodeId,'/sounds')).map(item=>Number(item.nodeId)).filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
+      :[];
+    const sampleDependencies=preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile});
     const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
     const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
     if(!destination)throw new Error(`EP-series project ${project} is not available.`);
@@ -413,6 +424,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
         fileId:destination.nodeId,
         verification,
         reload,
+        sampleDependencies,
         backup:{name:backup.name,size:backup.size}
       };
     }catch(error){
@@ -529,23 +541,21 @@ export async function startPlayback(nodeId,preview=true){return runFileOperation
 export async function stopPlayback(nodeId){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
+export function buildFileGetInitPayload(nodeId,offset=0){const p=new Uint8Array(8),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_GET;p[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,offset);return p;}
+export function buildFileGetDataPayload(page){const p=new Uint8Array(4),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_GET;p[1]=TE_SYSEX_FILE_GET_TYPE_DATA;view.setUint16(2,page);return p;}
 
 async function getFileUnlocked(nodeId,onProgress){
   await initRead();
   let streamOpened=false,streamClosed=false;
   try{
-    const init=new Uint8Array(8),view=new DataView(init.buffer);
-    init[0]=TE_SYSEX_FILE_GET;init[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,0);
-    const start=await requestRead(TE_SYSEX_FILE,init);
+    const start=await requestRead(TE_SYSEX_FILE,buildFileGetInitPayload(nodeId,0));
     streamOpened=true;
     if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');
     const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];
     let done=0,page=0;
     while(done<fileSize){
       if(page>0xffff)throw new Error('EP-series FILE_GET page limit exceeded.');
-      const requestPayload=new Uint8Array(4),requestView=new DataView(requestPayload.buffer);
-      requestPayload[0]=TE_SYSEX_FILE_GET;requestPayload[1]=TE_SYSEX_FILE_GET_TYPE_DATA;requestView.setUint16(2,page);
-      const response=await requestRead(TE_SYSEX_FILE,requestPayload);
+      const response=await requestRead(TE_SYSEX_FILE,buildFileGetDataPayload(page));
       const chunk=validateFileGetChunk(response.rawData,page,fileSize-done);
       chunks.push(chunk);done+=chunk.length;onProgress?.(done,fileSize);page+=1;
     }
