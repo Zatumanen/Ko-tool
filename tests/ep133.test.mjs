@@ -922,7 +922,7 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/error\.projectRollbackSucceeded=true/);
   assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)throw error/);
   assert.ok(block.indexOf('const backup=await getFileUnlocked')<block.indexOf('await putFileUnlocked'));
-  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=await reloadProjectUnlocked'));
+  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
 });
 
 test('EP project reload cycles active project and verifies project group and pad metadata',async()=>{
@@ -978,7 +978,7 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
   assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,onBackup\}=\{\}\)/);
-  assert.match(block,/const profile=connectedProjectProfile\(\)/);
+  assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
   assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
   assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
   assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
