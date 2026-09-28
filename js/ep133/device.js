@@ -308,6 +308,11 @@ export function requestFile(command,payload=new Uint8Array(),timeout=2000){
 }
 
 export function getMidiPorts(){return{input,output};}
+export function getDeviceSessionToken(){
+  if(!isConnected())return null;
+  const serial=deviceInfo?.metadata?.serialNumber||deviceInfo?.metadata?.serial||'';
+  return [connectionEpoch,output?.id||'',input?.id||'',deviceInfo?.sku||'',serial].join(':');
+}
 
 export function onFileEvent(listener){
   if(typeof listener!=='function')return()=>{};
