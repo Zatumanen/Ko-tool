@@ -1216,15 +1216,44 @@ test('read-only HIL archive audit understands EP-40 supertone without treating i
   assert.equal(audit.sampleDependencies.allSamplesAvailable,true);
 });
 
-test('project HIL runtime is read-only and session-guarded by construction',async()=>{
+test('read-only project HIL path stays mutation-free and session-guarded',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/projectHil.js',import.meta.url),'utf8');
-  assert.match(source,/passiveFirmwareDebugPreflight\(1200,'read-only project HIL'\)/);
-  assert.match(source,/const files=await listDeviceFiles\(\)/);
-  assert.match(source,/const file=await getFile\(node\.nodeId\)/);
-  assert.match(source,/getDeviceSessionToken\(\)!==sessionToken/);
-  assert.doesNotMatch(source,/uploadProjectArchive|deleteFile|moveFile|setFileMetadata|requestFile|putFile/);
-  assert.doesNotMatch(source,/Promise\.all\([^)]*getFile/);
+  const start=source.indexOf('export async function auditConnectedEpProjects');
+  const end=source.indexOf('const activeFromMetadata',start);
+  const block=source.slice(start,end);
+  assert.match(block,/passiveFirmwareDebugPreflight\(1200,'read-only project HIL'\)/);
+  assert.match(block,/const files=await listDeviceFiles\(\)/);
+  assert.match(block,/const file=await getFile\(node\.nodeId\)/);
+  assert.match(block,/getDeviceSessionToken\(\)!==sessionToken/);
+  assert.doesNotMatch(block,/uploadProjectArchive|deleteFile|moveFile|setFileMetadata|requestFile|putFile/);
+  assert.doesNotMatch(block,/Promise\.all\([^)]*getFile/);
+});
+
+test('no-op project write HIL requires exact destructive acknowledgement and an inactive empty scratch slot',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/projectHil.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function runProjectNoopWriteHil');
+  const block=source.slice(start);
+  assert.match(block,/const expectedAck='ERASE PROJECT '\+number/);
+  assert.match(block,/beforeActive===target\.nodeId/);
+  assert.match(block,/Scratch project is not empty enough/);
+  assert.match(block,/triggerCheckpointDownload/);
+  assert.match(block,/performReload:false/);
+  assert.match(block,/if\(!internalBackupMatched\)throw new Error\('Upload transaction checkpoint changed between preflight and write\.'\)/);
+  assert.match(block,/readbackByteExact/);
+  assert.match(block,/activeProjectUnchanged/);
+});
+
+test('project upload can verify PUT/readback without activating or reloading the project',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function uploadProjectArchive');
+  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const block=source.slice(start,end);
+  assert.match(block,/performReload=true/);
+  assert.match(block,/profile\.projectReloadVerified&&performReload/);
+  assert.match(block,/const reload=profile\.projectReloadVerified&&performReload/);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
@@ -1457,7 +1486,7 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const start=source.indexOf('export async function uploadProjectArchive');
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
-  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,onBackup\}=\{\}\)/);
+  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup\}=\{\}\)/);
   assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
   assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
   assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);

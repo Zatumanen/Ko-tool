@@ -1,8 +1,8 @@
-import{getConnectedDeviceInfo,getDeviceSessionToken,passiveFirmwareDebugPreflight}from './device.js?v=20260929-12';
-import{listDeviceFiles,getFile}from './filesystem.js?v=20260929-12';
-import{getEpProjectProfile}from './projectProfile.js?v=20260929-12';
-import{validateProjectArchive,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-12';
-import{readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-12';
+import{getConnectedDeviceInfo,getDeviceSessionToken,passiveFirmwareDebugPreflight}from './device.js?v=20260929-13';
+import{listDeviceFiles,getFile,getFileMetadata,uploadProjectArchive,downloadProjectArchive}from './filesystem.js?v=20260929-13';
+import{getEpProjectProfile}from './projectProfile.js?v=20260929-13';
+import{validateProjectArchive,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-13';
+import{readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-13';
 
 const bytesEqual=(a,b)=>{
   const aa=a instanceof Uint8Array?a:new Uint8Array(a||[]);
@@ -21,7 +21,7 @@ const normalizedRequestedProjects=value=>{
   const set=new Set();
   for(const item of list){
     const number=Number(item);
-    if(!Number.isInteger(number)||number<0||number>99)throw new Error('HIL project numbers must be 0..99.');
+    if(!Number.isInteger(number)||number<1||number>99)throw new Error('HIL project numbers must be 1..99.');
     set.add(number);
   }
   return set;
@@ -151,4 +151,133 @@ export async function auditConnectedEpProjects({projectNumbers=null,onProgress}=
   };
   onProgress?.({phase:'done',report});
   return report;
+}
+
+
+const activeFromMetadata=metadata=>{
+  const value=Number(metadata?.active);
+  return Number.isInteger(value)&&value>0?value:null;
+};
+
+function triggerCheckpointDownload({projectNumber,profile,data}){
+  if(typeof document==='undefined'||typeof URL==='undefined'||typeof Blob==='undefined')
+    throw new Error('Project write HIL requires a browser so the pre-write checkpoint can be downloaded.');
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+  const name=(profile.id==='ep40'?'EP40':'EP133')+'-P'+String(projectNumber).padStart(2,'0')+'-checkpoint-'+stamp+'.tar';
+  const blob=new Blob([data],{type:'application/x-tar'});
+  const url=URL.createObjectURL(blob);
+  try{
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=name;
+    link.style.display='none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }finally{
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  return name;
+}
+
+const sameBytes=(a,b)=>bytesEqual(a,b);
+
+export async function runProjectNoopWriteHil({projectNumber,acknowledge,onProgress}={}){
+  const number=Number(projectNumber);
+  if(!Number.isInteger(number)||number<1||number>99)throw new Error('No-op write HIL project number must be 1..99.');
+  const expectedAck='ERASE PROJECT '+number;
+  if(String(acknowledge||'')!==expectedAck)
+    throw new Error('No-op write HIL requires exact acknowledgement: '+JSON.stringify(expectedAck)+'.');
+
+  const info=getConnectedDeviceInfo();
+  if(!info)throw new Error('Connect an EP-133 or EP-40 before running project write HIL.');
+  const profile=requireHilProfile(info);
+  const sessionToken=getDeviceSessionToken();
+  if(!sessionToken)throw new Error('EP device session is not available.');
+
+  await passiveFirmwareDebugPreflight(1200,'no-op project write HIL');
+  if(getDeviceSessionToken()!==sessionToken)throw new Error('EP device session changed during write-HIL preflight.');
+
+  onProgress?.({phase:'list'});
+  const files=await listDeviceFiles();
+  if(getDeviceSessionToken()!==sessionToken)throw new Error('EP device session changed while listing files.');
+
+  const projectsNode=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+  if(!projectsNode)throw new Error('EP /projects node is unavailable.');
+  const targetPath='/projects/'+String(number).padStart(2,'0');
+  const target=files.find(item=>item.fileName===targetPath&&item.fileType==='folder');
+  if(!target)throw new Error('Scratch project '+String(number).padStart(2,'0')+' is unavailable.');
+
+  const beforeActive=activeFromMetadata(await getFileMetadata(projectsNode.nodeId,'active'));
+  if(beforeActive===target.nodeId)
+    throw new Error('Refusing no-op write HIL: project '+String(number).padStart(2,'0')+' is currently active.');
+
+  const occupiedSlots=files
+    .filter(item=>item.fileType==='file'&&String(item.fileName).startsWith('/sounds/'))
+    .map(item=>Number(item.nodeId))
+    .filter(id=>Number.isInteger(id)&&id>=1&&id<=999);
+
+  onProgress?.({phase:'checkpoint',projectNumber:number,path:targetPath});
+  const checkpoint=await getFile(target.nodeId);
+  if(getDeviceSessionToken()!==sessionToken)throw new Error('EP device session changed while checkpointing project '+String(number).padStart(2,'0')+'.');
+  const audit=auditProjectArchiveBytes(checkpoint.data,{profile,occupiedSlots});
+  if(!audit.roundtripByteExact)throw new Error('Scratch project fails byte-exact no-op roundtrip; write HIL aborted.');
+  if(audit.pads.assigned!==0||audit.patterns.count!==0||audit.scenes.present||audit.settingsPresent||audit.fxSettingsPresent||audit.livePresent||audit.unknownMembers.length)
+    throw new Error('Scratch project is not empty enough for the first no-op write HIL; choose an unused project slot.');
+
+  const checkpointFile=triggerCheckpointDownload({projectNumber:number,profile,data:checkpoint.data});
+  onProgress?.({phase:'checkpoint-downloaded',projectNumber:number,name:checkpointFile,bytes:checkpoint.size});
+
+  const uploadFile={
+    name:'P'+String(number).padStart(2,'0')+'.tar',
+    async arrayBuffer(){
+      const copy=checkpoint.data.slice();
+      return copy.buffer.slice(copy.byteOffset,copy.byteOffset+copy.byteLength);
+    }
+  };
+
+  let internalBackupMatched=false;
+  onProgress?.({phase:'write',projectNumber:number,bytes:checkpoint.size});
+  const upload=await uploadProjectArchive(uploadFile,{
+    performReload:false,
+    onBackup:backup=>{
+      internalBackupMatched=sameBytes(checkpoint.data,backup.data);
+      if(!internalBackupMatched)throw new Error('Upload transaction checkpoint changed between preflight and write.');
+    }
+  });
+  if(upload.reload!==null)throw new Error('No-op write HIL unexpectedly performed project reload.');
+
+  if(getDeviceSessionToken()!==sessionToken)throw new Error('EP device session changed after no-op project write.');
+  onProgress?.({phase:'readback',projectNumber:number});
+  const readback=await downloadProjectArchive(targetPath);
+  const readbackByteExact=sameBytes(checkpoint.data,readback.data);
+  if(!readbackByteExact)throw new Error('No-op write HIL readback differs from the downloaded checkpoint.');
+
+  const afterActive=activeFromMetadata(await getFileMetadata(projectsNode.nodeId,'active'));
+  if(afterActive!==beforeActive)throw new Error('No-op write HIL changed the active project unexpectedly.');
+
+  const result={
+    mode:'write-noop',
+    device:{
+      sku:info.sku,
+      identitySku:info.identitySku,
+      firmware:String(info.metadata?.os_version||info.metadata?.sw_version||'')
+    },
+    profile:profile.id,
+    projectNumber:number,
+    path:targetPath,
+    projectFid:target.nodeId,
+    checkpointFile,
+    checkpointBytes:checkpoint.size,
+    scratchAudit:audit,
+    memberVerification:upload.verification,
+    readbackByteExact,
+    reloadPerformed:false,
+    activeProjectBefore:beforeActive,
+    activeProjectAfter:afterActive,
+    activeProjectUnchanged:afterActive===beforeActive,
+    passed:readbackByteExact&&afterActive===beforeActive&&internalBackupMatched
+  };
+  onProgress?.({phase:'done',report:result});
+  return result;
 }
