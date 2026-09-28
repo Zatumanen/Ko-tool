@@ -6,6 +6,7 @@ import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTe
 import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload}from '../js/ep133/filesystem.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
+import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -151,7 +152,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -802,6 +803,155 @@ test('native project pad patch preserves the rest of the TAR',()=>{
   assert.equal(new DataView(members.find(member=>member.path==='pads/a/p01').data.buffer,
     members.find(member=>member.path==='pads/a/p01').data.byteOffset,26).getUint16(1,true),2);
   assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[1,3,3,7]);
+});
+
+test('unified Project Reader decodes verified EP-133 fields while preserving unknown native bytes',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pad=validPadRecord();
+  const padView=new DataView(pad.buffer);
+  padView.setUint16(1,42,true);
+  pad[3]=5;
+  padView.setUint32(4,0,true);
+  padView.setUint32(8,48000,true);
+  padView.setFloat32(12,123.5,true);
+  pad[16]=110;pad[17]=0xfe;pad[18]=0xfc;pad[19]=9;pad[20]=200;pad[21]=1;pad[22]=7;pad[23]=2;pad[24]=60;pad[25]=77;
+
+  const pattern=Uint8Array.from([
+    0,2,2,0x7f,
+    0,0,1,5,0,0,64,0,
+    24,0,16,64,100,48,0,31
+  ]);
+  const settings=new Uint8Array(224);
+  settings.set([9,8,7,6],0);
+  const settingsView=new DataView(settings.buffer);
+  settingsView.setFloat32(4,126.5,true);
+  for(let offset=24;offset<216;offset+=4)settingsView.setFloat32(offset,-1,true);
+  settingsView.setFloat32(24+48+5*4,0.75,true);
+  settings.set([3,4,1,5],216);
+  settings.set([0,1,0xaa,0xbb],220);
+
+  const fx=new Uint8Array(160);
+  const fxView=new DataView(fx.buffer);
+  fx[4]=2;
+  fx.set([1,2,3,4],8);
+  fxView.setFloat32(16,0.25,true);
+  fxView.setFloat32(80,0.75,true);
+  fxView.setFloat32(136,0.5,true);
+  fxView.setFloat32(140,1,true);
+  fxView.setFloat32(144,0.4,true);
+  fxView.setFloat32(148,0.6,true);
+  fxView.setUint16(152,0x8801,true);
+
+  const scenes=scenesWithA1();
+  scenes.set([1,1,1,1],7);
+  const trailer=7+99*6;
+  scenes[trailer+3]=1;
+  scenes[trailer+11]=3;
+  scenes.set([1,1,1],trailer+12);
+
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad},
+    {path:'patterns/a01',data:pattern},
+    {path:'patterns/b01',data:notePattern()},
+    {path:'patterns/c01',data:notePattern()},
+    {path:'patterns/d01',data:notePattern()},
+    {path:'scenes',data:scenes},
+    {path:'settings',data:settings},
+    {path:'fx_settings',data:fx},
+    {path:'vendor_future',data:Uint8Array.from([4,3,2,1])}
+  ]);
+
+  const model=readProjectModel(tar,{profile});
+  assert.equal(model.profile.id,'ep133');
+  assert.equal(model.pads.a[0].sampleSlot,42);
+  assert.equal(model.pads.a[0].midiChannel,5);
+  assert.equal(model.pads.a[0].trimLength,48000);
+  assert.equal(model.pads.a[0].pitch,-2);
+  assert.equal(model.pads.a[0].pan,-4);
+  assert.equal(model.pads.a[0].byte25,77);
+  assert.equal(model.patterns[0].headerRecordCount,2);
+  assert.deepEqual([...model.patterns[0].rawHeader],[0,2,2,0x7f]);
+  assert.equal(model.patterns[0].automation[0].parameterName,'FX');
+  assert.equal(model.patterns[0].automation[0].value,16384);
+  assert.equal(model.patterns[0].notes[0].pad,3);
+  assert.equal(model.patterns[0].notes[0].flag,31);
+  assert.equal(model.scenes.currentScene,1);
+  assert.deepEqual(model.scenes.song,[1,1,1]);
+  assert.equal(model.settings.bpm,126.5);
+  assert.equal(model.settings.faderAssignments.a.parameterName,'LPF');
+  assert.equal(model.settings.groupFaders.b[5].value,0.75);
+  assert.equal(Object.prototype.hasOwnProperty.call(model.settings,'scale'),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(model.settings,'rootNote'),false);
+  assert.deepEqual([...model.settings.disputedTailRaw],[0,1,0xaa,0xbb]);
+  assert.equal(model.fxSettings.effectName,'reverb');
+  assert.equal(model.fxSettings.sidechain.routing.a.destination,true);
+  assert.deepEqual(model.fxSettings.sidechain.routing.a.sourcePads,[1,12]);
+  assert.deepEqual([...model.unknownMembers[0].data],[4,3,2,1]);
+  assert.deepEqual([...buildProjectFromModel(model)],[...tar]);
+});
+
+test('unified Project Reader decodes EP-40 native pattern and supertone deltas',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const pad=validEp40PadRecord();
+  const padView=new DataView(pad.buffer);
+  padView.setUint16(1,1002,true);
+  pad[23]=3;
+  pad[26]=50;
+  pad[27]=123;
+  pad[28]=45;
+  const pattern=Uint8Array.from([
+    1,3,0xff,0xff,2,0,
+    0,0,1,0,0,0xfc,0x7f,8,
+    24,0,0,60,127,24,0,6
+  ]);
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad},
+    {path:'patterns/a01',data:pattern}
+  ]);
+  const model=readProjectModel(tar,{profile});
+  const decodedPad=model.pads.a[0];
+  assert.equal(decodedPad.playMode,3);
+  assert.deepEqual(decodedPad.supertone,{engine:2,symbol:1003,knobX:123,knobY:45});
+  assert.equal(decodedPad.pitchFraction,50);
+  assert.equal(model.patterns[0].headerSize,6);
+  assert.equal(model.patterns[0].recordCount,2);
+  assert.equal(model.patterns[0].automation[0].flag,8);
+  assert.equal(model.patterns[0].automation[0].value,32764);
+  assert.equal(model.patterns[0].notes[0].flag,6);
+  assert.deepEqual([...buildProjectFromModel(model)],[...tar]);
+});
+
+test('EP-40 Project Reader exposes live/LSS as read-only armed pad state',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const live=new Uint8Array(48);
+  live[0]=1;live[11]=1;live[12]=1;live[47]=1;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validEp40PadRecord()},
+    {path:'live',data:live}
+  ]);
+  const model=readProjectModel(tar,{profile});
+  assert.equal(model.live.groups.a[0].armed,true);
+  assert.equal(model.live.groups.a[11].armed,true);
+  assert.equal(model.live.groups.b[0].armed,true);
+  assert.equal(model.live.groups.d[11].armed,true);
+  assert.equal(model.patterns.length,0);
+});
+
+test('Project Reader preserves unknown pattern records instead of inventing semantics',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const data=Uint8Array.from([0,1,1,0,0,0,3,9,8,7,6,5]);
+  const member={path:'patterns/a01',data,header:new Uint8Array(512)};
+  const pattern=readProjectPattern(member,{profile});
+  assert.equal(pattern.notes.length,0);
+  assert.equal(pattern.automation.length,0);
+  assert.equal(pattern.unknownRecords.length,1);
+  assert.deepEqual([...pattern.unknownRecords[0].raw],[0,0,3,9,8,7,6,5]);
+});
+
+test('Project Reader requires an explicit verified EP-133 or EP-40 profile',()=>{
+  const tar=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
+  assert.throws(()=>readProjectModel(tar),/requires an explicit EP-133 or EP-40/);
+  assert.throws(()=>readProjectModel(tar,{profile:getEpProjectProfile('TE032AS005','1.0.2')}),/enabled only for EP-133 and EP-40/);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
