@@ -155,6 +155,7 @@ function enterUnsafeState(reason){
 
 export function isDeviceUnsafe(){return deviceUnsafe;}
 export function markDeviceUnsafe(reason){enterUnsafeState(reason);}
+export function isRequestTimeoutError(error){return error?.code==='EP_SERIES_TIMEOUT'||error?.name==='EPSeriesTimeoutError';}
 
 export function formatDeviceRejection(response){
   const status=Number(response?.status);
@@ -190,7 +191,10 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=20000){
       };
       const timer=setTimeout(()=>{
         const error=new Error(`EP-series request timeout (command ${command})`);
-        if(command===TE_SYSEX_FILE)enterUnsafeState(error.message);
+        error.name='EPSeriesTimeoutError';
+        error.code='EP_SERIES_TIMEOUT';
+        const fileSubcommand=command===TE_SYSEX_FILE?Number(payload?.[0]):-1;
+        if(command===TE_SYSEX_FILE&&fileSubcommand!==TE_SYSEX_FILE_MOVED)enterUnsafeState(error.message);
         finishReject(deviceUnsafe?unsafeError():error);
       },timeout);
       pending.set(frame.id,{

@@ -67,17 +67,7 @@ export function planSampleTransferTargets(slots,sourceIds,draggedId,dropId){
   const reserved=new Set();
   const blocked=new Set(sources);
   const free=id=>id>=1&&id<=EP_SAMPLE_SLOT_COUNT&&!reserved.has(id)&&!blocked.has(id)&&!slots[id-1]?.file;
-  if(sources.length===1){
-    for(let delta=0;delta<EP_SAMPLE_SLOT_COUNT;delta++){
-      const up=drop+delta;
-      if(free(up))return[{sourceId:sources[0],targetId:up}];
-      if(delta){
-        const down=drop-delta;
-        if(free(down))return[{sourceId:sources[0],targetId:down}];
-      }
-    }
-    return[];
-  }
+  if(sources.length===1)return free(drop)?[{sourceId:sources[0],targetId:drop}]:[];
   const pairs=[];
   let spill=0;
   let previousTarget=0;
@@ -350,7 +340,7 @@ export function createSampleMemory({
       });
 
       row.addEventListener('dragstart',event=>{
-        if(!mutationsEnabled||!slot.file||slot.node?.isReadable!==true){event.preventDefault();return;}
+        if(!mutationsEnabled||!slot.file){event.preventDefault();return;}
         if(!selectedIds.has(slot.id)){
           selectedIds=new Set([slot.id]);
           selectedId=slot.id;

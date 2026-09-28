@@ -1,9 +1,9 @@
 import{
   connectEp133,isConnected,isDeviceUnsafe,onConnectionChange,onFileEvent,onMidiActivity,
-  listDeviceFiles,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
+  listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260928-2';
+}from './index.js?v=20260928-3';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,12 +12,12 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-2';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260928-3';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260928-2';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-2';
+}from './sampleMemory.js?v=20260928-3';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260928-3';
 import{outputFileName}from '../output-name.js';
 const TIME_MODES=['off','bpm','bar'];
 const BAR_VALUES=[1,2];
@@ -212,9 +212,17 @@ export function initEp133Browser({showError}={}){
       .filter(item=>/^\/sounds\/[^/]+$/.test(item?.fileName||'')&&Number(item?.nodeId)>=1&&Number(item?.nodeId)<=999)
       .map(item=>Number(item.nodeId))
   );
+  const replaceSoundFiles=files=>{
+    const sounds=Array.isArray(files)?files:[];
+    deviceFiles=[
+      ...deviceFiles.filter(item=>!/^\/sounds\/[^/]+$/.test(item?.fileName||'')),
+      ...sounds
+    ];
+    return sounds;
+  };
   const readAuthoritativeFiles=async()=>{
-    const files=await listDeviceFiles();
-    return Array.isArray(files)?files:[];
+    if(!soundsParentId)return[];
+    return replaceSoundFiles(await listDirectory(soundsParentId,'/sounds'));
   };
   const assertSlotsEmpty=async ids=>{
     const requested=[...new Set((ids||[]).map(Number))];
@@ -230,7 +238,6 @@ export function initEp133Browser({showError}={}){
     const occupied=soundSlotIds(files);
     const remaining=requested.filter(id=>occupied.has(id));
     if(remaining.length)throw new Error('EP-series delete was not confirmed by /sounds LIST for slot(s): '+remaining.map(id=>String(id).padStart(3,'0')).join(', '));
-    deviceFiles=files;
     return files;
   };
   const verifyPcmReadback=async(fileId,expected,onProgress)=>{
@@ -644,23 +651,9 @@ export function initEp133Browser({showError}={}){
 
   const applyNativeMoveLocally=(source,target,moved)=>{
     const oldId=Number(moved.oldFileId),newId=Number(moved.newFileId);
-    const oldItem=deviceFiles.find(item=>Number(item.nodeId)===oldId)||source.node||null;
     const oldMeta=source.meta||memory.getSlot(oldId)?.meta||null;
-    const flags=Number(oldItem?.flags)||0;
-    const item={
-      ...(oldItem||{}),
-      nodeId:newId,
-      parentId:Number(moved.parentId),
-      flags,
-      fileSize:Number(oldItem?.fileSize??source.file?.size)||0,
-      fileName:'/sounds/'+String(newId).padStart(3,'0')+'.pcm',
-      fileType:'file',
-      isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
-      isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
-      isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
-      isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
-      isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
-    };
+    const item=fileItemFromInfo(moved.info);
+    if(!item||Number(item.nodeId)!==newId)throw new Error('The native FILE_MOVE destination could not be resolved.');
     deviceFiles=deviceFiles.filter(file=>Number(file.nodeId)!==oldId&&Number(file.nodeId)!==newId);
     deviceFiles.push(item);
     if(oldId!==newId)memory.clearSlot(oldId);
@@ -733,15 +726,7 @@ export function initEp133Browser({showError}={}){
     const plan=planSampleTransferTargets(memory.getSlots(),sourceIds,draggedId,dropSlot.id);
     if(plan.length!==sources.length)throw new Error('No valid free destination slots are available.');
     const sourceById=new Map(sources.map(item=>[item.id,item]));
-    if(!copy){
-      try{return await nativeMoveTransfer(plan,sourceById);}
-      catch(error){
-        if(isDeviceUnsafe())throw error;
-        const canFallback=sources.every(item=>item.node?.isReadable===true&&item.node?.isDeletable===true);
-        if(!canFallback)throw error;
-        logTechnical('NATIVE FILE_MOVE FAILED · USING VERIFIED GET/PUT FALLBACK',error);
-      }
-    }
+    if(!copy)return nativeMoveTransfer(plan,sourceById);
     if(sources.some(item=>item.node?.isReadable!==true))throw new Error('One or more source samples cannot be read.');
     const created=[];
     const sourceSnapshots=new Map();
@@ -791,12 +776,6 @@ export function initEp133Browser({showError}={}){
           }
         });
         if(Number(fileId)!==Number(target.id))throw new Error('The device wrote a sample to an unexpected slot.');
-        memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
-        await verifyPcmReadback(fileId,bytes,(done,total)=>{
-          const local=total?done/total:0;
-          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
-          setGlobalProgress(copy?'COPY':'MOVE',((index+.90+local*.05)/plan.length)*100);
-        });
         const info=await getFileInfo(fileId);
         const item=fileItemFromInfo(info);
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
@@ -990,12 +969,6 @@ export function initEp133Browser({showError}={}){
               setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
             }
           });
-          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
-          await verifyPcmReadback(fileId,prepared.data,(done,total)=>{
-            const local=total?done/total:0;
-            memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
-            setGlobalProgress('UPLOAD',((index+.94+local*.06)/targets.length)*100);
-          });
           const info=await getFileInfo(fileId);
           const fileItem=fileItemFromInfo(info);
           if(!fileItem)throw new Error('Uploaded sample could not be verified.');
@@ -1052,22 +1025,16 @@ export function initEp133Browser({showError}={}){
       soundFormats=[];
       soundsMetadata={};
       deviceFiles=[];
-      const progressiveEntries=[];
-      const flushEntries=()=>{
-        if(!progressiveEntries.length)return;
-        memory.setEntries(progressiveEntries.splice(0,progressiveEntries.length));
-        renderDeviceStats(soundsMetadata,memory.countOccupied());
-      };
-      deviceFiles=await listDeviceFiles((item,total)=>{
-        if(/^\/sounds\/[^/]+$/.test(item?.fileName||'')){
-          progressiveEntries.push(item);
-          if(progressiveEntries.length>=29)flushEntries();
-        }
-        setGlobalProgress('SYNC',Math.min(8,Math.max(1,(Number(total)||0)/125)));
-      });
-      flushEntries();
-      soundsParentId=getSoundsParentId(deviceFiles);
+      const rootEntries=await listDirectory(0,'/');
+      const soundsRoot=rootEntries.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+      soundsParentId=Number(soundsRoot?.nodeId)||0;
       if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
+      setGlobalProgress('SYNC',4);
+      const soundEntries=await listDirectory(soundsParentId,'/sounds');
+      deviceFiles=[...rootEntries,...soundEntries];
+      memory.setEntries(soundEntries);
+      renderDeviceStats(soundsMetadata,memory.countOccupied());
+      setGlobalProgress('SYNC',8);
       soundsMetadata=await getFileMetadata(soundsParentId);
       soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];
       memory.setTabs(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs);

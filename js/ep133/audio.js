@@ -64,8 +64,8 @@ const TEENAGE_META_VALIDATORS={
   "sound.amplitude":value=>value!=null&&value>=0&&value<=200,
   "envelope.attack":value=>value!=null&&value>=0&&value<=255,
   "envelope.release":value=>value!=null&&value>=0&&value<=255,
-  "sound.playmode":value=>['oneshot','key','legato','loop'].includes(String(value)),
-  "time.mode":value=>['off','bpm','bar'].includes(String(value))
+  "sound.playmode":value=>value!=null&&String(value).length>0,
+  "time.mode":value=>value!=null&&String(value).length>0
 };
 
 function cleanTeenageMetadata(metadata){
@@ -133,13 +133,13 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
   if(audioMeta.rate&&!audioMeta.sample_rate)audioMeta={...audioMeta,sample_rate:audioMeta.rate,container:'WAV',format:audioMeta.format===1?'pcm':audioMeta.format,bits:audioMeta.bits,extra:{data_start:audioMeta.dataOffset,data_end:audioMeta.dataOffset+audioMeta.dataSize}};
   if(!Number.isInteger(audioMeta.channels)||audioMeta.channels<1||audioMeta.channels>2)throw new Error('EP-series samples must be mono or stereo.');
   if(audioMeta.sample_rate<3000||audioMeta.sample_rate>768000)throw new Error('Invalid sample rate.');
+  const target=targetSampleRate??getTargetSampleRate(audioMeta,formats);
   const nativeStart=audioMeta?.extra?.data_start??0;
   const nativeEnd=audioMeta?.extra?.data_end??0;
-  if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===DEFAULT_SAMPLE_RATE&&(audioMeta.channels===1||audioMeta.channels===2)){
+  if(nativeStart>0&&nativeEnd>nativeStart&&audioMeta.container==='WAV'&&audioMeta.format===DEVICE_AUDIO_FORMAT&&audioMeta.sample_rate===target&&(audioMeta.channels===1||audioMeta.channels===2)){
     onProgress?.(100,{status:'ready'});
-    return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:audioMeta.sample_rate,format:DEVICE_AUDIO_FORMAT,metadata:prepareTeenageMetadata(audioMeta,audioMeta.sample_rate)};
+    return{data:bytes.slice(nativeStart,nativeEnd),channels:audioMeta.channels,samplerate:target,format:DEVICE_AUDIO_FORMAT,metadata:prepareTeenageMetadata(audioMeta,target)};
   }
-  const target=targetSampleRate??getTargetSampleRate(audioMeta,formats);
   let inputData=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),channels=audioMeta.channels,inputFormat=audioMeta.container==='AIFF'?'aiff':'pcm';
   if(inputFormat==='pcm'){
     onProgress?.(0,{status:'decoding'});
@@ -163,7 +163,7 @@ export const EP133_AUDIO_FORMAT=DEVICE_AUDIO_FORMAT;
 const DOWNLOAD_TE_METADATA_KEYS=[
   'sound.loopstart','sound.loopend','sound.playmode','sound.rootnote','sound.bpm',
   'sound.pitch','sound.pan','sound.amplitude','envelope.attack','envelope.release',
-  'time.mode','sample.mode','regions'
+  'time.mode','sample.start','sample.end','sample.mode','regions'
 ];
 
 export function buildEp133DownloadAudioMeta(metadata={}){
