@@ -732,7 +732,7 @@ test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
 test('semantic scenes patch changes only verified chunks cursor and song bytes',()=>{
   const base=scenesWithA1();
   base.set([1,1,1,1],7);
-  base[700]=77;
+  base[606]=77;
   const patched=patchScenesMember(base,{
     entries:[
       {index:1,groupPatterns:[2,2,2,2],timeSignature:[6,4]},
@@ -747,7 +747,7 @@ test('semantic scenes patch changes only verified chunks cursor and song bytes',
   assert.equal(patched[trailer+3],2);
   assert.equal(patched[trailer+11],3);
   assert.deepEqual([...patched.slice(trailer+12,trailer+15)],[2,1,2]);
-  assert.equal(patched[700],77);
+  assert.equal(patched[606],77);
 });
 
 test('settings patch preserves unknown bytes while changing only decoded fields',()=>{
