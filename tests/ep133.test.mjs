@@ -210,7 +210,7 @@ test('EP upload create metadata is limited to the official stream fields',()=>{
       name:'Kick Long Filename.wav',channels:2,samplerate:46875,format:'s16',crc:123,
       'sound.pitch':2,regions:[{start:0,end:100}]
     }),
-    {name:'kick long filena',channels:2,samplerate:46875,format:'s16',crc:123}
+    {name:'kick lo.filename',channels:2,samplerate:46875,format:'s16',crc:123}
   );
   assert.deepEqual(
     prepareSampleCreateMetadata({name:'bad',channels:3,samplerate:1,format:'f32'}),
