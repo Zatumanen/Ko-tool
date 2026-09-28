@@ -8,6 +8,7 @@ import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,p
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
+import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -153,7 +154,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -1100,6 +1101,56 @@ test('Sequencer Core patches verified project controls over native EP-133 templa
   assert.deepEqual(decoded.scenes.song,[1]);
   assert.equal(decoded.pads.a[0].sampleSlot,2);
   assert.equal(decoded.pads.a[0].trimLength,48000);
+});
+
+test('read-only HIL archive audit roundtrips EP-133 and reports missing sample dependencies',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pad1=validPadRecord();
+  const pad2=validPadRecord();new DataView(pad2.buffer).setUint16(1,42,true);
+  const unknownPattern=Uint8Array.from([
+    0,1,2,0,
+    0,0,3,9,8,7,6,5,
+    24,0,0,60,100,24,0,31
+  ]);
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad1},
+    {path:'pads/a/p02',data:pad2},
+    {path:'patterns/a01',data:unknownPattern}
+  ]);
+  const audit=auditProjectArchiveBytes(tar,{profile,occupiedSlots:[1]});
+  assert.equal(audit.roundtripByteExact,true);
+  assert.equal(audit.pads.assigned,2);
+  assert.equal(audit.patterns.unknownRecords,1);
+  assert.deepEqual(audit.sampleDependencies.referencedSampleSlots,[1,42]);
+  assert.deepEqual(audit.sampleDependencies.missingSampleSlots,[42]);
+});
+
+test('read-only HIL archive audit understands EP-40 supertone without treating it as a missing PCM sample',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const pad=validEp40PadRecord();
+  const view=new DataView(pad.buffer);
+  view.setUint16(1,1004,true);
+  pad[23]=3;pad[27]=111;pad[28]=222;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad},
+    {path:'patterns/a01',data:ep40NotePattern()}
+  ]);
+  const audit=auditProjectArchiveBytes(tar,{profile,occupiedSlots:[]});
+  assert.equal(audit.roundtripByteExact,true);
+  assert.equal(audit.pads.supertoneAssignments,1);
+  assert.deepEqual(audit.sampleDependencies.referencedSampleSlots,[]);
+  assert.equal(audit.sampleDependencies.allSamplesAvailable,true);
+});
+
+test('project HIL runtime is read-only and session-guarded by construction',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/projectHil.js',import.meta.url),'utf8');
+  assert.match(source,/passiveFirmwareDebugPreflight\(1200,'read-only project HIL'\)/);
+  assert.match(source,/const files=await listDeviceFiles\(\)/);
+  assert.match(source,/const file=await getFile\(node\.nodeId\)/);
+  assert.match(source,/getDeviceSessionToken\(\)!==sessionToken/);
+  assert.doesNotMatch(source,/uploadProjectArchive|deleteFile|moveFile|setFileMetadata|requestFile|putFile/);
+  assert.doesNotMatch(source,/Promise\.all\([^)]*getFile/);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
