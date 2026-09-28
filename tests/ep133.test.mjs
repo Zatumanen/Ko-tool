@@ -181,6 +181,15 @@ test('EP firmware debug frames are detected before normal protocol parsing',()=>
   assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
 });
 
+test('EP firmware debug frames are logged and ignored like the production client',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  const start=source.indexOf('const debugText=parseFirmwareDebugFrame(data)');
+  const block=source.slice(start,source.indexOf("if(data[1]===0x7E)",start));
+  assert.match(block,/console\.warn\('EP firmware\/debug SysEx:',debugText\)/);
+  assert.doesNotMatch(block,/enterUnsafeState/);
+});
+
 test('EP request timeouts match TE while interrupted streams keep the safety lock',async()=>{
   const fs=await import('node:fs/promises');
   const deviceSource=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
