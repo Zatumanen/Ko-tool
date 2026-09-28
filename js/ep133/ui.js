@@ -969,12 +969,6 @@ export function initEp133Browser({showError}={}){
               setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
             }
           });
-          memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
-          await verifyPcmReadback(fileId,prepared.data,(done,total)=>{
-            const local=total?done/total:0;
-            memory.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
-            setGlobalProgress('UPLOAD',((index+.94+local*.06)/targets.length)*100);
-          });
           const info=await getFileInfo(fileId);
           const fileItem=fileItemFromInfo(info);
           if(!fileItem)throw new Error('Uploaded sample could not be verified.');
