@@ -433,8 +433,18 @@ export async function downloadProjectArchive(path,onProgress){return runFileOper
 
 export async function deleteFile(fileId,{timeout=2000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
 
-export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
+const normalizeCrc=value=>{
+  const number=Number(value);
+  return Number.isInteger(number)&&number>=0&&number<=0xffffffff?(number>>>0):null;
+};
+export async function moveFile(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
   return runFileOperation(async()=>{
+    let sourceCrc=null;
+    if(verifyCrc){
+      const sourceMetadata=await getMetadataByNodeId(fileId);
+      sourceCrc=normalizeCrc(sourceMetadata?.crc);
+      if(sourceCrc===null)throw new Error('EP-series source sample CRC is unavailable; native MOVE aborted before mutation.');
+    }
     let moved={oldFileId:fileId,parentId,newFileId},timedOut=false;
     try{
       const response=await requestFile(TE_SYSEX_FILE,buildFileMovePayload(fileId,parentId,newFileId),timeout);
@@ -449,7 +459,13 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
     const info=await getFileInfoUnlocked(moved.newFileId);
     if(Number(info.nodeId)!==Number(moved.newFileId)||Number(info.parentId)!==Number(parentId))
       throw new Error('EP-series FILE_MOVE destination could not be resolved after reinitialization.');
-    return{...moved,info,timedOut};
+    let metadata=null,destinationCrc=null,crcVerified=null;
+    if(verifyCrc){
+      metadata=await getMetadataByNodeId(moved.newFileId);
+      destinationCrc=normalizeCrc(metadata?.crc);
+      crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc;
+    }
+    return{...moved,info,timedOut,metadata,sourceCrc,destinationCrc,crcVerified};
   });
 }
 
