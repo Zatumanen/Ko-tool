@@ -318,7 +318,9 @@ test('EP request timeouts match TE while interrupted streams keep the safety loc
   const timerStart=deviceSource.indexOf('const timer=setTimeout',sendStart);
   const timerBlock=deviceSource.slice(timerStart,deviceSource.indexOf('pending.set',timerStart));
   assert.match(timerBlock,/error\.name='EPSeriesTimeoutError'/);
-  assert.doesNotMatch(timerBlock,/enterUnsafeState/);
+  assert.match(timerBlock,/if\(strictFirmwareDebugDepth>0\)/);
+  assert.match(timerBlock,/if\(firmwareDebugSequence!==sequence\)\{\s*enterUnsafeState/);
+  assert.match(timerBlock,/\}\s*finishReject\(error\);\s*\},timeout\)/);
   assert.match(filesystemSource,/FILE_PUT stream was interrupted before EOF/);
   assert.match(filesystemSource,/FILE_GET stream was interrupted before the declared byte count/);
   assert.match(filesystemSource,/Paged METADATA SET was interrupted before EOF/);
