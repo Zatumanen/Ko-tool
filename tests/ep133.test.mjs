@@ -463,12 +463,13 @@ test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 char
   assert.equal(new TextDecoder().decode(payload.slice(11,end)),longName.slice(0,54));
 });
 
-test('EP project archive upload uses the unlocked PUT primitive inside the outer FILE operation lock',async()=>{
+test('EP project archive upload uses the TE 15s timeout and unlocked PUT primitive',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadProjectArchive');
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
+  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000\}=\{\}\)/);
   assert.match(block,/await putFileUnlocked\(/);
   assert.doesNotMatch(block,/await putFile\(/);
 });
@@ -493,6 +494,17 @@ test('EP FILE_GET rejects missing, empty, wrong, and oversized pages',()=>{
   assert.throws(()=>validateFileGetChunk(Uint8Array.from([0,0,1,2,3]),0,2),/exceeds the declared file size/);
   assert.deepEqual([...validateFileGetChunk(Uint8Array.from([0,0,1,2]),0,3)],[1,2]);
   assert.deepEqual([...validateFileGetChunk(Uint8Array.from([0,0,1,2,3]),0,3)],[1,2,3]);
+});
+
+test('EP FILE_PUT init timeout fails closed before streaming pages',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function putFileUnlocked');
+  const end=source.indexOf('export async function putFile',start);
+  const block=source.slice(start,end);
+  assert.match(block,/init=await requestFile\(TE_SYSEX_FILE,buildFilePutInitPayload/);
+  assert.match(block,/if\(isRequestTimeoutError\(error\)\)markDeviceUnsafe\('FILE_PUT init timed out after request dispatch; device write state is unknown:/);
+  assert.ok(block.indexOf('markDeviceUnsafe')<block.indexOf('streamOpened=true'));
 });
 
 test('EP FILE_PUT page counter rejects 16-bit overflow',()=>{

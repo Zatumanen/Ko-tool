@@ -266,7 +266,13 @@ async function putFileUnlocked({data,filename,parentId,destinationId,metadata=nu
   if(!Number.isInteger(destinationId)||destinationId<1||destinationId>0xffff)throw new Error('Invalid EP-series destination id.');
   if(!Number.isInteger(parentId)||parentId<0||parentId>65535)throw new Error('Invalid EP-series sample parent.');
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
-  const init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
+  let init;
+  try{
+    init=await requestFile(TE_SYSEX_FILE,buildFilePutInitPayload(destinationId,parentId,data.byteLength,filename,metadata,{isDirectory,capabilities}),timeout);
+  }catch(error){
+    if(isRequestTimeoutError(error))markDeviceUnsafe('FILE_PUT init timed out after request dispatch; device write state is unknown: '+String(error?.message||error));
+    throw error;
+  }
   streamOpened=true;
   if(init.rawData.length<2)throw new Error('Invalid EP-series FILE_PUT init response.');
   const fileId=u16(init.rawData,0);
@@ -295,7 +301,7 @@ export async function putFile(args){return runFileOperation(()=>putFileUnlocked(
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
-export async function uploadProjectArchive(file,{onProgress,timeout=2000}={}){return runFileOperation(async()=>{const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);const project=match[1];await initRead();const files=await listDeviceFilesUnlocked(),parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder'),destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);const data=new Uint8Array(await file.arrayBuffer());if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});await initFileSystemUnlocked();});}
+export async function uploadProjectArchive(file,{onProgress,timeout=15000}={}){return runFileOperation(async()=>{const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);const project=match[1];await initRead();const files=await listDeviceFilesUnlocked(),parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder'),destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);const data=new Uint8Array(await file.arrayBuffer());if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});await initFileSystemUnlocked();});}
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
