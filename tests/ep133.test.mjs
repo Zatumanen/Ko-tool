@@ -68,6 +68,35 @@ test('My EP browser modules pass a real Node syntax check',async()=>{
   }
 });
 
+
+test('EP connection uses GREET base_sku for the effective device profile',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  assert.match(source,/const baseSku=String\(metadata\?\.base_sku\|\|''\)\.toUpperCase\(\)/);
+  assert.match(source,/const effectiveSku=isSupportedEpSku\(baseSku\)\?baseSku:found\.parsed\.sku/);
+  assert.match(source,/validateFirmware\(effectiveSku,metadata\)/);
+  assert.match(source,/deviceInfo=\{sku:effectiveSku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
+});
+
+test('My EP holds the official-named app lock for the lifetime of the tab',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/navigator\.locks\.request\('ep-sample-util',\{ifAvailable:true\}/);
+  assert.match(source,/OPEN IN ANOTHER TAB/);
+  assert.match(source,/return new Promise\(\(\)=>\{\}\)/);
+  assert.match(source,/if\(!await instanceLockGate\)/);
+});
+
+test('My EP normal upload no longer rereads metadata after a successful write',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('async function uploadFilesToSlot');
+  const block=source.slice(start,source.indexOf('const readDevice=async',start));
+  assert.match(block,/const info=await getFileInfo\(fileId\)/);
+  assert.doesNotMatch(block,/await getFileMetadata\(target\.id\)/);
+  assert.match(block,/memory\.setMetadata\(target\.id,prepareSampleWritableMetadata/);
+});
+
 test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{
   const fs=await import('node:fs/promises');
   const read=path=>fs.readFile(new URL('../'+path,import.meta.url),'utf8');
@@ -152,15 +181,20 @@ test('EP firmware debug frames are detected before normal protocol parsing',()=>
   assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
 });
 
-test('EP device transport keeps ordinary FILE timeouts fail-closed but lets FILE_MOVE recover',async()=>{
+test('EP request timeouts match TE while interrupted streams keep the safety lock',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
-  assert.match(source,/const debugText=parseFirmwareDebugFrame\(data\)/);
-  assert.match(source,/enterUnsafeState\('EP firmware\/debug SysEx: '\+debugText\)/);
-  assert.match(source,/error\.name='EPSeriesTimeoutError'/);
-  assert.match(source,/fileSubcommand!==TE_SYSEX_FILE_MOVED/);
-  const writeSet=source.match(/const WRITE_SUBCOMMANDS=new Set\(\[[^\]]+\]\)/)?.[0]||'';
-  assert.match(writeSet,/TE_SYSEX_FILE_MOVED/);
+  const deviceSource=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(deviceSource,/async function sendRequest\(command,payload=new Uint8Array\(\),timeout=2000\)/);
+  assert.match(deviceSource,/export function requestRead\(command,payload=new Uint8Array\(\),timeout=2000\)/);
+  assert.match(deviceSource,/export function requestFile\(command,payload=new Uint8Array\(\),timeout=2000\)/);
+  const timerStart=deviceSource.indexOf('const timer=setTimeout');
+  const timerBlock=deviceSource.slice(timerStart,deviceSource.indexOf('pending.set',timerStart));
+  assert.match(timerBlock,/error\.name='EPSeriesTimeoutError'/);
+  assert.doesNotMatch(timerBlock,/enterUnsafeState/);
+  assert.match(filesystemSource,/FILE_PUT stream was interrupted before EOF/);
+  assert.match(filesystemSource,/FILE_GET stream was interrupted before the declared byte count/);
+  assert.match(filesystemSource,/Paged METADATA SET was interrupted before EOF/);
 });
 
 test('EP transfer metadata preserves reference TE fields without release coupling',()=>{
@@ -201,6 +235,21 @@ test('EP post-upload metadata preserves TE start end mode and regions',()=>{
       'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
       regions:[{'sample.start':0,'sample.end':100}]
     }
+  );
+});
+
+
+test('EP writable metadata preserves unknown TE fields but excludes transport-only fields',()=>{
+  assert.deepEqual(
+    prepareSampleWritableMetadata({
+      name:'kick',channels:2,samplerate:46875,format:'s16',crc:123,
+      'sound.future':{enabled:true},'sample.experimental':[1,2,3]
+    }),
+    {name:'kick','sound.future':{enabled:true},'sample.experimental':[1,2,3]}
+  );
+  assert.deepEqual(
+    prepareSampleWritableMetadata({'sound.future':1},{allowAdvancedMetadata:false}),
+    {}
   );
 });
 
@@ -414,17 +463,17 @@ test('EP project archive upload uses the unlocked PUT primitive inside the outer
   assert.doesNotMatch(block,/await putFile\(/);
 });
 
-test('EP metadata JSON matches current TE framing: FILE_PUT has no trailing NUL, METADATA SET does',()=>{
+test('EP small metadata framing matches TE charCode byte semantics',()=>{
   const metadata={name:'привет',description:'café'};
+  const json=JSON.stringify(metadata);
+  const expected=Uint8Array.from([...json].map(char=>char.charCodeAt(0)&0xff));
   const put=buildFilePutInitPayload(7,42,12,'kick',metadata);
   const putNameEnd=11+'kick'.length+1;
-  const putJsonBytes=put.slice(putNameEnd);
-  assert.notEqual(putJsonBytes.at(-1),0);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(putJsonBytes)),metadata);
+  assert.deepEqual([...put.slice(putNameEnd)],[...expected]);
+  assert.notEqual(put.at(-1),0);
   const set=buildMetadataSetPayload(7,metadata);
+  assert.deepEqual([...set.slice(4,-1)],[...expected]);
   assert.equal(set.at(-1),0);
-  const setJson=new TextDecoder().decode(set.slice(4,-1));
-  assert.deepEqual(JSON.parse(setJson),metadata);
 });
 
 test('EP FILE_GET rejects missing, empty, wrong, and oversized pages',()=>{
