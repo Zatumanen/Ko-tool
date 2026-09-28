@@ -79,7 +79,8 @@ export function readProjectPattern(member,{profile}={}){
   if(!match)throw new Error('Not a project pattern member: '+String(member?.path||'unknown'));
   const data=toBytes(member.data);
   const headerSize=profile.patternDialect==='ep40'?6:4;
-  const count=profile.patternDialect==='ep40'?u16le(data,4):data[2];
+  const count=profile.patternDialect==='ep40'?u16le(data,4):(data.length-headerSize)/8;
+  const headerRecordCount=profile.patternDialect==='ep40'?u16le(data,4):data[2];
   const records=[];
   const notes=[];
   const automation=[];
@@ -129,6 +130,7 @@ export function readProjectPattern(member,{profile}={}){
     pattern:Number(match[2]),
     bars:data[1],
     recordCount:count,
+    headerRecordCount,
     headerSize,
     rawHeader:cloneBytes(data.slice(0,headerSize)),
     records,
