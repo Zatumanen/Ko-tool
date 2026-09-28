@@ -1,6 +1,7 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isRequestTimeoutError}from './device.js?v=20260928-4';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isRequestTimeoutError}from './device.js?v=20260928-5';
 import{parseNullTerminatedString}from './packing.js';
+import{validateProjectArchive}from './projectArchive.js?v=20260928-5';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -301,7 +302,23 @@ export async function putFile(args){return runFileOperation(()=>putFileUnlocked(
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000}={}){return runFileOperation(async()=>{const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);const project=match[1];await initRead();const files=await listDeviceFilesUnlocked(),parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder'),destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);const data=new Uint8Array(await file.arrayBuffer());if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});await initFileSystemUnlocked();});}
+export async function uploadProjectArchive(file,{onProgress,timeout=15000}={}){
+  return runFileOperation(async()=>{
+    const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
+    if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
+    const project=match[1];
+    const data=new Uint8Array(await file.arrayBuffer());
+    if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
+    validateProjectArchive(data);
+    await initRead();
+    const files=await listDeviceFilesUnlocked();
+    const parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    const destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);
+    await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
+    await initFileSystemUnlocked();
+  });
+}
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
