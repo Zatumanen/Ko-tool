@@ -4,7 +4,8 @@ import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
 import{buildFileDeletePayload}from '../js/ep133/filesystem.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from '../js/ep133/projectArchive.js';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad}from '../js/ep133/projectArchive.js';
+import{getEpProjectProfile,assertProjectAuthoringSupported}from '../js/ep133/projectProfile.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -48,9 +49,15 @@ const validPadRecord=()=>{
   pad[24]=60;
   return pad;
 };
-const notePattern=()=>{
-  const pattern=Uint8Array.from([0,1,1,0,0,0,0,60,100,24,0,0]);
-  return pattern;
+const notePattern=()=>Uint8Array.from([0,1,1,0,0,0,0,60,100,24,0,0]);
+const ep40NotePattern=()=>Uint8Array.from([1,1,0xff,0xff,1,0,0,0,0,60,100,24,0,0]);
+const validEp40PadRecord=()=>{
+  const pad=new Uint8Array(29);
+  pad[1]=1;
+  pad[16]=100;
+  pad[20]=255;
+  pad[24]=60;
+  return pad;
 };
 const scenesWithA1=()=>{
   const scenes=new Uint8Array(712);
@@ -122,7 +129,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -559,15 +566,16 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
 
 test('EP project archive PUT uses directory flags',()=>{const payload=buildFilePutInitPayload(1234,42,99,'01',null,{isDirectory:true,capabilities:[4]});assert.equal(payload[2],6);assert.equal(new DataView(payload.buffer).getUint16(3),1234);assert.equal(new DataView(payload.buffer).getUint16(5),42);});
 
-test('EP project TAR validator accepts a minimal safe project',()=>{
+test('EP project TAR validator accepts a minimal safe EP-133 project',()=>{
   const tar=makeProjectTar([
     {path:'pads/a/p01',data:validPadRecord()},
-    {path:'patterns/a01',data:notePattern()},
-    {path:'scenes',data:scenesWithA1()}
+    {path:'patterns/a01',data:notePattern()}
   ]);
   const parsed=parseProjectArchive(tar);
-  assert.equal(parsed.length,3);
-  assert.deepEqual(validateProjectArchive(tar),{members:3,files:3,directories:0,pads:1,patterns:1,scenes:1,unknownFiles:0});
+  assert.equal(parsed.length,2);
+  assert.deepEqual(validateProjectArchive(tar),{
+    members:2,files:2,directories:0,pads:1,patterns:1,scenes:0,live:0,unknownFiles:0,profile:'ep133'
+  });
 });
 
 test('EP project TAR validator blocks firmware-dangerous pattern and pad headers',()=>{
@@ -579,10 +587,10 @@ test('EP project TAR validator blocks firmware-dangerous pattern and pad headers
   assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'pads/a/p01',data:badPad}])),/nonzero validity byte/);
 });
 
-test('EP project TAR validator rejects the unsafe 27-byte pad form',()=>{
+test('EP-133 project writes reject the unsafe 27-byte Sample-Tool pad form',()=>{
   const pad=new Uint8Array(27);
   pad.set(validPadRecord());
-  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'pads/a/p01',data:pad}])),/unsafe 27-byte pad-record/);
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'pads/a/p01',data:pad}])),/pad-record size 27/);
 });
 
 test('EP project TAR validator clamps automation by rejecting values above 32767',()=>{
@@ -590,8 +598,14 @@ test('EP project TAR validator clamps automation by rejecting values above 32767
   assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'patterns/a01',data:pattern}])),/automation record 0 exceeds 32767/);
 });
 
-test('EP project TAR validator rejects missing scene patterns and invalid unused scene signatures',()=>{
+test('EP project TAR validator rejects partial-zero scenes, missing patterns, and invalid unused scene signatures',()=>{
+  const partial=scenesWithA1();
+  assert.throws(()=>validateProjectArchive(makeProjectTar([
+    {path:'patterns/a01',data:notePattern()},
+    {path:'scenes',data:partial}
+  ])),/partial-zero group-pattern reference/);
   const missing=scenesWithA1();
+  missing.set([1,1,1,1],7);
   assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'scenes',data:missing}])),/references missing patterns\/a01/);
   const empty=scenesWithA1();
   empty[7]=0;
@@ -604,6 +618,97 @@ test('EP project TAR parser rejects corrupt header checksums',()=>{
   const tar=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
   tar[10]^=1;
   assert.throws(()=>parseProjectArchive(tar),/checksum mismatch/);
+});
+
+test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320 authoring',()=>{
+  const ep133=getEpProjectProfile('TE032AS001','2.5.1');
+  const ep40=getEpProjectProfile('TE032AS006','2.5.1');
+  const medieval=getEpProjectProfile('TE032AS005','1.0.2');
+  assert.equal(ep133.patternDialect,'ep133');
+  assert.equal(ep133.padRecordSize,26);
+  assert.equal(ep40.patternDialect,'ep40');
+  assert.equal(ep40.patternHeaderSize,6);
+  assert.equal(ep40.padRecordSize,29);
+  assert.equal(ep40.supportsLoop,true);
+  assert.equal(ep40.supportsSupertone,true);
+  assert.equal(medieval.projectAuthoring,false);
+  assert.throws(()=>assertProjectAuthoringSupported('TE032AS005','1.0.2'),/not been hardware-verified/);
+});
+
+test('EP-40 project validator accepts native 29-byte pads and 6-byte patterns',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validEp40PadRecord()},
+    {path:'patterns/a01',data:ep40NotePattern()}
+  ]);
+  const report=validateProjectArchive(tar,{profile});
+  assert.equal(report.profile,'ep40');
+  assert.equal(report.pads,1);
+  assert.equal(report.patterns,1);
+  assert.throws(()=>validateProjectArchive(tar,{profile:getEpProjectProfile('TE032AS001','2.5.1')}),/pad-record size 29/);
+});
+
+test('EP project validator rejects patterns serialized after scenes',()=>{
+  const scenes=scenesWithA1();
+  scenes.set([1,1,1,1],7);
+  const tar=makeProjectTar([
+    {path:'scenes',data:scenes},
+    {path:'patterns/a01',data:notePattern()},
+    {path:'patterns/b01',data:notePattern()},
+    {path:'patterns/c01',data:notePattern()},
+    {path:'patterns/d01',data:notePattern()}
+  ]);
+  assert.throws(()=>validateProjectArchive(tar),/after scenes/);
+});
+
+test('native TAR patcher preserves unspecified members and inserts new patterns before scenes',()=>{
+  const scenes=scenesWithA1();
+  scenes.set([1,1,1,1],7);
+  const base=makeProjectTar([
+    {path:'pads',type:'5'},
+    {path:'pads/a',type:'5'},
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'patterns',type:'5'},
+    {path:'patterns/a01',data:notePattern()},
+    {path:'patterns/b01',data:notePattern()},
+    {path:'patterns/c01',data:notePattern()},
+    {path:'patterns/d01',data:notePattern()},
+    {path:'scenes',data:scenes},
+    {path:'vendor_future',data:Uint8Array.from([9,8,7,6])}
+  ]);
+  const newPattern=notePattern();newPattern[1]=2;
+  const patched=patchProjectArchiveMembers(base,{'patterns/a02':newPattern});
+  const members=parseProjectArchive(patched);
+  const names=members.map(member=>member.path);
+  assert.ok(names.indexOf('patterns/a02')<names.indexOf('scenes'));
+  assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[9,8,7,6]);
+  assert.deepEqual([...members.find(member=>member.path==='patterns/a02').data],[...newPattern]);
+});
+
+test('native pad patcher requires complete playback reset when assigning a different sample slot',()=>{
+  const pad=validPadRecord();
+  assert.throws(()=>patchPadRecord(pad,{slot:2}),/requires trimStart/);
+  const patched=patchPadRecord(pad,{
+    slot:2,trimStart:0,trimLength:48000,sampleBpm:120,amplitude:100,
+    release:255,timeMode:0,playMode:0,rootNote:60
+  });
+  assert.equal(patched[1],2);
+  assert.equal(new DataView(patched.buffer,patched.byteOffset,patched.byteLength).getUint32(8,true),48000);
+});
+
+test('native project pad patch preserves the rest of the TAR',()=>{
+  const base=makeProjectTar([
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'vendor_future',data:Uint8Array.from([1,3,3,7])}
+  ]);
+  const patched=patchProjectPad(base,{
+    group:'A',pad:1,slot:2,trimStart:0,trimLength:12345,sampleBpm:120,
+    amplitude:100,release:255,timeMode:0,playMode:0,rootNote:60
+  });
+  const members=parseProjectArchive(patched);
+  assert.equal(new DataView(members.find(member=>member.path==='pads/a/p01').data.buffer,
+    members.find(member=>member.path==='pads/a/p01').data.byteOffset,26).getUint16(1,true),2);
+  assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[1,3,3,7]);
 });
 
 test('EP project readback comparison tolerates firmware-added members but verifies candidate payloads',()=>{
@@ -686,8 +791,9 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
   assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,onBackup\}=\{\}\)/);
-  assert.match(block,/validateProjectArchive\(data\)/);
-  assert.ok(block.indexOf('validateProjectArchive(data)')<block.indexOf('await initRead()'));
+  assert.match(block,/const profile=connectedProjectProfile\(\)/);
+  assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
+  assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
   assert.match(block,/await putFileUnlocked\(/);
   assert.doesNotMatch(block,/await putFile\(/);
 });
