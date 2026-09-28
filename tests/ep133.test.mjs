@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
-import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
+import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
-import{buildFileDeletePayload}from '../js/ep133/filesystem.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative}from '../js/ep133/projectArchive.js';
+import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload}from '../js/ep133/filesystem.js';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectAuthoringSupported}from '../js/ep133/projectProfile.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
@@ -79,6 +79,28 @@ test('processed output filenames replace the source extension',()=>{
 
 test('7-bit packing roundtrip',()=>{for(const length of [0,1,7,8,31,433]){const data=Uint8Array.from({length},(_,i)=>(i*37+129)&255);const out=new Uint8Array(packedLength(length));if(length)packToBuffer(data,out);const decoded=unpackInPlace(out);assert.deepEqual([...decoded],[...data]);}});
 test('TE SysEx frame roundtrip',()=>{const payload=Uint8Array.from([0,127,128,255,42]);const frame=buildTeSysex(5,payload,123);const parsed=parseTeSysex(frame.bytes);assert.equal(parsed.command,5);assert.deepEqual([...parsed.rawData],[...payload]);});
+
+test('TE SysEx golden request vector matches the production frame and packed7 layout',()=>{
+  const payload=Uint8Array.from([0x80,0x01,0xff,0x7f,0x00,0x55,0xaa]);
+  const frame=encodeTeSysex(5,payload,0x33,0x123);
+  assert.equal(frame.id,0x123);
+  assert.deepEqual([...frame.bytes],[
+    0xf0,0x00,0x20,0x76,0x33,0x40,0x62,0x23,0x05,
+    0x45,0x00,0x01,0x7f,0x7f,0x00,0x55,0x2a,0xf7
+  ]);
+});
+
+test('TE SysEx golden response vector strips raw status before unpacking payload',()=>{
+  const bytes=Uint8Array.from([
+    0xf0,0x00,0x20,0x76,0x33,0x40,0x22,0x23,0x05,0x00,
+    0x45,0x00,0x01,0x7f,0x7f,0x00,0x55,0x2a,0xf7
+  ]);
+  const parsed=parseTeSysex(bytes);
+  assert.equal(parsed.isRequest,false);
+  assert.equal(parsed.requestId,0x123);
+  assert.equal(parsed.status,0);
+  assert.deepEqual([...parsed.rawData],[0x80,0x01,0xff,0x7f,0x00,0x55,0xaa]);
+});
 
 test('TE request id zero is reserved for identity pending',()=>{
   for(let i=0;i<4096;i++)assert.notEqual(buildTeSysex(5,new Uint8Array(),0,'request-id-zero-test').id,0);
@@ -527,6 +549,17 @@ test('EP FILE payload sizing matches the authoritative 7-bit transport formula',
   assert.equal(calculateMaxPayloadLength(1024-6),881);
 });
 
+test('EP FILE golden payload vectors match production big-endian framing',()=>{
+  assert.deepEqual([...buildFileInitPayload()],[1,1,0x00,0x40,0x00,0x00]);
+  assert.deepEqual([...buildFileListPayload(0x1234,1000)],[4,0x12,0x34,0x03,0xe8]);
+  assert.deepEqual([...buildFileGetInitPayload(0x1234,0x01020304)],[3,0,0x12,0x34,1,2,3,4]);
+  assert.deepEqual([...buildFileGetDataPayload(0xabcd)],[3,1,0xab,0xcd]);
+  assert.deepEqual(
+    [...buildMetadataGetPayload(1000,2,'active')],
+    [7,2,0x03,0xe8,0,2,0x61,0x63,0x74,0x69,0x76,0x65,0]
+  );
+});
+
 test('EP FILE_INFO payload uses the imported STAT opcode',()=>{
   assert.deepEqual([...buildFileInfoPayload(817)],[11,3,49]);
 });
@@ -694,6 +727,23 @@ test('native pad patcher requires complete playback reset when assigning a diffe
   });
   assert.equal(patched[1],2);
   assert.equal(new DataView(patched.buffer,patched.byteOffset,patched.byteLength).getUint32(8,true),48000);
+});
+
+test('project sample dependency preflight reports missing shared sounds without rejecting backups',()=>{
+  const pad1=validPadRecord();
+  const pad2=validPadRecord();pad2[1]=42;
+  const empty=validPadRecord();empty[1]=0;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad1},
+    {path:'pads/a/p02',data:pad2},
+    {path:'pads/a/p03',data:empty}
+  ]);
+  assert.deepEqual(getProjectReferencedSampleSlots(tar),[1,42]);
+  assert.deepEqual(
+    preflightProjectSampleDependencies(tar,[1]),
+    {referencedSampleSlots:[1,42],missingSampleSlots:[42],allSamplesAvailable:false}
+  );
+  assert.throws(()=>preflightProjectSampleDependencies(tar,[1],{strict:true}),/missing sample slots: 042/);
 });
 
 test('native project pad patch preserves the rest of the TAR',()=>{
@@ -912,6 +962,7 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,onBackup\}=\{\}\)/);
   assert.match(block,/const profile=connectedProjectProfile\(\)/);
   assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
+  assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
   assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
   assert.match(block,/await putFileUnlocked\(/);
   assert.doesNotMatch(block,/await putFile\(/);
