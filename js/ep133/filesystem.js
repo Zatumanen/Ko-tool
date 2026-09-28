@@ -1,7 +1,8 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard}from './device.js?v=20260928-7';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-1';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260928-7';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260929-1';
+import{assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-1';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -29,6 +30,12 @@ onConnectionChange(({connected,device})=>{
   if(!connected)deviceChunkSizes.clear();
 });
 function getCachedChunkSize(){return activeDeviceKey?deviceChunkSizes.get(activeDeviceKey)||0:0;}
+function connectedProjectProfile(){
+  const info=getConnectedDeviceInfo();
+  if(!info)throw new Error('EP-series device is not connected.');
+  const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+  return assertProjectAuthoringSupported(info.sku,firmware);
+}
 export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYSEX_HEADER_OVERHEAD+2+TE_SYSEX_FOOTER_OVERHEAD;if(maxPacketLength<=overhead)return 0;const available=maxPacketLength-1-overhead;return available-Math.floor(available/8);}
 
 function initPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
@@ -350,6 +357,7 @@ async function reloadProjectUnlocked(projectId,projectsNodeId,{cycle=true,active
 }
 export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
+    connectedProjectProfile();
     const project=String(projectNumber).padStart(2,'0');
     await initRead();
     const root=await listDirectoryUnlocked(0,'/');
@@ -370,7 +378,8 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     const project=match[1];
     const data=new Uint8Array(await file.arrayBuffer());
     if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
-    validateProjectArchive(data);
+    const profile=connectedProjectProfile();
+    validateProjectArchive(data,{profile});
 
     await initRead();
     const root=await listDirectoryUnlocked(0,'/');
@@ -381,7 +390,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     if(!destination)throw new Error(`EP-series project ${project} is not available.`);
 
     const backup=await getFileUnlocked(destination.nodeId);
-    parseProjectArchive(backup.data);
+    validateProjectArchive(backup.data,{profile});
     const activation=await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId);
     await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
 
@@ -392,7 +401,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
       await initFileSystemUnlocked();
 
       const readback=await getFileUnlocked(destination.nodeId);
-      validateProjectArchive(readback.data);
+      validateProjectArchive(readback.data,{profile});
       const verification=compareProjectArchiveMembers(data,readback.data);
       const reload=await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
         cycle:cycleReload,
