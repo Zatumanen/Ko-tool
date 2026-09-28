@@ -1,7 +1,7 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard}from './device.js?v=20260928-6';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard}from './device.js?v=20260928-7';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260928-6';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers}from './projectArchive.js?v=20260928-7';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -433,8 +433,18 @@ export async function downloadProjectArchive(path,onProgress){return runFileOper
 
 export async function deleteFile(fileId,{timeout=2000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
 
-export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
+const normalizeCrc=value=>{
+  const number=Number(value);
+  return Number.isInteger(number)&&number>=0&&number<=0xffffffff?(number>>>0):null;
+};
+export async function moveFile(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
   return runFileOperation(async()=>{
+    let sourceCrc=null;
+    if(verifyCrc){
+      const sourceMetadata=await getMetadataByNodeId(fileId);
+      sourceCrc=normalizeCrc(sourceMetadata?.crc);
+      if(sourceCrc===null)throw new Error('EP-series source sample CRC is unavailable; native MOVE aborted before mutation.');
+    }
     let moved={oldFileId:fileId,parentId,newFileId},timedOut=false;
     try{
       const response=await requestFile(TE_SYSEX_FILE,buildFileMovePayload(fileId,parentId,newFileId),timeout);
@@ -449,7 +459,13 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
     const info=await getFileInfoUnlocked(moved.newFileId);
     if(Number(info.nodeId)!==Number(moved.newFileId)||Number(info.parentId)!==Number(parentId))
       throw new Error('EP-series FILE_MOVE destination could not be resolved after reinitialization.');
-    return{...moved,info,timedOut};
+    let metadata=null,destinationCrc=null,crcVerified=null;
+    if(verifyCrc){
+      metadata=await getMetadataByNodeId(moved.newFileId);
+      destinationCrc=normalizeCrc(metadata?.crc);
+      crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc;
+    }
+    return{...moved,info,timedOut,metadata,sourceCrc,destinationCrc,crcVerified};
   });
 }
 

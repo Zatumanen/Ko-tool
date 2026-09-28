@@ -444,6 +444,47 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
+test('My EP sample mutations prefer METADATA_UPDATED and fall back to metadata GET',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
+  assert.match(source,/\{timeout:500\}/);
+  assert.match(source,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
+  const uploadStart=source.indexOf('async function uploadFilesToSlot');
+  const uploadBlock=source.slice(uploadStart,source.indexOf('const readDevice=async',uploadStart));
+  assert.match(uploadBlock,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
+  assert.match(uploadBlock,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
+  const deleteStart=source.indexOf('const deleteSamples=async');
+  const deleteBlock=source.slice(deleteStart,source.indexOf('memory=createSampleMemory',deleteStart));
+  assert.match(deleteBlock,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
+});
+
+test('My EP aborts batches when the connected MIDI session changes',async()=>{
+  const fs=await import('node:fs/promises');
+  const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(device,/export function getDeviceSessionToken\(\)/);
+  assert.match(device,/connectionEpoch,output\?\.id/);
+  assert.match(ui,/const captureBatchSession=\(\)=>/);
+  assert.match(ui,/getDeviceSessionToken\(\)!==token/);
+  assert.match(ui,/EP device connection changed during the operation; batch aborted/);
+  assert.match(ui,/assertBatchSession\(sessionToken\)/);
+});
+
+test('EP native MOVE can verify source and destination CRC without downloading PCM',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('export async function moveFile');
+  const end=source.indexOf('async function setFileMetadataUnlocked',start);
+  const block=source.slice(start,end);
+  assert.match(block,/const sourceMetadata=await getMetadataByNodeId\(fileId\)/);
+  assert.match(block,/sourceCrc=normalizeCrc\(sourceMetadata\?\.crc\)/);
+  assert.match(block,/metadata=await getMetadataByNodeId\(moved\.newFileId\)/);
+  assert.match(block,/destinationCrc=normalizeCrc\(metadata\?\.crc\)/);
+  assert.match(block,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
+  assert.doesNotMatch(block,/getFileUnlocked/);
+});
+
 test('EP sample reorder uses native FILE_MOVE only and resolves the authoritative destination',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
@@ -452,7 +493,9 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
   const start=source.indexOf('const nativeMoveTransfer=async');
   const end=source.indexOf('const transactionalTransfer=async',start);
   const nativeBlock=source.slice(start,end);
-  assert.match(nativeBlock,/await moveFile\(sourceNodeId,soundsParentId,target\.id\)/);
+  assert.match(nativeBlock,/await moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
+  assert.match(nativeBlock,/completed\.push\(\{sourceId:source\.id,targetId:target\.id,source,crc:moved\.sourceCrc\}\)/);
+  assert.match(nativeBlock,/if\(moved\.crcVerified!==true\)/);
   assert.match(nativeBlock,/applyNativeMoveLocally\(source,target,moved\)/);
   assert.match(source,/const item=fileItemFromInfo\(moved\.info\)/);
   assert.doesNotMatch(nativeBlock,/getFile\(/);
@@ -493,7 +536,8 @@ test('EP native FILE_MOVE mirrors TE timeout recovery and resolves FILE_INFO aft
   const start=source.indexOf('export async function moveFile');
   const end=source.indexOf('export async function setFileMetadata',start);
   const block=source.slice(start,end);
-  assert.match(block,/\{timeout=2000\}/);
+  assert.match(block,/\{timeout=2000,verifyCrc=false\}/);
+  assert.match(block,/if\(verifyCrc\)[\s\S]*source sample CRC is unavailable/);
   assert.match(block,/if\(!isRequestTimeoutError\(error\)\)throw error/);
   assert.match(block,/await initFileSystemUnlocked\(\)/);
   assert.match(block,/const info=await getFileInfoUnlocked\(moved\.newFileId\)/);
