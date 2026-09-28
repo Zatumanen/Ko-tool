@@ -379,7 +379,7 @@ export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   },'project reload'));
 }
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,onBackup}={}){
+export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
     if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
@@ -408,7 +408,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     const backup=await getFileUnlocked(destination.nodeId);
     if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
     else parseProjectArchive(backup.data);
-    const activation=profile.projectReloadVerified
+    const activation=profile.projectReloadVerified&&performReload
       ?await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId)
       :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
     await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
@@ -423,7 +423,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
       if(profile.projectAuthoring)validateProjectArchive(readback.data,{profile});
       else parseProjectArchive(readback.data);
       const verification=compareProjectArchiveMembers(data,readback.data);
-      const reload=profile.projectReloadVerified
+      const reload=profile.projectReloadVerified&&performReload
         ?await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
           cycle:cycleReload,
           activeGroup:activation.activeGroup,
@@ -445,7 +445,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
         await initFileSystemUnlocked();
         const restored=await getFileUnlocked(destination.nodeId);
         compareProjectArchiveMembers(backup.data,restored.data);
-        if(profile.projectReloadVerified)await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
+        if(profile.projectReloadVerified&&performReload)await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
           cycle:cycleReload,
           activeGroup:activation.activeGroup,
           activePad:activation.activePad
