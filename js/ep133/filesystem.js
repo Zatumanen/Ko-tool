@@ -95,6 +95,7 @@ const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
   'sound.loopstart','sound.loopend','sound.amplitude','sound.playmode','sound.rootnote',
   'sound.bpm','sound.pitch','sound.pan','sound.bars','envelope.attack','envelope.release','time.mode'
 ]);
+const SAMPLE_TRANSPORT_METADATA_KEYS=new Set(['channels','samplerate','format','crc']);
 
 export function prepareSampleCreateMetadata(metadata={}){
   const result={};
@@ -130,9 +131,10 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
   const allowedBarValues=allowedBarValueSet(options?.allowedBarValues);
   const allowAdvancedMetadata=options?.allowAdvancedMetadata!==false;
   for(const[key,value]of Object.entries(metadata||{})){
-    if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key))continue;
     if(key==='name'){result.name=normalizeFileName(value);continue;}
+    if(SAMPLE_TRANSPORT_METADATA_KEYS.has(key))continue;
     if(!allowAdvancedMetadata)continue;
+    if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key)){result[key]=value;continue;}
     if(key==='sample.start'||key==='sample.end'){
       if(integerRange(value,-1,0x7fffffff))result[key]=Number(value);
       continue;
@@ -246,18 +248,18 @@ export function parseFileMoveResponse(raw){
   return{oldFileId:u16(raw,0),parentId:u16(raw,2),newFileId:u16(raw,4)};
 }
 
-export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata=null,{isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}){const safe=String(filename||'').slice(0,54),meta=metadata==null?'':JSON.stringify(metadata),metaBytes=new TextEncoder().encode(meta),p=new Uint8Array(11+safe.length+1+metaBytes.length),view=new DataView(p.buffer);let flags=isDirectory?TE_SYSEX_FILE_FILE_TYPE_DIR:TE_SYSEX_FILE_FILE_TYPE_FILE;for(const capability of capabilities)flags|=capability;p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=flags;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(metaBytes.length)p.set(metaBytes,12+safe.length);return p;}
+export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata=null,{isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}){const safe=String(filename||'').slice(0,54),meta=metadata==null?'':JSON.stringify(metadata),p=new Uint8Array(11+safe.length+1+meta.length),view=new DataView(p.buffer);let flags=isDirectory?TE_SYSEX_FILE_FILE_TYPE_DIR:TE_SYSEX_FILE_FILE_TYPE_FILE;for(const capability of capabilities)flags|=capability;p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=flags;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta.length)writeString(view,12+safe.length,meta,false);return p;}
 
 export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}
 
 export function buildFilePutDataPayload(page,data){validateFilePutPage(page);const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
 
-export function buildMetadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),bytes=new TextEncoder().encode(json),p=new Uint8Array(5+bytes.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeUtf8String(view,4,json,true);return p;}
+export function buildMetadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),p=new Uint8Array(5+json.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeString(view,4,json,true);return p;}
 
 export function buildMetadataPagedInitPayload(fileId,size){const p=new Uint8Array(9),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT;view.setUint16(3,fileId);view.setUint32(5,size);return p;}
 export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA;view.setUint16(3,page);p.set(data,5);return p;}
 
-async function putFileUnlocked({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=15000,isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}){
+async function putFileUnlocked({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=2000,isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}){
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
   let streamOpened=false,streamClosed=false;
   try{
@@ -293,11 +295,11 @@ export async function putFile(args){return runFileOperation(()=>putFileUnlocked(
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,listPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000}={}){return runFileOperation(async()=>{const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);const project=match[1];await initRead();const files=await listDeviceFilesUnlocked(),parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder'),destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);const data=new Uint8Array(await file.arrayBuffer());if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});await initFileSystemUnlocked();});}
+export async function uploadProjectArchive(file,{onProgress,timeout=2000}={}){return runFileOperation(async()=>{const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);const project=match[1];await initRead();const files=await listDeviceFilesUnlocked(),parent=files.find(item=>item.fileName==='/projects'&&item.fileType==='folder'),destination=files.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');if(!parent||!destination)throw new Error(`EP-series project ${project} is not available.`);const data=new Uint8Array(await file.arrayBuffer());if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});await initFileSystemUnlocked();});}
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
-export async function deleteFile(fileId,{timeout=15000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
+export async function deleteFile(fileId,{timeout=2000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
 
 export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
   return runFileOperation(async()=>{
@@ -319,7 +321,7 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=2000}={}){
   });
 }
 
-export async function setFileMetadata(fileId,metadata,{timeout=15000}={}){
+export async function setFileMetadata(fileId,metadata,{timeout=2000}={}){
   return runFileOperation(async()=>{
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
@@ -367,8 +369,8 @@ export async function uploadSampleToSlot({
   return fileId;
 }
 
-export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,5000);});}
-export async function stopPlayback(nodeId){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,5000);});}
+export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);});}
+export async function stopPlayback(nodeId){return runFileOperation(async()=>{const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 
 export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
 
