@@ -1,5 +1,5 @@
-export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity}from './device.js?v=20260929-1';
-export{listDeviceFiles,listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive,reloadProjectArchive}from './filesystem.js?v=20260929-1';
+export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity}from './device.js?v=20260929-2';
+export{listDeviceFiles,listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive,reloadProjectArchive}from './filesystem.js?v=20260929-2';
 
-export{getEpProjectProfile,assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-1';
-export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad}from './projectArchive.js?v=20260929-1';
+export{getEpProjectProfile,assertProjectAuthoringSupported}from './projectProfile.js?v=20260929-2';
+export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative}from './projectArchive.js?v=20260929-2';
