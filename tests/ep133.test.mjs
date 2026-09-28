@@ -205,12 +205,15 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
-  const [reader,sequencer]=await Promise.all([
-    read('js/ep133/projectReader.js'),read('js/ep133/projectSequencer.js')
+  assert.equal(index.includes("./projectHil.js?v="+token),true);
+  const [reader,sequencer,hil]=await Promise.all([
+    read('js/ep133/projectReader.js'),read('js/ep133/projectSequencer.js'),read('js/ep133/projectHil.js')
   ]);
   assert.equal(reader.includes("./projectArchive.js?v="+token),true);
   assert.equal(sequencer.includes("./projectArchive.js?v="+token),true);
   assert.equal(sequencer.includes("./projectReader.js?v="+token),true);
+  assert.equal(hil.includes("./filesystem.js?v="+token),true);
+  assert.equal(hil.includes("./projectReader.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
 });
 
