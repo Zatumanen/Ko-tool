@@ -524,11 +524,19 @@ export function patchScenesMember(input,spec={}, {profile}={}){
     const empty=values.every(value=>value===0);
     if(!empty&&profile.requiresFullSceneRefs!==false&&values.some(value=>value===0))
       throw new Error('Defined scenes must reference a pattern for all four groups.');
-    const time=entry.timeSignature??[4,4];
-    if(!Array.isArray(time)||time.length!==2)throw new Error('scene timeSignature must be [numerator, denominator].');
-    const numerator=empty?4:requireInteger(time[0],1,255,'time-signature numerator');
-    const denominator=empty?4:requireInteger(time[1],1,255,'time-signature denominator');
     const offset=7+index*6;
+    let numerator=data[offset+4],denominator=data[offset+5];
+    if(empty){
+      numerator=4;denominator=4;
+    }else if(entry.timeSignature!=null){
+      const time=entry.timeSignature;
+      if(!Array.isArray(time)||time.length!==2)throw new Error('scene timeSignature must be [numerator, denominator].');
+      numerator=requireInteger(time[0],1,255,'time-signature numerator');
+      denominator=requireInteger(time[1],1,255,'time-signature denominator');
+    }else{
+      numerator=requireInteger(numerator,1,255,'native time-signature numerator');
+      denominator=requireInteger(denominator,1,255,'native time-signature denominator');
+    }
     data.set(values,offset);
     data[offset+4]=numerator;
     data[offset+5]=denominator;
