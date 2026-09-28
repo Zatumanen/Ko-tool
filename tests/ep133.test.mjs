@@ -4,7 +4,66 @@ import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
 import{buildFileDeletePayload}from '../js/ep133/filesystem.js';
+import{parseProjectArchive,validateProjectArchive}from '../js/ep133/projectArchive.js';
 import{outputFileName}from '../js/output-name.js';
+const writeTarText=(bytes,offset,length,text)=>{
+  for(let i=0;i<length;i++)bytes[offset+i]=0;
+  for(let i=0;i<text.length&&i<length;i++)bytes[offset+i]=text.charCodeAt(i);
+};
+const makeTarMember=(path,data=new Uint8Array(),type='0')=>{
+  const payload=data instanceof Uint8Array?data:new Uint8Array(data);
+  const header=new Uint8Array(512);
+  writeTarText(header,0,100,path);
+  writeTarText(header,100,8,type==='5'?'0000755\0':'0000644\0');
+  if(payload.length)writeTarText(header,124,12,payload.length.toString(8)+'\0');
+  header[156]=type.charCodeAt(0);
+  header.fill(0x20,148,156);
+  let checksum=0;
+  for(const byte of header)checksum+=byte;
+  const checksumText=checksum.toString(8)+'\0';
+  writeTarText(header,148,8,checksumText);
+  for(let i=148+checksumText.length;i<156;i++)header[i]=0x20;
+  const padded=new Uint8Array(Math.ceil(payload.length/512)*512);
+  padded.set(payload);
+  return[header,padded];
+};
+const makeProjectTar=members=>{
+  const chunks=[];
+  let size=1024;
+  for(const member of members){
+    const pair=makeTarMember(member.path,member.data,member.type||'0');
+    chunks.push(...pair);
+    size+=pair[0].length+pair[1].length;
+  }
+  const out=new Uint8Array(size);
+  let offset=0;
+  for(const chunk of chunks){out.set(chunk,offset);offset+=chunk.length;}
+  return out;
+};
+const validPadRecord=()=>{
+  const pad=new Uint8Array(26);
+  pad[1]=1;
+  pad[16]=100;
+  pad[20]=255;
+  pad[24]=60;
+  return pad;
+};
+const notePattern=()=>{
+  const pattern=Uint8Array.from([0,1,1,0,0,0,0,60,100,24,0,0]);
+  return pattern;
+};
+const scenesWithA1=()=>{
+  const scenes=new Uint8Array(712);
+  scenes.set([0,0,0,0,0,4,4],0);
+  for(let scene=0;scene<99;scene++){
+    const offset=7+scene*6;
+    scenes[offset+4]=4;
+    scenes[offset+5]=4;
+  }
+  scenes[7]=1;
+  return scenes;
+};
+
 test('processed output filenames replace the source extension',()=>{
   assert.equal(outputFileName('song.wav'),'song_x2.wav');
   assert.equal(outputFileName('take.final.wav'),'take.final_x2.wav');
@@ -455,6 +514,54 @@ test('EP FILE_PUT init targets the requested destination slot',()=>{
 
 test('EP project archive PUT uses directory flags',()=>{const payload=buildFilePutInitPayload(1234,42,99,'01',null,{isDirectory:true,capabilities:[4]});assert.equal(payload[2],6);assert.equal(new DataView(payload.buffer).getUint16(3),1234);assert.equal(new DataView(payload.buffer).getUint16(5),42);});
 
+test('EP project TAR validator accepts a minimal safe project',()=>{
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'patterns/a01',data:notePattern()},
+    {path:'scenes',data:scenesWithA1()}
+  ]);
+  const parsed=parseProjectArchive(tar);
+  assert.equal(parsed.length,3);
+  assert.deepEqual(validateProjectArchive(tar),{members:3,files:3,directories:0,pads:1,patterns:1,scenes:1,unknownFiles:0});
+});
+
+test('EP project TAR validator blocks firmware-dangerous pattern and pad headers',()=>{
+  const badPattern=notePattern();
+  badPattern[0]=3;
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'patterns/a01',data:badPattern}])),/nonzero pattern header byte 0/);
+  const badPad=validPadRecord();
+  badPad[0]=1;
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'pads/a/p01',data:badPad}])),/nonzero validity byte/);
+});
+
+test('EP project TAR validator rejects the unsafe 27-byte pad form',()=>{
+  const pad=new Uint8Array(27);
+  pad.set(validPadRecord());
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'pads/a/p01',data:pad}])),/unsafe 27-byte pad-record/);
+});
+
+test('EP project TAR validator clamps automation by rejecting values above 32767',()=>{
+  const pattern=Uint8Array.from([0,1,1,0,0,0,1,0,0,0,0x80,0]);
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'patterns/a01',data:pattern}])),/automation record 0 exceeds 32767/);
+});
+
+test('EP project TAR validator rejects missing scene patterns and invalid unused scene signatures',()=>{
+  const missing=scenesWithA1();
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'scenes',data:missing}])),/references missing patterns\/a01/);
+  const empty=scenesWithA1();
+  empty[7]=0;
+  empty[11]=0;
+  empty[12]=0;
+  assert.throws(()=>validateProjectArchive(makeProjectTar([{path:'scenes',data:empty}])),/does not retain the required 4\/4 signature/);
+});
+
+test('EP project TAR parser rejects corrupt header checksums',()=>{
+  const tar=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
+  tar[10]^=1;
+  assert.throws(()=>parseProjectArchive(tar),/checksum mismatch/);
+});
+
+
 test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 characters',()=>{
   const longName='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789';
   const payload=buildFilePutInitPayload(7,42,12,longName,null);
@@ -470,6 +577,8 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
   assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000\}=\{\}\)/);
+  assert.match(block,/validateProjectArchive\(data\)/);
+  assert.ok(block.indexOf('validateProjectArchive(data)')<block.indexOf('await initRead()'));
   assert.match(block,/await putFileUnlocked\(/);
   assert.doesNotMatch(block,/await putFile\(/);
 });
