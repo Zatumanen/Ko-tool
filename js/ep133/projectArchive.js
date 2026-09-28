@@ -454,3 +454,218 @@ export function patchProjectPad(baseInput,{group,pad,...changes},{profile}={}){
   const data=patchPadRecord(member.data,changes,{profile});
   return patchProjectArchiveMembers(baseInput,{[path]:data},{profile,allowAdditions:false});
 }
+
+
+const patternMemberPath=spec=>{
+  const explicit=String(spec?.id||'').toUpperCase();
+  if(/^[ABCD](0[1-9]|[1-9][0-9])$/.test(explicit))return'patterns/'+explicit.toLowerCase();
+  const group=String(spec?.group||'').toUpperCase();
+  const pattern=requireInteger(spec?.pattern,1,99,'pattern number');
+  if(!/^[ABCD]$/.test(group))throw new Error('pattern group must be A..D.');
+  return'patterns/'+group.toLowerCase()+String(pattern).padStart(2,'0');
+};
+const recordBytes=(tick,b2,b3,b4,b5,b6,b7)=>Uint8Array.from([
+  tick&255,(tick>>8)&255,b2&255,b3&255,b4&255,b5&255,b6&255,b7&255
+]);
+
+export function encodePatternMember(spec={}, {profile}={}){
+  profile=profileOrDefault(profile);
+  const bars=requireInteger(spec.bars??1,1,99,'pattern bars');
+  const records=[];
+  for(const event of Array.isArray(spec.events)?spec.events:[]){
+    const tick=requireInteger(event.tick,0,65535,'pattern event tick');
+    const pad=requireInteger(event.pad,1,12,'pattern event pad');
+    const note=requireInteger(event.note??60,0,127,'pattern event note');
+    const velocity=requireInteger(event.velocity??100,1,127,'pattern event velocity');
+    const duration=requireInteger(event.duration,1,65535,'pattern event duration');
+    if(event.flag!=null&&Number(event.flag)!==0)
+      throw new Error('Generated pattern note flags must be 0; other values are not authoring-safe.');
+    records.push({
+      tick,kind:1,order:pad,
+      bytes:recordBytes(tick,(pad-1)*8,note,velocity,duration&255,(duration>>8)&255,0)
+    });
+  }
+  for(const event of Array.isArray(spec.automation)?spec.automation:[]){
+    const tick=requireInteger(event.tick,0,65535,'automation tick');
+    const parameter=requireInteger(event.parameter??event.parameterID,0,11,'automation parameter');
+    const value=requireInteger(event.value,0,32767,'automation value');
+    records.push({
+      tick,kind:0,order:parameter,
+      bytes:recordBytes(tick,0x01,parameter,0,value&255,(value>>8)&255,0)
+    });
+  }
+  records.sort((a,b)=>a.tick-b.tick||a.kind-b.kind||a.order-b.order);
+  const count=records.length;
+  let header;
+  if(profile.patternDialect==='ep40'){
+    if(count>65535)throw new Error('EP-40 pattern record count exceeds 65535.');
+    header=Uint8Array.from([1,bars,0xff,0xff,count&255,(count>>8)&255]);
+  }else if(profile.patternDialect==='ep133'){
+    if(count>255)throw new Error('EP-133 pattern record count exceeds 255.');
+    header=Uint8Array.from([0,bars,count,0]);
+  }else throw new Error('Pattern authoring is not verified for '+profile.id+'.');
+  const output=concatBytes([header,...records.map(record=>record.bytes)]);
+  validatePattern({path:'pattern',data:output},profile);
+  return output;
+}
+
+export function patchScenesMember(input,spec={}, {profile}={}){
+  profile=profileOrDefault(profile);
+  const data=toBytes(input).slice();
+  if(data.length!==(Number(profile.scenesSize)||712))throw new Error('Native scenes template has an unexpected size.');
+  const entries=Array.isArray(spec)?spec:Array.isArray(spec.entries)?spec.entries:[];
+  for(const entry of entries){
+    const index=requireInteger(entry.index??entry.scene,1,99,'scene index')-1;
+    const refs=entry.groupPatterns;
+    if(!Array.isArray(refs)||refs.length!==4)throw new Error('scene groupPatterns must contain four entries.');
+    const values=refs.map(value=>requireInteger(value,0,99,'scene pattern reference'));
+    const empty=values.every(value=>value===0);
+    if(!empty&&profile.requiresFullSceneRefs!==false&&values.some(value=>value===0))
+      throw new Error('Defined scenes must reference a pattern for all four groups.');
+    const time=entry.timeSignature??[4,4];
+    if(!Array.isArray(time)||time.length!==2)throw new Error('scene timeSignature must be [numerator, denominator].');
+    const numerator=empty?4:requireInteger(time[0],1,255,'time-signature numerator');
+    const denominator=empty?4:requireInteger(time[1],1,255,'time-signature denominator');
+    const offset=7+index*6;
+    data.set(values,offset);
+    data[offset+4]=numerator;
+    data[offset+5]=denominator;
+  }
+  const trailer=7+99*6;
+  if(spec.currentScene!=null){
+    const current=requireInteger(spec.currentScene,1,99,'current scene');
+    const offset=7+(current-1)*6;
+    const refs=[data[offset],data[offset+1],data[offset+2],data[offset+3]];
+    if(refs.every(value=>value===0))throw new Error('currentScene must reference a defined scene.');
+    data[trailer+3]=current;
+  }
+  if(spec.song!=null){
+    if(!Array.isArray(spec.song)||spec.song.length<1||spec.song.length>99)
+      throw new Error('song must contain 1..99 scene numbers.');
+    data.fill(0,trailer+12,trailer+111);
+    data[trailer+11]=spec.song.length;
+    spec.song.forEach((value,index)=>{
+      const sceneNo=requireInteger(value,1,99,'song scene');
+      const offset=7+(sceneNo-1)*6;
+      const refs=[data[offset],data[offset+1],data[offset+2],data[offset+3]];
+      if(refs.every(item=>item===0))throw new Error('song references undefined scene '+sceneNo+'.');
+      data[trailer+12+index]=sceneNo;
+    });
+  }
+  return data;
+}
+
+const faderBaseValue=value=>{
+  const number=Number(value);
+  if(number===-1)return-1;
+  if(!Number.isFinite(number)||number<0||number>1)throw new Error('group fader baseValue must be -1 or 0..1.');
+  return number;
+};
+
+export function patchSettingsMember(input,spec={}, {profile}={}){
+  profile=profileOrDefault(profile);
+  const data=toBytes(input).slice();
+  validateSettings({path:'settings',data},profile);
+  if(spec.bpm!=null)setF32le(data,4,requireFloat(spec.bpm,40,399,'project BPM'));
+  for(const item of Array.isArray(spec.groupFaders)?spec.groupFaders:[]){
+    const group=String(item.group||'').toUpperCase();
+    if(!/^[ABCD]$/.test(group))throw new Error('group fader group must be A..D.');
+    const groupIndex='ABCD'.indexOf(group);
+    const parameter=requireInteger(item.parameter,0,11,'group fader parameter');
+    data[216+groupIndex]=parameter;
+    if(item.baseValue!=null){
+      setF32le(data,24+groupIndex*48+parameter*4,faderBaseValue(item.baseValue));
+    }
+  }
+  validateSettings({path:'settings',data},profile);
+  return data;
+}
+
+const normalized01=(value,label)=>requireFloat(value,0,1,label);
+export function patchFxSettingsMember(input,spec={}, {profile}={}){
+  profile=profileOrDefault(profile);
+  const data=toBytes(input).slice();
+  validateFxSettings({path:'fx_settings',data},profile);
+  if(spec.type!=null)data[4]=requireInteger(spec.type,0,6,'FX type');
+  const type=data[4];
+  const parameter1=spec.parameter1??spec.parameters?.x;
+  const parameter2=spec.parameter2??spec.parameters?.y;
+  if(parameter1!=null||parameter2!=null){
+    if(type<1||type>6)throw new Error('FX parameters require an active FX type 1..6.');
+    if(parameter1!=null)setF32le(data,12+(type-1)*4,normalized01(parameter1,'FX parameter1'));
+    if(parameter2!=null)setF32le(data,76+(type-1)*4,normalized01(parameter2,'FX parameter2'));
+  }
+  if(spec.outputCompressor!=null){
+    if(!spec.outputCompressor||typeof spec.outputCompressor!=='object')throw new Error('outputCompressor must be an object.');
+    if(spec.outputCompressor.drive!=null)setF32le(data,136,normalized01(spec.outputCompressor.drive,'output compressor drive'));
+    if(spec.outputCompressor.speed!=null)setF32le(data,140,normalized01(spec.outputCompressor.speed,'output compressor speed'));
+  }
+  if(spec.sidechain!=null){
+    if(!spec.sidechain||typeof spec.sidechain!=='object')throw new Error('sidechain must be an object.');
+    if(data.length<160)throw new Error('Sidechain authoring requires a native 160-byte fx_settings member.');
+    if(spec.sidechain.shape!=null)throw new Error('Sidechain shape authoring is not yet hardware-verified.');
+    if(spec.sidechain.length!=null)setF32le(data,144,normalized01(spec.sidechain.length,'sidechain length'));
+    const routing=spec.sidechain.routing;
+    if(routing!=null){
+      if(!routing||typeof routing!=='object'||Array.isArray(routing))throw new Error('sidechain routing must map groups A..D to routes.');
+      for(const[groupName,route]of Object.entries(routing)){
+        const group=String(groupName).toUpperCase();
+        if(!/^[ABCD]$/.test(group)||!route||typeof route!=='object')throw new Error('sidechain route needs group A..D and an object value.');
+        let word=route.destination?0x8000:0;
+        for(const pad of Array.isArray(route.sourcePads)?route.sourcePads:[]){
+          const number=requireInteger(pad,1,12,'sidechain source pad');
+          word|=1<<(number-1);
+        }
+        setU16le(data,152+'ABCD'.indexOf(group)*2,word);
+      }
+    }
+  }
+  validateFxSettings({path:'fx_settings',data},profile);
+  return data;
+}
+
+export function buildProjectFromNative(baseInput,doc={}, {profile}={}){
+  profile=profileOrDefault(profile);
+  if(!doc||typeof doc!=='object'||Array.isArray(doc))throw new Error('Project patch document must be an object.');
+  validateProjectArchive(baseInput,{profile});
+  const members=parseProjectArchive(baseInput);
+  const byPath=new Map(members.map(member=>[member.path,member]));
+  const replacements={};
+
+  for(const padSpec of Array.isArray(doc.pads)?doc.pads:[]){
+    const group=String(padSpec.group||'').toLowerCase();
+    const padNumber=requireInteger(padSpec.pad,1,12,'pad number');
+    if(!/^[abcd]$/.test(group))throw new Error('pad group must be A..D.');
+    const path='pads/'+group+'/p'+String(padNumber).padStart(2,'0');
+    const native=byPath.get(path);
+    if(!native)throw new Error('Native project template is missing '+path+'.');
+    const {group:_group,pad:_pad,...changes}=padSpec;
+    replacements[path]=patchPadRecord(native.data,changes,{profile});
+  }
+
+  for(const pattern of Array.isArray(doc.patterns)?doc.patterns:[]){
+    const path=patternMemberPath(pattern);
+    replacements[path]=encodePatternMember(pattern,{profile});
+  }
+
+  if(doc.scenes!=null){
+    const native=byPath.get('scenes');
+    if(!native)throw new Error('Safe scenes authoring requires a native scenes member from the connected firmware.');
+    replacements.scenes=patchScenesMember(native.data,doc.scenes,{profile});
+  }
+
+  if(doc.settings!=null){
+    const native=byPath.get('settings');
+    if(!native)throw new Error('Safe settings authoring requires a native device-written settings member.');
+    replacements.settings=patchSettingsMember(native.data,doc.settings,{profile});
+  }
+
+  if(doc.fxSettings!=null){
+    const native=byPath.get('fx_settings');
+    if(!native)throw new Error('Safe FX authoring requires a native device-written fx_settings member.');
+    replacements.fx_settings=patchFxSettingsMember(native.data,doc.fxSettings,{profile});
+  }
+
+  if(doc.live!=null)throw new Error('Riddim live/LSS semantic authoring is not enabled until live + patterns coexistence is resolved.');
+  return patchProjectArchiveMembers(baseInput,replacements,{profile,allowAdditions:true});
+}
