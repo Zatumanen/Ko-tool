@@ -305,7 +305,8 @@ export function readProjectModel(input,{profile}={}){
       patternFlagMeaning:'unknown',
       settingsTail:'disputed',
       fxSidechainShape:'observed',
-      liveWithPatterns:'unresolved',
+      liveWithPatterns:profile.nativeLiveWithPatternsObserved?'observed-native-readonly':'unresolved',
+      liveWithFx:profile.nativeLiveWithFxObserved?'observed-native-readonly':'unresolved',
       ...(profile.id==='ep40'?{sceneTimeSignaturePersistence:'unresolved'}:{})
     }
   };
