@@ -669,3 +669,27 @@ export function buildProjectFromNative(baseInput,doc={}, {profile}={}){
   if(doc.live!=null)throw new Error('Riddim live/LSS semantic authoring is not enabled until live + patterns coexistence is resolved.');
   return patchProjectArchiveMembers(baseInput,replacements,{profile,allowAdditions:true});
 }
+
+
+export function getProjectReferencedSampleSlots(input,{profile}={}){
+  profile=profileOrDefault(profile);
+  const slots=new Set();
+  for(const member of parseProjectArchive(input)){
+    if(!/^pads\/[abcd]\/p(0[1-9]|1[0-2])$/.test(member.path))continue;
+    const slot=u16le(member.data,1);
+    if(slot>=1&&slot<=999)slots.add(slot);
+    else if(slot>999&&!profile.supportsSupertone)
+      throw new Error(member.path+' references a non-sample slot that is not supported by '+profile.id+'.');
+  }
+  return[...slots].sort((a,b)=>a-b);
+}
+
+export function preflightProjectSampleDependencies(input,occupiedSlots=[],{profile,strict=false}={}){
+  profile=profileOrDefault(profile);
+  const referenced=getProjectReferencedSampleSlots(input,{profile});
+  const occupied=new Set(Array.from(occupiedSlots||[],Number).filter(value=>Number.isInteger(value)&&value>=1&&value<=999));
+  const missing=referenced.filter(slot=>!occupied.has(slot));
+  if(strict&&missing.length)
+    throw new Error('Project references missing sample slots: '+missing.map(slot=>String(slot).padStart(3,'0')).join(', ')+'.');
+  return{referencedSampleSlots:referenced,missingSampleSlots:missing,allSamplesAvailable:missing.length===0};
+}
