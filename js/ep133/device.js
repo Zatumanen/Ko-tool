@@ -5,6 +5,8 @@ import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
 let strictFirmwareDebugDepth=0,strictFirmwareDebugLabel='guarded FILE transaction';
+let firmwareDebugSequence=0,lastFirmwareDebugText='',lastFirmwareDebugAt=0;
+const FIRMWARE_DEBUG_PREFLIGHT_MS=1200,FIRMWARE_DEBUG_GRACE_MS=2500;
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
@@ -81,6 +83,9 @@ function onMessage(inputPort,event){
   if(data[0]!==0xF0)return;
   const debugText=parseFirmwareDebugFrame(data);
   if(debugText){
+    firmwareDebugSequence+=1;
+    lastFirmwareDebugText=debugText;
+    lastFirmwareDebugAt=Date.now();
     console.warn('EP firmware/debug SysEx:',debugText);
     if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
     return;
@@ -158,11 +163,31 @@ function enterUnsafeState(reason){
 export function isDeviceUnsafe(){return deviceUnsafe;}
 export function markDeviceUnsafe(reason){enterUnsafeState(reason);}
 export function isRequestTimeoutError(error){return error?.code==='EP_SERIES_TIMEOUT'||error?.name==='EPSeriesTimeoutError';}
-export async function withStrictFirmwareDebugGuard(operation,label='guarded FILE transaction'){
+export async function passiveFirmwareDebugPreflight(duration=FIRMWARE_DEBUG_PREFLIGHT_MS,label='guarded FILE transaction'){
+  if(deviceUnsafe)throw unsafeError();
+  if(!initialized||!input||!output)throw new Error('EP-series device is not connected.');
+  const wait=Math.max(0,Number(duration)||0);
+  const startedAt=Date.now();
+  const sequence=firmwareDebugSequence;
+  if(lastFirmwareDebugAt&&startedAt-lastFirmwareDebugAt<=wait){
+    enterUnsafeState('Firmware debug SysEx was already active before '+String(label||'guarded FILE transaction')+': '+lastFirmwareDebugText);
+    throw unsafeError();
+  }
+  if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+  if(deviceUnsafe)throw unsafeError();
+  if(firmwareDebugSequence!==sequence){
+    enterUnsafeState('Firmware debug SysEx detected during passive preflight for '+String(label||'guarded FILE transaction')+': '+lastFirmwareDebugText);
+    throw unsafeError();
+  }
+}
+
+export async function withStrictFirmwareDebugGuard(operation,label='guarded FILE transaction',{preflightMs=FIRMWARE_DEBUG_PREFLIGHT_MS}={}){
   if(typeof operation!=='function')throw new TypeError('Strict firmware debug guard requires an operation.');
+  const normalizedLabel=String(label||'guarded FILE transaction');
+  if(strictFirmwareDebugDepth===0&&preflightMs>0)await passiveFirmwareDebugPreflight(preflightMs,normalizedLabel);
   const previousLabel=strictFirmwareDebugLabel;
   strictFirmwareDebugDepth+=1;
-  strictFirmwareDebugLabel=String(label||'guarded FILE transaction');
+  strictFirmwareDebugLabel=normalizedLabel;
   try{return await operation();}
   finally{
     strictFirmwareDebugDepth=Math.max(0,strictFirmwareDebugDepth-1);
@@ -202,10 +227,25 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=2000){
         pending.delete(frame.id);
         resolve(value);
       };
-      const timer=setTimeout(()=>{
+      const timer=setTimeout(async()=>{
         const error=new Error(`EP-series request timeout (command ${command})`);
         error.name='EPSeriesTimeoutError';
         error.code='EP_SERIES_TIMEOUT';
+        if(strictFirmwareDebugDepth>0){
+          pending.delete(frame.id);
+          const sequence=firmwareDebugSequence;
+          await new Promise(resolve=>setTimeout(resolve,FIRMWARE_DEBUG_GRACE_MS));
+          if(settled)return;
+          if(deviceUnsafe){
+            finishReject(unsafeError());
+            return;
+          }
+          if(firmwareDebugSequence!==sequence){
+            enterUnsafeState('Firmware debug SysEx started after request timeout during '+strictFirmwareDebugLabel+': '+lastFirmwareDebugText);
+            finishReject(unsafeError());
+            return;
+          }
+        }
         finishReject(error);
       },timeout);
       pending.set(frame.id,{

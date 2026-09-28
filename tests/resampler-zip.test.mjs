@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import {createZip} from '../js/zip.js';
+
+test('resampler main WASM is pinned to the current TE production binary',async()=>{
+  const bytes=await fs.readFile(new URL('../js/ep133/wasm/resample.wasm',import.meta.url));
+  assert.equal(bytes.byteLength,214055);
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),'013809682a99d529ac363d0d186a709f31dceb762cffb9c1e270fc7b04e2f32e');
+});
 
 test('resampler uses the reference dynamic WASM runtime',async()=>{
   const source=await fs.readFile(new URL('../js/ep133/resampler.js',import.meta.url),'utf8');
@@ -11,6 +18,20 @@ test('resampler uses the reference dynamic WASM runtime',async()=>{
   assert.match(runtime,/resample\.wasm/);
   assert.match(runtime,/Module\.resampleAudioData/);
 });
+
+test('resample wasm is pinned to the current TE production binary and ABI surface',async()=>{
+  const bytes=await fs.readFile(new URL('../js/ep133/wasm/resample.wasm',import.meta.url));
+  assert.equal(bytes.byteLength,214055);
+  assert.equal(
+    crypto.createHash('sha256').update(bytes).digest('hex'),
+    '013809682a99d529ac363d0d186a709f31dceb762cffb9c1e270fc7b04e2f32e'
+  );
+  const module=new WebAssembly.Module(bytes);
+  assert.equal(WebAssembly.Module.customSections(module,'dylink.0').length,1);
+  assert.equal(WebAssembly.Module.imports(module).length,71);
+  assert.equal(WebAssembly.Module.exports(module).length,158);
+});
+
 
 test('EP audio pipeline imports the libsamplerate module and validates channel count',async()=>{
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
