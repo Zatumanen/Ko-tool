@@ -508,7 +508,12 @@ async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
   const data=jsonBytes,maxPayload=calculateMaxPayloadLength(chunkSize-8);
   let streamOpened=false,streamClosed=false;
   try{
-    await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
+    try{
+      await requestFile(TE_SYSEX_FILE,buildMetadataPagedInitPayload(fileId,data.byteLength),timeout);
+    }catch(error){
+      if(isRequestTimeoutError(error))markDeviceUnsafe('Paged METADATA SET init timed out after request dispatch; device write state is unknown: '+String(error?.message||error));
+      throw error;
+    }
     streamOpened=true;
     let offset=0,page=0;
     while(offset<data.byteLength){if(page>0xffff)throw new Error('EP-series metadata SET page limit exceeded.');const size=Math.min(maxPayload,data.byteLength-offset);await requestFile(TE_SYSEX_FILE,buildMetadataPagedDataPayload(page,data.subarray(offset,offset+size)),timeout);offset+=size;page+=1;}
@@ -559,7 +564,13 @@ async function getFileUnlocked(nodeId,onProgress){
   await initRead();
   let streamOpened=false,streamClosed=false;
   try{
-    const start=await requestRead(TE_SYSEX_FILE,buildFileGetInitPayload(nodeId,0));
+    let start;
+    try{
+      start=await requestRead(TE_SYSEX_FILE,buildFileGetInitPayload(nodeId,0));
+    }catch(error){
+      if(isRequestTimeoutError(error))markDeviceUnsafe('FILE_GET init timed out after request dispatch; device read state is unknown: '+String(error?.message||error));
+      throw error;
+    }
     streamOpened=true;
     if(start.rawData.length<7)throw new Error('Invalid EP-series FILE_GET init response.');
     const fileSize=u32(start.rawData,3),fileName=parseNullTerminatedString(start.rawData,7),chunks=[];
