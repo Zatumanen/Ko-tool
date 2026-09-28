@@ -152,28 +152,30 @@ test('EP firmware debug frames are detected before normal protocol parsing',()=>
   assert.equal(parseFirmwareDebugFrame(Uint8Array.from([0xF0,0x00,0x20,0x76,0x33,0x40,0xF7])),null);
 });
 
-test('EP device transport fails closed on debug/timeout and exposes verified FILE_MOVE as a write',async()=>{
+test('EP device transport keeps ordinary FILE timeouts fail-closed but lets FILE_MOVE recover',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   assert.match(source,/const debugText=parseFirmwareDebugFrame\(data\)/);
   assert.match(source,/enterUnsafeState\('EP firmware\/debug SysEx: '\+debugText\)/);
-  assert.match(source,/if\(command===TE_SYSEX_FILE\)enterUnsafeState\(error\.message\)/);
+  assert.match(source,/error\.name='EPSeriesTimeoutError'/);
+  assert.match(source,/fileSubcommand!==TE_SYSEX_FILE_MOVED/);
   const writeSet=source.match(/const WRITE_SUBCOMMANDS=new Set\(\[[^\]]+\]\)/)?.[0]||'';
   assert.match(writeSet,/TE_SYSEX_FILE_MOVED/);
 });
 
-
-test('EP transfer move filters metadata that is unsafe to write back',()=>{
+test('EP transfer metadata preserves reference TE fields without release coupling',()=>{
   assert.deepEqual(
     prepareSampleTransferMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,
       name:'kick','sound.playmode':'oneshot','time.mode':'off',
-      'envelope.release':255,'sound.pitch':0
+      'sample.start':-1,'sample.end':100,'sample.mode':'multi',
+      regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }),
     {
       channels:1,samplerate:46875,format:'s16',name:'kick',
       'sound.playmode':'oneshot','time.mode':'off',
-      'envelope.release':255,'sound.pitch':0
+      'sample.start':-1,'sample.end':100,'sample.mode':'multi',
+      regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }
   );
   assert.deepEqual(
@@ -181,25 +183,23 @@ test('EP transfer move filters metadata that is unsafe to write back',()=>{
     {'time.mode':'bar',name:'short'}
   );
   assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255,name:'looped'}),
-    {'sound.playmode':'loop','envelope.release':255,name:'looped'}
-  );
-  assert.throws(
-    ()=>prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'missing-release'}),
-    /no paired release/
+    prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'no-release'}),
+    {'sound.playmode':'oneshot',name:'no-release'}
   );
 });
 
-test('EP post-upload metadata only writes mutable sample fields',()=>{
+test('EP post-upload metadata preserves TE start end mode and regions',()=>{
   assert.deepEqual(
     prepareSampleWritableMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,name:'kick',
-      'sample.start':10,'sample.end':100,'sound.playmode':'oneshot',
-      'envelope.release':255,'sound.pitch':2,'time.mode':'off',regions:[{start:0,end:100}]
+      'sample.start':-1,'sample.end':100,'sample.mode':'multi',
+      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      regions:[{'sample.start':0,'sample.end':100}]
     }),
     {
-      name:'kick','sample.start':10,'sample.end':100,'sound.playmode':'oneshot',
-      'envelope.release':255,'sound.pitch':2,'time.mode':'off'
+      name:'kick','sample.start':-1,'sample.end':100,'sample.mode':'multi',
+      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      regions:[{'sample.start':0,'sample.end':100}]
     }
   );
 });
@@ -218,30 +218,35 @@ test('EP upload create metadata is limited to the official stream fields',()=>{
   );
 });
 
-test('EP writable sample metadata accepts TE reference edges and rejects values outside them',()=>{
+test('EP writable sample metadata follows current TE validators and preserves nonempty modes',()=>{
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,
-      'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1
+      name:'Safe.wav','sound.playmode':'loop','sound.bpm':60,
+      'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1
     }),
-    {name:'safe','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1}
+    {name:'safe','sound.playmode':'loop','sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1}
   );
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,
-      'time.mode':'free','sound.bars':3,'sound.pitch':99,'sound.pan':17,
-      'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
+      name:'Safe.wav','sound.playmode':'future-mode','time.mode':'free','sound.bars':3,
+      'sound.pitch':99,'sound.pan':17,'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
     }),
-    {name:'safe','sound.playmode':'loop','envelope.release':255}
+    {name:'safe','sound.playmode':'future-mode','time.mode':'free','sound.bars':3}
   );
 });
 
-test('EP sample playmode writes are gated by the connected device profile',()=>{
-  assert.equal(prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],undefined);
-  assert.equal(prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato','loop']})['sound.playmode'],'loop');
-  assert.throws(
-    ()=>prepareSampleTransferMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']}),
-    /Unsupported source sample play mode for the connected EP/
+test('EP imported playmode follows the current TE nonempty-string validator',()=>{
+  assert.equal(
+    prepareSampleWritableMetadata({'sound.playmode':'loop'},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
+    'loop'
+  );
+  assert.equal(
+    prepareSampleWritableMetadata({'sound.playmode':'future-mode'})['sound.playmode'],
+    'future-mode'
+  );
+  assert.deepEqual(
+    prepareSampleTransferMetadata({'sound.playmode':'future-mode'}),
+    {'sound.playmode':'future-mode'}
   );
 });
 
@@ -260,15 +265,10 @@ test('Medieval profile fails closed for unverified advanced sample metadata writ
   );
 });
 
-test('My EP only generates source-confirmed BAR values and never writes reverse as sample time.mode',()=>{
-  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':1},{allowedBarValues:[1,2]}),{'sound.bars':1});
-  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':2},{allowedBarValues:[1,2]}),{'sound.bars':2});
-  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),{});
-  assert.deepEqual(prepareSampleWritableMetadata({'time.mode':'reverse'}),{});
-  assert.throws(
-    ()=>prepareSampleTransferMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),
-    /Unverified source sample bar value/
-  );
+test('My EP preserves source TE bar and time metadata while the property UI remains source-backed',()=>{
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),{'sound.bars':4});
+  assert.deepEqual(prepareSampleWritableMetadata({'time.mode':'reverse'}),{'time.mode':'reverse'});
+  assert.deepEqual(prepareSampleTransferMetadata({'sound.bars':4}),{'sound.bars':4});
 });
 
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
@@ -283,16 +283,16 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads follow PUT EOF then FILE_INFO STAT then metadata SET then FILE_INFO STAT',async()=>{
+test('EP uploads follow the current TE PUT then metadata SET then FILE_INIT sequence',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadSampleToSlot');
   const block=source.slice(start,source.indexOf('export async function startPlayback',start));
   const put=block.indexOf('await putFile(');
-  const verify1=block.indexOf('await getFileInfo(fileId)',put);
-  const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',verify1);
-  const verify2=block.indexOf('await getFileInfo(fileId)',metadata);
-  assert.ok(put>=0&&verify1>put&&metadata>verify1&&verify2>metadata);
+  const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',put);
+  const init=block.indexOf('await initFileSystem()',metadata);
+  assert.ok(put>=0&&metadata>put&&init>metadata);
+  assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
 });
 
 test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted',async()=>{
@@ -304,20 +304,16 @@ test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted',a
   assert.match(source,/navigator\?\.locks/);
 });
 
-test('My EP verifies destination PCM byte-for-byte before entering MOVE delete phase',async()=>{
+test('My EP native MOVE never falls back to copy-delete or PCM readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('const transactionalTransfer=async');
   const block=source.slice(start,source.indexOf('const deleteSamples=async',start));
-  const upload=block.indexOf('await uploadSampleToSlot(');
-  const verify=block.indexOf('await verifyPcmReadback(fileId,bytes',upload);
-  const deletePhase=block.indexOf('deletePhase=true',verify);
-  const deletion=block.indexOf('await deleteFile(source.nodeId||source.id)',deletePhase);
-  const metadataReadback=block.indexOf('assertMetadataReadback(target.id,expectedMetadata,destinationMetadata)',verify);
-  const sourceRecheck=block.indexOf('await assertSourceSnapshot(source,snapshot)',metadataReadback);
-  assert.ok(upload>=0&&verify>upload&&metadataReadback>verify&&sourceRecheck>metadataReadback&&deletePhase>sourceRecheck&&deletion>deletePhase);
-  assert.match(block,/await assertSlotsEmpty\(plan\.map\(pair=>pair\.targetId\)\)/);
-  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
+  assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
+  assert.doesNotMatch(block,/NATIVE FILE_MOVE FAILED/);
+  const beforeCopy=block.slice(0,block.indexOf("if(sources.some"));
+  assert.doesNotMatch(beforeCopy,/getFile\(/);
+  assert.doesNotMatch(beforeCopy,/deleteFile\(/);
 });
 
 test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
@@ -329,7 +325,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
-test('EP sample reorder always tries native FILE_MOVE first and keeps GET PUT only as fallback',async()=>{
+test('EP sample reorder uses native FILE_MOVE only and resolves the authoritative destination',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
@@ -339,18 +335,12 @@ test('EP sample reorder always tries native FILE_MOVE first and keeps GET PUT on
   const nativeBlock=source.slice(start,end);
   assert.match(nativeBlock,/await moveFile\(sourceNodeId,soundsParentId,target\.id\)/);
   assert.match(nativeBlock,/applyNativeMoveLocally\(source,target,moved\)/);
-  assert.doesNotMatch(nativeBlock,/assertSlotsEmpty/);
-  assert.doesNotMatch(nativeBlock,/assertSlotsDeleted/);
-  assert.doesNotMatch(nativeBlock,/syncMovedFile/);
-  assert.doesNotMatch(nativeBlock,/getFileInfo/);
-  assert.doesNotMatch(nativeBlock,/getFileMetadata/);
+  assert.match(source,/const item=fileItemFromInfo\(moved\.info\)/);
+  assert.doesNotMatch(nativeBlock,/getFile\(/);
+  assert.doesNotMatch(nativeBlock,/getFileMetadata\(/);
   const transferBlock=source.slice(end,source.indexOf('const deleteSamples=async',end));
-  assert.match(transferBlock,/if\(!copy\)\{[\s\S]*return await nativeMoveTransfer\(plan,sourceById\)/);
-  assert.match(transferBlock,/isDeviceUnsafe\(\)/);
-  assert.match(transferBlock,/NATIVE FILE_MOVE FAILED · USING VERIFIED GET\/PUT FALLBACK/);
-  assert.match(transferBlock,/await getFile\(source\.nodeId\|\|source\.id/);
-  assert.match(transferBlock,/await uploadSampleToSlot\(/);
-  assert.match(transferBlock,/if\(!copy\)[\s\S]*await deleteFile\(source\.nodeId\|\|source\.id\)/);
+  assert.match(transferBlock,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
+  assert.doesNotMatch(transferBlock,/NATIVE FILE_MOVE FAILED/);
 });
 
 test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
@@ -378,15 +368,17 @@ test('EP FILE_MOVE payload and response use the official three-u16 big-endian la
   assert.throws(()=>buildFileMovePayload(7,1000,0x10000),/destination id must be a 16-bit integer/);
 });
 
-test('EP native FILE_MOVE reinitializes the FILE subsystem before returning',async()=>{
+test('EP native FILE_MOVE mirrors TE timeout recovery and resolves FILE_INFO after init',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function moveFile');
   const end=source.indexOf('export async function setFileMetadata',start);
   const block=source.slice(start,end);
-  assert.match(block,/await requestFile\(TE_SYSEX_FILE,buildFileMovePayload/);
+  assert.match(block,/\{timeout=2000\}/);
+  assert.match(block,/if\(!isRequestTimeoutError\(error\)\)throw error/);
   assert.match(block,/await initFileSystemUnlocked\(\)/);
-  assert.ok(block.indexOf('await initFileSystemUnlocked()')>block.indexOf('parseFileMoveResponse'));
+  assert.match(block,/const info=await getFileInfoUnlocked\(moved\.newFileId\)/);
+  assert.ok(block.indexOf('await initFileSystemUnlocked()')<block.indexOf('getFileInfoUnlocked'));
 });
 
 test('EP FILE_PUT init targets the requested destination slot',()=>{
@@ -468,13 +460,14 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
-test('My EP rechecks each upload target immediately before PUT and verifies PCM readback',async()=>{
+test('My EP rechecks each upload target before PUT without downloading PCM back afterward',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('async function uploadFilesToSlot');
   const block=source.slice(start,source.indexOf('const readDevice=async',start));
   assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
-  assert.match(block,/await verifyPcmReadback\(fileId,prepared\.data/);
+  assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
+  assert.match(block,/const info=await getFileInfo\(fileId\)/);
   assert.match(block,/onCreated:id=>\{createdId=Number\(id\)\|\|target\.id;item\.createdId=createdId;\}/);
 });
 
@@ -547,13 +540,14 @@ test('readonly EP sample name input permits list navigation while editable input
   assert.match(source,/maxlength="16"/);
 });
 
-test('My EP transfer target planner finds the nearest free single slot and skips occupied group targets',()=>{
+test('My EP single-sample reorder targets only the exact dropped slot',()=>{
   const slots=createSampleSlots([
     {nodeId:20,fileName:'/sounds/020.pcm',fileSize:10},
     {nodeId:21,fileName:'/sounds/021.pcm',fileSize:10},
     {nodeId:22,fileName:'/sounds/022.pcm',fileSize:10}
   ]);
-  assert.deepEqual(planSampleTransferTargets(slots,[10],10,20),[{sourceId:10,targetId:19}]);
+  assert.deepEqual(planSampleTransferTargets(slots,[10],10,20),[]);
+  assert.deepEqual(planSampleTransferTargets(slots,[10],10,19),[{sourceId:10,targetId:19}]);
   assert.deepEqual(
     planSampleTransferTargets(slots,[10,12,13],10,20),
     [{sourceId:10,targetId:23},{sourceId:12,targetId:25},{sourceId:13,targetId:26}]
@@ -732,8 +726,9 @@ test('EP download WAV metadata matches the reference createWav contract',()=>{
     channels:1,samplerate:46875,format:'s16',
     'sound.rootnote':60,'sound.loopstart':10,'sound.loopend':100,'sound.bpm':120,
     'sound.playmode':'loop','sound.pitch':2,'sound.pan':-1,'sound.amplitude':100,
-    'envelope.attack':3,'envelope.release':4,'time.mode':'free','sample.mode':'one',
-    regions:[{start:0,end:100}],ignored:'nope'
+    'envelope.attack':3,'envelope.release':4,'time.mode':'free',
+    'sample.start':-1,'sample.end':120,'sample.mode':'multi',
+    regions:[{'sample.start':0,'sample.end':100}],ignored:'nope'
   };
   const meta=buildEp133DownloadAudioMeta(source);
   assert.equal(meta.channels,1);
@@ -744,8 +739,10 @@ test('EP download WAV metadata matches the reference createWav contract',()=>{
   assert.equal(meta.extra.loop_end,100);
   assert.equal(meta.extra.bpm,120);
   const json=JSON.parse(meta.extra.json);
-  assert.equal(json['sound.playmode'],'loop');
-  assert.deepEqual(json.regions,[{start:0,end:100}]);
+  assert.equal(json['sample.start'],-1);
+  assert.equal(json['sample.end'],120);
+  assert.equal(json['sample.mode'],'multi');
+  assert.deepEqual(json.regions,[{'sample.start':0,'sample.end':100}]);
   assert.equal('ignored' in json,false);
 });
 
@@ -756,6 +753,33 @@ test('EP download WAV uses the reference WASM createWav encoder',async()=>{
   assert.doesNotMatch(source,/44\+pcm\.byteLength/);
 });
 
+
+test('EP audio fast path compares WAV rate to the selected target rate',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
+  assert.match(source,/const target=targetSampleRate\?\?getTargetSampleRate\(audioMeta,formats\)/);
+  assert.match(source,/audioMeta\.sample_rate===target/);
+  assert.doesNotMatch(source,/audioMeta\.sample_rate===DEFAULT_SAMPLE_RATE&&/);
+});
+
+test('My EP initial sample sync lists only root and the direct \/sounds directory',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('const readDevice=async');
+  const block=source.slice(start,source.indexOf('const syncMovedFile=async',start));
+  assert.match(block,/await listDirectory\(0,'\/'\)/);
+  assert.match(block,/await listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.doesNotMatch(block,/listDeviceFiles\(/);
+  assert.match(source,/readAuthoritativeFiles=async\(\)=>\{[\s\S]*listDirectory\(soundsParentId,'\/sounds'\)/);
+});
+
+test('My EP drag reorder does not require sample READ capability',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  const start=source.indexOf("row.addEventListener('dragstart'");
+  const block=source.slice(start,source.indexOf("row.addEventListener('dragend'",start));
+  assert.doesNotMatch(block,/isReadable/);
+});
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
   const fs=await import('../js/ep133/filesystem.js');
