@@ -443,9 +443,12 @@ test('EP uploads follow the current TE PUT then metadata SET then FILE_INIT sequ
   assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
 });
 
-test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted',async()=>{
+test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted or init state is ambiguous',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(source,/FILE_PUT init timed out after request dispatch; device write state is unknown/);
+  assert.match(source,/FILE_GET init timed out after request dispatch; device read state is unknown/);
+  assert.match(source,/Paged METADATA SET init timed out after request dispatch; device write state is unknown/);
   assert.match(source,/FILE_PUT stream was interrupted before EOF/);
   assert.match(source,/FILE_GET stream was interrupted before the declared byte count/);
   assert.match(source,/Paged METADATA SET was interrupted before EOF/);
@@ -720,6 +723,12 @@ test('native TAR patcher preserves unspecified members and inserts new patterns 
   assert.ok(names.indexOf('patterns/a02')<names.indexOf('scenes'));
   assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[9,8,7,6]);
   assert.deepEqual([...members.find(member=>member.path==='patterns/a02').data],[...newPattern]);
+});
+
+test('semantic pad builder rejects unverified nonzero trim start',()=>{
+  const pad=validPadRecord();
+  assert.throws(()=>patchPadRecord(pad,{trimStart:1}),/Nonzero project pad trimStart authoring is not hardware-verified/);
+  assert.equal(new DataView(patchPadRecord(pad,{trimStart:0}).buffer).getUint32(4,true),0);
 });
 
 test('native pad patcher requires complete playback reset when assigning a different sample slot',()=>{
