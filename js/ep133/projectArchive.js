@@ -117,7 +117,6 @@ function patternShape(member,profile){
   if(data[0]!==0)throw new Error(member.path+' has a nonzero pattern header byte 0.');
   const recordCount=(data.length-4)/8;
   if(recordCount<=255&&data[2]!==recordCount)throw new Error(member.path+' record count does not match its payload.');
-  if(data[3]!==0)throw new Error(member.path+' has an unverified nonzero pattern header byte 3.');
   return{headerSize:4,recordCount};
 }
 
@@ -180,7 +179,6 @@ function validateSettings(member,profile){
   const data=member.data;
   const sizes=Array.isArray(profile.settingsSizes)?profile.settingsSizes:[222,224];
   if(!sizes.includes(data.length))throw new Error('settings must be '+sizes.join(' or ')+' bytes for '+profile.id+'.');
-  for(let i=0;i<4;i++)if(data[i]!==0)throw new Error('settings bytes 0..3 must remain zero.');
   const view=new DataView(data.buffer,data.byteOffset,data.byteLength);
   const bpm=view.getFloat32(4,true);
   if(!Number.isFinite(bpm)||bpm<40||bpm>399)throw new Error('settings contains a project BPM outside 40..399.');
