@@ -7,6 +7,7 @@ import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFil
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
+import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -152,7 +153,7 @@ test('EP uploader always starts at the next free slot, including single-file dro
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -956,6 +957,144 @@ test('Project Reader requires an explicit verified EP-133 or EP-40 profile',()=>
   const tar=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
   assert.throws(()=>readProjectModel(tar),/requires an explicit EP-133 or EP-40/);
   assert.throws(()=>readProjectModel(tar,{profile:getEpProjectProfile('TE032AS005','1.0.2')}),/enabled only for EP-133 and EP-40/);
+});
+
+test('Sequencer Core edits EP-133 notes surgically and preserves native flags and header byte 3',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pattern=Uint8Array.from([
+    0,2,2,0x7f,
+    0,0,1,5,0,0,64,0,
+    24,0,16,64,100,24,0,31
+  ]);
+  const tar=makeProjectTar([{path:'patterns/a01',data:pattern}]);
+  const model=readProjectModel(tar,{profile});
+  const sequencer=createProjectSequencer(model);
+  sequencer.editNote('A01','r1',{velocity:91,duration:48});
+  const built=sequencer.buildArchive();
+  const decoded=readProjectModel(built,{profile}).patterns[0];
+  assert.deepEqual([...decoded.rawHeader],[0,2,2,0x7f]);
+  assert.equal(decoded.automation[0].value,16384);
+  assert.equal(decoded.automation[0].flag,0);
+  assert.equal(decoded.notes[0].velocity,91);
+  assert.equal(decoded.notes[0].duration,48);
+  assert.equal(decoded.notes[0].flag,31);
+});
+
+test('Sequencer Core sorts generated records by hardware-proven tick ordering',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pattern=Uint8Array.from([
+    0,1,1,0,
+    24,0,0,60,100,24,0,8
+  ]);
+  const model=readProjectModel(makeProjectTar([{path:'patterns/a01',data:pattern}]),{profile});
+  const sequencer=createProjectSequencer(model);
+  sequencer.addNote('A01',{tick:0,pad:2,note:62,velocity:90,duration:12});
+  sequencer.addAutomation('A01',{tick:0,parameter:5,value:20000});
+  const decoded=readProjectModel(sequencer.buildArchive(),{profile}).patterns[0];
+  assert.deepEqual(decoded.records.map(record=>[record.kind,record.tick]),[
+    ['automation',0],['note',0],['note',24]
+  ]);
+  assert.equal(decoded.records[0].flag,0);
+  assert.equal(decoded.records[1].flag,0);
+  assert.equal(decoded.records[2].flag,8);
+});
+
+test('Sequencer Core blocks structural edits when a pattern contains unknown native records',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pattern=Uint8Array.from([
+    0,1,2,0,
+    0,0,3,9,8,7,6,5,
+    24,0,0,60,100,24,0,31
+  ]);
+  const model=readProjectModel(makeProjectTar([{path:'patterns/a01',data:pattern}]),{profile});
+  const sequencer=createProjectSequencer(model);
+  sequencer.editNote('A01','r1',{velocity:80});
+  assert.throws(()=>sequencer.editNote('A01','r1',{tick:48}),/unknown native records/);
+  assert.throws(()=>sequencer.addNote('A01',{tick:0,pad:1,note:60,velocity:100,duration:24}),/unknown native records/);
+  assert.throws(()=>sequencer.removeNote('A01','r1'),/unknown native records/);
+  const decoded=readProjectModel(sequencer.buildArchive(),{profile}).patterns[0];
+  assert.deepEqual([...decoded.unknownRecords[0].raw],[0,0,3,9,8,7,6,5]);
+  assert.equal(decoded.notes[0].velocity,80);
+  assert.equal(decoded.notes[0].flag,31);
+});
+
+test('Sequencer Core preserves EP-40 six-byte headers and native automation flags',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const pattern=Uint8Array.from([
+    1,3,0xff,0xff,2,0,
+    0,0,1,0,0,0xfc,0x7f,8,
+    24,0,0,60,127,24,0,6
+  ]);
+  const model=readProjectModel(makeProjectTar([{path:'patterns/a01',data:pattern}]),{profile});
+  const sequencer=createProjectSequencer(model);
+  sequencer.editNote('A01','r1',{velocity:99});
+  sequencer.addAutomation('A01',{tick:24,parameter:5,value:1234});
+  const decoded=readProjectModel(sequencer.buildArchive(),{profile}).patterns[0];
+  assert.deepEqual([...decoded.rawHeader],[1,3,0xff,0xff,3,0]);
+  assert.equal(decoded.automation.find(item=>item.value===32764).flag,8);
+  assert.equal(decoded.automation.find(item=>item.value===1234).flag,0);
+  assert.equal(decoded.notes[0].flag,6);
+  assert.equal(decoded.notes[0].velocity,99);
+});
+
+test('Sequencer Core preserves native EP-40 scene time signature when editing refs and gates new time-signature authoring',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const p=ep40NotePattern();
+  const scenes=scenesWithA1();
+  scenes.set([1,1,1,1,6,4],7);
+  const tar=makeProjectTar([
+    {path:'patterns/a01',data:p},
+    {path:'patterns/b01',data:p},
+    {path:'patterns/c01',data:p},
+    {path:'patterns/d01',data:p},
+    {path:'scenes',data:scenes}
+  ]);
+  const sequencer=createProjectSequencer(readProjectModel(tar,{profile}));
+  sequencer.setScene(1,{groupPatterns:[1,1,1,1]});
+  const decoded=readProjectModel(sequencer.buildArchive(),{profile});
+  assert.deepEqual(decoded.scenes.entries[0].timeSignature,{numerator:6,denominator:4});
+  assert.throws(
+    ()=>sequencer.setScene(1,{groupPatterns:[1,1,1,1],timeSignature:[4,4]}),
+    /EP-40 scene time-signature authoring remains unresolved/
+  );
+});
+
+test('Sequencer Core patches verified project controls over native EP-133 templates',()=>{
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  const pad=validPadRecord();
+  const scenes=scenesWithA1();scenes.set([1,1,1,1],7);scenes[7+99*6+3]=1;
+  const settings=new Uint8Array(222);
+  const sv=new DataView(settings.buffer);
+  sv.setFloat32(4,120,true);
+  for(let offset=24;offset<216;offset+=4)sv.setFloat32(offset,-1,true);
+  settings[220]=0;settings[221]=1;
+  const tar=makeProjectTar([
+    {path:'pads/a/p01',data:pad},
+    {path:'patterns/a01',data:notePattern()},
+    {path:'patterns/b01',data:notePattern()},
+    {path:'patterns/c01',data:notePattern()},
+    {path:'patterns/d01',data:notePattern()},
+    {path:'scenes',data:scenes},
+    {path:'settings',data:settings}
+  ]);
+  const sequencer=createProjectSequencer(readProjectModel(tar,{profile}));
+  sequencer.setBpm(128);
+  sequencer.setGroupFader({group:'A',parameter:5,baseValue:0.5});
+  sequencer.setCurrentScene(1);
+  sequencer.setSong([1]);
+  sequencer.assignPad({
+    group:'A',pad:1,slot:2,trimStart:0,trimLength:48000,sampleBpm:120,
+    amplitude:100,release:255,timeMode:0,playMode:0,rootNote:60
+  });
+  const {readBuiltModel}=sequencer;
+  const decoded=readBuiltModel();
+  assert.equal(decoded.settings.bpm,128);
+  assert.equal(decoded.settings.faderAssignments.a.parameter,5);
+  assert.equal(decoded.settings.groupFaders.a[5].value,0.5);
+  assert.equal(decoded.scenes.currentScene,1);
+  assert.deepEqual(decoded.scenes.song,[1]);
+  assert.equal(decoded.pads.a[0].sampleSlot,2);
+  assert.equal(decoded.pads.a[0].trimLength,48000);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
