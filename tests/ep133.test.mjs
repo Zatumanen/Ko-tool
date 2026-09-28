@@ -4,7 +4,7 @@ import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
 import{buildFileDeletePayload}from '../js/ep133/filesystem.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad}from '../js/ep133/projectArchive.js';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectAuthoringSupported}from '../js/ep133/projectProfile.js';
 import{outputFileName}from '../js/output-name.js';
 const writeTarText=(bytes,offset,length,text)=>{
@@ -709,6 +709,125 @@ test('native project pad patch preserves the rest of the TAR',()=>{
   assert.equal(new DataView(members.find(member=>member.path==='pads/a/p01').data.buffer,
     members.find(member=>member.path==='pads/a/p01').data.byteOffset,26).getUint16(1,true),2);
   assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[1,3,3,7]);
+});
+
+test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
+  const ep133=getEpProjectProfile('TE032AS001','2.5.1');
+  const ep40=getEpProjectProfile('TE032AS006','2.5.1');
+  const spec={
+    bars:2,
+    events:[{tick:24,pad:3,note:60,velocity:100,duration:24}],
+    automation:[{tick:0,parameter:5,value:16384}]
+  };
+  const a=encodePatternMember(spec,{profile:ep133});
+  assert.deepEqual([...a.slice(0,4)],[0,2,2,0]);
+  assert.deepEqual([...a.slice(4,12)],[0,0,1,5,0,0,64,0]);
+  assert.equal(a[12+2],16);
+  const b=encodePatternMember(spec,{profile:ep40});
+  assert.deepEqual([...b.slice(0,6)],[1,2,255,255,2,0]);
+  assert.deepEqual([...b.slice(6,14)],[0,0,1,5,0,0,64,0]);
+  assert.throws(()=>encodePatternMember({events:[{tick:0,pad:1,note:60,velocity:100,duration:24,flag:255}]},{profile:ep133}),/flags must be 0/);
+});
+
+test('semantic scenes patch changes only verified chunks cursor and song bytes',()=>{
+  const base=scenesWithA1();
+  base.set([1,1,1,1],7);
+  base[700]=77;
+  const patched=patchScenesMember(base,{
+    entries:[
+      {index:1,groupPatterns:[2,2,2,2],timeSignature:[6,4]},
+      {index:2,groupPatterns:[1,1,1,1],timeSignature:[4,4]}
+    ],
+    currentScene:2,
+    song:[2,1,2]
+  });
+  assert.deepEqual([...patched.slice(7,13)],[2,2,2,2,6,4]);
+  assert.deepEqual([...patched.slice(13,19)],[1,1,1,1,4,4]);
+  const trailer=7+99*6;
+  assert.equal(patched[trailer+3],2);
+  assert.equal(patched[trailer+11],3);
+  assert.deepEqual([...patched.slice(trailer+12,trailer+15)],[2,1,2]);
+  assert.equal(patched[700],77);
+});
+
+test('settings patch preserves unknown bytes while changing only decoded fields',()=>{
+  const settings=new Uint8Array(224);
+  const view=new DataView(settings.buffer);
+  view.setFloat32(4,120,true);
+  for(let offset=24;offset<216;offset+=4)view.setFloat32(offset,-1,true);
+  settings[220]=9;settings[221]=8;settings[222]=7;settings[223]=6;
+  const patched=patchSettingsMember(settings,{
+    bpm:140,
+    groupFaders:[{group:'B',parameter:5,baseValue:0.75}]
+  });
+  const pv=new DataView(patched.buffer,patched.byteOffset,patched.byteLength);
+  assert.equal(pv.getFloat32(4,true),140);
+  assert.equal(patched[217],5);
+  assert.ok(Math.abs(pv.getFloat32(24+48+5*4,true)-0.75)<1e-6);
+  assert.deepEqual([...patched.slice(220,224)],[9,8,7,6]);
+});
+
+test('FX patch preserves unknown banks and authors only verified fields',()=>{
+  const fx=new Uint8Array(160);
+  fx[4]=1;
+  fx[8]=123;
+  const patched=patchFxSettingsMember(fx,{
+    type:2,parameter1:0.25,parameter2:0.75,
+    outputCompressor:{drive:0.5,speed:1},
+    sidechain:{length:0.4,routing:{A:{destination:true,sourcePads:[1,12]}}}
+  });
+  const view=new DataView(patched.buffer,patched.byteOffset,patched.byteLength);
+  assert.equal(patched[4],2);
+  assert.equal(patched[8],123);
+  assert.ok(Math.abs(view.getFloat32(16,true)-0.25)<1e-6);
+  assert.ok(Math.abs(view.getFloat32(80,true)-0.75)<1e-6);
+  assert.equal(view.getUint16(152,true),0x8801);
+  assert.throws(()=>patchFxSettingsMember(fx,{sidechain:{shape:0.5}}),/not yet hardware-verified/);
+});
+
+test('safe semantic builder requires native templates for scenes settings and FX',()=>{
+  const base=makeProjectTar([
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'patterns/a01',data:notePattern()}
+  ]);
+  assert.throws(()=>buildProjectFromNative(base,{scenes:{entries:[]}}),/requires a native scenes member/);
+  assert.throws(()=>buildProjectFromNative(base,{settings:{bpm:130}}),/requires a native device-written settings member/);
+  assert.throws(()=>buildProjectFromNative(base,{fxSettings:{type:1}}),/requires a native device-written fx_settings member/);
+  assert.throws(()=>buildProjectFromNative(base,{live:{armedPads:[]}}),/not enabled/);
+});
+
+test('safe semantic builder patches native project and inserts authored patterns before scenes',()=>{
+  const scenes=scenesWithA1();
+  scenes.set([1,1,1,1],7);
+  const settings=new Uint8Array(222);
+  const sv=new DataView(settings.buffer);
+  sv.setFloat32(4,120,true);
+  for(let offset=24;offset<216;offset+=4)sv.setFloat32(offset,-1,true);
+  const base=makeProjectTar([
+    {path:'pads/a/p01',data:validPadRecord()},
+    {path:'patterns/a01',data:notePattern()},
+    {path:'patterns/b01',data:notePattern()},
+    {path:'patterns/c01',data:notePattern()},
+    {path:'patterns/d01',data:notePattern()},
+    {path:'scenes',data:scenes},
+    {path:'settings',data:settings},
+    {path:'vendor_future',data:Uint8Array.from([5,4,3,2,1])}
+  ]);
+  const built=buildProjectFromNative(base,{
+    patterns:[{
+      id:'A02',bars:2,
+      events:[{tick:0,pad:1,note:60,velocity:110,duration:24}]
+    }],
+    scenes:{entries:[{index:1,groupPatterns:[2,1,1,1],timeSignature:[4,4]}],currentScene:1,song:[1]},
+    settings:{bpm:128}
+  });
+  const members=parseProjectArchive(built);
+  const names=members.map(member=>member.path);
+  assert.ok(names.indexOf('patterns/a02')<names.indexOf('scenes'));
+  assert.equal(new DataView(members.find(member=>member.path==='settings').data.buffer,
+    members.find(member=>member.path==='settings').data.byteOffset,222).getFloat32(4,true),128);
+  assert.deepEqual([...members.find(member=>member.path==='vendor_future').data],[5,4,3,2,1]);
+  assert.equal(validateProjectArchive(built).patterns,5);
 });
 
 test('EP project readback comparison tolerates firmware-added members but verifies candidate payloads',()=>{
