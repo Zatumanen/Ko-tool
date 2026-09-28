@@ -240,9 +240,11 @@ export async function runProjectNoopWriteHil({projectNumber,acknowledge,onProgre
   onProgress?.({phase:'write',projectNumber:number,bytes:checkpoint.size});
   const upload=await uploadProjectArchive(uploadFile,{
     performReload:false,
-    onBackup:backup=>{internalBackupMatched=sameBytes(checkpoint.data,backup.data);}
+    onBackup:backup=>{
+      internalBackupMatched=sameBytes(checkpoint.data,backup.data);
+      if(!internalBackupMatched)throw new Error('Upload transaction checkpoint changed between preflight and write.');
+    }
   });
-  if(!internalBackupMatched)throw new Error('Upload transaction checkpoint changed between preflight and write.');
   if(upload.reload!==null)throw new Error('No-op write HIL unexpectedly performed project reload.');
 
   if(getDeviceSessionToken()!==sessionToken)throw new Error('EP device session changed after no-op project write.');
