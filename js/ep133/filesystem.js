@@ -408,7 +408,9 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
     const backup=await getFileUnlocked(destination.nodeId);
     if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
     else parseProjectArchive(backup.data);
-    const activation=await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId);
+    const activation=profile.projectReloadVerified
+      ?await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId)
+      :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
     await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
 
     let candidateWritten=false;
