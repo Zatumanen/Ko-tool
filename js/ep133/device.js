@@ -319,6 +319,26 @@ export function onFileEvent(listener){
   fileEventListeners.add(listener);
   return()=>fileEventListeners.delete(listener);
 }
+export function waitForFileEvent(predicate,{timeout=500}={}){
+  if(typeof predicate!=='function')return Promise.resolve(null);
+  return new Promise(resolve=>{
+    let settled=false;
+    const finish=value=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      fileEventListeners.delete(listener);
+      resolve(value);
+    };
+    const listener=event=>{
+      let matches=false;
+      try{matches=!!predicate(event);}catch{}
+      if(matches)finish(event);
+    };
+    const timer=setTimeout(()=>finish(null),Math.max(0,Number(timeout)||0));
+    fileEventListeners.add(listener);
+  });
+}
 
 export function onMidiActivity(listener){
   if(typeof listener!=='function')return()=>{};
