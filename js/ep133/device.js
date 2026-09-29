@@ -1,4 +1,4 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
@@ -303,6 +303,7 @@ export async function connectEp133(){
   }
   output=found.out;
   input=found.input;
+  identityCode=found.parsed.midiId;
   const greet=await sendRequest(TE_SYSEX_GREET);
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
@@ -337,6 +338,7 @@ export function requestRead(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
   if(!READ_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
+  if(subcommand===TE_SYSEX_FILE_METADATA&&payload[1]!==TE_SYSEX_FILE_METADATA_GET)return Promise.reject(new Error(`EP-series read-only METADATA subcommand rejected: ${payload[1]}`));
   return sendRequest(command,payload,timeout);
 }
 
@@ -344,6 +346,7 @@ export function requestFile(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series FILE command rejected: ${command}`));
   const subcommand=payload[0];
   if(!WRITE_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series unsupported FILE subcommand: ${subcommand}`));
+  if(subcommand===TE_SYSEX_FILE_METADATA&&payload[1]!==TE_SYSEX_FILE_METADATA_SET&&payload[1]!==TE_SYSEX_FILE_METADATA_SET_PAGED)return Promise.reject(new Error(`EP-series write METADATA subcommand rejected: ${payload[1]}`));
   return sendRequest(command,payload,timeout);
 }
 
