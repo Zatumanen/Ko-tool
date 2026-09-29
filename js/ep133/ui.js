@@ -16,7 +16,7 @@ import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-5';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
-}from './sampleMemory.js?v=20260928-4';
+}from './sampleMemory.js?v=20260930-5';
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-5';
 import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-5';
