@@ -1,8 +1,8 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-19';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-20';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-19';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-19';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-20';
+import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-20';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -21,6 +21,9 @@ function runFileOperation(operation){
   const task=fileOperationQueue.then(()=>withBrowserFileLock(operation));
   fileOperationQueue=task.catch(()=>{});
   return task;
+}
+function runGuardedFileMutation(label,operation){
+  return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label));
 }
 export function resetFileSystemState(){deviceChunkSizes.clear();fileOperationQueue=Promise.resolve();}
 const getDeviceKey=device=>device?.metadata?.serialNumber||device?.metadata?.serial||device?.deviceKey||null;
@@ -327,7 +330,7 @@ async function putFileUnlocked({data,filename,parentId,destinationId,metadata=nu
     throw error;
   }
 }
-export async function putFile(args){return runFileOperation(()=>putFileUnlocked(args));}
+export async function putFile(args){return runGuardedFileMutation('FILE_PUT mutation',()=>putFileUnlocked(args));}
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
@@ -498,14 +501,14 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
-export async function deleteFile(fileId,{timeout=2000}={}){return runFileOperation(async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await ensureFileSystemInitializedUnlocked();await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
+export async function deleteFile(fileId,{timeout=2000}={}){return runGuardedFileMutation('FILE_DELETE mutation',async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await ensureFileSystemInitializedUnlocked();await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
 
 const normalizeCrc=value=>{
   const number=Number(value);
   return Number.isInteger(number)&&number>=0&&number<=0xffffffff?(number>>>0):null;
 };
 export async function moveFile(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
-  return runFileOperation(async()=>{
+  return runGuardedFileMutation('FILE_MOVE mutation',async()=>{
     await ensureFileSystemInitializedUnlocked();
     let sourceCrc=null;
     if(verifyCrc){
@@ -561,7 +564,7 @@ async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
     throw error;
   }
 }
-export async function setFileMetadata(fileId,metadata,options={}){return runFileOperation(()=>setFileMetadataUnlocked(fileId,metadata,options));}
+export async function setFileMetadata(fileId,metadata,options={}){return runGuardedFileMutation('METADATA_SET mutation',()=>setFileMetadataUnlocked(fileId,metadata,options));}
 
 export async function uploadSampleToSlot({
   file,data,filename,parentId,destinationId,metadata={},
@@ -580,14 +583,14 @@ export async function uploadSampleToSlot({
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
     allowedPlayModes,allowAdvancedMetadata,allowedBarValues
   });
-  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
-  onCreated?.(fileId);
-  if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
-
-  await initFileSystem();
-  return fileId;
+  return runGuardedFileMutation('sample upload transaction',async()=>{
+    const fileId=await putFileUnlocked({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
+    onCreated?.(fileId);
+    if(Object.keys(writableMetadata).length)await setFileMetadataUnlocked(fileId,writableMetadata);
+    await initFileSystemUnlocked();
+    return fileId;
+  });
 }
-
 export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 

@@ -176,7 +176,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-19/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-20/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -201,7 +201,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-19'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-20'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -562,17 +562,31 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads validate writable metadata before PUT, then follow PUT metadata SET FILE_INIT',async()=>{
+test('EP uploads validate metadata before one guarded PUT metadata SET FILE_INIT transaction',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadSampleToSlot');
   const block=source.slice(start,source.indexOf('export async function startPlayback',start));
   const validation=block.indexOf('const writableMetadata=prepareSampleWritableMetadata');
-  const put=block.indexOf('await putFile(');
-  const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',put);
-  const init=block.indexOf('await initFileSystem()',metadata);
-  assert.ok(validation>=0&&put>validation&&metadata>put&&init>metadata);
+  const guard=block.indexOf("runGuardedFileMutation('sample upload transaction'");
+  const put=block.indexOf('await putFileUnlocked(',guard);
+  const metadata=block.indexOf('await setFileMetadataUnlocked(fileId,writableMetadata)',put);
+  const init=block.indexOf('await initFileSystemUnlocked()',metadata);
+  assert.ok(validation>=0&&guard>validation&&put>guard&&metadata>put&&init>metadata);
+  assert.doesNotMatch(block,/await putFile\(/);
+  assert.doesNotMatch(block,/await setFileMetadata\(/);
+  assert.doesNotMatch(block,/await initFileSystem\(/);
   assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
+});
+
+test('all public mutating FILE APIs use the strict firmware debug guard',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(source,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\)\)/);
+  assert.match(source,/export async function putFile\(args\)\{return runGuardedFileMutation\('FILE_PUT mutation'/);
+  assert.match(source,/export async function deleteFile[\s\S]*runGuardedFileMutation\('FILE_DELETE mutation'/);
+  assert.match(source,/export async function moveFile[\s\S]*runGuardedFileMutation\('FILE_MOVE mutation'/);
+  assert.match(source,/export async function setFileMetadata[\s\S]*runGuardedFileMutation\('METADATA_SET mutation'/);
 });
 
 test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted or init state is ambiguous',async()=>{
