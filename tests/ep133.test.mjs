@@ -720,7 +720,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
-test('My EP sample mutations prefer METADATA_UPDATED and fall back to metadata GET',async()=>{
+test('My EP keeps event-first metadata sync for destructive mutations but not the normal upload fast path',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
@@ -728,11 +728,13 @@ test('My EP sample mutations prefer METADATA_UPDATED and fall back to metadata G
   assert.match(source,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
   const uploadStart=source.indexOf('async function uploadFilesToSlot');
   const uploadBlock=source.slice(uploadStart,source.indexOf('const readDevice=async',uploadStart));
-  assert.match(uploadBlock,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
-  assert.match(uploadBlock,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
+  const uploadSuccess=uploadBlock.slice(0,uploadBlock.indexOf('}catch(error){'));
+  assert.doesNotMatch(uploadSuccess,/waitForMetadataUpdate\(soundsParentId\)/);
+  assert.doesNotMatch(uploadSuccess,/syncMetadataAfterMutation\(soundsParentId/);
   const deleteStart=source.indexOf('const deleteSamples=async');
   const deleteBlock=source.slice(deleteStart,source.indexOf('memory=createSampleMemory',deleteStart));
   assert.match(deleteBlock,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
+  assert.match(deleteBlock,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
 });
 
 test('My EP aborts batches when the connected MIDI session changes',async()=>{
@@ -2300,7 +2302,7 @@ test('sample metadata cache is invalidated or refreshed by device file events',a
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
-  assert.match(source,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        sampleMetadataCache\.invalidate/);
+  assert.match(source,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
   assert.match(source,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
   assert.match(source,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
   assert.match(source,/sampleMetadataCache\.clear\(\)/);
