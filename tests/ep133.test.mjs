@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import{packedLength,packToBuffer,unpackInPlace}from '../js/ep133/packing.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTeSysex}from '../js/ep133/sysex.js';
 
-import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload}from '../js/ep133/filesystem.js';
+import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload,assertProjectWriteActiveGuard}from '../js/ep133/filesystem.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
@@ -719,6 +719,23 @@ test('EP project TAR parser rejects corrupt header checksums',()=>{
   const tar=makeProjectTar([{path:'patterns/a01',data:notePattern()}]);
   tar[10]^=1;
   assert.throws(()=>parseProjectArchive(tar),/checksum mismatch/);
+});
+
+test('project write guard refuses the active destination and detects active-project races',()=>{
+  assert.equal(assertProjectWriteActiveGuard({
+    destinationFid:9000,
+    activeProjectFid:3000,
+    requireInactive:true,
+    expectedActiveProjectFid:3000
+  }),3000);
+  assert.throws(
+    ()=>assertProjectWriteActiveGuard({destinationFid:9000,activeProjectFid:9000,requireInactive:true}),
+    /destination project is currently active/
+  );
+  assert.throws(
+    ()=>assertProjectWriteActiveGuard({destinationFid:9000,activeProjectFid:4000,expectedActiveProjectFid:3000}),
+    /active project changed after preflight/
+  );
 });
 
 test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320 authoring',()=>{
