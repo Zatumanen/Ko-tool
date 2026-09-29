@@ -386,7 +386,7 @@ export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   },'project reload'));
 }
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup}={}){
+export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,requireInactive=false,expectedActiveProjectFid=null}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
     if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
@@ -420,6 +420,15 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
       :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
     await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
 
+    let activeProjectBeforeWrite=null;
+    if(requireInactive||expectedActiveProjectFid!=null){
+      activeProjectBeforeWrite=await getActiveNodeUnlocked(parent.nodeId);
+      if(requireInactive&&activeProjectBeforeWrite===destination.nodeId)
+        throw new Error('Refusing project write: destination project is currently active.');
+      if(expectedActiveProjectFid!=null&&activeProjectBeforeWrite!==Number(expectedActiveProjectFid))
+        throw new Error('Refusing project write: active project changed after preflight.');
+    }
+
     let candidateWritten=false;
     try{
       await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
@@ -443,6 +452,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
         verification,
         reload,
         sampleDependencies,
+        activeProjectBeforeWrite,
         backup:{name:backup.name,size:backup.size}
       };
     }catch(error){
