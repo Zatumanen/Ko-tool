@@ -8,4 +8,4 @@ export{readProjectPad,readProjectPattern,readProjectScenes,readProjectSettings,r
 
 export{createProjectSequencer}from './projectSequencer.js?v=20260929-14';
 
-export{auditProjectArchiveBytes,auditConnectedEpProjects,runProjectNoopWriteHil}from './projectHil.js?v=20260929-14';
+export{auditProjectArchiveBytes,auditConnectedEpProjects,findProjectNoopHilCandidates,runProjectNoopWriteHil}from './projectHil.js?v=20260929-14';
