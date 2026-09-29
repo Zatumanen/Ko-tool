@@ -1088,6 +1088,7 @@ test('Sequencer Core blocks structural edits when a pattern contains unknown nat
   assert.throws(()=>sequencer.editNote('A01','r1',{tick:48}),/unknown native records/);
   assert.throws(()=>sequencer.addNote('A01',{tick:0,pad:1,note:60,velocity:100,duration:24}),/unknown native records/);
   assert.throws(()=>sequencer.removeNote('A01','r1'),/unknown native records/);
+  assert.throws(()=>sequencer.setPatternBars('A01',2),/unknown native records/);
   const decoded=readProjectModel(sequencer.buildArchive(),{profile}).patterns[0];
   assert.deepEqual([...decoded.unknownRecords[0].raw],[0,0,3,9,8,7,6,5]);
   assert.equal(decoded.notes[0].velocity,80);
