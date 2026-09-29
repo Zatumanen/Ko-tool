@@ -176,6 +176,14 @@ test('EP connection uses GREET base_sku for the effective device profile',async(
   assert.match(source,/deviceInfo=\{sku:effectiveSku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
 });
 
+test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-16'\)/);
+  assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
+});
+
 test('My EP defers MIDI access until the user opens the app',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');

@@ -2,9 +2,9 @@ import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20
 import{createZip}from './zip.js?v=20260921-7';
 import{outputFileName}from './output-name.js';
 import{pickerTypesForFile}from './save-file.js';
-import{initEp133Browser}from './ep133/ui.js?v=20260929-15';
 const state={ctx:null,fileResults:[],folderResults:[],folderName:'',cancelled:false,urls:new Set(),startedAt:0,folderZipUrl:null};
 window.__speedUpperCutFiles=window.__speedUpperCutFiles||new Map();let openPreviewPromise=null;const loadPreview=()=>openPreviewPromise||(openPreviewPromise=import('./player.js?v=20260921-8').then(m=>m.openPreview));
+let ep133BrowserPromise=null;const loadEp133Browser=()=>ep133BrowserPromise||(ep133BrowserPromise=import('./ep133/ui.js?v=20260929-16'));
 const $=id=>document.getElementById(id);const selected=g=>document.querySelector(`.win95-list[data-group="${g}"] .list-item.selected`)?.dataset.value||(g==='fidelity'?'cd':'stereo');const selectedPlaymode=()=>document.querySelector('.playmode-control .list-item.selected')?.dataset.value||'oneshot';const status=t=>$('status-bar').textContent=t;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const bytes=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 function showError(message){const box=$('error-dialog');if(!box)return;$('error-message').textContent=String(message||'Unknown error');box.style.display='flex';$('error-ok').focus();}function hideError(){$('error-dialog').style.display='none';}async function saveBlob(blob,name){if(window.showSaveFilePicker){try{const h=await window.showSaveFilePicker({suggestedName:name,types:pickerTypesForFile(name,blob?.type)});const w=await h.createWritable();await w.write(blob);await w.close();return true;}catch(e){if(e?.name==='AbortError')return false;throw e;}}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return true;}
 function progress(v,text,i,total){$('progress-fill').style.width=`${v*100}%`;$('progress-text').textContent=`${Math.round(v*100)}%`;$('current-file').textContent=text;$('file-count').textContent=`File: ${i}/${total}`;$('progress-time').textContent=`Time: ${Math.max(0,Math.round((performance.now()-state.startedAt)/1000))}s`;}
@@ -117,4 +117,13 @@ document.querySelectorAll('.start-menu-item').forEach(item=>{
   item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();activate();}});
 });
 document.addEventListener('click',e=>{if(startMenu?.classList.contains('open')&&!startMenu.contains(e.target)&&e.target!==startButton)closeStartMenu();});
-window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});initEp133Browser({showError});status('Ready to process files');});
+const myEpIcon=$('my-ep-icon');
+const lazyOpenMyEp=async()=>{
+  try{
+    const module=await loadEp133Browser();
+    module.initEp133Browser({showError});
+    myEpIcon?.click();
+  }catch(error){showError(error?.message||error);}
+};
+myEpIcon?.addEventListener('click',()=>{void lazyOpenMyEp();},{once:true});
+window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});status('Ready to process files');});
