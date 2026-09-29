@@ -386,6 +386,16 @@ export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   },'project reload'));
 }
 
+export function assertProjectWriteActiveGuard({destinationFid,activeProjectFid,requireInactive=false,expectedActiveProjectFid=null}={}){
+  const destination=Number(destinationFid),active=Number(activeProjectFid);
+  if(!Number.isInteger(destination)||destination<=0)throw new Error('Project write guard requires a valid destination FID.');
+  if(!Number.isInteger(active)||active<=0)throw new Error('Project write guard requires a valid active project FID.');
+  if(requireInactive&&active===destination)throw new Error('Refusing project write: destination project is currently active.');
+  if(expectedActiveProjectFid!=null&&active!==Number(expectedActiveProjectFid))
+    throw new Error('Refusing project write: active project changed after preflight.');
+  return active;
+}
+
 export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,requireInactive=false,expectedActiveProjectFid=null}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
@@ -422,11 +432,12 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
 
     let activeProjectBeforeWrite=null;
     if(requireInactive||expectedActiveProjectFid!=null){
-      activeProjectBeforeWrite=await getActiveNodeUnlocked(parent.nodeId);
-      if(requireInactive&&activeProjectBeforeWrite===destination.nodeId)
-        throw new Error('Refusing project write: destination project is currently active.');
-      if(expectedActiveProjectFid!=null&&activeProjectBeforeWrite!==Number(expectedActiveProjectFid))
-        throw new Error('Refusing project write: active project changed after preflight.');
+      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
+        destinationFid:destination.nodeId,
+        activeProjectFid:await getActiveNodeUnlocked(parent.nodeId),
+        requireInactive,
+        expectedActiveProjectFid
+      });
     }
 
     let candidateWritten=false;
