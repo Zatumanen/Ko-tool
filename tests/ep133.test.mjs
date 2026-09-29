@@ -158,10 +158,22 @@ test('EP uploader always starts at the next free slot, including single-file dro
   assert.equal(findNextFreeSampleSlot(slots,999),-1);
 });
 
+test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=>{
+  const fs=await import('node:fs/promises');
+  const [base,myEp,html]=await Promise.all([
+    fs.readFile(new URL('../css/base.css',import.meta.url),'utf8'),
+    fs.readFile(new URL('../css/my-ep.css',import.meta.url),'utf8'),
+    fs.readFile(new URL('../index.html',import.meta.url),'utf8')
+  ]);
+  assert.doesNotMatch(base,/\.ep133-/);
+  assert.match(myEp,/\.ep133-browser/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-16/);
+});
+
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -227,6 +239,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
+  assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
@@ -1729,10 +1742,11 @@ test('My EP single-sample reorder targets only the exact dropped slot',()=>{
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const modes=activeDeviceProfile\.playModes/);
-  assert.match(source,/const TIME_MODES=\['off','bpm','bar'\]/);
-  assert.match(source,/const BAR_VALUES=\[1,2\]/);
-  assert.match(source,/const PROPERTY_DEBOUNCE_MS=120/);
+  const helpers=await fs.readFile(new URL('../js/ep133/sampleProperties.js',import.meta.url),'utf8');
+  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{playModes:activeDeviceProfile\.playModes,barValues:BAR_VALUES\}\)/);
+  assert.match(helpers,/export const TIME_MODES=Object\.freeze\(\['off','bpm','bar'\]\)/);
+  assert.match(helpers,/export const BAR_VALUES=Object\.freeze\(\[1,2\]\)/);
+  assert.match(helpers,/export const PROPERTY_DEBOUNCE_MS=120/);
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);

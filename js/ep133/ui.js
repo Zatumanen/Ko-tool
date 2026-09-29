@@ -18,10 +18,8 @@ import{
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-16';
+import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-16';
 import{outputFileName}from '../output-name.js';
-const TIME_MODES=['off','bpm','bar'];
-const BAR_VALUES=[1,2];
-const PROPERTY_DEBOUNCE_MS=120;
 
 export function initEp133Browser({showError}={}){
   const open=document.getElementById('my-ep-icon');
@@ -376,63 +374,16 @@ export function initEp133Browser({showError}={}){
     if(properties)properties.hidden=true;
     currentPropertySlotId=null;
   };
-  const normalizePlayMode=value=>{
-    const modes=activeDeviceProfile.playModes;
-    if(typeof value==='number'&&modes[value])return modes[value];
-    const normalized=String(value||'oneshot').toLowerCase();
-    return modes.includes(normalized)?normalized:'oneshot';
-  };
-  const normalizeTimeMode=value=>{
-    if(typeof value==='number'&&TIME_MODES[value])return TIME_MODES[value];
-    const normalized=String(value||'off').toLowerCase();
-    return TIME_MODES.includes(normalized)?normalized:'off';
-  };
-  const nearestBar=value=>{
-    const numeric=Number(value);
-    if(!Number.isFinite(numeric)||numeric<=0)return 1;
-    return BAR_VALUES.reduce((best,item)=>Math.abs(item-numeric)<Math.abs(best-numeric)?item:best,BAR_VALUES[0]);
-  };
   const propertyStateId=(slotId,key)=>String(slotId)+':'+key;
   const isPropertyPending=(slotId,key)=>pendingPropertyKeys.has(propertyStateId(slotId,key));
 
-  const propertyRow=(slot,key,label,value,drag='')=>{
-    const pending=isPropertyPending(slot.id,key)?' pending':'';
-    return'<div class="ep133-property-row'+pending+'" data-property-row="'+escapeHtml(key)+'">'+
-      '<span class="ep133-property-label">'+escapeHtml(label)+'</span>'+
-      '<span class="ep133-property-control">'+
-        '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="-1" aria-label="Previous '+escapeHtml(label)+'">◀</button>'+
-        '<span class="ep133-prop-value"'+(drag?' data-drag="'+escapeHtml(drag)+'"':'')+'>'+escapeHtml(value)+'</span>'+
-        '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="1" aria-label="Next '+escapeHtml(label)+'">▶</button>'+
-      '</span>'+
-    '</div>';
-  };
-  const numericPropertyRow=(slot,key,label,value,drag='')=>{
-    const pending=isPropertyPending(slot.id,key)?' pending':'';
-    return'<div class="ep133-property-row'+pending+'" data-property-row="'+escapeHtml(key)+'">'+
-      '<span class="ep133-property-label">'+escapeHtml(label)+'</span>'+
-      '<span class="ep133-property-control">'+
-        '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="-1" aria-label="Decrease '+escapeHtml(label)+'">−</button>'+
-        '<span class="ep133-prop-value"'+(drag?' data-drag="'+escapeHtml(drag)+'"':'')+'>'+escapeHtml(value)+'</span>'+
-        '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="1" aria-label="Increase '+escapeHtml(label)+'">+</button>'+
-      '</span>'+
-    '</div>';
-  };
   const renderProperties=slot=>{
     if(!propertiesGrid||!slot?.file)return;
-    const meta=slot.meta||{};
-    const playMode=normalizePlayMode(meta['sound.playmode']);
-    const pitch=Number.isFinite(Number(meta['sound.pitch']))?Number(meta['sound.pitch']):0;
-    const timeMode=normalizeTimeMode(meta['time.mode']);
-    const bpm=Number.isFinite(Number(meta['sound.bpm']))&&Number(meta['sound.bpm'])>0?Math.round(Number(meta['sound.bpm'])):120;
-    const bars=nearestBar(meta['sound.bars']);
-    let html=propertyRow(slot,'sound.playmode','PLAY MODE',playMode.toUpperCase());
-    html+='<div class="ep133-property-separator"></div>';
-    html+=numericPropertyRow(slot,'sound.pitch','PITCH',pitch>0?'+'+pitch:String(pitch));
-    html+='<div class="ep133-property-separator"></div>';
-    html+=propertyRow(slot,'time.mode','TIME MODE',timeMode.toUpperCase());
-    if(timeMode==='bpm')html+=numericPropertyRow(slot,'sound.bpm','BPM',String(bpm),'bpm');
-    if(timeMode==='bar')html+=propertyRow(slot,'sound.bars','BARS',bars===1?'1 BAR':bars+' BARS');
-    propertiesGrid.innerHTML=html;
+    propertiesGrid.innerHTML=renderSampleProperties(slot,{
+      playModes:activeDeviceProfile.playModes,
+      isPending:key=>isPropertyPending(slot.id,key),
+      escapeHtml
+    });
   };
   const positionProperties=event=>{
     if(!properties)return;
@@ -546,42 +497,8 @@ export function initEp133Browser({showError}={}){
 
   const changeProperty=(slot,key,direction)=>{
     if(!slot?.file||slot.node?.isWritable!==true||!activeDeviceProfile.advancedSampleMetadataWrites)return;
-    const meta=slot.meta||{};
-    if(key==='sound.playmode'){
-      const modes=activeDeviceProfile.playModes;
-      const current=normalizePlayMode(meta[key]);
-      const index=modes.indexOf(current);
-      const next=modes[(index+direction+modes.length)%modes.length];
-      schedulePropertyWrite(slot,key,next);
-      return;
-    }
-    if(key==='sound.pitch'){
-      const current=Number.isFinite(Number(meta[key]))?Number(meta[key]):0;
-      const next=Math.max(-12,Math.min(12,Math.round(current)+direction));
-      schedulePropertyWrite(slot,key,next);
-      return;
-    }
-    if(key==='time.mode'){
-      const current=normalizeTimeMode(meta[key]);
-      const index=TIME_MODES.indexOf(current);
-      const next=TIME_MODES[(index+direction+TIME_MODES.length)%TIME_MODES.length];
-      const extra={};
-      if(next==='bpm'&&!(Number(meta['sound.bpm'])>=1&&Number(meta['sound.bpm'])<=200))extra['sound.bpm']=120;
-      if(next==='bar'&&!BAR_VALUES.includes(Number(meta['sound.bars'])))extra['sound.bars']=1;
-      schedulePropertyWrite(slot,key,next,extra);
-      return;
-    }
-    if(key==='sound.bpm'){
-      const current=Number.isFinite(Number(meta[key]))&&Number(meta[key])>0?Math.round(Number(meta[key])):120;
-      schedulePropertyWrite(slot,key,Math.max(1,Math.min(200,current+direction)));
-      return;
-    }
-    if(key==='sound.bars'){
-      const current=nearestBar(meta[key]);
-      const index=BAR_VALUES.indexOf(current);
-      const nextIndex=Math.max(0,Math.min(BAR_VALUES.length-1,index+direction));
-      schedulePropertyWrite(slot,key,BAR_VALUES[nextIndex]);
-    }
+    const change=getSamplePropertyChange(slot,key,direction,{playModes:activeDeviceProfile.playModes,barValues:BAR_VALUES});
+    if(change)schedulePropertyWrite(slot,key,change.value,change.extra);
   };
 
   propertiesGrid?.addEventListener('click',event=>{
