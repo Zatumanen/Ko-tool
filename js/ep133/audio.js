@@ -190,7 +190,7 @@ export function buildEp133DownloadAudioMeta(metadata={}){
       loop_start:metadata['sound.loopstart'],
       loop_end:metadata['sound.loopend'],
       bpm:metadata['sound.bpm'],
-      json:JSON.stringify(teenage)
+      json:JSON.stringify(cleanTeenageMetadata(teenage))
     }
   };
 }
