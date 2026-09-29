@@ -1539,7 +1539,8 @@ test('EP project archive upload uses the TE 15s timeout and unlocked PUT primiti
   const start=source.indexOf('export async function uploadProjectArchive');
   const end=source.indexOf('export async function downloadProjectArchive',start);
   const block=source.slice(start,end);
-  assert.match(block,/uploadProjectArchive\(file,\{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup\}=\{\}\)/);
+  assert.match(block,/timeout=15000/);
+  assert.match(block,/requireInactive=false,expectedActiveProjectFid=null/);
   assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
   assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
   assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
