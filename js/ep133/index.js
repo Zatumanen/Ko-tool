@@ -1,11 +1,11 @@
-export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity}from './device.js?v=20260929-14';
-export{listDeviceFiles,listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive,reloadProjectArchive}from './filesystem.js?v=20260929-14';
+export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity}from './device.js?v=20260929-15';
+export{listDeviceFiles,listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,uploadProjectArchive,downloadProjectArchive,reloadProjectArchive}from './filesystem.js?v=20260929-15';
 
-export{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-14';
-export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-14';
+export{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-15';
+export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-15';
 
-export{readProjectPad,readProjectPattern,readProjectScenes,readProjectSettings,readProjectFxSettings,readProjectLive,readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-14';
+export{readProjectPad,readProjectPattern,readProjectScenes,readProjectSettings,readProjectFxSettings,readProjectLive,readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-15';
 
-export{createProjectSequencer}from './projectSequencer.js?v=20260929-14';
+export{createProjectSequencer}from './projectSequencer.js?v=20260929-15';
 
-export{auditProjectArchiveBytes,auditConnectedEpProjects,findProjectNoopHilCandidates,runProjectNoopWriteHil}from './projectHil.js?v=20260929-14';
+export{auditProjectArchiveBytes,auditConnectedEpProjects,findProjectNoopHilCandidates,runProjectNoopWriteHil}from './projectHil.js?v=20260929-15';
