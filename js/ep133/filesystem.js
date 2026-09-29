@@ -172,7 +172,8 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
       continue;
     }
     if(key==='sound.playmode'){
-      if(value!=null&&String(value).length>0)result[key]=String(value);
+      const normalized=typeof value==='number'?['oneshot','key','legato','loop'][value]:value!=null?String(value):'';
+      if(normalized)result[key]=normalized;
       continue;
     }
     if(key==='sound.rootnote'){
@@ -201,9 +202,12 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
       continue;
     }
     if(key==='time.mode'){
-      if(value!=null&&String(value).length>0)result[key]=String(value);
+      const normalized=typeof value==='number'?['off','bpm','bar'][value]:value!=null?String(value):'';
+      if(normalized)result[key]=normalized;
     }
   }
+  if('sound.playmode'in result&&!Object.prototype.hasOwnProperty.call(result,'envelope.release'))
+    throw new Error("Writing 'sound.playmode' requires 'envelope.release' in the same metadata write.");
   return result;
 }
 
@@ -231,6 +235,8 @@ export function prepareSampleTransferMetadata(metadata={},options={}){
     if(!Number.isFinite(bars)||bars<=0)throw new Error('Invalid source sample bar value.');
     result['sound.bars']=bars;
   }
+  if('sound.playmode'in result&&!Object.prototype.hasOwnProperty.call(result,'envelope.release'))
+    throw new Error("Writing 'sound.playmode' requires 'envelope.release' in the same metadata write.");
   return result;
 }
 
@@ -541,12 +547,11 @@ export async function uploadSampleToSlot({
   const createMetadata=prepareSampleCreateMetadata(uploadMetadata);
   if(!createMetadata.name||!createMetadata.channels||!createMetadata.samplerate||createMetadata.format!=='s16')
     throw new Error('EP-series upload metadata is incomplete or unsupported.');
-  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
-  onCreated?.(fileId);
-
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
     allowedPlayModes,allowAdvancedMetadata,allowedBarValues
   });
+  const fileId=await putFile({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
+  onCreated?.(fileId);
   if(Object.keys(writableMetadata).length)await setFileMetadata(fileId,writableMetadata);
 
   await initFileSystem();
