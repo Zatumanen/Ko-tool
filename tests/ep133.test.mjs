@@ -1837,6 +1837,22 @@ test('EP sample metadata follows the reference Teenage Engineering value bounds'
   assert.equal('sound.amplitude' in rejected,false);
 });
 
+test('EP embedded Teenage Engineering metadata corruption fails explicitly',()=>{
+  assert.throws(
+    ()=>prepareTeenageMetadata({sample_rate:46875,extra:{json:'{"sound.playmode":'}},46875),
+    /Invalid embedded Teenage Engineering metadata JSON/
+  );
+  const broken='{"sound.playmode":';
+  const paddedLength=broken.length+(broken.length&1);
+  const bytes=new Uint8Array(32+paddedLength);
+  const view=new DataView(bytes.buffer);
+  const ascii=(offset,text)=>{for(let i=0;i<text.length;i++)bytes[offset+i]=text.charCodeAt(i);};
+  ascii(0,'RIFF');view.setUint32(4,bytes.length-8,true);ascii(8,'WAVE');
+  ascii(12,'LIST');view.setUint32(16,12+paddedLength,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,broken.length,true);
+  new TextEncoder().encodeInto(broken,bytes.subarray(32));
+  assert.throws(()=>parseKo2Metadata(bytes),/Invalid embedded Teenage Engineering metadata JSON/);
+});
+
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   const json=JSON.stringify({"sound.playmode":"loop","sound.amplitude":100});
   const paddedJsonLength=json.length+(json.length&1);
