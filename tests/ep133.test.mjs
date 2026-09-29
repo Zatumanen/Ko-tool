@@ -182,6 +182,8 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
   assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-16'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
+  assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
+  assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
 });
 
 test('My EP defers MIDI access until the user opens the app',async()=>{

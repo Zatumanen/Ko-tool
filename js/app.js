@@ -118,12 +118,19 @@ document.querySelectorAll('.start-menu-item').forEach(item=>{
 });
 document.addEventListener('click',e=>{if(startMenu?.classList.contains('open')&&!startMenu.contains(e.target)&&e.target!==startButton)closeStartMenu();});
 const myEpIcon=$('my-ep-icon');
+const lazyMyEpKeydown=event=>{
+  if(event.key!=='Enter'&&event.key!==' ')return;
+  event.preventDefault();
+  myEpIcon?.click();
+};
 const lazyOpenMyEp=async()=>{
   try{
     const module=await loadEp133Browser();
     module.initEp133Browser({showError});
+    myEpIcon?.removeEventListener('keydown',lazyMyEpKeydown);
     myEpIcon?.click();
   }catch(error){showError(error?.message||error);}
 };
+myEpIcon?.addEventListener('keydown',lazyMyEpKeydown);
 myEpIcon?.addEventListener('click',()=>{void lazyOpenMyEp();},{once:true});
 window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});status('Ready to process files');});
