@@ -2,7 +2,7 @@ import{
   CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,
   canReadCapability,canPreserveCapability,canWriteCapability,
   assertCapabilityReadable,assertCapabilityWritable
-}from './capabilityEvidence.js?v=20260930-1';
+}from './capabilityEvidence.js?v=20260930-2';
 
 const SHARED_SETTINGS_SIZES=Object.freeze([222,224]);
 const SHARED_FX_SIZES=Object.freeze([144,152,160]);

@@ -206,7 +206,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260930-1/);
+  assert.match(html,/css\/my-ep\.css\?v=20260930-2/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -231,7 +231,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-1'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-2'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -1933,10 +1933,12 @@ test('EP sample filename normalization matches the device naming rules',async()=
 
 import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata,buildEp133DownloadAudioMeta}from '../js/ep133/audio.js';
 
-test('EP audio pipeline binds the local resampler module and has no stale fallback reference',async()=>{
+test('EP audio pipeline checks the local s16 WAV fast path before loading the WASM resampler',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
-  assert.match(source,/const resampler=await getLibSampleRateModule\(\)/);
+  const ready=source.indexOf('const ready=inspectEpReadyWav(bytes,{formats,targetSampleRate})');
+  const wasm=source.indexOf('const resampler=await getLibSampleRateModule()');
+  assert.ok(ready>=0&&wasm>ready);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
   assert.match(source,/Maximum EP-series sample length is 40 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
@@ -1946,6 +1948,8 @@ test('EP target sample rate follows pbarilla format metadata',()=>{
   assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);
   assert.equal(getTargetSampleRate({sample_rate:44100,channels:2},formats),44100);
   assert.equal(getTargetSampleRate({sample_rate:46875,channels:1},formats),46875);
+  assert.equal(getTargetSampleRate({sample_rate:32000,channels:1},formats),32000);
+  assert.equal(getTargetSampleRate({sample_rate:26250,channels:2},formats),26250);
   assert.equal(getTargetSampleRate({sample_rate:48000,channels:1},formats),46875);
   assert.equal(getTargetSampleRate({sample_rate:96000,channels:2},formats),46875);
 });

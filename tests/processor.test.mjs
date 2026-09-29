@@ -13,6 +13,7 @@ class TestAudioBuffer{
 globalThis.AudioBuffer=TestAudioBuffer;
 
 const {PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
+const {prepareEp133Sample,parseWavAudioMeta}=await import('../js/ep133/audio.js');
 
 function buffer(length=8,channels=1,sampleRate=44100){
   const b=new TestAudioBuffer({length,sampleRate,numberOfChannels:channels});
@@ -71,6 +72,47 @@ test('processAudio ignores legacy speed overrides and emits MID as 32 kHz 16-bit
   assert.equal(metadata['sound.pitch'],-12);
   assert.equal(metadata['sound.playmode'],'loop');
   assert.equal(metadata['time.mode'],'off');
+});
+
+test('SpeedUpperCut HI MID LO WAVs enter My EP through the byte-exact s16 fast path',async()=>{
+  const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
+  const src=buffer(480,1,48000);
+  for(let i=0;i<src.length;i++)src.getChannelData(0)[i]=Math.sin(i*.11)*.45;
+  const input=await (await encodeWav(src,16,{},'oneshot')).arrayBuffer();
+
+  for(const fidelity of ['hi','mid','lo']){
+    const result=await processAudio(input,{
+      fidelity,
+      channels:'mono',
+      playmode:'loop',
+      autoTrim:false
+    });
+    const wavBytes=new Uint8Array(await result.blob.arrayBuffer());
+    const wav=parseWavAudioMeta(wavBytes);
+    assert.ok(wav);
+    const expectedPcm=wavBytes.slice(wav.dataOffset,wav.dataOffset+wav.dataSize);
+    const progress=[];
+    const file={
+      name:fidelity+'.wav',
+      type:'audio/wav',
+      arrayBuffer:async()=>wavBytes.buffer.slice(wavBytes.byteOffset,wavBytes.byteOffset+wavBytes.byteLength)
+    };
+    const prepared=await prepareEp133Sample(file,{
+      formats,
+      onProgress:(value,info)=>progress.push({value,info})
+    });
+
+    assert.equal(prepared.samplerate,PRESETS[fidelity].sampleRate);
+    assert.equal(prepared.format,'s16');
+    assert.equal(prepared.channels,1);
+    assert.deepEqual([...prepared.data],[...expectedPcm]);
+    assert.equal(prepared.metadata['sound.pitch'],-12);
+    assert.equal(prepared.metadata['sound.playmode'],'loop');
+    assert.equal(prepared.metadata['time.mode'],'off');
+    assert.equal(progress.at(-1)?.value,100);
+    assert.equal(progress.at(-1)?.info?.fastPath,true);
+    assert.equal(progress.some(entry=>entry.info?.status==='resampling'),false);
+  }
 });
 
 test('mono conversion averages source channels',async()=>{
