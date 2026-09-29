@@ -182,13 +182,13 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-22/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-23/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -207,7 +207,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-22'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-23'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -255,6 +255,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./audio.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
+  assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
@@ -2077,16 +2078,19 @@ test('EP audio fast path compares WAV rate to the selected target rate',async()=
   assert.doesNotMatch(source,/audioMeta\.sample_rate===DEFAULT_SAMPLE_RATE&&/);
 });
 
-test('My EP exposes the sample library before per-slot metadata hydration completes',async()=>{
+test('My EP exposes the sample library before prioritized metadata hydration completes',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('const readDevice=async');
   const end=source.indexOf('const syncMovedFile=async',start);
   const block=source.slice(start,end);
-  const ready=block.indexOf("metadataHydrating=true;\n      synchronized=true;");
-  const loop=block.indexOf('for(const slot of occupied)');
+  const ready=block.indexOf("metadataHydrating=pending.length>0;\n      synchronized=true;");
+  const loop=block.indexOf('for(const slot of pending)');
   assert.ok(ready>=0&&loop>ready);
-  assert.match(block,/setStatus\('SYNCED · '\+occupied\.length\+' SAMPLES · LOADING METADATA'\)/);
+  assert.match(block,/prioritizeMetadataSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
+  assert.match(block,/sampleMetadataCache\.get\(slot\)/);
+  assert.match(block,/sampleMetadataCache\.set\(memory\.getSlot\(slot\.id\),metadata\)/);
+  assert.match(block,/LOADING '\+pending\.length\+' METADATA · '\+cached\+' CACHED/);
   assert.match(block,/metadataHydrating=false;\n      updateMutationAvailability\(\);\n      setGlobalProgress\('SYNC',100\)/);
   assert.match(source,/synchronized&&!metadataHydrating&&!mutating/);
   assert.match(source,/!synchronized\|\|metadataHydrating\|\|mutating/);
@@ -2142,6 +2146,38 @@ test('project reload marks runtime settling and later project mutations honor th
   const uploadStart=source.indexOf('export async function uploadProjectArchive');
   const uploadEnd=source.indexOf('export async function downloadProjectArchive',uploadStart);
   assert.match(source.slice(uploadStart,uploadEnd),/assertProjectRuntimeSettled\('project write'\)/);
+});
+
+test('sample metadata cache reuses only matching slot fingerprints and prioritizes active work',async()=>{
+  const {createSampleMetadataCache,prioritizeMetadataSlots,sampleMetadataFingerprint}=await import('../js/ep133/sampleMetadataCache.js');
+  const slot=id=>({id,nodeId:id,file:{name:id+'.pcm',path:'/sounds/'+id+'.pcm',size:id*10}});
+  const cache=createSampleMetadataCache();
+  const one=slot(1);
+  assert.equal(sampleMetadataFingerprint(one),'1:10:/sounds/1.pcm');
+  cache.set(one,{name:'kick',channels:1});
+  assert.deepEqual(cache.get(one),{name:'kick',channels:1});
+  const changed={...one,file:{...one.file,size:11}};
+  assert.equal(cache.get(changed),null);
+  cache.merge(one,{channels:2});
+  assert.deepEqual(cache.get(one),{name:'kick',channels:2});
+  cache.invalidate(1);
+  assert.equal(cache.get(one),null);
+
+  const ordered=prioritizeMetadataSlots([slot(150),slot(3),slot(105),slot(110),slot(2)],{
+    selectedId:110,
+    activeRange:[100,199]
+  });
+  assert.deepEqual(ordered.map(item=>item.id),[110,105,150,2,3]);
+});
+
+test('sample metadata cache is invalidated or refreshed by device file events',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
+  assert.match(source,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        sampleMetadataCache\.invalidate/);
+  assert.match(source,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
+  assert.match(source,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
+  assert.match(source,/sampleMetadataCache\.clear\(\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

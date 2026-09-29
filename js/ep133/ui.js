@@ -3,7 +3,7 @@ import{
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260929-22';
+}from './index.js?v=20260929-23';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,13 +12,14 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-22';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-23';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-22';
-import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-22';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-23';
+import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-23';
+import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260929-23';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -83,6 +84,7 @@ export function initEp133Browser({showError}={}){
   let confirmResolver=null;
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
+  const sampleMetadataCache=createSampleMetadataCache();
   const pendingNativeMoveEvents=new Set();
   const nativeMoveEventKey=(oldNodeId,newNodeId)=>Number(oldNodeId)+':'+Number(newNodeId);
   const suppressNativeMoveEvent=(oldNodeId,newNodeId)=>{
@@ -118,6 +120,7 @@ export function initEp133Browser({showError}={}){
     if(Number(nodeId)===Number(soundsParentId))return applySoundsMetadata(metadata);
     if(Number(nodeId)>=1&&Number(nodeId)<=999){
       memory.setMetadata(Number(nodeId),metadata||{});
+      sampleMetadataCache.set(memory.getSlot(Number(nodeId)),metadata||{});
       if(currentPropertySlotId===Number(nodeId))renderProperties(memory.getSlot(currentPropertySlotId));
     }
     return metadata;
@@ -469,6 +472,7 @@ export function initEp133Browser({showError}={}){
         if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
       }
       memory.setMetadata(slot.id,readback);
+      sampleMetadataCache.set(memory.getSlot(slot.id),readback);
       state.committed=readback?.[state.key]??sentValue;
       if(state.version!==version){
         memory.mergeMetadata(slot.id,{[state.key]:state.desired,...state.extra});
@@ -485,8 +489,10 @@ export function initEp133Browser({showError}={}){
       let restored=null;
       try{restored=await getFileMetadata(slot.nodeId||slot.id);}
       catch(readbackError){logTechnical('PROPERTY READBACK '+state.key,readbackError);}
-      if(restored)memory.setMetadata(slot.id,restored);
-      else memory.mergeMetadata(slot.id,{[state.key]:state.committed});
+      if(restored){
+        memory.setMetadata(slot.id,restored);
+        sampleMetadataCache.set(memory.getSlot(slot.id),restored);
+      }else memory.mergeMetadata(slot.id,{[state.key]:state.committed});
       pendingPropertyKeys.delete(id);
       propertyStates.delete(id);
       showError?.('COULD NOT UPDATE SAMPLE PROPERTY.');
@@ -606,9 +612,14 @@ export function initEp133Browser({showError}={}){
     if(!item||Number(item.nodeId)!==newId)throw new Error('The native FILE_MOVE destination could not be resolved.');
     deviceFiles=deviceFiles.filter(file=>Number(file.nodeId)!==oldId&&Number(file.nodeId)!==newId);
     deviceFiles.push(item);
+    sampleMetadataCache.invalidate(oldId);
+    sampleMetadataCache.invalidate(newId);
     if(oldId!==newId)memory.clearSlot(oldId);
     memory.setSlot(item);
-    if(oldMeta)memory.setMetadata(newId,oldMeta);
+    if(oldMeta){
+      memory.setMetadata(newId,oldMeta);
+      sampleMetadataCache.set(memory.getSlot(newId),oldMeta);
+    }
     if(currentPropertySlotId===oldId&&oldId!==newId)currentPropertySlotId=newId;
     renderDeviceStats(soundsMetadata,memory.countOccupied());
   };
@@ -976,6 +987,8 @@ export function initEp133Browser({showError}={}){
 
   const readDevice=async()=>{
     const sessionToken=captureBatchSession();
+    const preferredSelectedId=memory.getSelected()?.id||null;
+    const preferredTabIndex=memory.getActiveTab();
     synchronized=false;
     metadataHydrating=false;
     updateMutationAvailability();
@@ -1007,15 +1020,30 @@ export function initEp133Browser({showError}={}){
       memory.setTabs(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs);
       const occupied=createSampleSlots(deviceFiles).filter(slot=>slot.file);
       renderDeviceStats(soundsMetadata,occupied.length);
-      metadataHydrating=true;
+      const activeTabs=Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs;
+      const activeRange=activeTabs?.[preferredTabIndex]?.range||null;
+      const ordered=prioritizeMetadataSlots(occupied,{selectedId:preferredSelectedId,activeRange});
+      const pending=[];
+      let loaded=0,cached=0;
+      for(const slot of ordered){
+        const metadata=sampleMetadataCache.get(slot);
+        if(metadata){
+          memory.setMetadata(slot.id,metadata);
+          loaded+=1;cached+=1;
+        }else pending.push(slot);
+      }
+      metadataHydrating=pending.length>0;
       synchronized=true;
       updateMutationAvailability();
-      setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING METADATA');
-      let loaded=0;
-      for(const slot of occupied){
+      setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
+      if(metadataHydrating)setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING '+pending.length+' METADATA · '+cached+' CACHED');
+      for(const slot of pending){
         assertBatchSession(sessionToken);
-        try{memory.setMetadata(slot.id,await getFileMetadata(slot.nodeId));}
-        catch(error){logTechnical('METADATA SLOT '+slot.id,error);}
+        try{
+          const metadata=await getFileMetadata(slot.nodeId);
+          memory.setMetadata(slot.id,metadata);
+          sampleMetadataCache.set(memory.getSlot(slot.id),metadata);
+        }catch(error){logTechnical('METADATA SLOT '+slot.id,error);}
         loaded+=1;
         setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
         if(loaded%8===0)await new Promise(resolve=>setTimeout(resolve,0));
@@ -1040,6 +1068,8 @@ export function initEp133Browser({showError}={}){
     const oldItem=deviceFiles.find(item=>Number(item.nodeId)===oldId)||null;
     const oldWasSound=!!oldItem&&/^\/sounds\/[^/]+$/.test(oldItem.fileName||'');
     const oldMeta=oldId>=1&&oldId<=999?memory.getSlot(oldId)?.meta||null:null;
+    sampleMetadataCache.invalidate(oldId);
+    sampleMetadataCache.invalidate(newId);
     if(oldId!==newId)deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==oldId);
     const info=await getFileInfo(newId);
     const item=fileItemFromInfo(info);
@@ -1049,8 +1079,16 @@ export function initEp133Browser({showError}={}){
     const newIsSound=destinationParentId===Number(soundsParentId)&&/^\/sounds\/[^/]+$/.test(item.fileName||'')&&newId>=1&&newId<=999;
     if(newIsSound){
       memory.setSlot(item);
-      try{memory.setMetadata(newId,await getFileMetadata(newId));}
-      catch(error){if(oldMeta)memory.setMetadata(newId,oldMeta);else logTechnical('MOVED SAMPLE METADATA '+newId,error);}
+      try{
+        const metadata=await getFileMetadata(newId);
+        memory.setMetadata(newId,metadata);
+        sampleMetadataCache.set(memory.getSlot(newId),metadata);
+      }catch(error){
+        if(oldMeta){
+          memory.setMetadata(newId,oldMeta);
+          sampleMetadataCache.set(memory.getSlot(newId),oldMeta);
+        }else logTechnical('MOVED SAMPLE METADATA '+newId,error);
+      }
     }
     if(oldWasSound||newIsSound)renderDeviceStats(soundsMetadata,memory.countOccupied());
   };
@@ -1063,26 +1101,33 @@ export function initEp133Browser({showError}={}){
         if(Number(payload.nodeId)===Number(soundsParentId)){
           applySoundsMetadata(payload.metadata||{});
         }else if(Number(payload.nodeId)>=1&&Number(payload.nodeId)<=999){
-          memory.mergeMetadata(Number(payload.nodeId),payload.metadata||{});
-          if(currentPropertySlotId===Number(payload.nodeId))renderProperties(memory.getSlot(currentPropertySlotId));
+          const nodeId=Number(payload.nodeId);
+          memory.mergeMetadata(nodeId,payload.metadata||{});
+          sampleMetadataCache.merge(memory.getSlot(nodeId),payload.metadata||{});
+          if(currentPropertySlotId===nodeId)renderProperties(memory.getSlot(currentPropertySlotId));
         }
         return;
       }
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_ADDED||event.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED){
+        sampleMetadataCache.invalidate(Number(payload.nodeId));
         const info=await getFileInfo(Number(payload.nodeId));
         const item=fileItemFromInfo(info);
         if(!item)return;
         updateDeviceFile(item);
         if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
           memory.setSlot(item);
-          try{memory.setMetadata(item.nodeId,await getFileMetadata(item.nodeId));}
-          catch(error){logTechnical('SAMPLE EVENT METADATA '+item.nodeId,error);}
+          try{
+            const metadata=await getFileMetadata(item.nodeId);
+            memory.setMetadata(item.nodeId,metadata);
+            sampleMetadataCache.set(memory.getSlot(item.nodeId),metadata);
+          }catch(error){logTechnical('SAMPLE EVENT METADATA '+item.nodeId,error);}
           renderDeviceStats(soundsMetadata,memory.countOccupied());
         }
         return;
       }
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_DELETED){
         const nodeId=Number(payload.nodeId);
+        sampleMetadataCache.invalidate(nodeId);
         const existing=deviceFiles.find(item=>Number(item.nodeId)===nodeId);
         deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==nodeId);
         if(existing&&/^\/sounds\/[^/]+$/.test(existing.fileName)&&nodeId>=1&&nodeId<=999){
@@ -1142,6 +1187,7 @@ export function initEp133Browser({showError}={}){
     soundFormats=[];
     soundsMetadata={};
     deviceFiles=[];
+    sampleMetadataCache.clear();
     setStatus(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 

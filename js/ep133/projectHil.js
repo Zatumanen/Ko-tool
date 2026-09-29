@@ -1,8 +1,8 @@
-import{getConnectedDeviceInfo,getDeviceSessionToken,passiveFirmwareDebugPreflight}from './device.js?v=20260929-22';
-import{listDeviceFiles,getFile,getFileMetadata,uploadProjectArchive,downloadProjectArchive}from './filesystem.js?v=20260929-22';
-import{getEpProjectProfile}from './projectProfile.js?v=20260929-22';
-import{validateProjectArchive,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-22';
-import{readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-22';
+import{getConnectedDeviceInfo,getDeviceSessionToken,passiveFirmwareDebugPreflight}from './device.js?v=20260929-23';
+import{listDeviceFiles,getFile,getFileMetadata,uploadProjectArchive,downloadProjectArchive}from './filesystem.js?v=20260929-23';
+import{getEpProjectProfile}from './projectProfile.js?v=20260929-23';
+import{validateProjectArchive,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-23';
+import{readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260929-23';
 
 const bytesEqual=(a,b)=>{
   const aa=a instanceof Uint8Array?a:new Uint8Array(a||[]);
