@@ -423,7 +423,7 @@ test('EP writable sample metadata follows current TE validators and preserves no
       name:'Safe.wav','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3,
       'sound.pitch':99,'sound.pan':17,'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
     }),
-    {name:'safe','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3}
+    {name:'safe','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3,'sound.bpm':181}
   );
 });
 
