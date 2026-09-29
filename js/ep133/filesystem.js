@@ -181,7 +181,7 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
       continue;
     }
     if(key==='sound.bpm'){
-      if(finiteRange(value,60,180))result[key]=Number(value);
+      if(finiteRange(value,1,200))result[key]=Number(value);
       continue;
     }
     if(key==='sound.pitch'){
