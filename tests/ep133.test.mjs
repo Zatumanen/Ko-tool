@@ -9,6 +9,7 @@ import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthorin
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
+import{PROJECT_RUNTIME_SETTLE_MS,createProjectRuntimeGate}from '../js/ep133/projectRuntime.js';
 import{outputFileName}from '../js/output-name.js';
 import{pickerTypesForFile}from '../js/save-file.js';
 const writeTarText=(bytes,offset,length,text)=>{
@@ -176,13 +177,13 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-20/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-21/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -201,7 +202,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-20'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-21'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -263,6 +264,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(hil.includes("./filesystem.js?v="+token),true);
   assert.equal(hil.includes("./projectReader.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
+  assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
 });
 
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
@@ -2073,6 +2075,39 @@ test('My EP drag reorder does not require sample READ capability',async()=>{
   const start=source.indexOf("row.addEventListener('dragstart'");
   const block=source.slice(start,source.indexOf("row.addEventListener('dragend'",start));
   assert.doesNotMatch(block,/isReadable/);
+});
+
+test('project runtime gate blocks project operations for the live-verified reload settle window',()=>{
+  let now=1000;
+  const gate=createProjectRuntimeGate({now:()=>now});
+  assert.equal(PROJECT_RUNTIME_SETTLE_MS,6000);
+  assert.deepEqual(gate.getState(),{settling:false,settlingUntil:0,remainingMs:0});
+  assert.deepEqual(gate.markReload(),{settling:true,settlingUntil:7000,remainingMs:6000});
+  assert.throws(
+    ()=>gate.assertSettled('sequencer transport'),
+    error=>error?.code==='EP_PROJECT_RUNTIME_SETTLING'&&error?.remainingMs===6000
+  );
+  now=6999;
+  assert.equal(gate.getState().remainingMs,1);
+  now=7000;
+  assert.equal(gate.assertSettled('sequencer transport').settling,false);
+  gate.markReload();
+  assert.equal(gate.reset().settling,false);
+});
+
+test('project reload marks runtime settling and later project mutations honor the gate',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const reloadStart=source.indexOf('async function reloadProjectUnlocked');
+  const reloadEnd=source.indexOf('export async function reloadProjectArchive',reloadStart);
+  const reload=source.slice(reloadStart,reloadEnd);
+  assert.match(reload,/const runtimeSettle=projectRuntimeGate\.markReload\(\)/);
+  assert.match(reload,/runtimeSettle\};/);
+  const publicReload=source.slice(reloadEnd,source.indexOf('export function assertProjectWriteActiveGuard',reloadEnd));
+  assert.match(publicReload,/assertProjectRuntimeSettled\('project reload'\)/);
+  const uploadStart=source.indexOf('export async function uploadProjectArchive');
+  const uploadEnd=source.indexOf('export async function downloadProjectArchive',uploadStart);
+  assert.match(source.slice(uploadStart,uploadEnd),/assertProjectRuntimeSettled\('project write'\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

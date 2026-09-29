@@ -1,8 +1,9 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-20';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-21';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-20';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-20';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-21';
+import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-21';
+import{createProjectRuntimeGate}from './projectRuntime.js?v=20260929-21';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -10,6 +11,7 @@ const writeString=(view,offset,text,terminate=false)=>{for(let i=0;i<text.length
 const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextEncoder().encode(text);new Uint8Array(view.buffer,view.byteOffset+offset,bytes.length).set(bytes);if(terminate)view.setUint8(offset+bytes.length,0);return bytes.length;};
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
+const projectRuntimeGate=createProjectRuntimeGate();
 let fileOperationQueue=Promise.resolve();
 async function withBrowserFileLock(operation){
   const locks=globalThis.navigator?.locks;
@@ -25,12 +27,14 @@ function runFileOperation(operation){
 function runGuardedFileMutation(label,operation){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label));
 }
-export function resetFileSystemState(){deviceChunkSizes.clear();fileOperationQueue=Promise.resolve();}
+export function resetFileSystemState(){deviceChunkSizes.clear();projectRuntimeGate.reset();fileOperationQueue=Promise.resolve();}
+export function getProjectRuntimeSettleState(){return projectRuntimeGate.getState();}
+export function assertProjectRuntimeSettled(label='project operation'){return projectRuntimeGate.assertSettled(label);}
 const getDeviceKey=device=>device?.metadata?.serialNumber||device?.metadata?.serial||device?.deviceKey||null;
 let activeDeviceKey=null;
 onConnectionChange(({connected,device})=>{
   activeDeviceKey=connected?getDeviceKey(device):null;
-  if(!connected)deviceChunkSizes.clear();
+  if(!connected){deviceChunkSizes.clear();projectRuntimeGate.reset();}
 });
 function getCachedChunkSize(){return activeDeviceKey?deviceChunkSizes.get(activeDeviceKey)||0:0;}
 async function ensureFileSystemInitializedUnlocked(){if(!getCachedChunkSize())await initFileSystemUnlocked();}
@@ -378,10 +382,12 @@ async function reloadProjectUnlocked(projectId,projectsNodeId,{cycle=true,active
     padReadback=await getActiveNodeUnlocked(activeGroup);
     if(padReadback!==activePad)throw new Error(`EP pad reload readback active=${padReadback}, expected ${activePad}.`);
   }
-  return{activeProjectFid:activeProject,activeGroupFid:groupReadback,activePadFid:padReadback,cycledProjectFid:cycledProject};
+  const runtimeSettle=projectRuntimeGate.markReload();
+  return{activeProjectFid:activeProject,activeGroupFid:groupReadback,activePadFid:padReadback,cycledProjectFid:cycledProject,runtimeSettle};
 }
 export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
+    assertProjectRuntimeSettled('project reload');
     connectedProjectProfile('reload');
     const project=String(projectNumber).padStart(2,'0');
     await initRead();
@@ -408,6 +414,7 @@ export function assertProjectWriteActiveGuard({destinationFid,activeProjectFid,r
 
 export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,requireInactive=false,expectedActiveProjectFid=null}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
+    assertProjectRuntimeSettled('project write');
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
     if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
     const project=match[1];
