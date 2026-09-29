@@ -10,6 +10,7 @@ import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep1
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
 import{outputFileName}from '../js/output-name.js';
+import{pickerTypesForFile}from '../js/save-file.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
   for(let i=0;i<text.length&&i<length;i++)bytes[offset+i]=text.charCodeAt(i);
@@ -81,6 +82,11 @@ test('processed output filenames replace the source extension',()=>{
   assert.equal(outputFileName('README'),'README_x2.wav');
 });
 
+
+test('save picker advertises the real output container',()=>{
+  assert.deepEqual(pickerTypesForFile('beat_x2.wav','audio/wav'),[{description:'WAV audio',accept:{'audio/wav':['.wav']}}]);
+  assert.deepEqual(pickerTypesForFile('drums_x2.zip','application/zip'),[{description:'ZIP archive',accept:{'application/zip':['.zip']}}]);
+});
 test('7-bit packing roundtrip',()=>{for(const length of [0,1,7,8,31,433]){const data=Uint8Array.from({length},(_,i)=>(i*37+129)&255);const out=new Uint8Array(packedLength(length));if(length)packToBuffer(data,out);const decoded=unpackInPlace(out);assert.deepEqual([...decoded],[...data]);}});
 test('TE SysEx frame roundtrip',()=>{const payload=Uint8Array.from([0,127,128,255,42]);const frame=buildTeSysex(5,payload,123);const parsed=parseTeSysex(frame.bytes);assert.equal(parsed.command,5);assert.deepEqual([...parsed.rawData],[...payload]);});
 
