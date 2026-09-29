@@ -149,7 +149,7 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
   for(const profile of [ep133,ep1320,ep40]){
     assert.equal(profile.sampleBars.authoring,false);
     assert.deepEqual(profile.sampleBars.writeValues,[]);
-    assert.match(profile.sampleBars.evidence,/power-of-2 clamp/);
+    assert.match(profile.sampleBars.evidence,/power-of-2[- ]clamp/);
   }
   assert.deepEqual(ep1320.fallbackTabs.map(tab=>tab.range),[[1,69],[70,114],[115,127],[128,155],[156,220],[221,999]]);
   assert.deepEqual(ep40.fallbackTabs.map(tab=>tab.range),[[1,999]]);
