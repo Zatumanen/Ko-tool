@@ -2316,12 +2316,13 @@ test('sample metadata cache reuses only matching slot fingerprints and prioritiz
 
 test('sample metadata cache is invalidated or refreshed by device file events',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
-  assert.match(source,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
-  assert.match(source,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
-  assert.match(source,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
-  assert.match(source,/sampleMetadataCache\.clear\(\)/);
+  const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(events,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
+  assert.match(events,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
+  assert.match(events,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
+  assert.match(events,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
+  assert.match(ui,/sampleMetadataCache\.clear\(\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
