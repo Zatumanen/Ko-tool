@@ -427,6 +427,13 @@ test('EP writable sample metadata follows current TE validators and preserves no
   );
 });
 
+test('sample writable metadata preserves the hardware-verified 1..200 BPM range',()=>{
+  assert.equal(prepareSampleWritableMetadata({'sound.bpm':1})['sound.bpm'],1);
+  assert.equal(prepareSampleWritableMetadata({'sound.bpm':200})['sound.bpm'],200);
+  assert.equal('sound.bpm' in prepareSampleWritableMetadata({'sound.bpm':0}),false);
+  assert.equal('sound.bpm' in prepareSampleWritableMetadata({'sound.bpm':201}),false);
+});
+
 test('EP metadata keeps TE forward-compatible strings but enforces playmode release pairing',()=>{
   assert.equal(
     prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
