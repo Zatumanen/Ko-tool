@@ -1931,7 +1931,7 @@ test('EP sample filename normalization matches the device naming rules',async()=
   assert.equal(normalizeFileName('Long sample filename here.wav'),'long sa.ame here');
 });
 
-import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata,buildEp133DownloadAudioMeta}from '../js/ep133/audio.js';
+import{getTargetSampleRate,parseWavAudioMeta,parseKo2Metadata,prepareTeenageMetadata,buildEp133DownloadAudioMeta,inspectEpReadyWav}from '../js/ep133/audio.js';
 
 test('EP audio pipeline checks the local s16 WAV fast path before loading the WASM resampler',async()=>{
   const fs=await import('node:fs/promises');
@@ -2106,12 +2106,21 @@ test('EP download WAV uses the reference WASM createWav encoder',async()=>{
 });
 
 
-test('EP audio fast path compares WAV rate to the selected target rate',async()=>{
-  const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
-  assert.match(source,/const target=targetSampleRate\?\?getTargetSampleRate\(audioMeta,formats\)/);
-  assert.match(source,/audioMeta\.sample_rate===target/);
-  assert.doesNotMatch(source,/audioMeta\.sample_rate===DEFAULT_SAMPLE_RATE&&/);
+test('EP-ready WAV fast path preserves supported source rate and rejects a mismatched explicit target',()=>{
+  const bytes=new Uint8Array(48);
+  const view=new DataView(bytes.buffer);
+  const put=(offset,text)=>new TextEncoder().encodeInto(text,bytes.subarray(offset,offset+text.length));
+  put(0,'RIFF');view.setUint32(4,40,true);put(8,'WAVE');
+  put(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,32000,true);view.setUint32(28,64000,true);view.setUint16(32,2,true);view.setUint16(34,16,true);
+  put(36,'data');view.setUint32(40,4,true);bytes.set([1,2,3,4],44);
+  const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
+
+  const ready=inspectEpReadyWav(bytes,{formats});
+  assert.ok(ready);
+  assert.equal(ready.samplerate,32000);
+  assert.deepEqual([...ready.data],[1,2,3,4]);
+  assert.equal(inspectEpReadyWav(bytes,{formats,targetSampleRate:46875}),null);
 });
 
 test('My EP exposes the sample library before prioritized metadata hydration completes',async()=>{
