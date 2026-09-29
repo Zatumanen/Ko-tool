@@ -61,10 +61,10 @@ function notifyConnection(){
     unsafeReason:deviceUnsafeReason,
     device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null
   };
-  for(const listener of connectionListeners){try{listener(state);}catch{}}
+  for(const listener of connectionListeners){try{listener(state);}catch(error){console.warn('EP connection listener failed',error)}}
 }
 function notifyMidiActivity(direction,detail={}){
-  for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch{}}
+  for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch(error){console.warn('EP MIDI activity listener failed',error)}}
 }
 
 function handleMidiStateChange(){
@@ -104,7 +104,7 @@ function onMessage(inputPort,event){
     const rawData=msg.rawData.slice(1);
     let parsed=null;
     try{parsed=parseFileEvent(eventType,rawData);}catch(error){console.warn('EP file event parse failed',error);}
-    if(parsed)for(const listener of fileEventListeners){try{listener({type:eventType,data:parsed,rawData,inputPort});}catch{}}
+    if(parsed)for(const listener of fileEventListeners){try{listener({type:eventType,data:parsed,rawData,inputPort});}catch(error){console.warn('EP file event listener failed',error)}}
     return;
   }
   const p=pending.get(msg.requestId);
@@ -384,7 +384,7 @@ export function waitForFileEvent(predicate,{timeout=500}={}){
     };
     const listener=event=>{
       let matches=false;
-      try{matches=!!predicate(event);}catch{}
+      try{matches=!!predicate(event);}catch(error){console.warn('EP file event predicate failed',error)}
       if(matches)finish(event);
     };
     const timer=setTimeout(()=>finish(null),Math.max(0,Number(timeout)||0));
@@ -401,6 +401,6 @@ export function onMidiActivity(listener){
 export function onConnectionChange(listener){
   if(typeof listener!=='function')return()=>{};
   connectionListeners.add(listener);
-  try{listener({connected:isConnected(),unsafe:deviceUnsafe,unsafeReason:deviceUnsafeReason,device:deviceInfo});}catch{}
+  try{listener({connected:isConnected(),unsafe:deviceUnsafe,unsafeReason:deviceUnsafeReason,device:deviceInfo});}catch(error){console.warn('EP connection listener failed',error)}
   return()=>connectionListeners.delete(listener);
 }
