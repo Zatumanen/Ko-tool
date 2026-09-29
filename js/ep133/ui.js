@@ -24,6 +24,7 @@ import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
 import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
 import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
+import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -1124,6 +1125,16 @@ export function initEp133Browser({showError}={}){
     activityTimers[direction]=setTimeout(()=>element.classList.remove('active'),direction==='rx'?275:250);
   });
 
+  const connectionLifecycle=createConnectionLifecycle({
+    connectEp133,
+    isConnected,
+    isUnsafe:()=>deviceUnsafe,
+    setConnectionOverlay,
+    showError:message=>showError?.(message),
+    logTechnical
+  });
+  connectionLifecycle.start();
+
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
   const closePanel=()=>{
     closeProperties();
@@ -1136,10 +1147,10 @@ export function initEp133Browser({showError}={}){
       showError?.('MY EP WORKS ON DESKTOP COMPUTERS ONLY.');
       return;
     }
-    connectionArmed=true;
+    connectionLifecycle.arm();
     panel.style.display='flex';
     panel.setAttribute('aria-hidden','false');
-    if(!isConnected())void autoConnect();
+    if(!isConnected())void connectionLifecycle.autoConnect();
   });
   open.addEventListener('keydown',event=>{
     if(event.key!=='Enter'&&event.key!==' ')return;
@@ -1183,58 +1194,10 @@ export function initEp133Browser({showError}={}){
   };
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
-  let connectionArmed=false;
-  let midiPermissionBlocked=false;
-  let instanceLockBlocked=false;
-  let resolveInstanceLock;
-  const instanceLockGate=new Promise(resolve=>{resolveInstanceLock=resolve;});
-  if(globalThis.navigator?.locks?.request){
-    navigator.locks.request('ep-sample-util',{ifAvailable:true},lock=>{
-      if(!lock){
-        instanceLockBlocked=true;
-        resolveInstanceLock(false);
-        setConnectionOverlay('OPEN IN ANOTHER TAB');
-        return;
-      }
-      resolveInstanceLock(true);
-      return new Promise(()=>{});
-    }).catch(error=>{
-      logTechnical('INSTANCE LOCK',error);
-      resolveInstanceLock(true);
-    });
-  }else resolveInstanceLock(true);
-
-  const autoConnect=async()=>{
-    if(!connectionArmed||deviceUnsafe||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
-    if(!await instanceLockGate){
-      setConnectionOverlay('OPEN IN ANOTHER TAB');
-      return;
-    }
-    try{
-      await connectEp133();
-    }catch(error){
-      const message=String(error?.message||error);
-      if(error?.name==='NotAllowedError'||/permission|denied/i.test(message)){
-        midiPermissionBlocked=true;
-        showError?.('MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.');
-        return;
-      }
-      if(/not supported/i.test(message)){
-        midiPermissionBlocked=true;
-        showError?.('WEB MIDI IS NOT SUPPORTED IN THIS BROWSER.');
-        return;
-      }
-      if(!/No MIDI ports|was not found/i.test(message))logTechnical('AUTO CONNECT',error);
-    }
-  };
-
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&!state.unsafe)void readDevice();
   });
-  const autoConnectTimer=setInterval(()=>{if(connectionArmed&&!deviceUnsafe&&!isConnected())void autoConnect();},4000);
-  window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
-
   window.addEventListener('paste',event=>{
     if(panel.style.display==='none'||!synchronized||mutating)return;
     const files=getClipboardAudioFiles(event);
