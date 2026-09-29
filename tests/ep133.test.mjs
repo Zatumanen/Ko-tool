@@ -275,20 +275,24 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
 
 test('My EP defers MIDI access until the user opens the app',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/let connectionArmed=false/);
-  assert.match(source,/connectionArmed=true;[\s\S]*if\(!isConnected\(\)\)void autoConnect\(\)/);
-  assert.match(source,/if\(!connectionArmed\|\|deviceUnsafe\|\|isConnected\(\)/);
-  assert.doesNotMatch(source,/\n\s*void autoConnect\(\);\n/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const lifecycle=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
+  assert.match(lifecycle,/let connectionArmed=false/);
+  assert.match(ui,/connectionLifecycle\.arm\(\);[\s\S]*if\(!isConnected\(\)\)void connectionLifecycle\.autoConnect\(\)/);
+  assert.match(lifecycle,/if\(!connectionArmed\|\|isUnsafe\(\)\|\|isConnected\(\)/);
+  assert.doesNotMatch(ui,/\n\s*void connectionLifecycle\.autoConnect\(\);\n/);
 });
 
 test('My EP holds the official-named app lock for the lifetime of the tab',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/navigator\.locks\.request\('ep-sample-util',\{ifAvailable:true\}/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/locks\?\.request/);
+  assert.match(source,/request\('ep-sample-util',\{ifAvailable:true\}/);
   assert.match(source,/OPEN IN ANOTHER TAB/);
   assert.match(source,/return new Promise\(\(\)=>\{\}\)/);
   assert.match(source,/if\(!await instanceLockGate\)/);
+  assert.match(ui,/connectionLifecycle\.start\(\)/);
 });
 
 test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
@@ -333,6 +337,11 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
+  assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
+  assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
+  assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
+  assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
@@ -741,12 +750,20 @@ test('My EP aborts batches when the connected MIDI session changes',async()=>{
   const fs=await import('node:fs/promises');
   const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const {createSessionGuard}=await import('../js/ep133/ui/sessionGuard.js');
   assert.match(device,/export function getDeviceSessionToken\(\)/);
   assert.match(device,/connectionEpoch,output\?\.id/);
-  assert.match(ui,/const captureBatchSession=\(\)=>/);
-  assert.match(ui,/getDeviceSessionToken\(\)!==token/);
-  assert.match(ui,/EP device connection changed during the operation; batch aborted/);
+  assert.match(ui,/createSessionGuard\(getDeviceSessionToken\)/);
   assert.match(ui,/assertBatchSession\(sessionToken\)/);
+  let token='session-a';
+  const guard=createSessionGuard(()=>token);
+  const captured=guard.captureBatchSession();
+  assert.equal(captured,'session-a');
+  guard.assertBatchSession(captured);
+  token='session-b';
+  assert.throws(()=>guard.assertBatchSession(captured),/EP device connection changed during the operation; batch aborted/);
+  token=null;
+  assert.throws(()=>guard.captureBatchSession(),/EP device is disconnected/);
 });
 
 test('EP native MOVE can verify source and destination CRC without downloading PCM',async()=>{
@@ -785,12 +802,15 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
 
 test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const pendingNativeMoveEvents=new Set\(\)/);
   assert.match(source,/pendingNativeMoveEvents\.has\(key\)\)return/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
   const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
   assert.doesNotMatch(movedBlock,/readDevice\(/);
+  assert.match(ui,/suppressNativeMoveEvent\(sourceNodeId,target\.id\)/);
+  assert.match(ui,/clearNativeMoveSuppression\(sourceNodeId,target\.id\)/);
 });
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
@@ -1826,11 +1846,12 @@ test('sample upload batch guard keeps one strict firmware-debug preflight around
 
 test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const pendingUploadEvents=new Set\(\)/);
   assert.match(source,/if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return/);
-  assert.match(source,/pendingUploadEvents\.add\(Number\(target\.id\)\)/);
-  assert.match(source,/pendingUploadEvents\.delete\(Number\(item\.slot\.id\)\)/);
+  assert.match(ui,/markUploadPending\(target\.id\)/);
+  assert.match(ui,/clearUploadPending\(item\.slot\.id\)/);
 });
 
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
@@ -2228,7 +2249,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('const readDevice=async');
-  const block=source.slice(start,source.indexOf('const syncMovedFile=async',start));
+  const block=source.slice(start,source.indexOf('onFileEvent(event=>',start));
   assert.match(block,/await listDirectory\(0,'\/'\)/);
   assert.match(block,/await listDirectory\(soundsParentId,'\/sounds'\)/);
   assert.doesNotMatch(block,/listDeviceFiles\(/);
@@ -2300,12 +2321,13 @@ test('sample metadata cache reuses only matching slot fingerprints and prioritiz
 
 test('sample metadata cache is invalidated or refreshed by device file events',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
-  assert.match(source,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
-  assert.match(source,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
-  assert.match(source,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
-  assert.match(source,/sampleMetadataCache\.clear\(\)/);
+  const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(events,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
+  assert.match(events,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
+  assert.match(events,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
+  assert.match(events,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
+  assert.match(ui,/sampleMetadataCache\.clear\(\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

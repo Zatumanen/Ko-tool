@@ -20,6 +20,11 @@ import{
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-5';
 import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-5';
+import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
+import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
+import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
+import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
+import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -81,29 +86,10 @@ export function initEp133Browser({showError}={}){
   let playingSlotId=null;
   let previewTimer=null;
   let currentPropertySlotId=null;
-  let confirmResolver=null;
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
   const sampleMetadataCache=createSampleMetadataCache();
-  const pendingNativeMoveEvents=new Set();
-  const pendingUploadEvents=new Set();
-  const nativeMoveEventKey=(oldNodeId,newNodeId)=>Number(oldNodeId)+':'+Number(newNodeId);
-  const suppressNativeMoveEvent=(oldNodeId,newNodeId)=>{
-    const key=nativeMoveEventKey(oldNodeId,newNodeId);
-    pendingNativeMoveEvents.add(key);
-    return()=>{
-      setTimeout(()=>pendingNativeMoveEvents.delete(key),1000);
-    };
-  };
-  const captureBatchSession=()=>{
-    const token=getDeviceSessionToken();
-    if(!token)throw new Error('EP device is disconnected.');
-    return token;
-  };
-  const assertBatchSession=token=>{
-    if(!token||getDeviceSessionToken()!==token)
-      throw new Error('EP device connection changed during the operation; batch aborted.');
-  };
+  const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
   const waitForMetadataUpdate=nodeId=>waitForFileEvent(
     event=>event?.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED&&Number(event?.data?.nodeId)===Number(nodeId),
     {timeout:500}
@@ -178,85 +164,18 @@ export function initEp133Browser({showError}={}){
     if(count)count.textContent=String(Math.max(0,Number(sampleCount)||0));
   };
 
-  const setGlobalProgress=(label,progress)=>{
-    if(!globalProgress)return;
-    const value=Math.max(0,Math.min(100,Number(progress)||0));
-    globalProgress.hidden=false;
-    if(globalProgressLabel)globalProgressLabel.textContent=String(label||'WORKING').toUpperCase();
-    if(globalProgressFill)globalProgressFill.style.width=value.toFixed(1)+'%';
-    if(globalProgressText)globalProgressText.textContent=Math.round(value)+'%';
-  };
-  const hideGlobalProgress=()=>{
-    if(globalProgress)globalProgress.hidden=true;
-    if(globalProgressFill)globalProgressFill.style.width='0%';
-    if(globalProgressText)globalProgressText.textContent='0%';
-  };
-
-  const confirmAction=message=>new Promise(resolve=>{
-    if(!confirmDialog||!confirmMessage||!confirmOk||!confirmCancel){
-      resolve(window.confirm(message));
-      return;
-    }
-    if(confirmResolver)confirmResolver(false);
-    confirmResolver=resolve;
-    confirmMessage.textContent=message;
-    confirmDialog.hidden=false;
-    confirmOk.focus();
+  const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
+    globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
+    confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
-  const resolveConfirm=value=>{
-    if(!confirmResolver)return;
-    const resolve=confirmResolver;
-    confirmResolver=null;
-    if(confirmDialog)confirmDialog.hidden=true;
-    resolve(!!value);
-  };
-  confirmOk?.addEventListener('click',()=>resolveConfirm(true));
-  confirmCancel?.addEventListener('click',()=>resolveConfirm(false));
 
-  const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
-  const fileItemFromInfo=info=>{
-    const parentId=Number(info?.parentId);
-    const parent=parentId===0?null:deviceFiles.find(item=>Number(item.nodeId)===parentId);
-    const parentPath=parentId===0?'':parent?.fileName;
-    if(parentId!==0&&!parentPath)return null;
-    const fileName=(parentPath||'')+'/'+String(info?.fileName||'').replace(/^\/+/,'');
-    const flags=Number(info?.flags)||0;
-    return{
-      nodeId:Number(info?.nodeId),
-      flags,
-      fileSize:Number(info?.fileSize)||0,
-      fileName,
-      fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',
-      isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
-      isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
-      isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
-      isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
-      isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
-    };
-  };
+  const fileItemFromInfo=info=>buildFileItemFromInfo(info,deviceFiles);
+  const provisionalUploadedFileItem=args=>buildProvisionalUploadedFileItem(args,{deviceFiles,normalizeFileName});
   const updateDeviceFile=item=>{
     if(!item)return;
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
-  };
-  const provisionalUploadedFileItem=({nodeId,parentId,fileSize,fileName})=>{
-    const parent=deviceFiles.find(item=>Number(item.nodeId)===Number(parentId));
-    const parentPath=parent?.fileName||'/sounds';
-    const normalizedName=normalizeFileName(fileName||'sample.wav');
-    const flags=TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ;
-    return{
-      nodeId:Number(nodeId),
-      flags,
-      fileSize:Number(fileSize)||0,
-      fileName:(parentPath||'/sounds')+'/'+normalizedName,
-      fileType:'file',
-      isReadable:true,
-      isWritable:false,
-      isDeletable:false,
-      isMovable:false,
-      isPlayable:false
-    };
   };
   const hydrateUploadedFileItem=async nodeId=>{
     try{
@@ -271,11 +190,6 @@ export function initEp133Browser({showError}={}){
       renderDeviceStats(soundsMetadata,memory.countOccupied());
     }catch(error){logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);}
   };
-  const soundSlotIds=files=>new Set(
-    (files||[])
-      .filter(item=>/^\/sounds\/[^/]+$/.test(item?.fileName||'')&&Number(item?.nodeId)>=1&&Number(item?.nodeId)<=999)
-      .map(item=>Number(item.nodeId))
-  );
   const replaceSoundFiles=files=>{
     const sounds=Array.isArray(files)?files:[];
     deviceFiles=[
@@ -576,6 +490,29 @@ export function initEp133Browser({showError}={}){
   });
 
   let memory;
+  const fileEventController=createFileEventController({
+    isConnected,
+    getMemory:()=>memory,
+    sampleMetadataCache,
+    getSoundsParentId:()=>soundsParentId,
+    getSoundsMetadata:()=>soundsMetadata,
+    getDeviceFiles:()=>deviceFiles,
+    setDeviceFiles:files=>{deviceFiles=files;},
+    getCurrentPropertySlotId:()=>currentPropertySlotId,
+    getFileInfo,
+    getFileMetadata,
+    fileItemFromInfo,
+    updateDeviceFile,
+    applySoundsMetadata,
+    renderProperties,
+    renderDeviceStats,
+    closeProperties,
+    logTechnical
+  });
+  const{
+    suppressNativeMoveEvent,clearNativeMoveSuppression,
+    markUploadPending,clearUploadPending
+  }=fileEventController;
   const refreshSoundsRuntimeMetadata=async()=>{
     if(!soundsParentId)return soundsMetadata;
     const latest=await getFileMetadata(soundsParentId);
@@ -676,7 +613,7 @@ export function initEp133Browser({showError}={}){
         try{
           moved=await moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true});
         }catch(error){
-          pendingNativeMoveEvents.delete(nativeMoveEventKey(sourceNodeId,target.id));
+          clearNativeMoveSuppression(sourceNodeId,target.id);
           throw error;
         }
         releaseSuppression();
@@ -701,7 +638,7 @@ export function initEp133Browser({showError}={}){
             if(restored.crcVerified!==true||Number(restored.destinationCrc)!==Number(pair.crc))
               throw new Error('Rollback CRC verification failed.');
           }catch(rollbackError){
-            pendingNativeMoveEvents.delete(nativeMoveEventKey(pair.targetId,pair.sourceId));
+            clearNativeMoveSuppression(pair.targetId,pair.sourceId);
             logTechnical('NATIVE MOVE ROLLBACK '+pair.targetId+'->'+pair.sourceId,rollbackError);
           }
         }
@@ -963,7 +900,7 @@ export function initEp133Browser({showError}={}){
 
             memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
             let createdId=null;
-            pendingUploadEvents.add(Number(target.id));
+            markUploadPending(target.id);
             const fileId=await uploadSampleToSlot({
               file:item.file,
               data:prepared.data,
@@ -1011,7 +948,7 @@ export function initEp133Browser({showError}={}){
             successes.push(target.id);
             setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
           }catch(error){
-            pendingUploadEvents.delete(Number(target.id));
+            clearUploadPending(target.id);
             failures.push({file:item.file,error});
             memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
             logTechnical('UPLOAD '+item.file.name,error);
@@ -1049,7 +986,7 @@ export function initEp133Browser({showError}={}){
       }
       if(successes.length)void refreshSoundsRuntimeMetadata().catch(error=>logTechnical('UPLOAD FREE SPACE REFRESH',error));
     }finally{
-      for(const item of targets)pendingUploadEvents.delete(Number(item.slot.id));
+      for(const item of targets)clearUploadPending(item.slot.id);
       setTimeout(()=>{for(const item of targets)memory.clearOperation(item.slot.id);},900);
       hideGlobalProgress();
       setMutating(false);
@@ -1133,92 +1070,8 @@ export function initEp133Browser({showError}={}){
     }
   };
 
-  const syncMovedFile=async({oldNodeId,parentId,nodeId})=>{
-    const oldId=Number(oldNodeId),newId=Number(nodeId),destinationParentId=Number(parentId);
-    if(!Number.isInteger(oldId)||!Number.isInteger(newId)||!Number.isInteger(destinationParentId))return;
-    const oldItem=deviceFiles.find(item=>Number(item.nodeId)===oldId)||null;
-    const oldWasSound=!!oldItem&&/^\/sounds\/[^/]+$/.test(oldItem.fileName||'');
-    const oldMeta=oldId>=1&&oldId<=999?memory.getSlot(oldId)?.meta||null:null;
-    sampleMetadataCache.invalidate(oldId);
-    sampleMetadataCache.invalidate(newId);
-    if(oldId!==newId)deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==oldId);
-    const info=await getFileInfo(newId);
-    const item=fileItemFromInfo(info);
-    if(!item)return;
-    updateDeviceFile(item);
-    if(oldWasSound&&oldId>=1&&oldId<=999&&oldId!==newId)memory.clearSlot(oldId);
-    const newIsSound=destinationParentId===Number(soundsParentId)&&/^\/sounds\/[^/]+$/.test(item.fileName||'')&&newId>=1&&newId<=999;
-    if(newIsSound){
-      memory.setSlot(item);
-      try{
-        const metadata=await getFileMetadata(newId);
-        memory.setMetadata(newId,metadata);
-        sampleMetadataCache.set(memory.getSlot(newId),metadata);
-      }catch(error){
-        if(oldMeta){
-          memory.setMetadata(newId,oldMeta);
-          sampleMetadataCache.set(memory.getSlot(newId),oldMeta);
-        }else logTechnical('MOVED SAMPLE METADATA '+newId,error);
-      }
-    }
-    if(oldWasSound||newIsSound)renderDeviceStats(soundsMetadata,memory.countOccupied());
-  };
+  onFileEvent(event=>{void fileEventController.handleFileEvent(event);});
 
-  const handleFileEvent=async event=>{
-    if(!event?.data||!isConnected())return;
-    const payload=event.data;
-    try{
-      if(event.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED){
-        if(Number(payload.nodeId)===Number(soundsParentId)){
-          applySoundsMetadata(payload.metadata||{});
-        }else if(Number(payload.nodeId)>=1&&Number(payload.nodeId)<=999){
-          const nodeId=Number(payload.nodeId);
-          memory.mergeMetadata(nodeId,payload.metadata||{});
-          sampleMetadataCache.merge(memory.getSlot(nodeId),payload.metadata||{});
-          if(currentPropertySlotId===nodeId)renderProperties(memory.getSlot(currentPropertySlotId));
-        }
-        return;
-      }
-      if(event.type===TE_SYSEX_FILE_EVENT_FILE_ADDED||event.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED){
-        if(pendingUploadEvents.has(Number(payload.nodeId)))return;
-        sampleMetadataCache.invalidate(Number(payload.nodeId));
-        const info=await getFileInfo(Number(payload.nodeId));
-        const item=fileItemFromInfo(info);
-        if(!item)return;
-        updateDeviceFile(item);
-        if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
-          memory.setSlot(item);
-          try{
-            const metadata=await getFileMetadata(item.nodeId);
-            memory.setMetadata(item.nodeId,metadata);
-            sampleMetadataCache.set(memory.getSlot(item.nodeId),metadata);
-          }catch(error){logTechnical('SAMPLE EVENT METADATA '+item.nodeId,error);}
-          renderDeviceStats(soundsMetadata,memory.countOccupied());
-        }
-        return;
-      }
-      if(event.type===TE_SYSEX_FILE_EVENT_FILE_DELETED){
-        const nodeId=Number(payload.nodeId);
-        sampleMetadataCache.invalidate(nodeId);
-        const existing=deviceFiles.find(item=>Number(item.nodeId)===nodeId);
-        deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==nodeId);
-        if(existing&&/^\/sounds\/[^/]+$/.test(existing.fileName)&&nodeId>=1&&nodeId<=999){
-          memory.clearSlot(nodeId);
-          renderDeviceStats(soundsMetadata,memory.countOccupied());
-          if(currentPropertySlotId===nodeId)closeProperties();
-        }
-        return;
-      }
-      if(event.type===TE_SYSEX_FILE_EVENT_FILE_MOVED){
-        const key=nativeMoveEventKey(payload.oldNodeId,payload.nodeId);
-        if(pendingNativeMoveEvents.has(key))return;
-        await syncMovedFile(payload);
-      }
-    }catch(error){
-      logTechnical('FILE EVENT',error);
-    }
-  };
-  onFileEvent(event=>{void handleFileEvent(event);});
 
   const renderConnection=state=>{
     deviceUnsafe=!!state?.unsafe;
@@ -1272,6 +1125,16 @@ export function initEp133Browser({showError}={}){
     activityTimers[direction]=setTimeout(()=>element.classList.remove('active'),direction==='rx'?275:250);
   });
 
+  const connectionLifecycle=createConnectionLifecycle({
+    connectEp133,
+    isConnected,
+    isUnsafe:()=>deviceUnsafe,
+    setConnectionOverlay,
+    showError:message=>showError?.(message),
+    logTechnical
+  });
+  connectionLifecycle.start();
+
   const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
   const closePanel=()=>{
     closeProperties();
@@ -1284,10 +1147,10 @@ export function initEp133Browser({showError}={}){
       showError?.('MY EP WORKS ON DESKTOP COMPUTERS ONLY.');
       return;
     }
-    connectionArmed=true;
+    connectionLifecycle.arm();
     panel.style.display='flex';
     panel.setAttribute('aria-hidden','false');
-    if(!isConnected())void autoConnect();
+    if(!isConnected())void connectionLifecycle.autoConnect();
   });
   open.addEventListener('keydown',event=>{
     if(event.key!=='Enter'&&event.key!==' ')return;
@@ -1331,58 +1194,10 @@ export function initEp133Browser({showError}={}){
   };
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
-  let connectionArmed=false;
-  let midiPermissionBlocked=false;
-  let instanceLockBlocked=false;
-  let resolveInstanceLock;
-  const instanceLockGate=new Promise(resolve=>{resolveInstanceLock=resolve;});
-  if(globalThis.navigator?.locks?.request){
-    navigator.locks.request('ep-sample-util',{ifAvailable:true},lock=>{
-      if(!lock){
-        instanceLockBlocked=true;
-        resolveInstanceLock(false);
-        setConnectionOverlay('OPEN IN ANOTHER TAB');
-        return;
-      }
-      resolveInstanceLock(true);
-      return new Promise(()=>{});
-    }).catch(error=>{
-      logTechnical('INSTANCE LOCK',error);
-      resolveInstanceLock(true);
-    });
-  }else resolveInstanceLock(true);
-
-  const autoConnect=async()=>{
-    if(!connectionArmed||deviceUnsafe||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
-    if(!await instanceLockGate){
-      setConnectionOverlay('OPEN IN ANOTHER TAB');
-      return;
-    }
-    try{
-      await connectEp133();
-    }catch(error){
-      const message=String(error?.message||error);
-      if(error?.name==='NotAllowedError'||/permission|denied/i.test(message)){
-        midiPermissionBlocked=true;
-        showError?.('MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.');
-        return;
-      }
-      if(/not supported/i.test(message)){
-        midiPermissionBlocked=true;
-        showError?.('WEB MIDI IS NOT SUPPORTED IN THIS BROWSER.');
-        return;
-      }
-      if(!/No MIDI ports|was not found/i.test(message))logTechnical('AUTO CONNECT',error);
-    }
-  };
-
   onConnectionChange(state=>{
     renderConnection(state);
     if(state.connected&&!state.unsafe)void readDevice();
   });
-  const autoConnectTimer=setInterval(()=>{if(connectionArmed&&!deviceUnsafe&&!isConnected())void autoConnect();},4000);
-  window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
-
   window.addEventListener('paste',event=>{
     if(panel.style.display==='none'||!synchronized||mutating)return;
     const files=getClipboardAudioFiles(event);
