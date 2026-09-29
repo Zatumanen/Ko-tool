@@ -427,19 +427,32 @@ test('EP writable sample metadata follows current TE validators and preserves no
   );
 });
 
-test('EP imported playmode follows the current TE nonempty-string validator',()=>{
+test('EP metadata keeps TE forward-compatible strings but enforces playmode release pairing',()=>{
   assert.equal(
-    prepareSampleWritableMetadata({'sound.playmode':'loop'},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
+    prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
     'loop'
   );
   assert.equal(
-    prepareSampleWritableMetadata({'sound.playmode':'future-mode'})['sound.playmode'],
+    prepareSampleWritableMetadata({'sound.playmode':'future-mode','envelope.release':15})['sound.playmode'],
     'future-mode'
   );
   assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'future-mode'}),
-    {'sound.playmode':'future-mode'}
+    prepareSampleTransferMetadata({'sound.playmode':'future-mode','envelope.release':15}),
+    {'sound.playmode':'future-mode','envelope.release':15}
   );
+  assert.throws(
+    ()=>prepareSampleWritableMetadata({'sound.playmode':'key'}),
+    /requires 'envelope.release'/
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'key'}),
+    /requires 'envelope.release'/
+  );
+  assert.equal(
+    prepareSampleWritableMetadata({'sound.playmode':1,'envelope.release':15})['sound.playmode'],
+    'key'
+  );
+  assert.equal(prepareSampleWritableMetadata({'time.mode':2})['time.mode'],'bar');
 });
 
 test('Medieval profile fails closed for unverified advanced sample metadata writes',()=>{
@@ -475,15 +488,16 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads follow the current TE PUT then metadata SET then FILE_INIT sequence',async()=>{
+test('EP uploads validate writable metadata before PUT, then follow PUT metadata SET FILE_INIT',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadSampleToSlot');
   const block=source.slice(start,source.indexOf('export async function startPlayback',start));
+  const validation=block.indexOf('const writableMetadata=prepareSampleWritableMetadata');
   const put=block.indexOf('await putFile(');
   const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',put);
   const init=block.indexOf('await initFileSystem()',metadata);
-  assert.ok(put>=0&&metadata>put&&init>metadata);
+  assert.ok(validation>=0&&put>validation&&metadata>put&&init>metadata);
   assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
 });
 
@@ -706,6 +720,7 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   const medieval=getEpProjectProfile('TE032AS005','1.0.2');
   assert.equal(ep133.patternDialect,'ep133');
   assert.equal(ep133.padRecordSize,26);
+  assert.equal(ep133.sceneTimeSignatureAuthoring,true);
   assert.equal(ep40.patternDialect,'ep40');
   assert.equal(ep40.patternHeaderSize,6);
   assert.equal(ep40.padRecordSize,29);
@@ -713,6 +728,7 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(ep40.supportsSupertone,true);
   assert.equal(ep40.nativeLiveWithPatternsObserved,true);
   assert.equal(ep40.nativeLiveWithFxObserved,true);
+  assert.equal(ep40.sceneTimeSignatureAuthoring,false);
   assert.equal(medieval.projectTransport,true);
   assert.equal(medieval.projectAuthoring,false);
   assert.equal(medieval.projectReloadVerified,false);
@@ -732,6 +748,18 @@ test('EP-40 project validator accepts native 29-byte pads and 6-byte patterns',(
   assert.equal(report.pads,1);
   assert.equal(report.patterns,1);
   assert.throws(()=>validateProjectArchive(tar,{profile:getEpProjectProfile('TE032AS001','2.5.1')}),/pad-record size 29/);
+});
+
+test('EP-40 scene patch preserves native time signatures but rejects semantic time-signature authoring',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const scenes=scenesWithA1();
+  const preserved=patchScenesMember(scenes,{entries:[{scene:1,groupPatterns:[1,1,1,1]}]},{profile});
+  assert.equal(preserved[11],4);
+  assert.equal(preserved[12],4);
+  assert.throws(
+    ()=>patchScenesMember(scenes,{entries:[{scene:1,groupPatterns:[1,1,1,1],timeSignature:[3,4]}]},{profile}),
+    /not hardware-verified for ep40/
+  );
 });
 
 test('EP project validator rejects patterns serialized after scenes',()=>{
