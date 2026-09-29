@@ -2027,7 +2027,7 @@ test('EP FILE_DELETE payload encodes the file id',()=>{
 
 test('EP header keeps dedicated columns for memory, samples, and MIDI activity',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../css/base.css',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../css/my-ep.css',import.meta.url),'utf8');
   const rules=[...source.matchAll(/\.ep133-device-stats\{[^}]*grid-template-columns:([^;}]+)[^}]*\}/g)];
   assert.ok(rules.length>=1);
   const finalRule=rules.at(-1)?.[1]||'';
