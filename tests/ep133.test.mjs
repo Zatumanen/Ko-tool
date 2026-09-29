@@ -75,6 +75,15 @@ const scenesWithA1=()=>{
   return scenes;
 };
 
+test('external Font Awesome stylesheet is pinned by SRI',async()=>{
+  const fs=await import('node:fs/promises');
+  const html=await fs.readFile(new URL('../index.html',import.meta.url),'utf8');
+  const link=html.match(/<link[^>]+font-awesome\/6\.4\.0\/css\/all\.min\.css[^>]*>/)?.[0]||'';
+  assert.match(link,/integrity="sha512-iecdLmaskl7CVkqkXNQ\/ZH\/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT\/E0iPtmFIB46ZmdtAc9eNBvH0H\/ZpiBw=="/);
+  assert.match(link,/crossorigin="anonymous"/);
+  assert.match(link,/referrerpolicy="no-referrer"/);
+});
+
 test('processed output filenames replace the source extension',()=>{
   assert.equal(outputFileName('song.wav'),'song_x2.wav');
   assert.equal(outputFileName('take.final.wav'),'take.final_x2.wav');
