@@ -77,6 +77,7 @@ const scenesWithA1=()=>{
 test('processed output filenames replace the source extension',()=>{
   assert.equal(outputFileName('song.wav'),'song_x2.wav');
   assert.equal(outputFileName('take.final.wav'),'take.final_x2.wav');
+  assert.equal(outputFileName('beat.mp3'),'beat_x2.wav');
   assert.equal(outputFileName('README'),'README_x2.wav');
 });
 
