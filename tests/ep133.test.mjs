@@ -337,6 +337,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
+  assert.equal(ui.includes("./sampleMemory.js?v="+token),true);
   assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
   assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
