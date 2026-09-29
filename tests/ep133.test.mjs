@@ -1881,6 +1881,22 @@ test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   assert.equal(parseKo2Metadata(bytes)['sound.playmode'],'loop');
 });
 
+test('EP download WAV embedded JSON follows the reference metadata cleaner',()=>{
+  const meta=buildEp133DownloadAudioMeta({
+    channels:1,samplerate:46875,format:'s16',
+    'sound.rootnote':0,
+    'sound.bpm':200,
+    'sound.pitch':99,
+    'sample.mode':'multi'
+  });
+  const json=JSON.parse(meta.extra.json);
+  assert.equal('sound.rootnote' in json,false);
+  assert.equal('sound.bpm' in json,false);
+  assert.equal('sound.pitch' in json,false);
+  assert.equal(json['sample.mode'],'multi');
+  assert.equal(meta.extra.bpm,200);
+});
+
 test('EP download WAV metadata matches the reference createWav contract',()=>{
   const source={
     channels:1,samplerate:46875,format:'s16',
