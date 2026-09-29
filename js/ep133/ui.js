@@ -3,7 +3,7 @@ import{
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260929-18';
+}from './index.js?v=20260929-19';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,13 +12,13 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-18';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-19';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-18';
-import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-18';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-19';
+import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-19';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -71,6 +71,7 @@ export function initEp133Browser({showError}={}){
   let soundsMetadata={};
   let deviceFiles=[];
   let synchronized=false;
+  let metadataHydrating=false;
   let mutating=false;
   let deviceUnsafe=false;
   let everConnected=false;
@@ -123,7 +124,7 @@ export function initEp133Browser({showError}={}){
   };
 
   const updateMutationAvailability=()=>{
-    memory?.setMutationsEnabled?.(!!(isConnected()&&!deviceUnsafe&&synchronized&&!mutating));
+    memory?.setMutationsEnabled?.(!!(isConnected()&&!deviceUnsafe&&synchronized&&!metadataHydrating&&!mutating));
   };
   const setMutating=value=>{
     mutating=!!value;
@@ -398,7 +399,7 @@ export function initEp133Browser({showError}={}){
     properties.style.top=Math.max(gap,top)+'px';
   };
   const openProperties=(slot,event)=>{
-    if(!slot?.file||!isConnected()||!synchronized||mutating)return;
+    if(!slot?.file||!isConnected()||!synchronized||metadataHydrating||mutating)return;
     if(!activeDeviceProfile.advancedSampleMetadataWrites){
       closeProperties();
       showError?.('SAMPLE PROPERTIES ARE NOT VERIFIED FOR '+(activeDeviceProfile.name||'THIS EP')+'.');
@@ -975,6 +976,7 @@ export function initEp133Browser({showError}={}){
   const readDevice=async()=>{
     const sessionToken=captureBatchSession();
     synchronized=false;
+    metadataHydrating=false;
     updateMutationAvailability();
     closeProperties();
     setGlobalProgress('SYNC',0);
@@ -1004,6 +1006,10 @@ export function initEp133Browser({showError}={}){
       memory.setTabs(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs);
       const occupied=createSampleSlots(deviceFiles).filter(slot=>slot.file);
       renderDeviceStats(soundsMetadata,occupied.length);
+      metadataHydrating=true;
+      synchronized=true;
+      updateMutationAvailability();
+      setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING METADATA');
       let loaded=0;
       for(const slot of occupied){
         assertBatchSession(sessionToken);
@@ -1013,11 +1019,12 @@ export function initEp133Browser({showError}={}){
         setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
         if(loaded%8===0)await new Promise(resolve=>setTimeout(resolve,0));
       }
-      synchronized=true;
+      metadataHydrating=false;
       updateMutationAvailability();
       setGlobalProgress('SYNC',100);
       setStatus('SYNCED · '+occupied.length+' SAMPLES');
     }catch(error){
+      metadataHydrating=false;
       synchronized=false;
       updateMutationAvailability();
       reportError('COULD NOT READ EP SAMPLE LIBRARY.',error);
@@ -1099,6 +1106,7 @@ export function initEp133Browser({showError}={}){
     deviceUnsafe=!!state?.unsafe;
     setTitleDevice(state);
     if(deviceUnsafe){
+      metadataHydrating=false;
       synchronized=false;
       updateMutationAvailability();
       void stopCurrentPreview();
@@ -1117,6 +1125,7 @@ export function initEp133Browser({showError}={}){
       setStatus('CONNECTED');
       return;
     }
+    metadataHydrating=false;
     synchronized=false;
     updateMutationAvailability();
     void stopCurrentPreview();

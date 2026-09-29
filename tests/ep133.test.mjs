@@ -167,7 +167,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-18/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-19/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -192,7 +192,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-18'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-19'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -2016,6 +2016,21 @@ test('EP audio fast path compares WAV rate to the selected target rate',async()=
   assert.match(source,/const target=targetSampleRate\?\?getTargetSampleRate\(audioMeta,formats\)/);
   assert.match(source,/audioMeta\.sample_rate===target/);
   assert.doesNotMatch(source,/audioMeta\.sample_rate===DEFAULT_SAMPLE_RATE&&/);
+});
+
+test('My EP exposes the sample library before per-slot metadata hydration completes',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=source.indexOf('const readDevice=async');
+  const end=source.indexOf('const syncMovedFile=async',start);
+  const block=source.slice(start,end);
+  const ready=block.indexOf("metadataHydrating=true;\n      synchronized=true;");
+  const loop=block.indexOf('for(const slot of occupied)');
+  assert.ok(ready>=0&&loop>ready);
+  assert.match(block,/setStatus\('SYNCED · '\+occupied\.length\+' SAMPLES · LOADING METADATA'\)/);
+  assert.match(block,/metadataHydrating=false;\n      updateMutationAvailability\(\);\n      setGlobalProgress\('SYNC',100\)/);
+  assert.match(source,/synchronized&&!metadataHydrating&&!mutating/);
+  assert.match(source,/!synchronized\|\|metadataHydrating\|\|mutating/);
 });
 
 test('My EP initial sample sync lists only root and the direct \/sounds directory',async()=>{
