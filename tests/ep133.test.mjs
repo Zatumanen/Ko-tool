@@ -333,6 +333,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
+  assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
+  assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
@@ -741,12 +744,20 @@ test('My EP aborts batches when the connected MIDI session changes',async()=>{
   const fs=await import('node:fs/promises');
   const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const {createSessionGuard}=await import('../js/ep133/ui/sessionGuard.js');
   assert.match(device,/export function getDeviceSessionToken\(\)/);
   assert.match(device,/connectionEpoch,output\?\.id/);
-  assert.match(ui,/const captureBatchSession=\(\)=>/);
-  assert.match(ui,/getDeviceSessionToken\(\)!==token/);
-  assert.match(ui,/EP device connection changed during the operation; batch aborted/);
+  assert.match(ui,/createSessionGuard\(getDeviceSessionToken\)/);
   assert.match(ui,/assertBatchSession\(sessionToken\)/);
+  let token='session-a';
+  const guard=createSessionGuard(()=>token);
+  const captured=guard.captureBatchSession();
+  assert.equal(captured,'session-a');
+  guard.assertBatchSession(captured);
+  token='session-b';
+  assert.throws(()=>guard.assertBatchSession(captured),/EP device connection changed during the operation; batch aborted/);
+  token=null;
+  assert.throws(()=>guard.captureBatchSession(),/EP device is disconnected/);
 });
 
 test('EP native MOVE can verify source and destination CRC without downloading PCM',async()=>{
