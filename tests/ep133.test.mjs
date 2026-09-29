@@ -336,6 +336,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
   assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
+  assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
@@ -796,12 +797,15 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
 
 test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const pendingNativeMoveEvents=new Set\(\)/);
   assert.match(source,/pendingNativeMoveEvents\.has\(key\)\)return/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
   const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
   assert.doesNotMatch(movedBlock,/readDevice\(/);
+  assert.match(ui,/suppressNativeMoveEvent\(sourceNodeId,target\.id\)/);
+  assert.match(ui,/clearNativeMoveSuppression\(sourceNodeId,target\.id\)/);
 });
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{
@@ -1837,11 +1841,12 @@ test('sample upload batch guard keeps one strict firmware-debug preflight around
 
 test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   assert.match(source,/const pendingUploadEvents=new Set\(\)/);
   assert.match(source,/if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return/);
-  assert.match(source,/pendingUploadEvents\.add\(Number\(target\.id\)\)/);
-  assert.match(source,/pendingUploadEvents\.delete\(Number\(item\.slot\.id\)\)/);
+  assert.match(ui,/markUploadPending\(target\.id\)/);
+  assert.match(ui,/clearUploadPending\(item\.slot\.id\)/);
 });
 
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
@@ -2239,7 +2244,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('const readDevice=async');
-  const block=source.slice(start,source.indexOf('const syncMovedFile=async',start));
+  const block=source.slice(start,source.indexOf('onFileEvent(event=>',start));
   assert.match(block,/await listDirectory\(0,'\/'\)/);
   assert.match(block,/await listDirectory\(soundsParentId,'\/sounds'\)/);
   assert.doesNotMatch(block,/listDeviceFiles\(/);
