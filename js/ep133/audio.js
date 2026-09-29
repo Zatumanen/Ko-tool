@@ -92,10 +92,10 @@ export function prepareTeenageMetadata(audioMeta,targetSampleRate){
   const sourceRate=Number(audioMeta?.sample_rate);
   const scale=Number.isFinite(sourceRate)&&sourceRate>0&&Number.isFinite(targetSampleRate)&&targetSampleRate>0
     ? targetSampleRate/sourceRate : 1;
-  if(TEENAGE_META_VALIDATORS["sound.loopstart"](extra.loop_start))
+  if(TEENAGE_META_VALIDATORS["sound.loopstart"](extra.loop_start)&&TEENAGE_META_VALIDATORS["sound.loopend"](extra.loop_end)){
     metadata["sound.loopstart"]=Math.floor(extra.loop_start*scale);
-  if(TEENAGE_META_VALIDATORS["sound.loopend"](extra.loop_end))
     metadata["sound.loopend"]=Math.floor(extra.loop_end*scale);
+  }
   if(TEENAGE_META_VALIDATORS["sound.rootnote"](extra.midi_root_note))
     metadata["sound.rootnote"]=extra.midi_root_note;
   if(TEENAGE_META_VALIDATORS["sound.bpm"](extra.bpm))
