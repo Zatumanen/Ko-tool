@@ -21,6 +21,7 @@ const PROFILES=Object.freeze({
     nativeLiveWithPatternsObserved:false,
     nativeLiveWithFxObserved:false,
     requiresFullSceneRefs:true,
+    sceneTimeSignatureAuthoring:true,
     crossFirmwareScenes:false
   }),
   TE032AS005:Object.freeze({
@@ -42,6 +43,7 @@ const PROFILES=Object.freeze({
     nativeLiveWithPatternsObserved:false,
     nativeLiveWithFxObserved:false,
     requiresFullSceneRefs:true,
+    sceneTimeSignatureAuthoring:false,
     crossFirmwareScenes:false,
     reason:'EP-1320 project authoring has not been hardware-verified.'
   }),
@@ -64,6 +66,7 @@ const PROFILES=Object.freeze({
     nativeLiveWithPatternsObserved:true,
     nativeLiveWithFxObserved:true,
     requiresFullSceneRefs:true,
+    sceneTimeSignatureAuthoring:false,
     crossFirmwareScenes:false
   })
 });
@@ -87,6 +90,7 @@ const GENERIC=Object.freeze({
   nativeLiveWithPatternsObserved:false,
   nativeLiveWithFxObserved:false,
   requiresFullSceneRefs:true,
+  sceneTimeSignatureAuthoring:false,
   crossFirmwareScenes:false,
   reason:'The connected EP project format has not been hardware-verified.'
 });

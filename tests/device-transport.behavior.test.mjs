@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createFakeEpMidi,waitFor}from './helpers/fake-ep-midi.mjs';
 import{
-  TE_SYSEX_FILE,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_INFO
+  TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_INFO,
+  TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED
 }from '../js/ep133/constants.js';
 
 test('device transport executes real queue, timeout, disconnect and debug safety behavior',async t=>{
@@ -47,6 +48,8 @@ test('device transport executes real queue, timeout, disconnect and debug safety
     assert.equal(connected.metadata.os_version,'2.5.1');
     assert.equal(device.isConnected(),true);
     assert.deepEqual(fake.midiAccessRequests,[{sysex:true}]);
+    const greet=fake.requests.find(request=>request.command===TE_SYSEX_GREET);
+    assert.equal(greet?.identityCode,0x3c);
   });
 
   await t.test('serializes requests so the second SysEx is not sent before the first resolves',async()=>{
@@ -144,6 +147,23 @@ test('device transport executes real queue, timeout, disconnect and debug safety
     const connected=await device.connectEp133();
     assert.equal(connected.sku,'TE032AS006');
     assert.equal(device.isConnected(),true);
+  });
+
+  await t.test('read and write gates reject the opposite METADATA operation before sending it',async()=>{
+    const before=fake.requests.length;
+    await assert.rejects(
+      device.requestRead(TE_SYSEX_FILE,Uint8Array.from([TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,0,7])),
+      /read-only METADATA subcommand rejected/
+    );
+    await assert.rejects(
+      device.requestRead(TE_SYSEX_FILE,Uint8Array.from([TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET_PAGED,0,0])),
+      /read-only METADATA subcommand rejected/
+    );
+    await assert.rejects(
+      device.requestFile(TE_SYSEX_FILE,Uint8Array.from([TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_GET,0,7,0,0])),
+      /write METADATA subcommand rejected/
+    );
+    assert.equal(fake.requests.length,before);
   });
 
   await t.test('firmware debug SysEx inside a strict transaction enters the fail-closed unsafe state',async()=>{

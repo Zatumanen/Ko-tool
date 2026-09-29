@@ -1,4 +1,4 @@
-import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
+import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 
@@ -61,10 +61,10 @@ function notifyConnection(){
     unsafeReason:deviceUnsafeReason,
     device:deviceInfo?{...deviceInfo,deviceKey:output?.id||deviceInfo.metadata?.serialNumber||deviceInfo.metadata?.serial||null}:null
   };
-  for(const listener of connectionListeners){try{listener(state);}catch{}}
+  for(const listener of connectionListeners){try{listener(state);}catch(error){console.warn('EP connection listener failed',error)}}
 }
 function notifyMidiActivity(direction,detail={}){
-  for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch{}}
+  for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch(error){console.warn('EP MIDI activity listener failed',error)}}
 }
 
 function handleMidiStateChange(){
@@ -104,7 +104,7 @@ function onMessage(inputPort,event){
     const rawData=msg.rawData.slice(1);
     let parsed=null;
     try{parsed=parseFileEvent(eventType,rawData);}catch(error){console.warn('EP file event parse failed',error);}
-    if(parsed)for(const listener of fileEventListeners){try{listener({type:eventType,data:parsed,rawData,inputPort});}catch{}}
+    if(parsed)for(const listener of fileEventListeners){try{listener({type:eventType,data:parsed,rawData,inputPort});}catch(error){console.warn('EP file event listener failed',error)}}
     return;
   }
   const p=pending.get(msg.requestId);
@@ -303,6 +303,7 @@ export async function connectEp133(){
   }
   output=found.out;
   input=found.input;
+  identityCode=found.parsed.midiId;
   const greet=await sendRequest(TE_SYSEX_GREET);
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
@@ -337,6 +338,7 @@ export function requestRead(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series read-only command rejected: ${command}`));
   const subcommand=payload[0];
   if(!READ_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series read-only FILE subcommand rejected: ${subcommand}`));
+  if(subcommand===TE_SYSEX_FILE_METADATA&&payload[1]!==TE_SYSEX_FILE_METADATA_GET)return Promise.reject(new Error(`EP-series read-only METADATA subcommand rejected: ${payload[1]}`));
   return sendRequest(command,payload,timeout);
 }
 
@@ -344,6 +346,7 @@ export function requestFile(command,payload=new Uint8Array(),timeout=2000){
   if(command!==TE_SYSEX_FILE)return Promise.reject(new Error(`EP-series FILE command rejected: ${command}`));
   const subcommand=payload[0];
   if(!WRITE_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series unsupported FILE subcommand: ${subcommand}`));
+  if(subcommand===TE_SYSEX_FILE_METADATA&&payload[1]!==TE_SYSEX_FILE_METADATA_SET&&payload[1]!==TE_SYSEX_FILE_METADATA_SET_PAGED)return Promise.reject(new Error(`EP-series write METADATA subcommand rejected: ${payload[1]}`));
   return sendRequest(command,payload,timeout);
 }
 
@@ -381,7 +384,7 @@ export function waitForFileEvent(predicate,{timeout=500}={}){
     };
     const listener=event=>{
       let matches=false;
-      try{matches=!!predicate(event);}catch{}
+      try{matches=!!predicate(event);}catch(error){console.warn('EP file event predicate failed',error)}
       if(matches)finish(event);
     };
     const timer=setTimeout(()=>finish(null),Math.max(0,Number(timeout)||0));
@@ -398,6 +401,6 @@ export function onMidiActivity(listener){
 export function onConnectionChange(listener){
   if(typeof listener!=='function')return()=>{};
   connectionListeners.add(listener);
-  try{listener({connected:isConnected(),unsafe:deviceUnsafe,unsafeReason:deviceUnsafeReason,device:deviceInfo});}catch{}
+  try{listener({connected:isConnected(),unsafe:deviceUnsafe,unsafeReason:deviceUnsafeReason,device:deviceInfo});}catch(error){console.warn('EP connection listener failed',error)}
   return()=>connectionListeners.delete(listener);
 }

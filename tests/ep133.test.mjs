@@ -340,17 +340,17 @@ test('EP request timeouts match TE while interrupted streams keep the safety loc
   assert.match(filesystemSource,/Paged METADATA SET was interrupted before EOF/);
 });
 
-test('EP transfer metadata preserves reference TE fields without release coupling',()=>{
+test('EP transfer metadata preserves reference TE fields with required playmode release coupling',()=>{
   assert.deepEqual(
     prepareSampleTransferMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,
-      name:'kick','sound.playmode':'oneshot','time.mode':'off',
+      name:'kick','sound.playmode':'oneshot','envelope.release':255,'time.mode':'off',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
       regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }),
     {
       channels:1,samplerate:46875,format:'s16',name:'kick',
-      'sound.playmode':'oneshot','time.mode':'off',
+      'sound.playmode':'oneshot','envelope.release':255,'time.mode':'off',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
       regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }
@@ -359,9 +359,9 @@ test('EP transfer metadata preserves reference TE fields without release couplin
     prepareSampleTransferMetadata({'time.mode':2,name:'short'}),
     {'time.mode':'bar',name:'short'}
   );
-  assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'no-release'}),
-    {'sound.playmode':'oneshot',name:'no-release'}
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'no-release'}),
+    /requires 'envelope.release'/
   );
 });
 
@@ -370,12 +370,12 @@ test('EP post-upload metadata preserves TE start end mode and regions',()=>{
     prepareSampleWritableMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,name:'kick',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
-      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      'sound.playmode':'oneshot','envelope.release':255,'sound.pitch':2,'time.mode':'free',
       regions:[{'sample.start':0,'sample.end':100}]
     }),
     {
       name:'kick','sample.start':-1,'sample.end':100,'sample.mode':'multi',
-      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      'sound.playmode':'oneshot','envelope.release':255,'sound.pitch':2,'time.mode':'free',
       regions:[{'sample.start':0,'sample.end':100}]
     }
   );
@@ -413,33 +413,53 @@ test('EP upload create metadata is limited to the official stream fields',()=>{
 test('EP writable sample metadata follows current TE validators and preserves nonempty modes',()=>{
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'loop','sound.bpm':60,
+      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,
       'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1
     }),
-    {name:'safe','sound.playmode':'loop','sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1}
+    {name:'safe','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1}
   );
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'future-mode','time.mode':'free','sound.bars':3,
+      name:'Safe.wav','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3,
       'sound.pitch':99,'sound.pan':17,'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
     }),
-    {name:'safe','sound.playmode':'future-mode','time.mode':'free','sound.bars':3}
+    {name:'safe','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3,'sound.bpm':181}
   );
 });
 
-test('EP imported playmode follows the current TE nonempty-string validator',()=>{
+test('sample writable metadata preserves the hardware-verified 1..200 BPM range',()=>{
+  assert.equal(prepareSampleWritableMetadata({'sound.bpm':1})['sound.bpm'],1);
+  assert.equal(prepareSampleWritableMetadata({'sound.bpm':200})['sound.bpm'],200);
+  assert.equal('sound.bpm' in prepareSampleWritableMetadata({'sound.bpm':0}),false);
+  assert.equal('sound.bpm' in prepareSampleWritableMetadata({'sound.bpm':201}),false);
+});
+
+test('EP metadata keeps TE forward-compatible strings but enforces playmode release pairing',()=>{
   assert.equal(
-    prepareSampleWritableMetadata({'sound.playmode':'loop'},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
+    prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
     'loop'
   );
   assert.equal(
-    prepareSampleWritableMetadata({'sound.playmode':'future-mode'})['sound.playmode'],
+    prepareSampleWritableMetadata({'sound.playmode':'future-mode','envelope.release':15})['sound.playmode'],
     'future-mode'
   );
   assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'future-mode'}),
-    {'sound.playmode':'future-mode'}
+    prepareSampleTransferMetadata({'sound.playmode':'future-mode','envelope.release':15}),
+    {'sound.playmode':'future-mode','envelope.release':15}
   );
+  assert.throws(
+    ()=>prepareSampleWritableMetadata({'sound.playmode':'key'}),
+    /requires 'envelope.release'/
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'key'}),
+    /requires 'envelope.release'/
+  );
+  assert.equal(
+    prepareSampleWritableMetadata({'sound.playmode':1,'envelope.release':15})['sound.playmode'],
+    'key'
+  );
+  assert.equal(prepareSampleWritableMetadata({'time.mode':2})['time.mode'],'bar');
 });
 
 test('Medieval profile fails closed for unverified advanced sample metadata writes',()=>{
@@ -475,15 +495,16 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads follow the current TE PUT then metadata SET then FILE_INIT sequence',async()=>{
+test('EP uploads validate writable metadata before PUT, then follow PUT metadata SET FILE_INIT',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   const start=source.indexOf('export async function uploadSampleToSlot');
   const block=source.slice(start,source.indexOf('export async function startPlayback',start));
+  const validation=block.indexOf('const writableMetadata=prepareSampleWritableMetadata');
   const put=block.indexOf('await putFile(');
   const metadata=block.indexOf('await setFileMetadata(fileId,writableMetadata)',put);
   const init=block.indexOf('await initFileSystem()',metadata);
-  assert.ok(put>=0&&metadata>put&&init>metadata);
+  assert.ok(validation>=0&&put>validation&&metadata>put&&init>metadata);
   assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
 });
 
@@ -706,6 +727,7 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   const medieval=getEpProjectProfile('TE032AS005','1.0.2');
   assert.equal(ep133.patternDialect,'ep133');
   assert.equal(ep133.padRecordSize,26);
+  assert.equal(ep133.sceneTimeSignatureAuthoring,true);
   assert.equal(ep40.patternDialect,'ep40');
   assert.equal(ep40.patternHeaderSize,6);
   assert.equal(ep40.padRecordSize,29);
@@ -713,6 +735,7 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(ep40.supportsSupertone,true);
   assert.equal(ep40.nativeLiveWithPatternsObserved,true);
   assert.equal(ep40.nativeLiveWithFxObserved,true);
+  assert.equal(ep40.sceneTimeSignatureAuthoring,false);
   assert.equal(medieval.projectTransport,true);
   assert.equal(medieval.projectAuthoring,false);
   assert.equal(medieval.projectReloadVerified,false);
@@ -732,6 +755,18 @@ test('EP-40 project validator accepts native 29-byte pads and 6-byte patterns',(
   assert.equal(report.pads,1);
   assert.equal(report.patterns,1);
   assert.throws(()=>validateProjectArchive(tar,{profile:getEpProjectProfile('TE032AS001','2.5.1')}),/pad-record size 29/);
+});
+
+test('EP-40 scene patch preserves native time signatures but rejects semantic time-signature authoring',()=>{
+  const profile=getEpProjectProfile('TE032AS006','2.5.1');
+  const scenes=scenesWithA1();
+  const preserved=patchScenesMember(scenes,{entries:[{scene:1,groupPatterns:[1,1,1,1]}]},{profile});
+  assert.equal(preserved[11],4);
+  assert.equal(preserved[12],4);
+  assert.throws(
+    ()=>patchScenesMember(scenes,{entries:[{scene:1,groupPatterns:[1,1,1,1],timeSignature:[3,4]}]},{profile}),
+    /not hardware-verified for ep40/
+  );
 });
 
 test('EP project validator rejects patterns serialized after scenes',()=>{
@@ -1060,6 +1095,7 @@ test('Sequencer Core blocks structural edits when a pattern contains unknown nat
   assert.throws(()=>sequencer.editNote('A01','r1',{tick:48}),/unknown native records/);
   assert.throws(()=>sequencer.addNote('A01',{tick:0,pad:1,note:60,velocity:100,duration:24}),/unknown native records/);
   assert.throws(()=>sequencer.removeNote('A01','r1'),/unknown native records/);
+  assert.throws(()=>sequencer.setPatternBars('A01',2),/unknown native records/);
   const decoded=readProjectModel(sequencer.buildArchive(),{profile}).patterns[0];
   assert.deepEqual([...decoded.unknownRecords[0].raw],[0,0,3,9,8,7,6,5]);
   assert.equal(decoded.notes[0].velocity,80);
@@ -1759,6 +1795,22 @@ test('EP WAV metadata parser reads source rate and PCM layout',()=>{
 });
 
 
+test('EP upload metadata emits loop start/end only as a complete pair',()=>{
+  const missingEnd=prepareTeenageMetadata({
+    sample_rate:44100,
+    extra:{loop_start:4410}
+  },46875);
+  assert.equal('sound.loopstart' in missingEnd,false);
+  assert.equal('sound.loopend' in missingEnd,false);
+
+  const missingStart=prepareTeenageMetadata({
+    sample_rate:44100,
+    extra:{loop_end:22050}
+  },46875);
+  assert.equal('sound.loopstart' in missingStart,false);
+  assert.equal('sound.loopend' in missingStart,false);
+});
+
 test('EP upload metadata follows the reference Teenage Engineering metadata rules',()=>{
   const meta=prepareTeenageMetadata({
     sample_rate:44100,
@@ -1801,6 +1853,22 @@ test('EP sample metadata follows the reference Teenage Engineering value bounds'
   assert.equal('sound.amplitude' in rejected,false);
 });
 
+test('EP embedded Teenage Engineering metadata corruption fails explicitly',()=>{
+  assert.throws(
+    ()=>prepareTeenageMetadata({sample_rate:46875,extra:{json:'{"sound.playmode":'}},46875),
+    /Invalid embedded Teenage Engineering metadata JSON/
+  );
+  const broken='{"sound.playmode":';
+  const paddedLength=broken.length+(broken.length&1);
+  const bytes=new Uint8Array(32+paddedLength);
+  const view=new DataView(bytes.buffer);
+  const ascii=(offset,text)=>{for(let i=0;i<text.length;i++)bytes[offset+i]=text.charCodeAt(i);};
+  ascii(0,'RIFF');view.setUint32(4,bytes.length-8,true);ascii(8,'WAVE');
+  ascii(12,'LIST');view.setUint32(16,12+paddedLength,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,broken.length,true);
+  new TextEncoder().encodeInto(broken,bytes.subarray(32));
+  assert.throws(()=>parseKo2Metadata(bytes),/Invalid embedded Teenage Engineering metadata JSON/);
+});
+
 test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   const json=JSON.stringify({"sound.playmode":"loop","sound.amplitude":100});
   const paddedJsonLength=json.length+(json.length&1);
@@ -1811,6 +1879,22 @@ test('EP parser preserves SpeedUpperCut KO2 LIST/TNGE playmode metadata',()=>{
   ascii(12,'LIST');view.setUint32(16,12+paddedJsonLength,true);ascii(20,'INFO');ascii(24,'TNGE');view.setUint32(28,json.length,true);
   new TextEncoder().encodeInto(json,bytes.subarray(32));
   assert.equal(parseKo2Metadata(bytes)['sound.playmode'],'loop');
+});
+
+test('EP download WAV embedded JSON follows the reference metadata cleaner',()=>{
+  const meta=buildEp133DownloadAudioMeta({
+    channels:1,samplerate:46875,format:'s16',
+    'sound.rootnote':0,
+    'sound.bpm':200,
+    'sound.pitch':99,
+    'sample.mode':'multi'
+  });
+  const json=JSON.parse(meta.extra.json);
+  assert.equal('sound.rootnote' in json,false);
+  assert.equal('sound.bpm' in json,false);
+  assert.equal('sound.pitch' in json,false);
+  assert.equal(json['sample.mode'],'multi');
+  assert.equal(meta.extra.bpm,200);
 });
 
 test('EP download WAV metadata matches the reference createWav contract',()=>{

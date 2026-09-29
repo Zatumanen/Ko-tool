@@ -19,12 +19,12 @@ export async function waitFor(predicate,{timeout=500,interval=1}={}){
   }
 }
 
-function identityResponseForSku(sku){
+function identityResponseForSku(sku,midiId){
   const match=String(sku||'').match(/^TE(\d{3})AS(\d{3})$/);
   if(!match)throw new Error('Fake EP requires a TE###AS### SKU.');
   const product=Number(match[1]),assembly=Number(match[2]);
   return Uint8Array.from([
-    0xf0,0x7e,0x00,0x06,0x02,...TE_MIDI_ID,
+    0xf0,0x7e,midiId,0x06,0x02,...TE_MIDI_ID,
     product&0x7f,(product>>7)&0x7f,
     assembly&0x7f,(assembly>>7)&0x7f,
     0,0,0,0,0xf7
@@ -88,9 +88,12 @@ export function createFakeEpMidi({
   sku='TE032AS006',
   osVersion='2.5.1',
   serial='FAKE-EP-0001',
-  identityCode=0x33,
+  identityCode=null,
   onRequest=null
 }={}){
+  const knownIdentityCode=sku==='TE032AS001'?0x33:sku==='TE032AS006'?0x3c:null;
+  const resolvedIdentityCode=identityCode??knownIdentityCode;
+  if(!Number.isInteger(resolvedIdentityCode)||resolvedIdentityCode<0||resolvedIdentityCode>0x7f)throw new Error('Fake EP requires an explicit verified MIDI identity byte for this SKU.');
   const input=new FakeMidiInput();
   const requests=[];
   const midiAccessRequests=[];
@@ -108,7 +111,7 @@ export function createFakeEpMidi({
       const payload=new TextEncoder().encode(
         `base_sku:${sku};os_version:${osVersion};serial:${serial};`
       );
-      emitLater(responseFrame(request,{identityCode,payload}));
+      emitLater(responseFrame(request,{identityCode:resolvedIdentityCode,payload}));
       return;
     }
     const descriptor=onRequest?await onRequest(request,{
@@ -116,14 +119,14 @@ export function createFakeEpMidi({
       output,
       access,
       requests,
-      identityCode
+      identityCode:resolvedIdentityCode
     }):null;
     const action=descriptor||{};
-    if(action.debug)emitLater(debugFrame(action.debug,identityCode),action.debugDelay||0);
+    if(action.debug)emitLater(debugFrame(action.debug,resolvedIdentityCode),action.debugDelay||0);
     if(action.disconnect)setTimeout(()=>disconnect(),Math.max(0,Number(action.disconnectDelay)||0));
     if(action.drop)return;
     emitLater(responseFrame(request,{
-      identityCode,
+      identityCode:resolvedIdentityCode,
       status:Number(action.status)||0,
       payload:action.payload||new Uint8Array()
     }),Math.max(0,Number(action.delay)||0));
@@ -131,7 +134,7 @@ export function createFakeEpMidi({
 
   const output=new FakeMidiOutput(data=>{
     if(sameBytes(data,IDENTITY_SYSEX)){
-      emitLater(identityResponseForSku(sku));
+      emitLater(identityResponseForSku(sku,resolvedIdentityCode));
       return;
     }
     const request=parseTeSysex(data);

@@ -4,7 +4,8 @@ const DEFAULT_PROJECT_PROFILE=Object.freeze({
   id:'ep133',padRecordSize:26,acceptedPadRecordSizes:[26],
   patternDialect:'ep133',patternHeaderSize:4,settingsSizes:[222,224],
   fxSettingsSizes:[144,152,160],scenesSize:712,supportsLoop:false,
-  supportsSupertone:false,supportsLive:false,requiresFullSceneRefs:true
+  supportsSupertone:false,supportsLive:false,requiresFullSceneRefs:true,
+  sceneTimeSignatureAuthoring:true
 });
 const profileOrDefault=profile=>profile&&typeof profile==='object'?profile:DEFAULT_PROJECT_PROFILE;
 
@@ -531,6 +532,7 @@ export function patchScenesMember(input,spec={}, {profile}={}){
     if(empty){
       numerator=4;denominator=4;
     }else if(entry.timeSignature!=null){
+      if(profile.sceneTimeSignatureAuthoring!==true)throw new Error('Scene time-signature authoring is not hardware-verified for '+profile.id+'; preserve the native scene signature.');
       const time=entry.timeSignature;
       if(!Array.isArray(time)||time.length!==2)throw new Error('scene timeSignature must be [numerator, denominator].');
       numerator=requireInteger(time[0],1,255,'time-signature numerator');

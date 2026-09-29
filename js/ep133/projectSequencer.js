@@ -1,5 +1,5 @@
-import{patchProjectArchiveMembers,buildProjectFromNative,validateProjectArchive}from './projectArchive.js?v=20260929-13';
-import{readProjectModel}from './projectReader.js?v=20260929-13';
+import{patchProjectArchiveMembers,buildProjectFromNative,validateProjectArchive}from './projectArchive.js?v=20260929-14';
+import{readProjectModel}from './projectReader.js?v=20260929-14';
 
 const GROUPS='ABCD';
 const FADER_MAX=32767;
@@ -194,7 +194,9 @@ export function createProjectSequencer(model){
 
     setPatternBars(id,bars){
       const pattern=requirePattern(id);
-      pattern.bars=int(bars,1,99,'pattern bars');pattern.dirty=true;
+      const nextBars=int(bars,1,99,'pattern bars');
+      if(nextBars!==pattern.bars)assertStructuralSafe(pattern);
+      pattern.bars=nextBars;pattern.dirty=true;
       return publicPattern(pattern);
     },
 
