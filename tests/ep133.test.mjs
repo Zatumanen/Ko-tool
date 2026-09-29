@@ -275,20 +275,24 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
 
 test('My EP defers MIDI access until the user opens the app',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/let connectionArmed=false/);
-  assert.match(source,/connectionArmed=true;[\s\S]*if\(!isConnected\(\)\)void autoConnect\(\)/);
-  assert.match(source,/if\(!connectionArmed\|\|deviceUnsafe\|\|isConnected\(\)/);
-  assert.doesNotMatch(source,/\n\s*void autoConnect\(\);\n/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const lifecycle=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
+  assert.match(lifecycle,/let connectionArmed=false/);
+  assert.match(ui,/connectionLifecycle\.arm\(\);[\s\S]*if\(!isConnected\(\)\)void connectionLifecycle\.autoConnect\(\)/);
+  assert.match(lifecycle,/if\(!connectionArmed\|\|isUnsafe\(\)\|\|isConnected\(\)/);
+  assert.doesNotMatch(ui,/\n\s*void connectionLifecycle\.autoConnect\(\);\n/);
 });
 
 test('My EP holds the official-named app lock for the lifetime of the tab',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/navigator\.locks\.request\('ep-sample-util',\{ifAvailable:true\}/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/locks\?\.request/);
+  assert.match(source,/request\('ep-sample-util',\{ifAvailable:true\}/);
   assert.match(source,/OPEN IN ANOTHER TAB/);
   assert.match(source,/return new Promise\(\(\)=>\{\}\)/);
   assert.match(source,/if\(!await instanceLockGate\)/);
+  assert.match(ui,/connectionLifecycle\.start\(\)/);
 });
 
 test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
@@ -337,6 +341,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
+  assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
