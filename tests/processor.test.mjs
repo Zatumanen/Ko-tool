@@ -12,7 +12,7 @@ class TestAudioBuffer{
 }
 globalThis.AudioBuffer=TestAudioBuffer;
 
-const {PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
+const {PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,EP_STORAGE_BYTES_PER_SAMPLE,EP_MAX_SAMPLE_RATE,estimateDirectEpStorage,measureEpStorage,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
 const {prepareEp133Sample,parseWavAudioMeta}=await import('../js/ep133/audio.js');
 
 function buffer(length=8,channels=1,sampleRate=44100){
@@ -33,6 +33,32 @@ test('SpeedUpperCut quality presets are EP-oriented and always s16',()=>{
   assert.deepEqual(getPreset('cd'),PRESETS.hi);
   assert.equal(PRESETS.sp8,undefined);
   assert.equal(PRESETS.sk,undefined);
+});
+
+test('offline EP storage accounting uses s16 PCM and the direct-import rate ceiling',()=>{
+  assert.equal(EP_STORAGE_BYTES_PER_SAMPLE,2);
+  assert.equal(EP_MAX_SAMPLE_RATE,46875);
+
+  const tenSecondStereo=estimateDirectEpStorage({frames:480000,sampleRate:48000,channels:2});
+  assert.equal(tenSecondStereo.sampleRate,46875);
+  assert.equal(tenSecondStereo.frames,468750);
+  assert.equal(tenSecondStereo.bytes,1875000);
+
+  const lowRateMono=estimateDirectEpStorage({frames:90000,sampleRate:9000,channels:1});
+  assert.equal(lowRateMono.sampleRate,9000);
+  assert.equal(lowRateMono.frames,90000);
+  assert.equal(lowRateMono.bytes,180000);
+
+  assert.equal(estimateDirectEpStorage({frames:480000,sampleRate:48000,channels:6}),null);
+
+  const processed=buffer(160000,1,32000);
+  assert.deepEqual(measureEpStorage(processed),{
+    bytes:320000,
+    frames:160000,
+    sampleRate:32000,
+    channels:1,
+    duration:5
+  });
 });
 
 test('fixed x2 repitch contract stays paired with minus 12 semitone metadata compensation',()=>{
@@ -58,6 +84,10 @@ test('processAudio ignores legacy speed overrides and emits MID as 32 kHz 16-bit
   assert.equal(result.repitchFactor,2);
   assert.equal(result.pitchCompensation,-12);
   assert.equal(result.buffer.length,40);
+  assert.equal(result.sourceEpStorage.sampleRate,46875);
+  assert.equal(result.sourceEpStorage.bytes,234);
+  assert.equal(result.epStorage.sampleRate,32000);
+  assert.equal(result.epStorage.bytes,80);
 
   const bytes=new Uint8Array(await result.blob.arrayBuffer());
   const view=new DataView(bytes.buffer);

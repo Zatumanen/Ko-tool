@@ -1,14 +1,33 @@
-import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260930-2';
+import{createAudioContext,processAudio,getPreset}from './audio/processor.js?v=20260930-3';
 import{createZip}from './zip.js?v=20260921-7';
 import{outputFileName}from './output-name.js';
 import{pickerTypesForFile}from './save-file.js';
 const state={ctx:null,fileResults:[],folderResults:[],folderName:'',cancelled:false,urls:new Set(),startedAt:0,folderZipUrl:null};
-window.__speedUpperCutFiles=window.__speedUpperCutFiles||new Map();let openPreviewPromise=null;const loadPreview=()=>openPreviewPromise||(openPreviewPromise=import('./player.js?v=20260930-2').then(m=>m.openPreview));
-let ep133BrowserPromise=null;const loadEp133Browser=()=>ep133BrowserPromise||(ep133BrowserPromise=import('./ep133/ui.js?v=20260930-2'));
+window.__speedUpperCutFiles=window.__speedUpperCutFiles||new Map();let openPreviewPromise=null;const loadPreview=()=>openPreviewPromise||(openPreviewPromise=import('./player.js?v=20260930-3').then(m=>m.openPreview));
+let ep133BrowserPromise=null;const loadEp133Browser=()=>ep133BrowserPromise||(ep133BrowserPromise=import('./ep133/ui.js?v=20260930-3'));
 const $=id=>document.getElementById(id);const selected=g=>document.querySelector(`.win95-list[data-group="${g}"] .list-item.selected`)?.dataset.value||(g==='fidelity'?'hi':'stereo');const selectedPlaymode=()=>document.querySelector('.playmode-control .list-item.selected')?.dataset.value||'oneshot';const status=t=>$('status-bar').textContent=t;const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const bytes=n=>n<1024?`${n} B`:n<1048576?`${(n/1024).toFixed(1)} KB`:`${(n/1048576).toFixed(1)} MB`;
 function showError(message){const box=$('error-dialog');if(!box)return;$('error-message').textContent=String(message||'Unknown error');box.style.display='flex';$('error-ok').focus();}function hideError(){$('error-dialog').style.display='none';}async function saveBlob(blob,name){if(window.showSaveFilePicker){try{const h=await window.showSaveFilePicker({suggestedName:name,types:pickerTypesForFile(name,blob?.type)});const w=await h.createWritable();await w.write(blob);await w.close();return true;}catch(e){if(e?.name==='AbortError')return false;throw e;}}const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return true;}
 function progress(v,text,i,total){$('progress-fill').style.width=`${v*100}%`;$('progress-text').textContent=`${Math.round(v*100)}%`;$('current-file').textContent=text;$('file-count').textContent=`File: ${i}/${total}`;$('progress-time').textContent=`Time: ${Math.max(0,Math.round((performance.now()-state.startedAt)/1000))}s`;}
-function updateStats(){const all=[...state.fileResults,...state.folderResults];const input=all.reduce((x,r)=>x+r.file.size,0);const output=all.reduce((x,r)=>x+r.result.blob.size,0);const saved=input>0?((1-output/input)*100):0;$('stats-tab').innerHTML=all.length?`<div><i class="fas fa-chart-pie"></i> Processed ${all.length} file(s)</div><div>Before: ${bytes(input)}</div><div>After: ${bytes(output)}</div><div>Space saved: ${saved.toFixed(1)}%</div>`:'<div><i class="fas fa-chart-pie"></i> No statistics yet.</div>';}
+function updateStats(){
+  const all=[...state.fileResults,...state.folderResults];
+  if(!all.length){$('stats-tab').innerHTML='<div><i class="fas fa-chart-pie"></i> No statistics yet.</div>';return;}
+  const sourceFiles=all.reduce((sum,item)=>sum+(Number(item.file?.size)||0),0);
+  const readyWavs=all.reduce((sum,item)=>sum+(Number(item.result?.blob?.size)||0),0);
+  const optimized=all.reduce((sum,item)=>sum+(Number(item.result?.epStorage?.bytes)||0),0);
+  const comparable=all.filter(item=>Number.isFinite(Number(item.result?.sourceEpStorage?.bytes)));
+  const direct=comparable.reduce((sum,item)=>sum+Number(item.result.sourceEpStorage.bytes),0);
+  const complete=comparable.length===all.length;
+  const change=complete&&direct>0?(optimized/direct-1)*100:null;
+  const directLabel=complete?bytes(direct):`N/A (${all.length-comparable.length} incompatible source${all.length-comparable.length===1?'':'s'})`;
+  const changeLabel=change==null?'':change<=0
+    ?`<div>Saved: ${Math.abs(change).toFixed(1)}%</div>`
+    :`<div>Increased: ${change.toFixed(1)}%</div>`;
+  $('stats-tab').innerHTML=
+    `<div><i class="fas fa-chart-pie"></i> Processed ${all.length} file(s)</div>`+
+    `<div><b>FILE SIZE</b></div><div>Source files: ${bytes(sourceFiles)}</div><div>EP-ready WAVs: ${bytes(readyWavs)}</div>`+
+    `<div><b>EP STORAGE</b></div><div>Direct import estimate: ${directLabel}</div><div>SpeedUpperCut: ${bytes(optimized)}</div>`+
+    changeLabel;
+}
 function renderFileResult(item){const list=$('results-list');if(list.querySelector('.empty-results'))list.innerHTML='';const row=document.createElement('div');row.className='result-item';row.draggable=true;const dragId=(crypto?.randomUUID?.()||String(Date.now())+Math.random());const outputName=outputFileName(item.file.name);window.__speedUpperCutFiles.set(dragId,{...item,outputName});row.dataset.dragId=dragId;row.addEventListener('dragstart',event=>{event.dataTransfer.setData('application/x-speeduppercut-result',dragId);event.dataTransfer.effectAllowed='copy';row.classList.add('dragging');});row.addEventListener('dragend',()=>row.classList.remove('dragging'));const name=document.createElement('span');name.className='result-name';const ext='.wav';name.textContent=outputFileName(item.file.name);const preview=document.createElement('button');preview.type='button';preview.className='download';preview.textContent='Preview';preview.onclick=async()=>{try{const openPreview=await loadPreview();openPreview(item,{state,saveBlob,esc,createAudioContext});}catch(e){showError(e?.message||e);}};const dl=document.createElement('button');dl.className='download';dl.type='button';dl.textContent='Download';dl.onclick=()=>saveBlob(item.result.blob,name.textContent);row.append(name,preview,dl);list.appendChild(row);}
 function resetFolderZip(){if(state.folderZipUrl){URL.revokeObjectURL(state.folderZipUrl);state.folderZipUrl=null;}$('folder-download-area').innerHTML='';}
 async function createFolderZip(){if(!state.folderResults.length)return;const files=state.folderResults.map(item=>{const original=item.file.webkitRelativePath||item.file.name;const parts=original.split('/');parts[parts.length-1]=outputFileName(item.file.name);return{path:parts.length>1?parts.slice(1).join('/'):parts[0],blob:item.result.blob};});status('Creating processed folder ZIP...');const blob=await createZip(files);resetFolderZip();state.folderZipUrl=URL.createObjectURL(blob);const a=document.createElement('button');a.className='folder-download';a.type='button';a.textContent=`Download ${state.folderName} (${state.folderResults.length} files)`;a.onclick=()=>saveBlob(blob,`${state.folderName}_x2.zip`);$('folder-download-area').appendChild(a);}

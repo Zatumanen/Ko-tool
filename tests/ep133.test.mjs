@@ -206,7 +206,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260930-2/);
+  assert.match(html,/css\/my-ep\.css\?v=20260930-3/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -231,7 +231,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-2'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-3'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -263,6 +263,17 @@ test('My EP normal upload no longer rereads metadata after a successful write',a
   assert.match(block,/const info=await getFileInfo\(fileId\)/);
   assert.doesNotMatch(block,/await getFileMetadata\(target\.id\)/);
   assert.match(block,/memory\.setMetadata\(target\.id,prepareSampleWritableMetadata/);
+});
+
+test('SpeedUpperCut statistics separate disk file size from offline EP PCM storage',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
+  assert.match(source,/FILE SIZE/);
+  assert.match(source,/EP STORAGE/);
+  assert.match(source,/Direct import estimate/);
+  assert.match(source,/sourceEpStorage/);
+  assert.match(source,/epStorage/);
+  assert.doesNotMatch(source,/Space saved:/);
 });
 
 test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{

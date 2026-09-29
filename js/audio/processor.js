@@ -1,6 +1,36 @@
 export const EP_REPITCH_FACTOR=2;
 export const EP_REPITCH_COMPENSATION=-12;
 export const EP_OUTPUT_BIT_DEPTH=16;
+export const EP_STORAGE_BYTES_PER_SAMPLE=EP_OUTPUT_BIT_DEPTH/8;
+export const EP_MAX_SAMPLE_RATE=46875;
+
+export function estimateDirectEpStorage({frames=0,sampleRate=0,channels=0}={}){
+  const frameCount=Number(frames),rate=Number(sampleRate),channelCount=Number(channels);
+  if(!Number.isFinite(frameCount)||frameCount<0||!Number.isFinite(rate)||rate<=0||!Number.isInteger(channelCount)||channelCount<1||channelCount>2)return null;
+  const duration=frameCount/rate;
+  const targetRate=Math.min(rate,EP_MAX_SAMPLE_RATE);
+  const targetFrames=Math.max(0,Math.round(duration*targetRate));
+  return{
+    bytes:targetFrames*channelCount*EP_STORAGE_BYTES_PER_SAMPLE,
+    frames:targetFrames,
+    sampleRate:targetRate,
+    channels:channelCount,
+    duration
+  };
+}
+
+export function measureEpStorage(buffer){
+  const frames=Number(buffer?.length),rate=Number(buffer?.sampleRate),channels=Number(buffer?.numberOfChannels);
+  if(!Number.isFinite(frames)||frames<0||!Number.isFinite(rate)||rate<=0||!Number.isInteger(channels)||channels<1||channels>2)
+    throw new Error('Invalid audio buffer for EP storage measurement.');
+  return{
+    bytes:frames*channels*EP_STORAGE_BYTES_PER_SAMPLE,
+    frames,
+    sampleRate:rate,
+    channels,
+    duration:frames/rate
+  };
+}
 export const PRESETS=Object.freeze({
   hi:Object.freeze({label:'HI',sampleRate:46875,bitDepth:EP_OUTPUT_BIT_DEPTH,wavBitDepth:EP_OUTPUT_BIT_DEPTH}),
   mid:Object.freeze({label:'MID',sampleRate:32000,bitDepth:EP_OUTPUT_BIT_DEPTH,wavBitDepth:EP_OUTPUT_BIT_DEPTH}),
@@ -42,4 +72,4 @@ const KO2_METADATA={"sound.amplitude":100,"sound.pan":0,"sound.pitch":EP_REPITCH
 function makeKo2ListChunk(playmode='oneshot'){const mode=playmode==='loop'?'loop':'oneshot';const json=JSON.stringify({...KO2_METADATA,"sound.playmode":mode});const payloadSize=4+4+4+json.length+((json.length&1)?1:0);const chunkSize=8+payloadSize;const out=new Uint8Array(chunkSize);const v=new DataView(out.buffer);writeAscii(v,0,'LIST');v.setUint32(4,payloadSize,true);writeAscii(v,8,'INFO');writeAscii(v,12,'TNGE');v.setUint32(16,json.length,true);for(let i=0;i<json.length;i++)v.setUint8(20+i,json.charCodeAt(i));return out;}
 function makeSmplChunk(){const out=new Uint8Array(44);const v=new DataView(out.buffer);writeAscii(v,0,'smpl');v.setUint32(4,36,true);return out;}
 export async function encodeWav(buffer,bits=16,hooks={},playmode='oneshot'){const ch=Math.min(2,buffer.numberOfChannels),bps=bits/8,frames=buffer.length,size=frames*ch*bps,smpl=makeSmplChunk(),list=makeKo2ListChunk(playmode),riffSize=4+(8+16)+smpl.length+list.length+(8+size),out=new ArrayBuffer(8+riffSize),v=new DataView(out),w=(o,s)=>writeAscii(v,o,s);w(0,'RIFF');v.setUint32(4,riffSize,true);w(8,'WAVE');let header=12;w(header,'fmt ');v.setUint32(header+4,16,true);v.setUint16(header+8,1,true);v.setUint16(header+10,ch,true);v.setUint32(header+12,buffer.sampleRate,true);v.setUint32(header+16,buffer.sampleRate*ch*bps,true);v.setUint16(header+20,ch*bps,true);v.setUint16(header+22,bits,true);header+=24;new Uint8Array(out,header,smpl.length).set(smpl);header+=smpl.length;new Uint8Array(out,header,list.length).set(list);header+=list.length;w(header,'data');v.setUint32(header+4,size,true);const data=Array.from({length:ch},(_,c)=>buffer.getChannelData(c));let o=header+8;for(let i=0;i<frames;i++){if(i%20000===0){checkCancel(hooks);await yieldControl();}for(let c=0;c<ch;c++){const x=Math.max(-1,Math.min(1,data[c][i]));if(bits===8)v.setUint8(o++,Math.max(0,Math.min(255,Math.round((x+1)*127.5))));else{v.setInt16(o,x<0?Math.round(x*32768):Math.round(x*32767),true);o+=2;}}}return new Blob([out],{type:'audio/wav'});}
-export async function processAudio(input,{fidelity='hi',channels='stereo',playmode='oneshot',autoTrim=true,context}={},hooks={}){const p=getPreset(fidelity),ctx=context||null;checkCancel(hooks);hooks.progress?.(.05,'Decoding');let b=await decodeAudio(input,ctx);checkCancel(hooks);if(autoTrim){hooks.progress?.(.2,'Auto-trim');b=await trimSilence(b,-60,.1,hooks);}checkCancel(hooks);hooks.progress?.(.35,'Channels');b=await convertChannels(b,channels==='mono'?1:2,hooks);checkCancel(hooks);hooks.progress?.(.55,'Speed ×2');b=await speedAndResample(b,EP_REPITCH_FACTOR,p.sampleRate,hooks,'linear');checkCancel(hooks);hooks.progress?.(.82,'Normalize');b=await normalizeBuffer(b,hooks);checkCancel(hooks);hooks.progress?.(.9,'16-bit PCM');b=await quantizeBuffer(b,EP_OUTPUT_BIT_DEPTH,hooks);checkCancel(hooks);hooks.progress?.(.94,'WAV encoding');const blob=await encodeWav(b,EP_OUTPUT_BIT_DEPTH,hooks,playmode);hooks.progress?.(1,'Done');return{buffer:b,blob,sampleRate:p.sampleRate,bitDepth:EP_OUTPUT_BIT_DEPTH,channels:channels==='mono'?1:2,repitchFactor:EP_REPITCH_FACTOR,pitchCompensation:EP_REPITCH_COMPENSATION,outputFormat:'wav'};}
+export async function processAudio(input,{fidelity='hi',channels='stereo',playmode='oneshot',autoTrim=true,context}={},hooks={}){const p=getPreset(fidelity),ctx=context||null;checkCancel(hooks);hooks.progress?.(.05,'Decoding');let b=await decodeAudio(input,ctx);const sourceStorage=estimateDirectEpStorage({frames:b.length,sampleRate:b.sampleRate,channels:b.numberOfChannels});checkCancel(hooks);if(autoTrim){hooks.progress?.(.2,'Auto-trim');b=await trimSilence(b,-60,.1,hooks);}checkCancel(hooks);hooks.progress?.(.35,'Channels');b=await convertChannels(b,channels==='mono'?1:2,hooks);checkCancel(hooks);hooks.progress?.(.55,'Speed ×2');b=await speedAndResample(b,EP_REPITCH_FACTOR,p.sampleRate,hooks,'linear');checkCancel(hooks);hooks.progress?.(.82,'Normalize');b=await normalizeBuffer(b,hooks);checkCancel(hooks);hooks.progress?.(.9,'16-bit PCM');b=await quantizeBuffer(b,EP_OUTPUT_BIT_DEPTH,hooks);const epStorage=measureEpStorage(b);checkCancel(hooks);hooks.progress?.(.94,'WAV encoding');const blob=await encodeWav(b,EP_OUTPUT_BIT_DEPTH,hooks,playmode);hooks.progress?.(1,'Done');return{buffer:b,blob,sampleRate:p.sampleRate,bitDepth:EP_OUTPUT_BIT_DEPTH,channels:channels==='mono'?1:2,repitchFactor:EP_REPITCH_FACTOR,pitchCompensation:EP_REPITCH_COMPENSATION,sourceEpStorage:sourceStorage,epStorage,outputFormat:'wav'};}
