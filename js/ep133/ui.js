@@ -2,8 +2,8 @@ import{
   connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
-  prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260930-3';
+  prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName
+}from './index.js?v=20260930-4';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,14 +12,14 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-3';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-4';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-3';
-import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-3';
-import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-3';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-4';
+import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-4';
+import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-4';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -752,11 +752,13 @@ export function initEp133Browser({showError}={}){
         if(!item||Number(item.nodeId)!==Number(target.id))throw new Error('The destination slot could not be verified.');
         updateDeviceFile(item);
         memory.setSlot(item);
-        memory.setMetadata(target.id,prepareSampleWritableMetadata(expectedMetadata,{
+        const localMetadata=prepareSampleLocalMetadata(expectedMetadata,{
           allowedPlayModes:activeDeviceProfile.playModes,
           allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
           barWriteMode:'preserve'
-        }));
+        });
+        memory.setMetadata(target.id,localMetadata);
+        sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
         memory.setOperation(target.id,{status:'complete',label:'COPIED',progress:100});
         setGlobalProgress('COPY',((index+.95)/plan.length)*100);
       }
@@ -945,11 +947,13 @@ export function initEp133Browser({showError}={}){
           if(!fileItem)throw new Error('Uploaded sample could not be verified.');
           updateDeviceFile(fileItem);
           memory.setSlot(fileItem);
-          memory.setMetadata(target.id,prepareSampleWritableMetadata({...metadata,name:normalizeFileName(item.file.name)},{
+          const localMetadata=prepareSampleLocalMetadata({...metadata,name:normalizeFileName(item.file.name)},{
             allowedPlayModes:activeDeviceProfile.playModes,
             allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
             barWriteMode:'omit'
-          }));
+          });
+          memory.setMetadata(target.id,localMetadata);
+          sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
           memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
           successes.push(target.id);
           setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);

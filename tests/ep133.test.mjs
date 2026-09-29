@@ -182,7 +182,43 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
 import{createSampleSlots,EP_SAMPLE_SLOT_COUNT,DEFAULT_SAMPLE_TABS,getSampleDisplayName,calculateSampleDuration,findNextFreeSampleSlot,canTransferMoveSample,planSampleTransferTargets}from '../js/ep133/sampleMemory.js';
 import{getEpDeviceProfile}from '../js/ep133/deviceProfile.js';
 import{requestRead,parseFileEvent,formatDeviceRejection,parseFirmwareDebugFrame}from '../js/ep133/device.js';
-import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
+test('My EP uploads hydrate local transport metadata immediately after success',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const uploadStart=source.indexOf('async function uploadFilesToSlot');
+  const uploadBlock=source.slice(uploadStart,source.indexOf('const readDevice=async',uploadStart));
+  assert.match(uploadBlock,/const localMetadata=prepareSampleLocalMetadata/);
+  assert.match(uploadBlock,/memory\.setMetadata\(target\.id,localMetadata\)/);
+  assert.match(uploadBlock,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+});
+
+test('local uploaded sample metadata keeps transport fields needed by My EP rows',()=>{
+  const metadata={
+    name:'kick',
+    channels:1,
+    samplerate:32000,
+    format:'s16',
+    'sound.pitch':-12,
+    'sound.playmode':'oneshot',
+    'envelope.release':255,
+    'time.mode':'off'
+  };
+  const local=prepareSampleLocalMetadata(metadata,{
+    allowedPlayModes:['oneshot','key','legato'],
+    allowAdvancedMetadata:true,
+    barWriteMode:'omit'
+  });
+  assert.equal(local.name,'kick');
+  assert.equal(local.channels,1);
+  assert.equal(local.samplerate,32000);
+  assert.equal(local.format,'s16');
+  assert.equal(local['sound.pitch'],-12);
+  assert.equal(local['sound.playmode'],'oneshot');
+  assert.equal(local['envelope.release'],255);
+  assert.equal(local['time.mode'],'off');
+});
+
 test('EP uploader always starts at the next free slot, including single-file drops',()=>{
   const slots=createSampleSlots([
     {nodeId:1,fileName:'/sounds/one',fileSize:2},
@@ -206,7 +242,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260930-3/);
+  assert.match(html,/css\/my-ep\.css\?v=20260930-4/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -231,7 +267,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-3'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-4'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);

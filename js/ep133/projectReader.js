@@ -1,4 +1,4 @@
-import{parseProjectArchive,validateProjectArchive,buildProjectFromNative}from './projectArchive.js?v=20260930-3';
+import{parseProjectArchive,validateProjectArchive,buildProjectFromNative}from './projectArchive.js?v=20260930-4';
 
 const GROUPS=['a','b','c','d'];
 const FX_TYPES=['off','delay','reverb','distortion','chorus','filter','compressor'];
