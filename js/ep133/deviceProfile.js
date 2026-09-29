@@ -1,8 +1,31 @@
+import{CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260929-24';
+
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
+const VERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
+  read:true,preserve:true,
+  source:'ep-series-sysex live verification on EP-133/EP-40 OS 2.5.1'
+});
+const VERIFIED_SAMPLE_TRANSFERS=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
+  read:true,preserve:true,
+  source:'live-verified FILE sample library operations'
+});
+const UNVERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
+  read:true,preserve:true,
+  source:'shared EP-series FILE shape; no EP-1320 HIL campaign',
+  reason:'Advanced sample metadata authoring is not hardware-verified for this EP.'
+});
+const UNVERIFIED_SAMPLE_TRANSFERS=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
+  read:true,preserve:true,
+  source:'shared EP-series FILE shape; no EP-1320 HIL campaign',
+  reason:'Sample transfer authoring is not hardware-verified for this EP.'
+});
 const PRESERVE_ONLY_SAMPLE_BARS=Object.freeze({
-  authoring:false,
   writeValues:Object.freeze([]),
-  evidence:'hardware-observed-power-of-2-clamp; exact authoring values unverified'
+  evidence:capabilityEvidence(CAPABILITY_EVIDENCE.PRESERVE_ONLY,{
+    read:true,preserve:true,
+    source:'hardware-observed power-of-2 clamp; exact slot authoring values unverified',
+    reason:'Sample bar authoring values are preserve-only until dedicated HIL verification.'
+  })
 });
 
 const EP133_FALLBACK_TABS=Object.freeze([
@@ -27,37 +50,46 @@ const EP1320_FALLBACK_TABS=Object.freeze([
   {name:'USER',range:[221,999],color:2}
 ]);
 
-const GENERIC_FALLBACK_TABS=Object.freeze([
-  {name:'SAMPLES',range:[1,999],color:1}
-]);
+const GENERIC_FALLBACK_TABS=Object.freeze([{name:'SAMPLES',range:[1,999],color:1}]);
 
 const PROFILES=Object.freeze({
   TE032AS001:Object.freeze({
     id:'ep133',title:'MY EP-133',name:'K.O. II',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP133_FALLBACK_TABS,
-    advancedSampleMetadataWrites:true,sampleTransfers:true,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    evidence:Object.freeze({sampleMetadata:VERIFIED_SAMPLE_METADATA,sampleTransfers:VERIFIED_SAMPLE_TRANSFERS}),
+    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   }),
   TE032AS005:Object.freeze({
     id:'ep1320',title:'MY EP-1320',name:'MEDIEVAL',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP1320_FALLBACK_TABS,
-    advancedSampleMetadataWrites:false,sampleTransfers:false,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    evidence:Object.freeze({sampleMetadata:UNVERIFIED_SAMPLE_METADATA,sampleTransfers:UNVERIFIED_SAMPLE_TRANSFERS}),
+    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   }),
   TE032AS006:Object.freeze({
     id:'ep40',title:'MY EP-40',name:'RIDDIM',
     playModes:Object.freeze([...COMMON_PLAY_MODES,'loop']),fallbackTabs:GENERIC_FALLBACK_TABS,
-    advancedSampleMetadataWrites:true,sampleTransfers:true,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    evidence:Object.freeze({sampleMetadata:VERIFIED_SAMPLE_METADATA,sampleTransfers:VERIFIED_SAMPLE_TRANSFERS}),
+    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   })
 });
 
+const GENERIC=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
+  read:false,preserve:false,
+  reason:'The connected EP capability has not been verified.'
+});
 const GENERIC_PROFILE=Object.freeze({
   id:'ep',title:'MY EP',name:'',playModes:COMMON_PLAY_MODES,fallbackTabs:GENERIC_FALLBACK_TABS,
-  advancedSampleMetadataWrites:false,sampleTransfers:false,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+  evidence:Object.freeze({sampleMetadata:GENERIC,sampleTransfers:GENERIC}),
+  sampleBars:PRESERVE_ONLY_SAMPLE_BARS
 });
 const cloneTabs=tabs=>tabs.map(tab=>({name:tab.name,range:[...tab.range],color:tab.color}));
 
 export function getEpDeviceProfile(sku=''){
   const key=String(sku||'').toUpperCase();
   const profile=PROFILES[key]||GENERIC_PROFILE;
+  const sampleMetadataEvidence=cloneCapabilityEvidence(profile.evidence.sampleMetadata);
+  const sampleTransferEvidence=cloneCapabilityEvidence(profile.evidence.sampleTransfers);
+  const sampleBarsEvidence=cloneCapabilityEvidence(profile.sampleBars.evidence);
   return{
     sku:key,
     id:profile.id,
@@ -65,12 +97,17 @@ export function getEpDeviceProfile(sku=''){
     name:profile.name,
     playModes:[...profile.playModes],
     fallbackTabs:cloneTabs(profile.fallbackTabs),
-    advancedSampleMetadataWrites:profile.advancedSampleMetadataWrites===true,
-    sampleTransfers:profile.sampleTransfers===true,
+    evidence:{
+      sampleMetadata:sampleMetadataEvidence,
+      sampleTransfers:sampleTransferEvidence,
+      sampleBars:sampleBarsEvidence
+    },
+    advancedSampleMetadataWrites:canWriteCapability(sampleMetadataEvidence),
+    sampleTransfers:canWriteCapability(sampleTransferEvidence),
     sampleBars:{
-      authoring:profile.sampleBars?.authoring===true,
-      writeValues:[...(profile.sampleBars?.writeValues||[])],
-      evidence:String(profile.sampleBars?.evidence||'unverified')
+      authoring:canWriteCapability(sampleBarsEvidence)&&profile.sampleBars.writeValues.length>0,
+      writeValues:[...profile.sampleBars.writeValues],
+      evidence:sampleBarsEvidence
     }
   };
 }

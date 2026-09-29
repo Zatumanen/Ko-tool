@@ -6,6 +6,7 @@ import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTe
 import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload,assertProjectWriteActiveGuard}from '../js/ep133/filesystem.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
+import{CAPABILITY_EVIDENCE,capabilityEvidence,canReadCapability,canPreserveCapability,canWriteCapability,assertCapabilityWritable}from '../js/ep133/capabilityEvidence.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
@@ -129,6 +130,23 @@ test('TE request id zero is reserved for identity pending',()=>{
 test('EP-133 identity parser',()=>{const p=32,a=1;const response=Uint8Array.from([0xF0,0x7E,0x00,0x06,0x02,0x00,0x20,0x76,p&127,p>>7,a&127,a>>7,0,0,0,0,0xF7]);assert.equal(parseIdentityResponse(response).sku,'TE032AS001');});
 
 
+test('capability evidence never promotes observed or preserve-only data to write permission',()=>{
+  const verified=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{read:true,preserve:true,source:'HIL'});
+  const official=capabilityEvidence(CAPABILITY_EVIDENCE.OFFICIAL_TOOL_OBSERVED,{read:true,preserve:true});
+  const captured=capabilityEvidence(CAPABILITY_EVIDENCE.CAPTURE_OBSERVED,{read:true,preserve:true});
+  const preserved=capabilityEvidence(CAPABILITY_EVIDENCE.PRESERVE_ONLY,{read:true,preserve:true});
+  const unsafe=capabilityEvidence(CAPABILITY_EVIDENCE.UNSAFE,{read:false,preserve:false});
+  assert.equal(canWriteCapability(verified),true);
+  assert.equal(canWriteCapability(official),false);
+  assert.equal(canWriteCapability(captured),false);
+  assert.equal(canWriteCapability({...captured,write:true}),false);
+  assert.equal(canWriteCapability(preserved),false);
+  assert.equal(canPreserveCapability(captured),true);
+  assert.equal(canReadCapability(preserved),true);
+  assert.equal(canReadCapability(unsafe),false);
+  assert.throws(()=>assertCapabilityWritable(captured,'captured field'),/capture-observed/);
+});
+
 test('EP-series identity accepts supported TE032 SKUs',()=>{
   for(const sku of ['TE032AS001','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
   assert.equal(isSupportedEpSku('TE032AS002'),false);
@@ -146,10 +164,16 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
   assert.equal(ep40.advancedSampleMetadataWrites,true);
   assert.equal(ep1320.advancedSampleMetadataWrites,false);
   assert.equal(ep1320.sampleTransfers,false);
+  assert.equal(ep133.evidence.sampleMetadata.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(ep40.evidence.sampleTransfers.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(ep1320.evidence.sampleMetadata.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+  assert.equal(canWriteCapability(ep1320.evidence.sampleMetadata),false);
   for(const profile of [ep133,ep1320,ep40]){
     assert.equal(profile.sampleBars.authoring,false);
     assert.deepEqual(profile.sampleBars.writeValues,[]);
-    assert.match(profile.sampleBars.evidence,/power-of-2[- ]clamp/);
+    assert.equal(profile.sampleBars.evidence.level,CAPABILITY_EVIDENCE.PRESERVE_ONLY);
+    assert.match(profile.sampleBars.evidence.source,/power-of-2[- ]clamp/);
+    assert.equal(canWriteCapability(profile.sampleBars.evidence),false);
   }
   assert.deepEqual(ep1320.fallbackTabs.map(tab=>tab.range),[[1,69],[70,114],[115,127],[128,155],[156,220],[221,999]]);
   assert.deepEqual(ep40.fallbackTabs.map(tab=>tab.range),[[1,999]]);
@@ -182,13 +206,13 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-23/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-24/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -207,7 +231,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-23'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-24'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -258,11 +282,13 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
+  assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
   assert.equal(index.includes("./projectHil.js?v="+token),true);
-  const [reader,sequencer,hil]=await Promise.all([
-    read('js/ep133/projectReader.js'),read('js/ep133/projectSequencer.js'),read('js/ep133/projectHil.js')
+  const [reader,sequencer,hil,deviceProfile,projectProfile]=await Promise.all([
+    read('js/ep133/projectReader.js'),read('js/ep133/projectSequencer.js'),read('js/ep133/projectHil.js'),
+    read('js/ep133/deviceProfile.js'),read('js/ep133/projectProfile.js')
   ]);
   assert.equal(reader.includes("./projectArchive.js?v="+token),true);
   assert.equal(sequencer.includes("./projectArchive.js?v="+token),true);
@@ -271,6 +297,8 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(hil.includes("./projectReader.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
   assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
+  assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
+  assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
 });
 
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
@@ -857,6 +885,13 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(medieval.projectTransport,true);
   assert.equal(medieval.projectAuthoring,false);
   assert.equal(medieval.projectReloadVerified,false);
+  assert.equal(ep133.evidence.projectAuthoring.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(ep40.evidence.projectAuthoring.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(ep40.evidence.liveWithPatterns.level,CAPABILITY_EVIDENCE.CAPTURE_OBSERVED);
+  assert.equal(medieval.evidence.projectTransport.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+  assert.equal(canReadCapability(medieval.evidence.projectTransport),true);
+  assert.equal(canWriteCapability(medieval.evidence.projectTransport),false);
+  assert.equal(canWriteCapability(medieval.evidence.projectAuthoring),false);
   assert.equal(assertProjectTransportSupported('TE032AS005','1.0.2').id,'ep1320');
   assert.throws(()=>assertProjectAuthoringSupported('TE032AS005','1.0.2'),/not been hardware-verified/);
   assert.throws(()=>assertProjectReloadSupported('TE032AS005','1.0.2'),/not hardware-verified/);

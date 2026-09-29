@@ -3,7 +3,7 @@ import{
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260929-23';
+}from './index.js?v=20260929-24';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,14 +12,14 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-23';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-24';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-23';
-import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-23';
-import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260929-23';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-24';
+import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-24';
+import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260929-24';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
