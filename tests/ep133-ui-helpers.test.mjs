@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createFeedbackController}from '../js/ep133/ui/feedback.js';
 import{createFileEventController}from '../js/ep133/ui/fileEvents.js';
+import{createConnectionLifecycle}from '../js/ep133/ui/connectionLifecycle.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -147,4 +148,60 @@ test('FILE event controller ignores suppressed native moves and reconciles exter
   assert.equal(infoReads,1);
   assert.equal(slots.has(7),false);
   assert.equal(memory.getSlot(8).meta.name,'moved');
+});
+
+test('connection lifecycle does not request MIDI until armed and keeps reconnect cadence gated',async()=>{
+  let connectCalls=0,intervalCallback=null,intervalMs=null,cleared=null;
+  const beforeUnload=[];
+  const lifecycle=createConnectionLifecycle({
+    connectEp133:async()=>{connectCalls++;},
+    isConnected:()=>false,
+    isUnsafe:()=>false,
+    navigatorRef:{},
+    windowRef:{addEventListener:(type,listener)=>{if(type==='beforeunload')beforeUnload.push(listener);}},
+    setIntervalFn:(callback,ms)=>{intervalCallback=callback;intervalMs=ms;return 77;},
+    clearIntervalFn:id=>{cleared=id;}
+  });
+  lifecycle.start();
+  assert.equal(intervalMs,4000);
+  await lifecycle.autoConnect();
+  assert.equal(connectCalls,0);
+  intervalCallback();
+  await Promise.resolve();
+  assert.equal(connectCalls,0);
+
+  lifecycle.arm();
+  await lifecycle.autoConnect();
+  assert.equal(connectCalls,1);
+  assert.equal(lifecycle.getState().connectionArmed,true);
+  lifecycle.dispose();
+  assert.equal(cleared,77);
+  assert.equal(beforeUnload.length,1);
+});
+
+test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
+  let connectCalls=0;
+  const errors=[];
+  const lifecycle=createConnectionLifecycle({
+    connectEp133:async()=>{
+      connectCalls++;
+      const error=new Error('permission denied');
+      error.name='NotAllowedError';
+      throw error;
+    },
+    isConnected:()=>false,
+    isUnsafe:()=>false,
+    navigatorRef:{},
+    windowRef:{addEventListener(){}},
+    setIntervalFn:()=>1,
+    clearIntervalFn(){},
+    showError:message=>errors.push(message)
+  });
+  lifecycle.start();
+  lifecycle.arm();
+  await lifecycle.autoConnect();
+  await lifecycle.autoConnect();
+  assert.equal(connectCalls,1);
+  assert.deepEqual(errors,['MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.']);
+  assert.equal(lifecycle.getState().midiPermissionBlocked,true);
 });
