@@ -1795,6 +1795,22 @@ test('EP WAV metadata parser reads source rate and PCM layout',()=>{
 });
 
 
+test('EP upload metadata emits loop start/end only as a complete pair',()=>{
+  const missingEnd=prepareTeenageMetadata({
+    sample_rate:44100,
+    extra:{loop_start:4410}
+  },46875);
+  assert.equal('sound.loopstart' in missingEnd,false);
+  assert.equal('sound.loopend' in missingEnd,false);
+
+  const missingStart=prepareTeenageMetadata({
+    sample_rate:44100,
+    extra:{loop_end:22050}
+  },46875);
+  assert.equal('sound.loopstart' in missingStart,false);
+  assert.equal('sound.loopend' in missingStart,false);
+});
+
 test('EP upload metadata follows the reference Teenage Engineering metadata rules',()=>{
   const meta=prepareTeenageMetadata({
     sample_rate:44100,
