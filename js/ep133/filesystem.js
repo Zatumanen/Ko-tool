@@ -1,8 +1,8 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-17';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-18';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-17';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-17';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-18';
+import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-18';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -130,14 +130,13 @@ export function prepareSampleCreateMetadata(metadata={}){
 
 const SAMPLE_PLAY_MODES=new Set(['oneshot','key','legato','loop']);
 const allowedPlayModeSet=allowed=>{
-  const values=Array.isArray(allowed)?allowed.map(String).filter(value=>SAMPLE_PLAY_MODES.has(value)):[];
-  return new Set(values.length?values:SAMPLE_PLAY_MODES);
+  if(!Array.isArray(allowed))return null;
+  return new Set(allowed.map(String).filter(value=>SAMPLE_PLAY_MODES.has(value)));
 };
 const SAMPLE_TIME_MODES=new Set(['off','bpm','bar']);
-const DEFAULT_CONFIRMED_BAR_VALUES=Object.freeze([1,2]);
 const allowedBarValueSet=allowed=>{
-  const values=Array.isArray(allowed)?allowed.map(Number).filter(value=>Number.isInteger(value)&&value>0):[];
-  return new Set(values.length?values:DEFAULT_CONFIRMED_BAR_VALUES);
+  if(!Array.isArray(allowed))return null;
+  return new Set(allowed.map(Number).filter(value=>Number.isInteger(value)&&value>0));
 };
 const finiteRange=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max;
 const integerRange=(value,min,max)=>Number.isInteger(Number(value))&&Number(value)>=min&&Number(value)<=max;
@@ -174,6 +173,8 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
     }
     if(key==='sound.playmode'){
       const normalized=typeof value==='number'?['oneshot','key','legato','loop'][value]:value!=null?String(value):'';
+      if(normalized&&allowedPlayModes&&!allowedPlayModes.has(normalized))
+        throw new Error("Sample play mode '"+normalized+"' is not allowed by the connected EP profile.");
       if(normalized)result[key]=normalized;
       continue;
     }
@@ -195,6 +196,8 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
     }
     if(key==='sound.bars'){
       const bars=Number(value);
+      if(Number.isFinite(bars)&&bars>0&&allowedBarValues&&!allowedBarValues.has(bars))
+        throw new Error("Sample bar value '"+bars+"' is not allowed by the connected EP profile.");
       if(Number.isFinite(bars)&&bars>0)result[key]=bars;
       continue;
     }
@@ -222,6 +225,8 @@ export function prepareSampleTransferMetadata(metadata={},options={}){
     const raw=result['sound.playmode'];
     const normalized=typeof raw==='number'?['oneshot','key','legato','loop'][raw]:String(raw);
     if(!normalized)throw new Error('Invalid source sample play mode.');
+    if(allowedPlayModes&&!allowedPlayModes.has(normalized))
+      throw new Error("Source sample play mode '"+normalized+"' is not allowed by the connected EP profile.");
     result['sound.playmode']=normalized;
   }
 
@@ -234,6 +239,8 @@ export function prepareSampleTransferMetadata(metadata={},options={}){
   if('sound.bars' in result){
     const bars=Number(result['sound.bars']);
     if(!Number.isFinite(bars)||bars<=0)throw new Error('Invalid source sample bar value.');
+    if(allowedBarValues&&!allowedBarValues.has(bars))
+      throw new Error("Source sample bar value '"+bars+"' is not allowed by the connected EP profile.");
     result['sound.bars']=bars;
   }
   if('sound.playmode'in result&&!Object.prototype.hasOwnProperty.call(result,'envelope.release'))

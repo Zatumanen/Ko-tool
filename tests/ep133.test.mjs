@@ -167,7 +167,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-17/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-18/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -192,7 +192,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-17'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-18'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -473,10 +473,10 @@ test('sample writable metadata preserves the hardware-verified 1..200 BPM range'
   assert.equal('sound.bpm' in prepareSampleWritableMetadata({'sound.bpm':201}),false);
 });
 
-test('EP metadata keeps TE forward-compatible strings but enforces playmode release pairing',()=>{
-  assert.equal(
-    prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']})['sound.playmode'],
-    'loop'
+test('EP metadata keeps TE forward-compatible strings but enforces explicit device whitelists',()=>{
+  assert.throws(
+    ()=>prepareSampleWritableMetadata({'sound.playmode':'loop','envelope.release':255},{allowedPlayModes:['oneshot','key','legato']}),
+    /not allowed by the connected EP profile/
   );
   assert.equal(
     prepareSampleWritableMetadata({'sound.playmode':'future-mode','envelope.release':15})['sound.playmode'],
@@ -516,10 +516,29 @@ test('Medieval profile fails closed for unverified advanced sample metadata writ
   );
 });
 
-test('My EP preserves source TE bar and time metadata while the property UI remains source-backed',()=>{
-  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),{'sound.bars':4});
+test('EP metadata preserves unknown values only without an explicit device whitelist',()=>{
+  assert.throws(
+    ()=>prepareSampleWritableMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),
+    /not allowed by the connected EP profile/
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.bars':4},{allowedBarValues:[1,2]}),
+    /not allowed by the connected EP profile/
+  );
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4}),{'sound.bars':4});
   assert.deepEqual(prepareSampleWritableMetadata({'time.mode':'reverse'}),{'time.mode':'reverse'});
   assert.deepEqual(prepareSampleTransferMetadata({'sound.bars':4}),{'sound.bars':4});
+  assert.deepEqual(
+    prepareSampleTransferMetadata({'sound.playmode':'future-mode','envelope.release':15}),
+    {'sound.playmode':'future-mode','envelope.release':15}
+  );
+  assert.throws(
+    ()=>prepareSampleTransferMetadata(
+      {'sound.playmode':'loop','envelope.release':255},
+      {allowedPlayModes:['oneshot','key','legato']}
+    ),
+    /not allowed by the connected EP profile/
+  );
 });
 
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
