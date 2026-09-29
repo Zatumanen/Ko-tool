@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createFeedbackController}from '../js/ep133/ui/feedback.js';
+import{createFileEventController}from '../js/ep133/ui/fileEvents.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -67,4 +68,82 @@ test('provisional upload file model stays conservative until FILE_INFO hydration
   assert.equal(item.isDeletable,false);
   assert.equal(item.isMovable,false);
   assert.equal(item.isPlayable,false);
+});
+
+test('FILE event controller suppresses active uploads and incrementally reconciles external additions',async()=>{
+  const slots=new Map();
+  const memory={
+    getSlot:id=>slots.get(Number(id))||{id:Number(id),file:null,meta:null,nodeId:Number(id)},
+    setSlot:item=>slots.set(Number(item.nodeId),{id:Number(item.nodeId),file:{name:item.fileName,size:item.fileSize},node:item,nodeId:Number(item.nodeId),meta:null}),
+    setMetadata(id,metadata){const slot=this.getSlot(id);slot.meta=metadata;slots.set(Number(id),slot);},
+    mergeMetadata(){},
+    clearSlot:id=>slots.delete(Number(id)),
+    countOccupied:()=>slots.size
+  };
+  const cache={invalidate(){},set(){},merge(){}};
+  const deviceFiles=[{nodeId:42,fileName:'/sounds',fileType:'folder'}];
+  let files=[...deviceFiles],infoReads=0,metadataReads=0;
+  const controller=createFileEventController({
+    isConnected:()=>true,
+    getMemory:()=>memory,
+    sampleMetadataCache:cache,
+    getSoundsParentId:()=>42,
+    getSoundsMetadata:()=>({}),
+    getDeviceFiles:()=>files,
+    setDeviceFiles:value=>{files=value;},
+    getCurrentPropertySlotId:()=>null,
+    getFileInfo:async id=>{infoReads++;return{nodeId:id,parentId:42,fileSize:100,fileName:'kick',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};},
+    getFileMetadata:async()=>{metadataReads++;return{name:'kick',channels:1,samplerate:46875,format:'s16'};},
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,files),
+    updateDeviceFile:item=>{const index=files.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));if(index>=0)files[index]=item;else files.push(item);},
+    applySoundsMetadata(){},renderProperties(){},renderDeviceStats(){},closeProperties(){},logTechnical(){}
+  });
+
+  controller.markUploadPending(7);
+  await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_ADDED,data:{nodeId:7}});
+  assert.equal(infoReads,0);
+  assert.equal(metadataReads,0);
+
+  controller.clearUploadPending(7);
+  await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_ADDED,data:{nodeId:7}});
+  assert.equal(infoReads,1);
+  assert.equal(metadataReads,1);
+  assert.equal(memory.getSlot(7).meta.name,'kick');
+});
+
+test('FILE event controller ignores suppressed native moves and reconciles external moves without full resync',async()=>{
+  const oldItem={
+    nodeId:7,fileName:'/sounds/old',fileSize:100,fileType:'file',
+    flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ,isReadable:true
+  };
+  let files=[{nodeId:42,fileName:'/sounds',fileType:'folder'},oldItem],infoReads=0;
+  const slots=new Map([[7,{id:7,nodeId:7,file:{name:'old',size:100},node:oldItem,meta:{name:'old'}}]]);
+  const memory={
+    getSlot:id=>slots.get(Number(id))||{id:Number(id),nodeId:Number(id),file:null,meta:null},
+    clearSlot:id=>slots.delete(Number(id)),
+    setSlot:item=>slots.set(Number(item.nodeId),{id:Number(item.nodeId),nodeId:Number(item.nodeId),file:{name:item.fileName,size:item.fileSize},node:item,meta:null}),
+    setMetadata(id,metadata){const slot=this.getSlot(id);slot.meta=metadata;slots.set(Number(id),slot);},
+    mergeMetadata(){},countOccupied:()=>slots.size
+  };
+  const controller=createFileEventController({
+    isConnected:()=>true,getMemory:()=>memory,
+    sampleMetadataCache:{invalidate(){},set(){},merge(){}},
+    getSoundsParentId:()=>42,getSoundsMetadata:()=>({}),getDeviceFiles:()=>files,setDeviceFiles:value=>{files=value;},
+    getCurrentPropertySlotId:()=>null,
+    getFileInfo:async id=>{infoReads++;return{nodeId:id,parentId:42,fileSize:100,fileName:'moved',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};},
+    getFileMetadata:async()=>({name:'moved'}),
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,files),
+    updateDeviceFile:item=>{const index=files.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));if(index>=0)files[index]=item;else files.push(item);},
+    applySoundsMetadata(){},renderProperties(){},renderDeviceStats(){},closeProperties(){},logTechnical(){}
+  });
+
+  controller.suppressNativeMoveEvent(7,8);
+  await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_MOVED,data:{oldNodeId:7,parentId:42,nodeId:8}});
+  assert.equal(infoReads,0);
+
+  controller.clearNativeMoveSuppression(7,8);
+  await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_MOVED,data:{oldNodeId:7,parentId:42,nodeId:8}});
+  assert.equal(infoReads,1);
+  assert.equal(slots.has(7),false);
+  assert.equal(memory.getSlot(8).meta.name,'moved');
 });
