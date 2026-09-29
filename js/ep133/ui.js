@@ -20,6 +20,9 @@ import{
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-5';
 import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-5';
+import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
+import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
+import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -81,7 +84,6 @@ export function initEp133Browser({showError}={}){
   let playingSlotId=null;
   let previewTimer=null;
   let currentPropertySlotId=null;
-  let confirmResolver=null;
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
   const sampleMetadataCache=createSampleMetadataCache();
@@ -95,15 +97,7 @@ export function initEp133Browser({showError}={}){
       setTimeout(()=>pendingNativeMoveEvents.delete(key),1000);
     };
   };
-  const captureBatchSession=()=>{
-    const token=getDeviceSessionToken();
-    if(!token)throw new Error('EP device is disconnected.');
-    return token;
-  };
-  const assertBatchSession=token=>{
-    if(!token||getDeviceSessionToken()!==token)
-      throw new Error('EP device connection changed during the operation; batch aborted.');
-  };
+  const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
   const waitForMetadataUpdate=nodeId=>waitForFileEvent(
     event=>event?.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED&&Number(event?.data?.nodeId)===Number(nodeId),
     {timeout:500}
@@ -178,85 +172,18 @@ export function initEp133Browser({showError}={}){
     if(count)count.textContent=String(Math.max(0,Number(sampleCount)||0));
   };
 
-  const setGlobalProgress=(label,progress)=>{
-    if(!globalProgress)return;
-    const value=Math.max(0,Math.min(100,Number(progress)||0));
-    globalProgress.hidden=false;
-    if(globalProgressLabel)globalProgressLabel.textContent=String(label||'WORKING').toUpperCase();
-    if(globalProgressFill)globalProgressFill.style.width=value.toFixed(1)+'%';
-    if(globalProgressText)globalProgressText.textContent=Math.round(value)+'%';
-  };
-  const hideGlobalProgress=()=>{
-    if(globalProgress)globalProgress.hidden=true;
-    if(globalProgressFill)globalProgressFill.style.width='0%';
-    if(globalProgressText)globalProgressText.textContent='0%';
-  };
-
-  const confirmAction=message=>new Promise(resolve=>{
-    if(!confirmDialog||!confirmMessage||!confirmOk||!confirmCancel){
-      resolve(window.confirm(message));
-      return;
-    }
-    if(confirmResolver)confirmResolver(false);
-    confirmResolver=resolve;
-    confirmMessage.textContent=message;
-    confirmDialog.hidden=false;
-    confirmOk.focus();
+  const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
+    globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
+    confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
-  const resolveConfirm=value=>{
-    if(!confirmResolver)return;
-    const resolve=confirmResolver;
-    confirmResolver=null;
-    if(confirmDialog)confirmDialog.hidden=true;
-    resolve(!!value);
-  };
-  confirmOk?.addEventListener('click',()=>resolveConfirm(true));
-  confirmCancel?.addEventListener('click',()=>resolveConfirm(false));
 
-  const getSoundsParentId=files=>files.find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
-  const fileItemFromInfo=info=>{
-    const parentId=Number(info?.parentId);
-    const parent=parentId===0?null:deviceFiles.find(item=>Number(item.nodeId)===parentId);
-    const parentPath=parentId===0?'':parent?.fileName;
-    if(parentId!==0&&!parentPath)return null;
-    const fileName=(parentPath||'')+'/'+String(info?.fileName||'').replace(/^\/+/,'');
-    const flags=Number(info?.flags)||0;
-    return{
-      nodeId:Number(info?.nodeId),
-      flags,
-      fileSize:Number(info?.fileSize)||0,
-      fileName,
-      fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',
-      isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
-      isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
-      isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
-      isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
-      isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
-    };
-  };
+  const fileItemFromInfo=info=>buildFileItemFromInfo(info,deviceFiles);
+  const provisionalUploadedFileItem=args=>buildProvisionalUploadedFileItem(args,{deviceFiles,normalizeFileName});
   const updateDeviceFile=item=>{
     if(!item)return;
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
-  };
-  const provisionalUploadedFileItem=({nodeId,parentId,fileSize,fileName})=>{
-    const parent=deviceFiles.find(item=>Number(item.nodeId)===Number(parentId));
-    const parentPath=parent?.fileName||'/sounds';
-    const normalizedName=normalizeFileName(fileName||'sample.wav');
-    const flags=TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ;
-    return{
-      nodeId:Number(nodeId),
-      flags,
-      fileSize:Number(fileSize)||0,
-      fileName:(parentPath||'/sounds')+'/'+normalizedName,
-      fileType:'file',
-      isReadable:true,
-      isWritable:false,
-      isDeletable:false,
-      isMovable:false,
-      isPlayable:false
-    };
   };
   const hydrateUploadedFileItem=async nodeId=>{
     try{
@@ -271,11 +198,6 @@ export function initEp133Browser({showError}={}){
       renderDeviceStats(soundsMetadata,memory.countOccupied());
     }catch(error){logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);}
   };
-  const soundSlotIds=files=>new Set(
-    (files||[])
-      .filter(item=>/^\/sounds\/[^/]+$/.test(item?.fileName||'')&&Number(item?.nodeId)>=1&&Number(item?.nodeId)<=999)
-      .map(item=>Number(item.nodeId))
-  );
   const replaceSoundFiles=files=>{
     const sounds=Array.isArray(files)?files:[];
     deviceFiles=[
