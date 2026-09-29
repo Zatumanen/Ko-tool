@@ -3,7 +3,7 @@ import{
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260929-21';
+}from './index.js?v=20260929-22';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,13 +12,13 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-21';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-22';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-21';
-import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-21';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-22';
+import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-22';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -382,6 +382,7 @@ export function initEp133Browser({showError}={}){
     if(!propertiesGrid||!slot?.file)return;
     propertiesGrid.innerHTML=renderSampleProperties(slot,{
       playModes:activeDeviceProfile.playModes,
+      barPolicy:activeDeviceProfile.sampleBars,
       isPending:key=>isPropertyPending(slot.id,key),
       escapeHtml
     });
@@ -498,7 +499,8 @@ export function initEp133Browser({showError}={}){
 
   const changeProperty=(slot,key,direction)=>{
     if(!slot?.file||slot.node?.isWritable!==true||!activeDeviceProfile.advancedSampleMetadataWrites)return;
-    const change=getSamplePropertyChange(slot,key,direction,{playModes:activeDeviceProfile.playModes,barValues:BAR_VALUES});
+    if(key==='sound.bars'&&activeDeviceProfile.sampleBars?.authoring!==true)return;
+    const change=getSamplePropertyChange(slot,key,direction,{playModes:activeDeviceProfile.playModes,barPolicy:activeDeviceProfile.sampleBars});
     if(change)schedulePropertyWrite(slot,key,change.value,change.extra);
   };
 
@@ -706,8 +708,7 @@ export function initEp133Browser({showError}={}){
         const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
         assertBatchSession(sessionToken);
         const metadata=prepareSampleTransferMetadata(sourceMetadata,{
-          allowedPlayModes:activeDeviceProfile.playModes,
-          allowedBarValues:BAR_VALUES
+          allowedPlayModes:activeDeviceProfile.playModes
         });
         const displayName=metadata?.name||downloaded?.name||source.file?.name||'sample';
         const transferName=createTransferFileName(source.id,target.id);
@@ -723,7 +724,7 @@ export function initEp133Browser({showError}={}){
           metadata:expectedMetadata,
           allowedPlayModes:activeDeviceProfile.playModes,
           allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-          allowedBarValues:BAR_VALUES,
+          barWriteMode:'preserve',
           onCreated:id=>{const createdId=Number(id)||target.id;if(!created.includes(createdId))created.push(createdId);},
           onProgress:(done,total)=>{
             const local=total?done/total:0;
@@ -743,7 +744,7 @@ export function initEp133Browser({showError}={}){
         memory.setMetadata(target.id,prepareSampleWritableMetadata(expectedMetadata,{
           allowedPlayModes:activeDeviceProfile.playModes,
           allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-          allowedBarValues:BAR_VALUES
+          barWriteMode:'preserve'
         }));
         memory.setOperation(target.id,{status:'complete',label:'COPIED',progress:100});
         setGlobalProgress('COPY',((index+.95)/plan.length)*100);
@@ -918,7 +919,7 @@ export function initEp133Browser({showError}={}){
             metadata,
             allowedPlayModes:activeDeviceProfile.playModes,
             allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-            allowedBarValues:BAR_VALUES,
+            barWriteMode:'omit',
             onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
             onProgress:(done,total)=>{
               const local=total?done/total:0;
@@ -936,7 +937,7 @@ export function initEp133Browser({showError}={}){
           memory.setMetadata(target.id,prepareSampleWritableMetadata({...metadata,name:normalizeFileName(item.file.name)},{
             allowedPlayModes:activeDeviceProfile.playModes,
             allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-            allowedBarValues:BAR_VALUES
+            barWriteMode:'omit'
           }));
           memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
           successes.push(target.id);

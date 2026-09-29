@@ -1,9 +1,9 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-21';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-22';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-21';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-21';
-import{createProjectRuntimeGate}from './projectRuntime.js?v=20260929-21';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-22';
+import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-22';
+import{createProjectRuntimeGate}from './projectRuntime.js?v=20260929-22';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -152,6 +152,8 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
   const result={};
   const allowedPlayModes=allowedPlayModeSet(options?.allowedPlayModes);
   const allowedBarValues=allowedBarValueSet(options?.allowedBarValues);
+  const barWriteMode=String(options?.barWriteMode||'preserve');
+  if(!['preserve','verified','omit'].includes(barWriteMode))throw new Error('Unknown sample bar write mode: '+barWriteMode);
   const allowAdvancedMetadata=options?.allowAdvancedMetadata!==false;
   for(const[key,value]of Object.entries(metadata||{})){
     if(key==='name'){result.name=normalizeFileName(value);continue;}
@@ -202,7 +204,10 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
       continue;
     }
     if(key==='sound.bars'){
+      if(barWriteMode==='omit')continue;
       const bars=Number(value);
+      if(barWriteMode==='verified'&&!allowedBarValues)
+        throw new Error('Sample bar authoring requires an explicit verified value set.');
       if(Number.isFinite(bars)&&bars>0&&allowedBarValues&&!allowedBarValues.has(bars))
         throw new Error("Sample bar value '"+bars+"' is not allowed by the connected EP profile.");
       if(Number.isFinite(bars)&&bars>0)result[key]=bars;
@@ -575,7 +580,7 @@ export async function setFileMetadata(fileId,metadata,options={}){return runGuar
 
 export async function uploadSampleToSlot({
   file,data,filename,parentId,destinationId,metadata={},
-  allowedPlayModes=null,allowAdvancedMetadata=true,allowedBarValues=null,
+  allowedPlayModes=null,allowAdvancedMetadata=true,allowedBarValues=null,barWriteMode='preserve',
   onProgress,onCreated
 }){
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
@@ -588,7 +593,7 @@ export async function uploadSampleToSlot({
   if(!createMetadata.name||!createMetadata.channels||!createMetadata.samplerate||createMetadata.format!=='s16')
     throw new Error('EP-series upload metadata is incomplete or unsupported.');
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
-    allowedPlayModes,allowAdvancedMetadata,allowedBarValues
+    allowedPlayModes,allowAdvancedMetadata,allowedBarValues,barWriteMode
   });
   return runGuardedFileMutation('sample upload transaction',async()=>{
     const fileId=await putFileUnlocked({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});

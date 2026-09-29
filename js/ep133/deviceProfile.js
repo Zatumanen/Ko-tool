@@ -1,4 +1,9 @@
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
+const PRESERVE_ONLY_SAMPLE_BARS=Object.freeze({
+  authoring:false,
+  writeValues:Object.freeze([]),
+  evidence:'hardware-observed-power-of-2-clamp; exact authoring values unverified'
+});
 
 const EP133_FALLBACK_TABS=Object.freeze([
   {name:'KICK',range:[1,99],color:1},
@@ -30,23 +35,23 @@ const PROFILES=Object.freeze({
   TE032AS001:Object.freeze({
     id:'ep133',title:'MY EP-133',name:'K.O. II',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP133_FALLBACK_TABS,
-    advancedSampleMetadataWrites:true,sampleTransfers:true
+    advancedSampleMetadataWrites:true,sampleTransfers:true,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   }),
   TE032AS005:Object.freeze({
     id:'ep1320',title:'MY EP-1320',name:'MEDIEVAL',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP1320_FALLBACK_TABS,
-    advancedSampleMetadataWrites:false,sampleTransfers:false
+    advancedSampleMetadataWrites:false,sampleTransfers:false,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   }),
   TE032AS006:Object.freeze({
     id:'ep40',title:'MY EP-40',name:'RIDDIM',
     playModes:Object.freeze([...COMMON_PLAY_MODES,'loop']),fallbackTabs:GENERIC_FALLBACK_TABS,
-    advancedSampleMetadataWrites:true,sampleTransfers:true
+    advancedSampleMetadataWrites:true,sampleTransfers:true,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
   })
 });
 
 const GENERIC_PROFILE=Object.freeze({
   id:'ep',title:'MY EP',name:'',playModes:COMMON_PLAY_MODES,fallbackTabs:GENERIC_FALLBACK_TABS,
-  advancedSampleMetadataWrites:false,sampleTransfers:false
+  advancedSampleMetadataWrites:false,sampleTransfers:false,sampleBars:PRESERVE_ONLY_SAMPLE_BARS
 });
 const cloneTabs=tabs=>tabs.map(tab=>({name:tab.name,range:[...tab.range],color:tab.color}));
 
@@ -61,6 +66,11 @@ export function getEpDeviceProfile(sku=''){
     playModes:[...profile.playModes],
     fallbackTabs:cloneTabs(profile.fallbackTabs),
     advancedSampleMetadataWrites:profile.advancedSampleMetadataWrites===true,
-    sampleTransfers:profile.sampleTransfers===true
+    sampleTransfers:profile.sampleTransfers===true,
+    sampleBars:{
+      authoring:profile.sampleBars?.authoring===true,
+      writeValues:[...(profile.sampleBars?.writeValues||[])],
+      evidence:String(profile.sampleBars?.evidence||'unverified')
+    }
   };
 }

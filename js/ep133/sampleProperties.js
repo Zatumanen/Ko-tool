@@ -1,6 +1,22 @@
 export const TIME_MODES=Object.freeze(['off','bpm','bar']);
-export const BAR_VALUES=Object.freeze([1,2]);
 export const PROPERTY_DEBOUNCE_MS=120;
+
+const barPolicyValues=policy=>Array.isArray(policy?.writeValues)
+  ?policy.writeValues.map(Number).filter(value=>Number.isFinite(value)&&value>0)
+  :[];
+
+export function normalizeSampleBar(value){
+  const numeric=Number(value);
+  return Number.isFinite(numeric)&&numeric>0?numeric:null;
+}
+
+export function nearestBar(value,barValues=[]){
+  const values=Array.isArray(barValues)?barValues.map(Number).filter(item=>Number.isFinite(item)&&item>0):[];
+  if(!values.length)return null;
+  const numeric=normalizeSampleBar(value);
+  if(numeric===null)return values[0];
+  return values.reduce((best,item)=>Math.abs(item-numeric)<Math.abs(best-numeric)?item:best,values[0]);
+}
 
 export function normalizePlayMode(value,playModes=[]){
   const modes=Array.isArray(playModes)&&playModes.length?playModes:['oneshot','key','legato'];
@@ -15,29 +31,23 @@ export function normalizeTimeMode(value){
   return TIME_MODES.includes(normalized)?normalized:'off';
 }
 
-export function nearestBar(value,barValues=BAR_VALUES){
-  const values=Array.isArray(barValues)&&barValues.length?barValues:BAR_VALUES;
-  const numeric=Number(value);
-  if(!Number.isFinite(numeric)||numeric<=0)return values[0];
-  return values.reduce((best,item)=>Math.abs(item-numeric)<Math.abs(best-numeric)?item:best,values[0]);
-}
-
-const row=(slot,key,label,value,{numeric=false,drag='',isPending=()=>false,escapeHtml=String}={})=>{
+const row=(slot,key,label,value,{numeric=false,drag='',editable=true,isPending=()=>false,escapeHtml=String}={})=>{
   const pending=isPending(key)?' pending':'';
   const previous=numeric?'Decrease ':'Previous ';
   const next=numeric?'Increase ':'Next ';
   const left=numeric?'−':'◀',right=numeric?'+':'▶';
+  const control=editable
+    ?'<button type="button" data-property="'+escapeHtml(key)+'" data-direction="-1" aria-label="'+previous+escapeHtml(label)+'">'+left+'</button>'+
+      '<span class="ep133-prop-value"'+(drag?' data-drag="'+escapeHtml(drag)+'"':'')+'>'+escapeHtml(value)+'</span>'+
+      '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="1" aria-label="'+next+escapeHtml(label)+'">'+right+'</button>'
+    :'<span class="ep133-prop-value" data-readonly="true" aria-label="'+escapeHtml(label)+' read only">'+escapeHtml(value)+'</span>';
   return'<div class="ep133-property-row'+pending+'" data-property-row="'+escapeHtml(key)+'">'+
     '<span class="ep133-property-label">'+escapeHtml(label)+'</span>'+
-    '<span class="ep133-property-control">'+
-      '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="-1" aria-label="'+previous+escapeHtml(label)+'">'+left+'</button>'+
-      '<span class="ep133-prop-value"'+(drag?' data-drag="'+escapeHtml(drag)+'"':'')+'>'+escapeHtml(value)+'</span>'+
-      '<button type="button" data-property="'+escapeHtml(key)+'" data-direction="1" aria-label="'+next+escapeHtml(label)+'">'+right+'</button>'+
-    '</span>'+
+    '<span class="ep133-property-control">'+control+'</span>'+
   '</div>';
 };
 
-export function renderSampleProperties(slot,{playModes=[],barValues=BAR_VALUES,isPending=()=>false,escapeHtml=String}={}){
+export function renderSampleProperties(slot,{playModes=[],barPolicy={},isPending=()=>false,escapeHtml=String}={}){
   if(!slot?.file)return'';
   const meta=slot.meta||{};
   const options={isPending,escapeHtml};
@@ -45,20 +55,27 @@ export function renderSampleProperties(slot,{playModes=[],barValues=BAR_VALUES,i
   const pitch=Number.isFinite(Number(meta['sound.pitch']))?Number(meta['sound.pitch']):0;
   const timeMode=normalizeTimeMode(meta['time.mode']);
   const bpm=Number.isFinite(Number(meta['sound.bpm']))&&Number(meta['sound.bpm'])>0?Math.round(Number(meta['sound.bpm'])):120;
-  const bars=nearestBar(meta['sound.bars'],barValues);
+  const bars=normalizeSampleBar(meta['sound.bars']);
+  const barValues=barPolicyValues(barPolicy);
+  const barAuthoring=barPolicy?.authoring===true&&barValues.length>0;
   let html=row(slot,'sound.playmode','PLAY MODE',playMode.toUpperCase(),options);
   html+='<div class="ep133-property-separator"></div>';
   html+=row(slot,'sound.pitch','PITCH',pitch>0?'+'+pitch:String(pitch),{...options,numeric:true});
   html+='<div class="ep133-property-separator"></div>';
   html+=row(slot,'time.mode','TIME MODE',timeMode.toUpperCase(),options);
   if(timeMode==='bpm')html+=row(slot,'sound.bpm','BPM',String(bpm),{...options,numeric:true,drag:'bpm'});
-  if(timeMode==='bar')html+=row(slot,'sound.bars','BARS',bars===1?'1 BAR':bars+' BARS',options);
+  if(timeMode==='bar'){
+    const barLabel=bars===null?'—':bars===1?'1 BAR':String(bars)+' BARS';
+    html+=row(slot,'sound.bars','BARS',barLabel,{...options,editable:barAuthoring});
+  }
   return html;
 }
 
-export function getSamplePropertyChange(slot,key,direction,{playModes=[],barValues=BAR_VALUES}={}){
+export function getSamplePropertyChange(slot,key,direction,{playModes=[],barPolicy={}}={}){
   const meta=slot?.meta||{};
   const step=Number(direction)||0;
+  const barValues=barPolicyValues(barPolicy);
+  const barAuthoring=barPolicy?.authoring===true&&barValues.length>0;
   if(key==='sound.playmode'){
     const modes=Array.isArray(playModes)&&playModes.length?playModes:['oneshot','key','legato'];
     const current=normalizePlayMode(meta[key],modes);
@@ -75,7 +92,10 @@ export function getSamplePropertyChange(slot,key,direction,{playModes=[],barValu
     const value=TIME_MODES[(index+step+TIME_MODES.length)%TIME_MODES.length];
     const extra={};
     if(value==='bpm'&&!(Number(meta['sound.bpm'])>=1&&Number(meta['sound.bpm'])<=200))extra['sound.bpm']=120;
-    if(value==='bar'&&!barValues.includes(Number(meta['sound.bars'])))extra['sound.bars']=barValues[0];
+    if(value==='bar'&&normalizeSampleBar(meta['sound.bars'])===null){
+      if(!barAuthoring)return null;
+      extra['sound.bars']=barValues[0];
+    }
     return{value,extra};
   }
   if(key==='sound.bpm'){
@@ -83,6 +103,7 @@ export function getSamplePropertyChange(slot,key,direction,{playModes=[],barValu
     return{value:Math.max(1,Math.min(200,current+step)),extra:{}};
   }
   if(key==='sound.bars'){
+    if(!barAuthoring)return null;
     const current=nearestBar(meta[key],barValues);
     const index=barValues.indexOf(current);
     const nextIndex=Math.max(0,Math.min(barValues.length-1,index+step));

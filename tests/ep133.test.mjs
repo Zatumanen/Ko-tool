@@ -146,6 +146,11 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
   assert.equal(ep40.advancedSampleMetadataWrites,true);
   assert.equal(ep1320.advancedSampleMetadataWrites,false);
   assert.equal(ep1320.sampleTransfers,false);
+  for(const profile of [ep133,ep1320,ep40]){
+    assert.equal(profile.sampleBars.authoring,false);
+    assert.deepEqual(profile.sampleBars.writeValues,[]);
+    assert.match(profile.sampleBars.evidence,/power-of-2 clamp/);
+  }
   assert.deepEqual(ep1320.fallbackTabs.map(tab=>tab.range),[[1,69],[70,114],[115,127],[128,155],[156,220],[221,999]]);
   assert.deepEqual(ep40.fallbackTabs.map(tab=>tab.range),[[1,999]]);
 });
@@ -177,7 +182,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-21/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-22/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -202,7 +207,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-21'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-22'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -537,6 +542,15 @@ test('EP metadata preserves unknown values only without an explicit device white
     /not allowed by the connected EP profile/
   );
   assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4}),{'sound.bars':4});
+  assert.deepEqual(prepareSampleWritableMetadata({'sound.bars':4},{barWriteMode:'omit'}),{});
+  assert.throws(
+    ()=>prepareSampleWritableMetadata({'sound.bars':4},{barWriteMode:'verified'}),
+    /requires an explicit verified value set/
+  );
+  assert.deepEqual(
+    prepareSampleWritableMetadata({'sound.bars':2},{barWriteMode:'verified',allowedBarValues:[1,2]}),
+    {'sound.bars':2}
+  );
   assert.deepEqual(prepareSampleWritableMetadata({'time.mode':'reverse'}),{'time.mode':'reverse'});
   assert.deepEqual(prepareSampleTransferMetadata({'sound.bars':4}),{'sound.bars':4});
   assert.deepEqual(
@@ -1786,18 +1800,38 @@ test('My EP single-sample reorder targets only the exact dropped slot',()=>{
   );
 });
 
+test('sample bar metadata is preserved exactly but remains read-only until HIL authoring evidence exists',async()=>{
+  const {renderSampleProperties,getSamplePropertyChange}=await import('../js/ep133/sampleProperties.js');
+  const slot={id:1,file:{name:'loop'},meta:{'time.mode':'bar','sound.bars':4}};
+  const policy={authoring:false,writeValues:[],evidence:'hardware-observed-power-of-2-clamp'};
+  const html=renderSampleProperties(slot,{barPolicy:policy});
+  assert.match(html,/>4 BARS</);
+  assert.match(html,/data-readonly="true"/);
+  assert.equal(getSamplePropertyChange(slot,'sound.bars',1,{barPolicy:policy}),null);
+  assert.deepEqual(
+    getSamplePropertyChange(slot,'time.mode',-1,{barPolicy:policy}),
+    {value:'bpm',extra:{'sound.bpm':120}}
+  );
+  const noBars={id:2,file:{name:'new'},meta:{'time.mode':'bpm'}};
+  assert.equal(getSamplePropertyChange(noBars,'time.mode',1,{barPolicy:policy}),null);
+});
+
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const helpers=await fs.readFile(new URL('../js/ep133/sampleProperties.js',import.meta.url),'utf8');
-  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{playModes:activeDeviceProfile\.playModes,barValues:BAR_VALUES\}\)/);
+  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{playModes:activeDeviceProfile\.playModes,barPolicy:activeDeviceProfile\.sampleBars\}\)/);
   assert.match(helpers,/export const TIME_MODES=Object\.freeze\(\['off','bpm','bar'\]\)/);
-  assert.match(helpers,/export const BAR_VALUES=Object\.freeze\(\[1,2\]\)/);
+  assert.doesNotMatch(helpers,/BAR_VALUES/);
+  assert.match(helpers,/data-readonly="true"/);
   assert.match(helpers,/export const PROPERTY_DEBOUNCE_MS=120/);
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
+  assert.match(source,/key==='sound\.bars'&&activeDeviceProfile\.sampleBars\?\.authoring!==true/);
+  assert.match(source,/barWriteMode:'omit'/);
+  assert.match(source,/barWriteMode:'preserve'/);
 });
 test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
   const fs=await import('node:fs/promises');
