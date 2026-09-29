@@ -340,17 +340,17 @@ test('EP request timeouts match TE while interrupted streams keep the safety loc
   assert.match(filesystemSource,/Paged METADATA SET was interrupted before EOF/);
 });
 
-test('EP transfer metadata preserves reference TE fields without release coupling',()=>{
+test('EP transfer metadata preserves reference TE fields with required playmode release coupling',()=>{
   assert.deepEqual(
     prepareSampleTransferMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,
-      name:'kick','sound.playmode':'oneshot','time.mode':'off',
+      name:'kick','sound.playmode':'oneshot','envelope.release':255,'time.mode':'off',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
       regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }),
     {
       channels:1,samplerate:46875,format:'s16',name:'kick',
-      'sound.playmode':'oneshot','time.mode':'off',
+      'sound.playmode':'oneshot','envelope.release':255,'time.mode':'off',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
       regions:[{'sample.start':0,'sample.end':100}],'sound.pitch':0
     }
@@ -359,9 +359,9 @@ test('EP transfer metadata preserves reference TE fields without release couplin
     prepareSampleTransferMetadata({'time.mode':2,name:'short'}),
     {'time.mode':'bar',name:'short'}
   );
-  assert.deepEqual(
-    prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'no-release'}),
-    {'sound.playmode':'oneshot',name:'no-release'}
+  assert.throws(
+    ()=>prepareSampleTransferMetadata({'sound.playmode':'oneshot',name:'no-release'}),
+    /requires 'envelope.release'/
   );
 });
 
@@ -370,12 +370,12 @@ test('EP post-upload metadata preserves TE start end mode and regions',()=>{
     prepareSampleWritableMetadata({
       channels:1,samplerate:46875,format:'s16',crc:123,name:'kick',
       'sample.start':-1,'sample.end':100,'sample.mode':'multi',
-      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      'sound.playmode':'oneshot','envelope.release':255,'sound.pitch':2,'time.mode':'free',
       regions:[{'sample.start':0,'sample.end':100}]
     }),
     {
       name:'kick','sample.start':-1,'sample.end':100,'sample.mode':'multi',
-      'sound.playmode':'oneshot','sound.pitch':2,'time.mode':'free',
+      'sound.playmode':'oneshot','envelope.release':255,'sound.pitch':2,'time.mode':'free',
       regions:[{'sample.start':0,'sample.end':100}]
     }
   );
@@ -413,17 +413,17 @@ test('EP upload create metadata is limited to the official stream fields',()=>{
 test('EP writable sample metadata follows current TE validators and preserves nonempty modes',()=>{
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'loop','sound.bpm':60,
+      name:'Safe.wav','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,
       'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1
     }),
-    {name:'safe','sound.playmode':'loop','sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1}
+    {name:'safe','sound.playmode':'loop','envelope.release':255,'sound.bpm':60,'sound.amplitude':200,'sound.rootnote':1,'sample.start':-1}
   );
   assert.deepEqual(
     prepareSampleWritableMetadata({
-      name:'Safe.wav','sound.playmode':'future-mode','time.mode':'free','sound.bars':3,
+      name:'Safe.wav','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3,
       'sound.pitch':99,'sound.pan':17,'sound.bpm':181,'sound.amplitude':201,'sound.rootnote':0
     }),
-    {name:'safe','sound.playmode':'future-mode','time.mode':'free','sound.bars':3}
+    {name:'safe','sound.playmode':'future-mode','envelope.release':64,'time.mode':'free','sound.bars':3}
   );
 });
 
