@@ -126,7 +126,7 @@ export function createFakeEpMidi({
     if(action.disconnect)setTimeout(()=>disconnect(),Math.max(0,Number(action.disconnectDelay)||0));
     if(action.drop)return;
     emitLater(responseFrame(request,{
-      identityCode,
+      identityCode:resolvedIdentityCode,
       status:Number(action.status)||0,
       payload:action.payload||new Uint8Array()
     }),Math.max(0,Number(action.delay)||0));
