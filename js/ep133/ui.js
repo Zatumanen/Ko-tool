@@ -1262,6 +1262,7 @@ export function initEp133Browser({showError}={}){
       showError?.('MY EP WORKS ON DESKTOP COMPUTERS ONLY.');
       return;
     }
+    connectionArmed=true;
     panel.style.display='flex';
     panel.setAttribute('aria-hidden','false');
     if(!isConnected())void autoConnect();
@@ -1308,6 +1309,7 @@ export function initEp133Browser({showError}={}){
   };
   makeDraggable(panel.querySelector('.ep133-browser-window'));
 
+  let connectionArmed=false;
   let midiPermissionBlocked=false;
   let instanceLockBlocked=false;
   let resolveInstanceLock;
@@ -1329,7 +1331,7 @@ export function initEp133Browser({showError}={}){
   }else resolveInstanceLock(true);
 
   const autoConnect=async()=>{
-    if(deviceUnsafe||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
+    if(!connectionArmed||deviceUnsafe||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
     if(!await instanceLockGate){
       setConnectionOverlay('OPEN IN ANOTHER TAB');
       return;
@@ -1356,8 +1358,7 @@ export function initEp133Browser({showError}={}){
     renderConnection(state);
     if(state.connected&&!state.unsafe)void readDevice();
   });
-  void autoConnect();
-  const autoConnectTimer=setInterval(()=>{if(!deviceUnsafe&&!isConnected())void autoConnect();},4000);
+  const autoConnectTimer=setInterval(()=>{if(connectionArmed&&!deviceUnsafe&&!isConnected())void autoConnect();},4000);
   window.addEventListener('beforeunload',()=>clearInterval(autoConnectTimer),{once:true});
 
   window.addEventListener('paste',event=>{

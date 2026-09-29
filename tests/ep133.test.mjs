@@ -176,6 +176,15 @@ test('EP connection uses GREET base_sku for the effective device profile',async(
   assert.match(source,/deviceInfo=\{sku:effectiveSku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
 });
 
+test('My EP defers MIDI access until the user opens the app',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/let connectionArmed=false/);
+  assert.match(source,/connectionArmed=true;[\s\S]*if\(!isConnected\(\)\)void autoConnect\(\)/);
+  assert.match(source,/if\(!connectionArmed\|\|deviceUnsafe\|\|isConnected\(\)/);
+  assert.doesNotMatch(source,/\n\s*void autoConnect\(\);\n/);
+});
+
 test('My EP holds the official-named app lock for the lifetime of the tab',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
