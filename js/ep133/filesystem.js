@@ -1,8 +1,8 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
-import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-14';
+import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260929-15';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-14';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-14';
+import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260929-15';
+import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260929-15';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -386,7 +386,17 @@ export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
   },'project reload'));
 }
 
-export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup}={}){
+export function assertProjectWriteActiveGuard({destinationFid,activeProjectFid,requireInactive=false,expectedActiveProjectFid=null}={}){
+  const destination=Number(destinationFid),active=Number(activeProjectFid);
+  if(!Number.isInteger(destination)||destination<=0)throw new Error('Project write guard requires a valid destination FID.');
+  if(!Number.isInteger(active)||active<=0)throw new Error('Project write guard requires a valid active project FID.');
+  if(requireInactive&&active===destination)throw new Error('Refusing project write: destination project is currently active.');
+  if(expectedActiveProjectFid!=null&&active!==Number(expectedActiveProjectFid))
+    throw new Error('Refusing project write: active project changed after preflight.');
+  return active;
+}
+
+export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,requireInactive=false,expectedActiveProjectFid=null}={}){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
     if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
@@ -420,6 +430,16 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
       :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
     await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
 
+    let activeProjectBeforeWrite=null;
+    if(requireInactive||expectedActiveProjectFid!=null){
+      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
+        destinationFid:destination.nodeId,
+        activeProjectFid:await getActiveNodeUnlocked(parent.nodeId),
+        requireInactive,
+        expectedActiveProjectFid
+      });
+    }
+
     let candidateWritten=false;
     try{
       await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
@@ -443,6 +463,7 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
         verification,
         reload,
         sampleDependencies,
+        activeProjectBeforeWrite,
         backup:{name:backup.name,size:backup.size}
       };
     }catch(error){
