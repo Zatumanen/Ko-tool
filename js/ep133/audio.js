@@ -42,11 +42,13 @@ function parseKo2Metadata(bytes){
     if(id==='LIST'&&size>=12&&text(offset+8,4)==='INFO'&&text(offset+12,4)==='TNGE'){
       const jsonLength=view.getUint32(offset+16,true);
       if(jsonLength>0&&offset+20+jsonLength<=view.byteLength){
+        const json=new TextDecoder().decode(bytes.slice(offset+20,offset+20+jsonLength));
         try{
-          const json=new TextDecoder().decode(bytes.slice(offset+20,offset+20+jsonLength));
           const metadata=JSON.parse(json);
           return metadata&&typeof metadata==='object'?metadata:null;
-        }catch{}
+        }catch(error){
+          throw new Error('Invalid embedded Teenage Engineering metadata JSON: '+String(error?.message||error));
+        }
       }
     }
     offset=end;
@@ -82,10 +84,10 @@ export function prepareTeenageMetadata(audioMeta,targetSampleRate){
   const extra=audioMeta?.extra||{};
   let metadata={};
   if(typeof extra.json==='string'&&extra.json){
-    try{
-      const parsed=JSON.parse(extra.json);
-      if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))metadata={...parsed};
-    }catch{}
+    let parsed;
+    try{parsed=JSON.parse(extra.json);}
+    catch(error){throw new Error('Invalid embedded Teenage Engineering metadata JSON: '+String(error?.message||error));}
+    if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))metadata={...parsed};
   }
   const sourceRate=Number(audioMeta?.sample_rate);
   const scale=Number.isFinite(sourceRate)&&sourceRate>0&&Number.isFinite(targetSampleRate)&&targetSampleRate>0
