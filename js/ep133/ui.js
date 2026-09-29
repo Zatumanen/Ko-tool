@@ -3,7 +3,7 @@ import{
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,createTransferFileName
-}from './index.js?v=20260929-16';
+}from './index.js?v=20260929-17';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,13 +12,13 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-16';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260929-17';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-16';
-import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-16';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260929-17';
+import{BAR_VALUES,PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260929-17';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -684,8 +684,6 @@ export function initEp133Browser({showError}={}){
     const sessionToken=captureBatchSession();
     if(sources.some(item=>item.node?.isReadable!==true))throw new Error('One or more source samples cannot be read.');
     const created=[];
-    const sourceSnapshots=new Map();
-    let deletePhase=false;
     setMutating(true);
     try{
       await assertSlotsEmpty(plan.map(pair=>pair.targetId));
@@ -695,18 +693,17 @@ export function initEp133Browser({showError}={}){
         const source=sourceById.get(pair.sourceId);
         const target=memory.getSlot(pair.targetId);
         if(!source||!target)throw new Error('Invalid transfer plan.');
-        const operationLabel=copy?'COPYING':'MOVING';
+        const operationLabel='COPYING';
         memory.setOperation(target.id,{status:'uploading',label:operationLabel,progress:0});
         const downloaded=await getFile(source.nodeId||source.id,(done,total)=>{
           const local=total?done/total:0;
-          setGlobalProgress(copy?'COPY':'MOVE',((index+local*.35)/plan.length)*100);
+          setGlobalProgress('COPY',((index+local*.35)/plan.length)*100);
         });
         assertBatchSession(sessionToken);
         const bytes=downloaded?.data instanceof Uint8Array?downloaded.data:new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
         const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
         assertBatchSession(sessionToken);
-        sourceSnapshots.set(source.id,{bytes,metadata:sourceMetadata});
         const metadata=prepareSampleTransferMetadata(sourceMetadata,{
           allowedPlayModes:activeDeviceProfile.playModes,
           allowedBarValues:BAR_VALUES
@@ -731,7 +728,7 @@ export function initEp133Browser({showError}={}){
             const local=total?done/total:0;
             const rowProgress=Math.round(local*100);
             memory.setOperation(target.id,{status:'uploading',label:operationLabel,progress:rowProgress});
-            setGlobalProgress(copy?'COPY':'MOVE',((index+.35+local*.55)/plan.length)*100);
+            setGlobalProgress('COPY',((index+.35+local*.55)/plan.length)*100);
           }
         });
         assertBatchSession(sessionToken);
@@ -747,36 +744,16 @@ export function initEp133Browser({showError}={}){
           allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
           allowedBarValues:BAR_VALUES
         }));
-        memory.setOperation(target.id,{status:'complete',label:copy?'COPIED':'MOVED',progress:100});
-        setGlobalProgress(copy?'COPY':'MOVE',((index+.95)/plan.length)*100);
+        memory.setOperation(target.id,{status:'complete',label:'COPIED',progress:100});
+        setGlobalProgress('COPY',((index+.95)/plan.length)*100);
       }
 
-      if(!copy){
-        for(const pair of plan){
-          const source=sourceById.get(pair.sourceId);
-          const snapshot=sourceSnapshots.get(source.id);
-          if(!snapshot)throw new Error('MOVE source snapshot is missing; delete aborted.');
-          await assertSourceSnapshot(source,snapshot);
-        }
-        deletePhase=true;
-        const deletedIds=[];
-        for(let index=0;index<plan.length;index++){
-          const source=sourceById.get(plan[index].sourceId);
-          await deleteFile(source.nodeId||source.id);
-          deletedIds.push(source.id);
-          deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(source.nodeId||source.id));
-          memory.clearSlot(source.id);
-          setGlobalProgress('MOVE',95+(index+1)/plan.length*4);
-        }
-        await assertSlotsDeleted(deletedIds);
-        setGlobalProgress('MOVE',100);
-      }
       renderDeviceStats(soundsMetadata,memory.countOccupied());
       for(const id of created)memory.clearOperation(id);
-      setGlobalProgress(copy?'COPY':'MOVE',100);
+      setGlobalProgress('COPY',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
     }catch(error){
-      if(!deletePhase&&isConnected()){
+      if(isConnected()){
         for(const id of [...created].reverse()){
           try{
             assertBatchSession(sessionToken);

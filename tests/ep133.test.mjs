@@ -167,7 +167,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260929-16/);
+  assert.match(html,/css\/my-ep\.css\?v=20260929-17/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -192,7 +192,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-16'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260929-17'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -566,6 +566,9 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
   const block=source.slice(start,source.indexOf('const deleteSamples=async',start));
   assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(block,/NATIVE FILE_MOVE FAILED/);
+  assert.doesNotMatch(block,/sourceSnapshots/);
+  assert.doesNotMatch(block,/deletePhase/);
+  assert.doesNotMatch(block,/if\(!copy\)\{/);
   const beforeCopy=block.slice(0,block.indexOf("if(sources.some"));
   assert.doesNotMatch(beforeCopy,/getFile\(/);
   assert.doesNotMatch(beforeCopy,/deleteFile\(/);
