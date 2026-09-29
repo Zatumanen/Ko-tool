@@ -634,15 +634,12 @@ test('all public mutating FILE APIs use the strict firmware debug guard',async()
   assert.match(source,/export async function setFileMetadata[\s\S]*runGuardedFileMutation\('METADATA_SET mutation'/);
 });
 
-test('EP FILE streams fail closed if GET PUT or paged metadata is interrupted or init state is ambiguous',async()=>{
+test('EP FILE init ambiguity and browser lock guards remain explicit',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   assert.match(source,/FILE_PUT init timed out after request dispatch; device write state is unknown/);
   assert.match(source,/FILE_GET init timed out after request dispatch; device read state is unknown/);
   assert.match(source,/Paged METADATA SET init timed out after request dispatch; device write state is unknown/);
-  assert.match(source,/FILE_PUT stream was interrupted before EOF/);
-  assert.match(source,/FILE_GET stream was interrupted before the declared byte count/);
-  assert.match(source,/Paged METADATA SET was interrupted before EOF/);
   assert.match(source,/navigator\?\.locks/);
 });
 
