@@ -1,4 +1,4 @@
-import{CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260930-4';
+import{CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
 
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
 const VERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{

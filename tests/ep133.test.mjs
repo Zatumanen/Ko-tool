@@ -242,7 +242,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260930-4/);
+  assert.match(html,/css\/my-ep\.css\?v=20260930-5/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -267,7 +267,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-4'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-5'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -291,16 +291,20 @@ test('My EP holds the official-named app lock for the lifetime of the tab',async
   assert.match(source,/if\(!await instanceLockGate\)/);
 });
 
-test('My EP normal upload no longer rereads metadata after a successful write',async()=>{
+test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('async function uploadFilesToSlot');
   const block=source.slice(start,source.indexOf('const readDevice=async',start));
-  assert.match(block,/const info=await getFileInfo\(fileId\)/);
-  assert.doesNotMatch(block,/await getFileMetadata\(target\.id\)/);
-  assert.match(block,/const localMetadata=prepareSampleLocalMetadata/);
-  assert.match(block,/memory\.setMetadata\(target\.id,localMetadata\)/);
-  assert.match(block,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  const successPath=block.slice(0,block.indexOf('}catch(error){'));
+  assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
+  assert.doesNotMatch(successPath,/await getFileMetadata\(target\.id\)/);
+  assert.doesNotMatch(successPath,/waitForMetadataUpdate\(soundsParentId\)/);
+  assert.match(successPath,/provisionalUploadedFileItem/);
+  assert.match(successPath,/const localMetadata=prepareSampleLocalMetadata/);
+  assert.match(successPath,/memory\.setMetadata\(target\.id,localMetadata\)/);
+  assert.match(successPath,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  assert.match(block,/setTimeout\(\(\)=>\{[\s\S]*void hydrateUploadedFileItem\(id\)/);
 });
 
 test('SpeedUpperCut statistics separate disk file size from offline EP PCM storage',async()=>{
@@ -1788,15 +1792,43 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
-test('My EP rechecks each upload target before PUT without downloading PCM back afterward',async()=>{
+test('My EP normal upload preflights one batch instead of repeating FILE checks per sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('async function uploadFilesToSlot');
   const block=source.slice(start,source.indexOf('const readDevice=async',start));
-  assert.match(block,/await assertSlotsEmpty\(\[target\.id\]\)/);
-  assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
-  assert.match(block,/const info=await getFileInfo\(fileId\)/);
+  const successPath=block.slice(0,block.indexOf('}catch(error){'));
+  assert.match(block,/await withSampleUploadBatch\(async\(\)=>\{/);
+  assert.match(block,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\)\)/);
+  assert.equal((successPath.match(/assertSlotsEmpty\(/g)||[]).length,1);
+  assert.doesNotMatch(successPath,/assertSampleFitsAvailableMemory\(/);
+  assert.doesNotMatch(successPath,/syncMetadataAfterMutation\(soundsParentId/);
+  assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
+  assert.match(successPath,/let remainingFreeSpace=Number\(soundsMetadata\?\.free_space_in_bytes\)/);
+  assert.match(successPath,/remainingFreeSpace=Math\.max\(0,remainingFreeSpace-prepared\.data\.byteLength\)/);
   assert.match(block,/onCreated:id=>\{createdId=Number\(id\)\|\|target\.id;item\.createdId=createdId;\}/);
+  assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
+});
+
+test('sample upload batch guard keeps one strict firmware-debug preflight around nested uploads',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(source,/export function withSampleUploadBatch\(operation\)/);
+  assert.match(source,/return withStrictFirmwareDebugGuard\(operation,'sample upload batch'\)/);
+  const uploadStart=source.indexOf('export async function uploadSampleToSlot');
+  const uploadBlock=source.slice(uploadStart,source.indexOf('export async function startPlayback',uploadStart));
+  assert.match(uploadBlock,/runGuardedFileMutation\('sample upload transaction'/);
+  assert.ok(uploadBlock.indexOf('await putFileUnlocked')<uploadBlock.indexOf('await setFileMetadataUnlocked'));
+  assert.ok(uploadBlock.indexOf('await setFileMetadataUnlocked')<uploadBlock.indexOf('await initFileSystemUnlocked'));
+});
+
+test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/const pendingUploadEvents=new Set\(\)/);
+  assert.match(source,/if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return/);
+  assert.match(source,/pendingUploadEvents\.add\(Number\(target\.id\)\)/);
+  assert.match(source,/pendingUploadEvents\.delete\(Number\(item\.slot\.id\)\)/);
 });
 
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{

@@ -1,5 +1,5 @@
-import{patchProjectArchiveMembers,buildProjectFromNative,validateProjectArchive}from './projectArchive.js?v=20260930-4';
-import{readProjectModel}from './projectReader.js?v=20260930-4';
+import{patchProjectArchiveMembers,buildProjectFromNative,validateProjectArchive}from './projectArchive.js?v=20260930-5';
+import{readProjectModel}from './projectReader.js?v=20260930-5';
 
 const GROUPS='ABCD';
 const FADER_MAX=32767;

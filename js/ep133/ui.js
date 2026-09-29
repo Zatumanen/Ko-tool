@@ -1,9 +1,9 @@
 import{
   connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
-  listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,
+  listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withSampleUploadBatch,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName
-}from './index.js?v=20260930-4';
+}from './index.js?v=20260930-5';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -12,14 +12,14 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-4';
+import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-5';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
 }from './sampleMemory.js?v=20260928-4';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-4';
-import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-4';
-import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-4';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
+import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-5';
+import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -86,6 +86,7 @@ export function initEp133Browser({showError}={}){
   const pendingPropertyKeys=new Set();
   const sampleMetadataCache=createSampleMetadataCache();
   const pendingNativeMoveEvents=new Set();
+  const pendingUploadEvents=new Set();
   const nativeMoveEventKey=(oldNodeId,newNodeId)=>Number(oldNodeId)+':'+Number(newNodeId);
   const suppressNativeMoveEvent=(oldNodeId,newNodeId)=>{
     const key=nativeMoveEventKey(oldNodeId,newNodeId);
@@ -238,6 +239,37 @@ export function initEp133Browser({showError}={}){
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
+  };
+  const provisionalUploadedFileItem=({nodeId,parentId,fileSize,fileName})=>{
+    const parent=deviceFiles.find(item=>Number(item.nodeId)===Number(parentId));
+    const parentPath=parent?.fileName||'/sounds';
+    const normalizedName=normalizeFileName(fileName||'sample.wav');
+    const flags=TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ;
+    return{
+      nodeId:Number(nodeId),
+      flags,
+      fileSize:Number(fileSize)||0,
+      fileName:(parentPath||'/sounds')+'/'+normalizedName,
+      fileType:'file',
+      isReadable:true,
+      isWritable:false,
+      isDeletable:false,
+      isMovable:false,
+      isPlayable:false
+    };
+  };
+  const hydrateUploadedFileItem=async nodeId=>{
+    try{
+      const info=await getFileInfo(nodeId);
+      const item=fileItemFromInfo(info);
+      if(!item)return;
+      updateDeviceFile(item);
+      memory.setSlot(item);
+      const metadata=await getFileMetadata(nodeId);
+      memory.setMetadata(nodeId,metadata||{});
+      sampleMetadataCache.set(memory.getSlot(nodeId),metadata||{});
+      renderDeviceStats(soundsMetadata,memory.countOccupied());
+    }catch(error){logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);}
   };
   const soundSlotIds=files=>new Set(
     (files||[])
@@ -895,94 +927,129 @@ export function initEp133Browser({showError}={}){
     const successes=[];
     const failures=[];
     try{
-      await assertSlotsEmpty(targets.map(item=>item.slot.id));
-      for(let index=0;index<targets.length;index++){
-        assertBatchSession(sessionToken);
-        const item=targets[index];
-        const target=item.slot;
-        try{
-          memory.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
-          const prepared=await prepareEp133Sample(item.file,{
-            formats:soundFormats,
-            onProgress:(value,info)=>{
-              const progress=Math.max(0,Math.min(100,Number(value)||0));
-              const phase=String(info?.status||'preparing').toUpperCase();
-              memory.setOperation(target.id,{status:String(info?.status||'preparing'),label:phase,progress});
-              setGlobalProgress('UPLOAD',((index+(progress/100)*.35)/targets.length)*100);
-            }
-          });
-          assertBatchSession(sessionToken);
-          const metadata={
-            channels:prepared.channels,
-            samplerate:prepared.samplerate,
-            format:prepared.format,
-            ...(prepared.metadata||{})
-          };
-          await assertSampleFitsAvailableMemory(prepared.data.byteLength);
-          await assertSlotsEmpty([target.id]);
-          memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
-          let createdId=null;
-          const metadataUpdate=waitForMetadataUpdate(soundsParentId);
-          const fileId=await uploadSampleToSlot({
-            file:item.file,
-            data:prepared.data,
-            filename:item.file.name,
-            parentId:soundsParentId,
-            destinationId:target.id,
-            metadata,
-            allowedPlayModes:activeDeviceProfile.playModes,
-            allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-            barWriteMode:'omit',
-            onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
-            onProgress:(done,total)=>{
-              const local=total?done/total:0;
-              memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:local*100});
-              setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
-            }
-          });
-          assertBatchSession(sessionToken);
-          await syncMetadataAfterMutation(soundsParentId,metadataUpdate);
-          const info=await getFileInfo(fileId);
-          const fileItem=fileItemFromInfo(info);
-          if(!fileItem)throw new Error('Uploaded sample could not be verified.');
-          updateDeviceFile(fileItem);
-          memory.setSlot(fileItem);
-          const localMetadata=prepareSampleLocalMetadata({...metadata,name:normalizeFileName(item.file.name)},{
-            allowedPlayModes:activeDeviceProfile.playModes,
-            allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-            barWriteMode:'omit'
-          });
-          memory.setMetadata(target.id,localMetadata);
-          sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
-          memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
-          successes.push(target.id);
-          setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
-        }catch(error){
-          failures.push({file:item.file,error});
-          memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
-          logTechnical('UPLOAD '+item.file.name,error);
-          const createdId=Number(item.createdId)||0;
-          if(createdId&&isConnected()&&!deviceUnsafe){
-            try{
-              const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
-              await deleteFile(createdId);
-              await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
-              await assertSlotsDeleted([createdId]);
-              memory.clearSlot(createdId);
-            }catch(rollbackError){
-              logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
-            }
-          }
-          if(deviceUnsafe)break;
+      await withSampleUploadBatch(async()=>{
+        await assertSlotsEmpty(targets.map(item=>item.slot.id));
+        let remainingFreeSpace=Number(soundsMetadata?.free_space_in_bytes);
+        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0){
+          const latestSounds=await refreshSoundsRuntimeMetadata();
+          remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
         }
-      }
+        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
+
+        for(let index=0;index<targets.length;index++){
+          assertBatchSession(sessionToken);
+          const item=targets[index];
+          const target=item.slot;
+          try{
+            memory.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
+            const prepared=await prepareEp133Sample(item.file,{
+              formats:soundFormats,
+              onProgress:(value,info)=>{
+                const progress=Math.max(0,Math.min(100,Number(value)||0));
+                const phase=String(info?.status||'preparing').toUpperCase();
+                memory.setOperation(target.id,{status:String(info?.status||'preparing'),label:phase,progress});
+                setGlobalProgress('UPLOAD',((index+(progress/100)*.35)/targets.length)*100);
+              }
+            });
+            assertBatchSession(sessionToken);
+            const metadata={
+              channels:prepared.channels,
+              samplerate:prepared.samplerate,
+              format:prepared.format,
+              ...(prepared.metadata||{})
+            };
+            if(remainingFreeSpace!=null&&prepared.data.byteLength>remainingFreeSpace)
+              throw new Error('Not enough free sample memory on the connected EP.');
+
+            memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+            let createdId=null;
+            pendingUploadEvents.add(Number(target.id));
+            const fileId=await uploadSampleToSlot({
+              file:item.file,
+              data:prepared.data,
+              filename:item.file.name,
+              parentId:soundsParentId,
+              destinationId:target.id,
+              metadata,
+              allowedPlayModes:activeDeviceProfile.playModes,
+              allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
+              barWriteMode:'omit',
+              onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
+              onProgress:(done,total)=>{
+                const local=total?done/total:0;
+                memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:local*100});
+                setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
+              }
+            });
+            assertBatchSession(sessionToken);
+            if(Number(fileId)!==Number(target.id))
+              throw new Error('The device wrote a sample to an unexpected slot.');
+
+            const fileItem=provisionalUploadedFileItem({
+              nodeId:fileId,
+              parentId:soundsParentId,
+              fileSize:prepared.data.byteLength,
+              fileName:item.file.name
+            });
+            updateDeviceFile(fileItem);
+            memory.setSlot(fileItem);
+
+            const localMetadata=prepareSampleLocalMetadata({...metadata,name:normalizeFileName(item.file.name)},{
+              allowedPlayModes:activeDeviceProfile.playModes,
+              allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
+              barWriteMode:'omit'
+            });
+            memory.setMetadata(target.id,localMetadata);
+            sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
+
+            if(remainingFreeSpace!=null){
+              remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
+              soundsMetadata={...soundsMetadata,free_space_in_bytes:remainingFreeSpace};
+            }
+            renderDeviceStats(soundsMetadata,memory.countOccupied());
+            memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
+            successes.push(target.id);
+            setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
+          }catch(error){
+            pendingUploadEvents.delete(Number(target.id));
+            failures.push({file:item.file,error});
+            memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+            logTechnical('UPLOAD '+item.file.name,error);
+            const createdId=Number(item.createdId)||0;
+            if(createdId&&isConnected()&&!deviceUnsafe){
+              try{
+                const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
+                await deleteFile(createdId);
+                await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
+                await assertSlotsDeleted([createdId]);
+                memory.clearSlot(createdId);
+              }catch(rollbackError){
+                logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
+              }
+            }
+            if(deviceUnsafe)break;
+          }
+        }
+      });
+
       renderDeviceStats(soundsMetadata,memory.countOccupied());
-      if(successes.length)memory.selectSlots(successes,{activeId:successes[0],preview:false,navigate:true});
+      if(successes.length){
+        memory.selectSlots(successes,{activeId:successes[0],preview:false,navigate:true});
+        setTimeout(()=>{
+          for(const id of successes){
+            const current=memory.getSlot(id)?.node;
+            if(current?.isWritable||current?.isDeletable||current?.isMovable||current?.isPlayable)continue;
+            void hydrateUploadedFileItem(id);
+          }
+        },250);
+      }
       if(failures.length){
         const names=failures.map(item=>'• '+item.file.name).join('\n');
         showError?.('COULD NOT UPLOAD:\n'+names);
       }
+      if(successes.length)void refreshSoundsRuntimeMetadata().catch(error=>logTechnical('UPLOAD FREE SPACE REFRESH',error));
     }finally{
+      for(const item of targets)pendingUploadEvents.delete(Number(item.slot.id));
       setTimeout(()=>{for(const item of targets)memory.clearOperation(item.slot.id);},900);
       hideGlobalProgress();
       setMutating(false);
@@ -1113,6 +1180,7 @@ export function initEp133Browser({showError}={}){
         return;
       }
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_ADDED||event.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED){
+        if(pendingUploadEvents.has(Number(payload.nodeId)))return;
         sampleMetadataCache.invalidate(Number(payload.nodeId));
         const info=await getFileInfo(Number(payload.nodeId));
         const item=fileItemFromInfo(info);
