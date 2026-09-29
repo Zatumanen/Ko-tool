@@ -298,7 +298,9 @@ test('My EP normal upload no longer rereads metadata after a successful write',a
   const block=source.slice(start,source.indexOf('const readDevice=async',start));
   assert.match(block,/const info=await getFileInfo\(fileId\)/);
   assert.doesNotMatch(block,/await getFileMetadata\(target\.id\)/);
-  assert.match(block,/memory\.setMetadata\(target\.id,prepareSampleWritableMetadata/);
+  assert.match(block,/const localMetadata=prepareSampleLocalMetadata/);
+  assert.match(block,/memory\.setMetadata\(target\.id,localMetadata\)/);
+  assert.match(block,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
 });
 
 test('SpeedUpperCut statistics separate disk file size from offline EP PCM storage',async()=>{
