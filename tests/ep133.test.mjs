@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -330,6 +330,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   ]);
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
+  const fileProtocol=await read('js/ep133/fileProtocol.js');
   const filesystem=await read('js/ep133/filesystem.js');
   const fileScheduler=await read('js/ep133/fileScheduler.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
@@ -385,6 +386,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(filesystem.includes("./device.js?v="+token),true);
   assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(filesystem.includes("./fileScheduler.js?v="+token),true);
+  assert.equal(filesystem.includes("./fileProtocol.js?v="+token),true);
   assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
 });
@@ -2607,4 +2609,37 @@ test('project compound transport already occupies one FILE scheduler task with u
   assert.match(reload,/return runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
   assert.match(reload,/listDirectoryUnlocked\(/);
   assert.match(reload,/reloadProjectUnlocked\(/);
+});
+
+
+test('FILE protocol builders and parsers live in a device-independent pure module',async()=>{
+  const fs=await import('node:fs/promises');
+  const protocolSource=await fs.readFile(new URL('../js/ep133/fileProtocol.js',import.meta.url),'utf8');
+  const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.doesNotMatch(protocolSource,/\.\/device\.js/);
+  assert.doesNotMatch(protocolSource,/requestFile|requestRead|fileScheduler|navigator\.locks/);
+  assert.match(filesystemSource,/from '\.\/fileProtocol\.js\?v=20260930-5'/);
+  assert.match(filesystemSource,/export\{calculateMaxPayloadLength,buildFileInitPayload/);
+  assert.doesNotMatch(filesystemSource,/export function buildFileInitPayload/);
+  assert.doesNotMatch(filesystemSource,/export function buildFileMovePayload/);
+  assert.doesNotMatch(filesystemSource,/export function buildFileGetInitPayload/);
+});
+
+test('filesystem facade protocol exports remain byte-for-byte equivalent to direct protocol exports',async()=>{
+  const facade=await import('../js/ep133/filesystem.js');
+  const protocol=await import('../js/ep133/fileProtocol.js');
+  const cases=[
+    ['buildFileInitPayload',[4096]],
+    ['buildFileListPayload',[2,1000]],
+    ['buildMetadataGetPayload',[7,3,'name']],
+    ['buildFileInfoPayload',[7]],
+    ['buildFileDeletePayload',[7]],
+    ['buildFileMovePayload',[7,1000,8]],
+    ['buildFileGetInitPayload',[7,0]],
+    ['buildFileGetDataPayload',[3]]
+  ];
+  for(const[name,args]of cases)
+    assert.deepEqual([...facade[name](...args)],[...protocol[name](...args)],name);
+  const move=Uint8Array.from([0,7,3,232,0,8]);
+  assert.deepEqual(facade.parseFileMoveResponse(move),protocol.parseFileMoveResponse(move));
 });
