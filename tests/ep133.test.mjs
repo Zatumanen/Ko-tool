@@ -737,7 +737,7 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
   const start=ui.indexOf('const transactionalTransfer=async');
   const block=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
   assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
-  assert.match(block,/return copyTransfer\(plan,sourceById,sources\)/);
+  assert.match(block,/return copyTransfer\(plan,sourceById,canonicalSources\)/);
   assert.doesNotMatch(block,/getFile\(/);
   assert.doesNotMatch(block,/deleteFile\(/);
   assert.doesNotMatch(move,/getFile\(/);
@@ -751,7 +751,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   assert.match(ui,/const assertSlotsDeleted=async ids=>/);
   assert.match(ui,/const files=await readAuthoritativeFiles\(\)/);
   assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
-  assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
+  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\)\)/);
 });
 
 test('My EP keeps event-first metadata sync for destructive mutations but not the normal upload fast path',async()=>{
@@ -1991,7 +1991,7 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   const helpers=await fs.readFile(new URL('../js/ep133/sampleProperties.js',import.meta.url),'utf8');
-  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{[\s\S]*playModes:profile\.playModes,[\s\S]*barPolicy:profile\.sampleBars/);
+  assert.match(source,/getSamplePropertyChange\(canonical,key,direction,\{[\s\S]*playModes:profile\.playModes,[\s\S]*barPolicy:profile\.sampleBars/);
   assert.match(helpers,/export const TIME_MODES=Object\.freeze\(\['off','bpm','bar'\]\)/);
   assert.doesNotMatch(helpers,/BAR_VALUES/);
   assert.match(helpers,/data-readonly="true"/);
@@ -2381,7 +2381,9 @@ test('SampleStore is the only sample-state mutation owner outside the sampleMemo
   const sources=await Promise.all(paths.map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
   for(const source of sources){
     assert.doesNotMatch(source,/sampleMetadataCache/);
-    assert.doesNotMatch(source,/\bdeviceFiles\b/);
+    assert.doesNotMatch(source,/\blet\s+deviceFiles\b/);
+    assert.doesNotMatch(source,/\bgetDeviceFiles\b/);
+    assert.doesNotMatch(source,/\bsetDeviceFiles\b/);
     assert.doesNotMatch(source,/memory\.setMetadata\(/);
     assert.doesNotMatch(source,/memory\.mergeMetadata\(/);
     assert.doesNotMatch(source,/memory\.setSlot\(/);
