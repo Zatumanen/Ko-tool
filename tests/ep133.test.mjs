@@ -1798,9 +1798,10 @@ test('EP-1320 project transport stays opaque while semantic validation and reloa
 
 test('EP project archive upload uses the TE 15s timeout through injected unlocked transport',async()=>{
   const fs=await import('node:fs/promises');
-  const [project,filesystem]=await Promise.all([
+  const [project,filesystem,transport]=await Promise.all([
     fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8')
   ]);
   const start=project.indexOf('const uploadProjectArchive=async');
   const end=project.indexOf('const downloadProjectArchive=async',start);
@@ -1812,7 +1813,8 @@ test('EP project archive upload uses the TE 15s timeout through injected unlocke
   assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
   assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
   assert.match(block,/await putFile\(\{/);
-  assert.match(filesystem,/putFile:putFileUnlocked/);
+  assert.match(filesystem,/putFile:fileTransportInternals\.putFile/);
+  assert.match(transport,/putFile:putFileUnlocked/);
   assert.doesNotMatch(project,/putFileUnlocked/);
 });
 
@@ -2633,7 +2635,7 @@ test('FILE protocol builders and parsers live in a device-independent pure modul
   assert.doesNotMatch(protocolSource,/\.\/device\.js/);
   assert.doesNotMatch(protocolSource,/requestFile|requestRead|fileScheduler|navigator\.locks/);
   assert.match(filesystemSource,/from '\.\/fileProtocol\.js\?v=20260930-5'/);
-  assert.match(filesystemSource,/export\{calculateMaxPayloadLength,buildFileInitPayload/);
+  assert.match(filesystemSource,/export\{\s*calculateMaxPayloadLength,buildFileInitPayload/);
   assert.doesNotMatch(filesystemSource,/export function buildFileInitPayload/);
   assert.doesNotMatch(filesystemSource,/export function buildFileMovePayload/);
   assert.doesNotMatch(filesystemSource,/export function buildFileGetInitPayload/);
