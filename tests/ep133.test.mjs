@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -2334,26 +2334,6 @@ test('project reload marks runtime settling and later project mutations honor th
   assert.match(source.slice(uploadStart,uploadEnd),/assertProjectRuntimeSettled\('project write'\)/);
 });
 
-test('legacy sample metadata cache helper remains behavior-compatible during Store migration',async()=>{
-  const {createSampleMetadataCache,prioritizeMetadataSlots,sampleMetadataFingerprint}=await import('../js/ep133/sampleMetadataCache.js');
-  const slot=id=>({id,nodeId:id,file:{name:id+'.pcm',path:'/sounds/'+id+'.pcm',size:id*10}});
-  const cache=createSampleMetadataCache();
-  const one=slot(1);
-  assert.equal(sampleMetadataFingerprint(one),'1:10:/sounds/1.pcm');
-  cache.set(one,{name:'kick',channels:1});
-  assert.deepEqual(cache.get(one),{name:'kick',channels:1});
-  const changed={...one,file:{...one.file,size:11}};
-  assert.equal(cache.get(changed),null);
-  cache.merge(one,{channels:2});
-  assert.deepEqual(cache.get(one),{name:'kick',channels:2});
-  cache.invalidate(1);
-  assert.equal(cache.get(one),null);
-  const ordered=prioritizeMetadataSlots([slot(150),slot(3),slot(105),slot(110),slot(2)],{
-    selectedId:110,activeRange:[100,199]
-  });
-  assert.deepEqual(ordered.map(item=>item.id),[110,105,150,2,3]);
-});
-
 test('SampleStore metadata is invalidated or refreshed by device file events',async()=>{
   const fs=await import('node:fs/promises');
   const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
@@ -2390,9 +2370,38 @@ test('SampleStore is the only sample-state mutation owner outside the sampleMemo
     assert.doesNotMatch(source,/memory\.clearSlot\(/);
   }
   const ui=sources[0];
+  const store=await fs.readFile(new URL('../js/ep133/sampleStore.js',import.meta.url),'utf8');
+  const memory=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
   assert.match(ui,/const sampleStore=createSampleStore\(\)/);
   assert.match(ui,/sampleStore\.bindMemory\(memory\)/);
   assert.match(ui,/planSampleTransferTargets\(sampleStore\.getSlots\(\)/);
+  assert.doesNotMatch(store,/asMetadataCache/);
+  assert.match(store,/memory\?\.setMetadata\?\./);
+  assert.match(store,/memory\?\.mergeMetadata\?\./);
+  assert.match(store,/memory\.setSlot\?\./);
+  assert.match(store,/memory\.clearSlot\?\./);
+  assert.match(memory,/setMetadata,mergeMetadata/);
+  await assert.rejects(
+    fs.access(new URL('../js/ep133/sampleMetadataCache.js',import.meta.url)),
+    error=>error?.code==='ENOENT'
+  );
+});
+
+test('legacy sample metadata cache module has no remaining source references',async()=>{
+  const fs=await import('node:fs/promises');
+  const files=[
+    '../js/ep133/ui.js',
+    '../js/ep133/sampleStore.js',
+    '../js/ep133/ui/sampleLibrarySync.js',
+    '../js/ep133/ui/fileEvents.js',
+    '../js/ep133/ui/samplePropertiesController.js',
+    '../js/ep133/ui/sampleDeleteController.js',
+    '../js/ep133/ui/sampleUploadController.js',
+    '../js/ep133/ui/sampleMoveController.js',
+    '../js/ep133/ui/sampleCopyController.js'
+  ];
+  const sources=await Promise.all(files.map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
+  for(const source of sources)assert.doesNotMatch(source,/sampleMetadataCache|createSampleMetadataCache|prioritizeMetadataSlots/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

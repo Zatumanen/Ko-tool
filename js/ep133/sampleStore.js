@@ -260,23 +260,6 @@ export function createSampleStore(){
     return cached?cloneObject(cached.metadata):null;
   };
 
-  const asMetadataCache=()=>({
-    get:slot=>getCachedMetadata(slot),
-    set:(slot,metadata)=>{
-      const id=Number(slot?.nodeId||slot?.id);
-      if(!Number.isInteger(id))return null;
-      return setMetadata(id,metadata);
-    },
-    merge:(slot,patch)=>{
-      const id=Number(slot?.nodeId||slot?.id);
-      if(!Number.isInteger(id))return null;
-      return mergeMetadata(id,patch);
-    },
-    invalidate:id=>invalidateMetadata(id),
-    clear:()=>metadataHistory.clear(),
-    size:()=>metadataHistory.size
-  });
-
   const setOperation=(nodeId,operation)=>{
     const id=Number(nodeId);
     const slot=slots[id-1];
@@ -375,7 +358,7 @@ export function createSampleStore(){
     },
     getFiles,getSlot,getSlots,getMetadata,getCachedMetadata,countOccupied,findNextFree,
     replaceFiles,resetInventory,upsertFile,removeFile,
-    setMetadata,mergeMetadata,invalidateMetadata,asMetadataCache,
+    setMetadata,mergeMetadata,invalidateMetadata,
     setOperation,clearOperation,clearOperations,
     setVerification,setState,moveLocal,clear
   };
