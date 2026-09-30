@@ -94,25 +94,29 @@ export function createSampleStore(){
     }:null;
   };
 
+  const projection=()=>memory?.projection||null;
+
   const projectSlot=id=>{
-    if(!memory)return;
+    const view=projection();
+    if(!view)return;
     const slot=slots[Number(id)-1];
     if(!slot)return;
     if(!slot.file){
-      memory.clearSlot?.(slot.id);
+      view.clearSlot?.(slot.id);
       return;
     }
-    memory.setSlot?.(slot.node);
-    memory.setMetadata?.(slot.id,slot.meta||null);
-    if(slot.operation)memory.setOperation?.(slot.id,slot.operation);
-    else memory.clearOperation?.(slot.id);
+    view.setSlot?.(slot.node);
+    view.setMetadata?.(slot.id,slot.meta||null);
+    if(slot.operation)view.setOperation?.(slot.id,slot.operation);
+    else view.clearOperation?.(slot.id);
   };
 
   const projectAll=()=>{
-    if(!memory)return;
-    memory.setSlots?.(slots.map(cloneSlot));
+    const view=projection();
+    if(!view)return;
+    view.setSlots?.(slots.map(cloneSlot));
     for(const slot of slots){
-      if(slot.operation)memory.setOperation?.(slot.id,slot.operation);
+      if(slot.operation)view.setOperation?.(slot.id,slot.operation);
     }
   };
 
@@ -229,7 +233,7 @@ export function createSampleStore(){
     slot.verification.metadata=slot.meta?String(verification||'verified'):'unknown';
     if(slot.file&&slot.state==='empty')slot.state='ready';
     if(slot.meta)archiveMetadata(slot);else forgetMetadata(slot);
-    memory?.setMetadata?.(id,slot.meta);
+    projection()?.setMetadata?.(id,slot.meta);
     emit('metadata-set',{nodeId:id});
     return cloneObject(slot.meta);
   };
@@ -241,7 +245,7 @@ export function createSampleStore(){
     slot.meta={...(slot.meta||{}),...(patch||{})};
     slot.verification.metadata=String(verification||'verified');
     archiveMetadata(slot);
-    memory?.mergeMetadata?.(id,patch||{});
+    projection()?.mergeMetadata?.(id,patch||{});
     emit('metadata-merged',{nodeId:id});
     return cloneObject(slot.meta);
   };
@@ -253,7 +257,7 @@ export function createSampleStore(){
     forgetMetadata(slot);
     slot.meta=null;
     slot.verification.metadata='unknown';
-    memory?.setMetadata?.(id,null);
+    projection()?.setMetadata?.(id,null);
     emit('metadata-invalidated',{nodeId:id});
   };
 
@@ -304,15 +308,16 @@ export function createSampleStore(){
     const slot=slots[id-1];
     if(!slot)return;
     slot.operation=cloneOperation(operation);
-    if(slot.operation)memory?.setOperation?.(id,slot.operation);
-    else memory?.clearOperation?.(id);
+    const view=projection();
+    if(slot.operation)view?.setOperation?.(id,slot.operation);
+    else view?.clearOperation?.(id);
     emit('operation-set',{nodeId:id});
   };
 
   const clearOperation=nodeId=>setOperation(nodeId,null);
   const clearOperations=()=>{
     for(const slot of slots)slot.operation=null;
-    memory?.clearOperations?.();
+    projection()?.clearOperations?.();
     emit('operations-cleared');
   };
 
@@ -375,6 +380,8 @@ export function createSampleStore(){
   };
 
   const bindMemory=nextMemory=>{
+    if(nextMemory&&!nextMemory.projection)
+      throw new Error('SampleStore requires a sampleMemory projection target.');
     memory=nextMemory||null;
     projectAll();
     return()=>{if(memory===nextMemory)memory=null;};

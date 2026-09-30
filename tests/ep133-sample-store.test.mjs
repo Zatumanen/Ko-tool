@@ -48,7 +48,7 @@ test('SampleStore preserves metadata only while the exact file fingerprint stays
 
 test('SampleStore projects canonical mutations into sampleMemory without making memory authoritative',()=>{
   const calls=[];
-  const memory={
+  const memory={projection:{
     setSlots:slots=>calls.push(['setSlots',slots.length]),
     setSlot:item=>calls.push(['setSlot',item.nodeId]),
     clearSlot:id=>calls.push(['clearSlot',id]),
@@ -57,7 +57,7 @@ test('SampleStore projects canonical mutations into sampleMemory without making 
     setOperation:(id,operation)=>calls.push(['setOperation',id,operation.label]),
     clearOperation:id=>calls.push(['clearOperation',id]),
     clearOperations:()=>calls.push(['clearOperations'])
-  };
+  }};
   const store=createSampleStore();
   store.bindMemory(memory);
   store.upsertFile(file(8,'snare',80));
@@ -152,4 +152,13 @@ test('SampleStore owns /sounds library root metadata formats and tabs',()=>{
   assert.equal(store.getSoundsParentId(),0);
   assert.deepEqual(store.getSoundsMetadata(),{});
   assert.deepEqual(store.getSoundFormats(),[]);
+});
+
+
+test('SampleStore rejects mutable UI targets without the projection boundary',()=>{
+  const store=createSampleStore();
+  assert.throws(
+    ()=>store.bindMemory({setSlot(){},setMetadata(){}}),
+    /requires a sampleMemory projection target/
+  );
 });

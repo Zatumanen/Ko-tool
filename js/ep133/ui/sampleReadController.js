@@ -9,7 +9,7 @@ export function sampleDownloadName(slot,result){
 }
 
 export function createSampleReadController({
-  getMemory,isConnected,
+  sampleStore,getMemory,isConnected,
   startPlayback,stopPlayback,
   getFile,getFileMetadata,
   captureBatchSession,assertBatchSession,
@@ -26,6 +26,10 @@ export function createSampleReadController({
 }={}){
   let playingNodeId=null;
   let previewTimer=null;
+  const canonicalSlot=slot=>{
+    const id=Number(slot?.id||slot?.nodeId);
+    return Number.isInteger(id)&&sampleStore?.getSlot?.(id)||slot||null;
+  };
 
   const fallbackDownload=(blob,name)=>{
     const url=urlApi.createObjectURL(blob);
@@ -73,7 +77,8 @@ export function createSampleReadController({
     }
   };
 
-  const audition=async slot=>{
+  const audition=async inputSlot=>{
+    const slot=canonicalSlot(inputSlot);
     if(!slot?.file||!isConnected())return;
     const nodeId=slot.nodeId||slot.id;
     try{
@@ -92,7 +97,9 @@ export function createSampleReadController({
     }
   };
 
-  const performDownload=async(slot,{saveAs=false,index=0,total=1}={})=>{
+  const performDownload=async(inputSlot,{saveAs=false,index=0,total=1}={})=>{
+    const slot=canonicalSlot(inputSlot);
+    if(!slot?.file)throw new Error('Sample is no longer available.');
     const divisor=Math.max(1,total);
     setGlobalProgress('DOWNLOAD',(index/divisor)*100);
     const result=await getFile(slot.nodeId||slot.id,(done,size)=>{
