@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -331,6 +331,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
   const filesystem=await read('js/ep133/filesystem.js');
+  const fileScheduler=await read('js/ep133/fileScheduler.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
   const samplePropertiesController=await read('js/ep133/ui/samplePropertiesController.js');
   const sampleReadController=await read('js/ep133/ui/sampleReadController.js');
@@ -383,6 +384,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(hil.includes("./projectReader.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
   assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
+  assert.equal(filesystem.includes("./fileScheduler.js?v="+token),true);
   assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
 });
@@ -697,18 +699,19 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
 test('EP uploads validate metadata before one guarded PUT metadata SET FILE_INIT transaction',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function uploadSampleToSlot');
-  const block=source.slice(start,source.indexOf('export async function startPlayback',start));
-  const validation=block.indexOf('const writableMetadata=prepareSampleWritableMetadata');
-  const guard=block.indexOf("runGuardedFileMutation('sample upload transaction'");
-  const put=block.indexOf('await putFileUnlocked(',guard);
-  const metadata=block.indexOf('await setFileMetadataUnlocked(fileId,writableMetadata)',put);
-  const init=block.indexOf('await initFileSystemUnlocked()',metadata);
-  assert.ok(validation>=0&&guard>validation&&put>guard&&metadata>put&&init>metadata);
-  assert.doesNotMatch(block,/await putFile\(/);
-  assert.doesNotMatch(block,/await setFileMetadata\(/);
-  assert.doesNotMatch(block,/await initFileSystem\(/);
-  assert.doesNotMatch(block,/await getFileInfo\(fileId\)/);
+  const unlockedStart=source.indexOf('async function uploadSampleToSlotUnlocked');
+  const unlocked=source.slice(unlockedStart,source.indexOf('export async function uploadSampleToSlot',unlockedStart));
+  const validation=unlocked.indexOf('const writableMetadata=prepareSampleWritableMetadata');
+  const put=unlocked.indexOf('await putFileUnlocked(');
+  const metadata=unlocked.indexOf('await setFileMetadataUnlocked(fileId,writableMetadata)',put);
+  const init=unlocked.indexOf('await initFileSystemUnlocked()',metadata);
+  assert.ok(validation>=0&&put>validation&&metadata>put&&init>metadata);
+  assert.doesNotMatch(unlocked,/await putFile\(/);
+  assert.doesNotMatch(unlocked,/await setFileMetadata\(/);
+  assert.doesNotMatch(unlocked,/await initFileSystem\(/);
+  assert.doesNotMatch(unlocked,/await getFileInfo\(fileId\)/);
+  const wrapper=source.slice(source.indexOf('export async function uploadSampleToSlot'),source.indexOf('export async function startPlayback'));
+  assert.match(wrapper,/runGuardedFileMutation\('sample upload transaction',[\s\S]*uploadSampleToSlotUnlocked\(args\)/);
 });
 
 test('all public mutating FILE APIs use the strict firmware debug guard',async()=>{
@@ -1864,16 +1867,14 @@ test('My EP normal upload preflights one batch instead of repeating FILE checks 
   assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
 });
 
-test('sample upload batch guard keeps one strict firmware-debug preflight around nested uploads',async()=>{
+test('sample upload batch guard remains compatible while the FILE transaction lease is introduced',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   assert.match(source,/export function withSampleUploadBatch\(operation\)/);
   assert.match(source,/return withStrictFirmwareDebugGuard\(operation,'sample upload batch'\)/);
-  const uploadStart=source.indexOf('export async function uploadSampleToSlot');
-  const uploadBlock=source.slice(uploadStart,source.indexOf('export async function startPlayback',uploadStart));
-  assert.match(uploadBlock,/runGuardedFileMutation\('sample upload transaction'/);
-  assert.ok(uploadBlock.indexOf('await putFileUnlocked')<uploadBlock.indexOf('await setFileMetadataUnlocked'));
-  assert.ok(uploadBlock.indexOf('await setFileMetadataUnlocked')<uploadBlock.indexOf('await initFileSystemUnlocked'));
+  assert.match(source,/export function withFileTransaction\(label,operation,\{strict=false\}=\{\}\)/);
+  assert.match(source,/const lease=Object\.freeze\(\{[\s\S]*getFile:[\s\S]*uploadSampleToSlot:[\s\S]*deleteFile:[\s\S]*moveFile:/);
+  assert.match(source,/strict[\s\S]*withStrictFirmwareDebugGuard\(execute,transactionLabel\)/);
 });
 
 test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
@@ -2473,4 +2474,23 @@ test('legacy standalone sample metadata cache is removed after SampleStore migra
     ()=>fs.access(new URL('../js/ep133/sampleMetadataCache.js',import.meta.url)),
     error=>error?.code==='ENOENT'
   );
+});
+
+
+test('EP FILE scheduler exposes an explicit non-reentrant transaction lease',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const scheduler=await fs.readFile(new URL('../js/ep133/fileScheduler.js',import.meta.url),'utf8');
+  assert.match(source,/const fileScheduler=createFileScheduler\(\{withLock:withBrowserFileLock\}\)/);
+  assert.match(source,/export function withFileTransaction\(label,operation,\{strict=false\}=\{\}\)/);
+  assert.match(source,/FILE transaction lease is no longer active/);
+  assert.match(source,/getFileMetadata:track\(/);
+  assert.match(source,/getFileInfo:track\(/);
+  assert.match(source,/getFile:track\(getFileUnlocked\)/);
+  assert.match(source,/uploadSampleToSlot:track\(uploadSampleToSlotUnlocked\)/);
+  assert.match(source,/deleteFile:track\(deleteFileUnlocked\)/);
+  assert.match(source,/moveFile:track\(moveFileUnlocked\)/);
+  assert.doesNotMatch(source,/fileOperationQueue/);
+  assert.match(scheduler,/const task=queue\.then\(async\(\)=>/);
+  assert.match(scheduler,/queue=task\.catch\(\(\)=>\{\}\)/);
 });
