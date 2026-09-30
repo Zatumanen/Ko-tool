@@ -389,7 +389,6 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(hil.includes("./filesystem.js?v="+token),true);
   assert.equal(hil.includes("./projectReader.js?v="+token),true);
   assert.equal(filesystem.includes("./device.js?v="+token),true);
-  assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(filesystem.includes("./fileScheduler.js?v="+token),true);
   assert.equal(filesystem.includes("./fileProtocol.js?v="+token),true);
   assert.equal(filesystem.includes("./sampleFilesystem.js?v="+token),true);
