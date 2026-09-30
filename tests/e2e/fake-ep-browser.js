@@ -106,6 +106,12 @@
   };
   const onRequest=request=>{
     requestCount++;
+    requestLog.push({
+      command:request.command,
+      sub:request.raw?.[0]??null,
+      type:request.raw?.[1]??null,
+      raw:[...(request.raw||[])]
+    });
     if(request.command===GREET){
       emitLater(response(request,enc.encode(`base_sku:${sku};os_version:${osVersion};serial:${serial};`)));return;
     }
@@ -214,7 +220,8 @@
   };
   window.__fakeEp={
     midiAccessRequests:[],
-    get requestCount(){return requestCount;},\n    get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
+    get requestCount(){return requestCount;},
+    get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
