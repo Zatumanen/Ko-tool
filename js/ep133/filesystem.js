@@ -5,12 +5,12 @@ import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,p
 import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
 import{createFileScheduler}from './fileScheduler.js?v=20260930-5';
+import{
+  readU16 as u16,readU32 as u32,
+  calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,buildMetadataGetPayload,parseFileListEntries,buildFileInfoPayload,parseFileInfoResponse,buildFileDeletePayload,buildFileMovePayload,parseFileMoveResponse,buildFilePutInitPayload,validateFilePutPage,buildFilePutDataPayload,buildMetadataSetPayload,buildMetadataPagedInitPayload,buildMetadataPagedDataPayload,validateFileGetChunk,buildFileGetInitPayload,buildFileGetDataPayload
+}from './fileProtocol.js?v=20260930-5';
+export{calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,buildMetadataGetPayload,parseFileListEntries,buildFileInfoPayload,parseFileInfoResponse,buildFileDeletePayload,buildFileMovePayload,parseFileMoveResponse,buildFilePutInitPayload,validateFilePutPage,buildFilePutDataPayload,buildMetadataSetPayload,buildMetadataPagedInitPayload,buildMetadataPagedDataPayload,validateFileGetChunk,buildFileGetInitPayload,buildFileGetDataPayload};
 
-const u16=(a,i)=>(a[i]<<8)|a[i+1];
-const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
-const writeString=(view,offset,text,terminate=false)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));if(terminate)view.setUint8(offset+text.length,0);};
-const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextEncoder().encode(text);new Uint8Array(view.buffer,view.byteOffset+offset,bytes.length).set(bytes);if(terminate)view.setUint8(offset+bytes.length,0);return bytes.length;};
-const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
 const projectRuntimeGate=createProjectRuntimeGate();
 async function withBrowserFileLock(operation){
@@ -101,26 +101,12 @@ function connectedProjectProfile(mode='transport'){
   if(mode==='reload')return assertProjectReloadSupported(info.sku,firmware);
   return assertProjectTransportSupported(info.sku,firmware);
 }
-export function calculateMaxPayloadLength(maxPacketLength){const overhead=TE_SYSEX_HEADER_OVERHEAD+2+TE_SYSEX_FOOTER_OVERHEAD;if(maxPacketLength<=overhead)return 0;const available=maxPacketLength-1-overhead;return available-Math.floor(available/8);}
 
-export function buildFileInitPayload(maxResponseLength=4*1024*1024){const p=new Uint8Array(6),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INIT;p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;view.setUint32(2,maxResponseLength);return p;}
 
 async function initFileSystemUnlocked(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,buildFileInitPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
 
 export async function initFileSystem(maxResponseLength=4*1024*1024){return runFileOperation(()=>initFileSystemUnlocked(maxResponseLength));}
 async function initRead(maxResponseLength=4*1024*1024){return initFileSystemUnlocked(maxResponseLength);}
-export function buildFileListPayload(page,nodeId){const p=new Uint8Array(5),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_LIST;view.setUint16(1,page);view.setUint16(3,nodeId);return p;}
-
-export function parseMetadataResponse(raw,page){if(raw.length<=2)return null;const responsePage=u16(raw,0);if(responsePage!==page)throw new Error('Unexpected metadata page '+responsePage+', expected '+page);return{text:parseNullTerminatedString(raw,2),done:raw[raw.length-1]===0};}
-export function buildMetadataGetPayload(nodeId,page=0,key=null){
-  const keyBytes=key?new TextEncoder().encode(String(key)):null;
-  const p=new Uint8Array(6+(keyBytes?.length||0)+(keyBytes?1:0)),view=new DataView(p.buffer);
-  p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_GET;view.setUint16(2,nodeId);view.setUint16(4,page);
-  if(keyBytes){p.set(keyBytes,6);p[6+keyBytes.length]=0;}
-  return p;
-}
-
-function parseList(data){const out=[];let offset=0;while(offset+7<=data.length){const nodeId=u16(data,offset),flags=data[offset+2],fileSize=u32(data,offset+3),fileName=parseNullTerminatedString(data,offset+7);out.push({nodeId,flags,fileSize,fileName,fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)});offset+=7+fileName.length+1;}return out;}
 
 async function getMetadataByNodeId(nodeId,key=null){
   let lastError;
@@ -158,7 +144,7 @@ async function listDirectoryUnlocked(nodeId=0,path='/'){
     if(raw.length<=2)break;
     const pageNo=u16(raw,0);
     if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);
-    for(const entry of parseList(raw.slice(2))){
+    for(const entry of parseFileListEntries(raw.slice(2))){
       const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;
       result.push({...entry,fileName:full});
     }
@@ -328,40 +314,9 @@ export function createTransferFileName(sourceId,targetId){
   return normalizeFileName('mv'+source+'_'+target);
 }
 
-export function buildFileInfoPayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_INFO;view.setUint16(1,fileId);return p;}
-export function parseFileInfoResponse(raw){if(raw.length<10)throw new Error('Invalid EP-series FILE_INFO response.');return{nodeId:u16(raw,0),parentId:u16(raw,2),flags:raw[4],fileSize:u32(raw,5),fileName:parseNullTerminatedString(raw,9)};}
 async function getFileInfoUnlocked(fileId){const response=await requestRead(TE_SYSEX_FILE,buildFileInfoPayload(fileId));return parseFileInfoResponse(response.rawData);}
 export async function getFileInfo(fileId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();return getFileInfoUnlocked(fileId);});}
 
-export function buildFileDeletePayload(fileId){const p=new Uint8Array(3),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_DELETE;view.setUint16(1,fileId);return p;}
-
-export function buildFileMovePayload(fileId,parentId,newFileId){
-  for(const[value,label]of [[fileId,'source id'],[parentId,'parent id'],[newFileId,'destination id']]){
-    if(!Number.isInteger(value)||value<0||value>0xffff)throw new Error('EP-series FILE_MOVE '+label+' must be a 16-bit integer.');
-  }
-  const p=new Uint8Array(7),view=new DataView(p.buffer);
-  p[0]=TE_SYSEX_FILE_MOVED;
-  view.setUint16(1,fileId);
-  view.setUint16(3,parentId);
-  view.setUint16(5,newFileId);
-  return p;
-}
-export function parseFileMoveResponse(raw){
-  if(!(raw instanceof Uint8Array))raw=new Uint8Array(raw||[]);
-  if(raw.length<6)throw new Error('Invalid EP-series FILE_MOVE response.');
-  return{oldFileId:u16(raw,0),parentId:u16(raw,2),newFileId:u16(raw,4)};
-}
-
-export function buildFilePutInitPayload(fileId,parentId,fileSize,filename,metadata=null,{isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}){const safe=String(filename||'').slice(0,54),meta=metadata==null?'':JSON.stringify(metadata),p=new Uint8Array(11+safe.length+1+meta.length),view=new DataView(p.buffer);let flags=isDirectory?TE_SYSEX_FILE_FILE_TYPE_DIR:TE_SYSEX_FILE_FILE_TYPE_FILE;for(const capability of capabilities)flags|=capability;p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_INIT;p[2]=flags;view.setUint16(3,fileId);view.setUint16(5,parentId);view.setUint32(7,fileSize);writeString(view,11,safe,true);if(meta.length)writeString(view,12+safe.length,meta,false);return p;}
-
-export function validateFilePutPage(page){if(!Number.isInteger(page)||page<0||page>0xffff)throw new Error('EP-series FILE_PUT page limit exceeded.');return page;}
-
-export function buildFilePutDataPayload(page,data){validateFilePutPage(page);const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PUT;p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;view.setUint16(2,page);p.set(data,4);return p;}
-
-export function buildMetadataSetPayload(fileId,metadata){const json=JSON.stringify(metadata),p=new Uint8Array(5+json.length),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET;view.setUint16(2,fileId);writeString(view,4,json,true);return p;}
-
-export function buildMetadataPagedInitPayload(fileId,size){const p=new Uint8Array(9),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT;view.setUint16(3,fileId);view.setUint32(5,size);return p;}
-export function buildMetadataPagedDataPayload(page,data){const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_METADATA;p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;p[2]=TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA;view.setUint16(3,page);p.set(data,5);return p;}
 
 async function putFileUnlocked({data,filename,parentId,destinationId,metadata=null,onProgress,timeout=2000,isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}){
   if(!(data instanceof Uint8Array))data=new Uint8Array(data);
@@ -403,7 +358,7 @@ async function putFileUnlocked({data,filename,parentId,destinationId,metadata=nu
 }
 export async function putFile(args){return runGuardedFileMutation('FILE_PUT mutation',()=>putFileUnlocked(args));}
 
-async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseList(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
+async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseFileListEntries(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const positiveActive=value=>{
@@ -678,9 +633,6 @@ export async function uploadSampleToSlot(args){
 export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 
-export function validateFileGetChunk(raw,page,remaining){if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);const gotPage=u16(raw,0);if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);const chunk=raw.slice(2);if(!chunk.length)throw new Error(`Empty FILE_GET response for page ${page}.`);if(chunk.length>remaining)throw new Error(`FILE_GET page ${page} exceeds the declared file size.`);return chunk;}
-export function buildFileGetInitPayload(nodeId,offset=0){const p=new Uint8Array(8),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_GET;p[1]=TE_SYSEX_FILE_GET_TYPE_INIT;view.setUint16(2,nodeId);view.setUint32(4,offset);return p;}
-export function buildFileGetDataPayload(page){const p=new Uint8Array(4),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_GET;p[1]=TE_SYSEX_FILE_GET_TYPE_DATA;view.setUint16(2,page);return p;}
 
 async function getFileUnlocked(nodeId,onProgress){
   await initRead();
