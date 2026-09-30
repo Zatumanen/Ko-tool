@@ -1717,8 +1717,9 @@ test('project upload can verify PUT/readback without activating or reloading the
   const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/performReload=true/);
-  assert.match(block,/profile\.projectReloadVerified&&performReload/);
-  assert.match(block,/const reload=profile\.projectReloadVerified&&performReload/);
+  assert.match(block,/let reload=null/);
+  assert.match(block,/if\(profile\.projectReloadVerified&&performReload\)/);
+  assert.match(block,/transactionJournal\.skipPhase\(recoveryCheckpoint\.id,'RELOAD'/);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
@@ -1909,7 +1910,7 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   const writeJournalIndex=block.indexOf("transactionJournal.beginPhase(recoveryCheckpoint.id,'WRITE'");
   const putIndex=block.indexOf('await putFile');
   assert.ok(backupIndex>=0&&checkpointIndex>backupIndex&&writeJournalIndex>checkpointIndex&&putIndex>writeJournalIndex);
-  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
+  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf("phase='RELOAD'"));
 });
 
 test('EP project reload cycles active project and verifies project group and pad metadata',async()=>{
@@ -1954,8 +1955,9 @@ test('EP-1320 project transport stays opaque while semantic validation and reloa
   assert.match(block,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
   assert.match(block,/sampleDependencies=profile\.projectAuthoring/);
   assert.match(block,/const activation=profile\.projectReloadVerified/);
-  assert.match(block,/const reload=profile\.projectReloadVerified/);
-  assert.match(block,/:null;/);
+  assert.match(block,/let reload=null/);
+  assert.match(block,/if\(profile\.projectReloadVerified&&performReload\)/);
+  assert.match(block,/reason:performReload\?'reload-not-hardware-verified':'reload-disabled'/);
 });
 
 test('EP project archive upload uses the TE 15s timeout through injected unlocked transport',async()=>{
