@@ -232,6 +232,7 @@ export function initEp133Browser({showError}={}){
     getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundFormats:()=>sampleStore.getSoundFormats(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
+    setSoundsMetadata:value=>sampleStore.setSoundsMetadata(value),
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,
     isSynchronized:()=>synchronized,
