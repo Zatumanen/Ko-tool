@@ -198,7 +198,7 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
 
 
 test('sample library sync exposes LIST results before uncached metadata hydration completes',async()=>{
-  let synchronized=false,metadataHydrating=false,soundsParentId=0,soundFormats=[],soundsMetadata={};
+  let synchronized=false,metadataHydrating=false;
   let resolveUncached;
   const uncachedMetadata=new Promise(resolve=>{resolveUncached=resolve;});
   const tabs=[];
@@ -238,9 +238,6 @@ test('sample library sync exposes LIST results before uncached metadata hydratio
     },
     setSynchronized:value=>{synchronized=value;},
     setMetadataHydrating:value=>{metadataHydrating=value;},
-    setSoundsParentId:value=>{soundsParentId=value;},
-    setSoundFormats:value=>{soundFormats=value;},
-    setSoundsMetadata:value=>{soundsMetadata=value;},
     updateMutationAvailability(){},
     closeProperties(){},
     setGlobalProgress(){},
@@ -257,14 +254,14 @@ test('sample library sync exposes LIST results before uncached metadata hydratio
 
   assert.equal(synchronized,true);
   assert.equal(metadataHydrating,true);
-  assert.equal(soundsParentId,1000);
+  assert.equal(sampleStore.getSoundsParentId(),1000);
   assert.deepEqual(listCalls,[[0,'/'],[1000,'/sounds']]);
   assert.equal(sampleStore.getSlot(2).meta.name,'cached');
   assert.equal(sampleStore.getSlot(2).verification.metadata,'cached');
   assert.equal(sampleStore.getSlot(5).meta,null);
   assert.equal(sampleStore.getFiles().length,3);
-  assert.equal(soundFormats.length,1);
-  assert.equal(soundsMetadata.tabs[0].name,'BANK');
+  assert.equal(sampleStore.getSoundFormats().length,1);
+  assert.equal(sampleStore.getSoundsMetadata().tabs[0].name,'BANK');
   assert.equal(tabs[0].name,'BANK');
 
   resolveUncached({name:'live',channels:2,samplerate:32000,format:'s16'});
@@ -290,7 +287,6 @@ test('sample library sync fails closed when the /sounds node is missing',async()
     getFileMetadata:async()=>({}),
     setSynchronized:value=>{synchronized=value;},
     setMetadataHydrating:value=>{metadataHydrating=value;},
-    setSoundsParentId(){},setSoundFormats(){},setSoundsMetadata(){},
     updateMutationAvailability(){},closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},
     renderDeviceStats(){},setStatus(){},
     reportError:message=>{reported=message;},

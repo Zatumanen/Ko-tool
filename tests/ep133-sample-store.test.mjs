@@ -129,3 +129,27 @@ test('SampleStore invalidation prevents stale metadata from being reused after a
   assert.equal(store.getCachedMetadata(store.getSlot(7)),null);
   assert.equal(store.getSlot(7).meta,null);
 });
+
+
+test('SampleStore owns /sounds library root metadata formats and tabs',()=>{
+  const store=createSampleStore();
+  store.setSoundsParentId(1000);
+  store.setSoundsMetadata({
+    free_space_in_bytes:123,
+    formats:[{type:'pcm'}],
+    tabs:[{name:'BANK',range:[1,99]}]
+  });
+  assert.equal(store.getSoundsParentId(),1000);
+  assert.equal(store.getSoundsMetadata().free_space_in_bytes,123);
+  assert.deepEqual(store.getSoundFormats(),[{type:'pcm'}]);
+  assert.equal(store.getSoundTabs()[0].name,'BANK');
+
+  store.mergeSoundsMetadata({free_space_in_bytes:99});
+  assert.equal(store.getSoundsMetadata().free_space_in_bytes,99);
+  assert.equal(store.getSoundFormats().length,1);
+
+  store.clear();
+  assert.equal(store.getSoundsParentId(),0);
+  assert.deepEqual(store.getSoundsMetadata(),{});
+  assert.deepEqual(store.getSoundFormats(),[]);
+});

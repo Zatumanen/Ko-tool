@@ -5,7 +5,6 @@ export function createSampleLibrarySyncController({
   getMemory,getActiveDeviceProfile,sampleStore,
   listDirectory,getFileMetadata,
   setSynchronized,setMetadataHydrating,
-  setSoundsParentId,setSoundFormats,setSoundsMetadata,
   updateMutationAvailability,closeProperties,
   setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
   reportError,logTechnical,
@@ -29,15 +28,14 @@ export function createSampleLibrarySyncController({
       sampleStore.resetInventory({preserveMetadata:true});
       renderDeviceStats({},0);
 
-      setSoundsParentId(0);
-      setSoundFormats([]);
-      setSoundsMetadata({});
+      sampleStore.setSoundsParentId(0);
+      sampleStore.setSoundsMetadata({});
 
       const rootEntries=await listDirectory(0,'/');
       assertBatchSession(sessionToken);
       const soundsRoot=rootEntries.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
       const soundsParentId=Number(soundsRoot?.nodeId)||0;
-      setSoundsParentId(soundsParentId);
+      sampleStore.setSoundsParentId(soundsParentId);
       if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
 
       setGlobalProgress('SYNC',4);
@@ -50,10 +48,7 @@ export function createSampleLibrarySyncController({
 
       const soundsMetadata=await getFileMetadata(soundsParentId);
       assertBatchSession(sessionToken);
-      setSoundsMetadata(soundsMetadata);
-
-      const soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];
-      setSoundFormats(soundFormats);
+      sampleStore.setSoundsMetadata(soundsMetadata);
 
       const activeTabs=Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length
         ?soundsMetadata.tabs
