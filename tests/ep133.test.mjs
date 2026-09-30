@@ -694,10 +694,10 @@ test('EP metadata preserves unknown values only without an explicit device white
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
-  const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const sampleSource=await fs.readFile(new URL('../js/ep133/sampleFilesystem.js',import.meta.url),'utf8');
   const copySource=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
-  assert.match(filesystemSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
-  assert.match(filesystemSource,/filename:wireName/);
+  assert.match(sampleSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
+  assert.match(sampleSource,/filename:wireName/);
   assert.match(copySource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
   assert.match(copySource,/if\(!created\.includes\(createdId\)\)created\.push\(createdId\)/);
   assert.match(copySource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
