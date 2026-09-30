@@ -21,7 +21,14 @@ const openMyEp=async page=>{
     message:'Fake EP should receive GREET after identity discovery'
   }).toBeGreaterThan(0);
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('');
-  await expect(page.locator('#ep133-status')).toContainText('SYNCED');
+  await expect.poll(()=>page.evaluate(()=>({
+    status:document.querySelector('#ep133-status')?.textContent||'',
+    error:document.querySelector('#error-message')?.textContent||'',
+    log:document.querySelector('#log-tab')?.textContent||'',
+    requests:window.__fakeEp.requestLog
+  })),{message:'My EP should finish sample-library bootstrap'}).toMatchObject({
+    status:expect.stringContaining('SYNCED')
+  });
   await expect(page.locator('.ep133-sample-row.occupied')).toHaveCount(2);
 };
 
