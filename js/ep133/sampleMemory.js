@@ -286,12 +286,17 @@ export function createSampleMemory({
       const slot=slots[Number(row.dataset.slot)-1];
       const nameInput=row.querySelector('[data-name-input]');
       if(nameInput){
-        nameInput.addEventListener('click',event=>{if(editingId===slot.id)event.stopPropagation();});
-        nameInput.addEventListener('dblclick',event=>{
-          if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return;
+        const beginRename=event=>{
+          if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return false;
           event.preventDefault();event.stopPropagation();
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
+          return true;
+        };
+        nameInput.addEventListener('click',event=>{
+          if(editingId===slot.id){event.stopPropagation();return;}
+          if(event.detail>=2)beginRename(event);
         });
+        nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
           nameInput.readOnly=false;
           nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
