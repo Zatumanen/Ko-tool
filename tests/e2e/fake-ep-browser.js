@@ -40,7 +40,7 @@
     [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
-  let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
+  let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;const requestLog=[];
   const soundsMeta=()=>({
     name:'sounds',
     max_capacity:64000000,
@@ -214,7 +214,7 @@
   };
   window.__fakeEp={
     midiAccessRequests:[],
-    get requestCount(){return requestCount;},
+    get requestCount(){return requestCount;},\n    get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
