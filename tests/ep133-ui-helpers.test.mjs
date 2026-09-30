@@ -6,6 +6,7 @@ import{createConnectionLifecycle}from '../js/ep133/ui/connectionLifecycle.js';
 import{createSampleLibrarySyncController}from '../js/ep133/ui/sampleLibrarySync.js';
 import{createSamplePropertiesController}from '../js/ep133/ui/samplePropertiesController.js';
 import{createSampleReadController,sampleDownloadName}from '../js/ep133/ui/sampleReadController.js';
+import{createSampleDeleteController}from '../js/ep133/ui/sampleDeleteController.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -584,4 +585,149 @@ test('sample read controller uses the save picker for a single download and sani
   assert.deepEqual(writes,[['picker','Bad_Name_.wav'],['write',true],['close']]);
   assert.equal(fallbackUrls,0);
   assert.equal(hidden,1);
+});
+
+
+test('sample delete controller preserves confirm preflight event-sync and authoritative LIST verification order',async()=>{
+  const actions=[];
+  const cleared=[];
+  const removed=[];
+  const targets=[
+    {id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick',crc:111}},
+    {id:8,nodeId:8,file:{name:'snare',size:200},meta:{name:'snare',crc:222}}
+  ];
+  const memory={
+    clearSlot:id=>{cleared.push(id);actions.push(['clear',id]);},
+    countOccupied:()=>0
+  };
+  const controller=createSampleDeleteController({
+    getMemory:()=>memory,
+    getSoundsParentId:()=>1000,
+    getSoundsMetadata:()=>({free_space_in_bytes:123}),
+    isConnected:()=>true,
+    isSynchronized:()=>true,
+    hasPendingPropertyWrites:()=>false,
+    confirmAction:async message=>{actions.push(['confirm',message]);return true;},
+    captureBatchSession:()=>{actions.push(['capture']);return'session-a';},
+    assertBatchSession:token=>actions.push(['assert',token]),
+    getDeviceSessionToken:()=> 'session-a',
+    setMutating:value=>actions.push(['mutating',value]),
+    setGlobalProgress:(label,value)=>actions.push(['progress',label,value]),
+    hideGlobalProgress:()=>actions.push(['hide']),
+    getFileInfo:async id=>{
+      actions.push(['info',id]);
+      return{nodeId:id,parentId:1000,fileSize:id===7?100:200};
+    },
+    getFileMetadata:async id=>{
+      actions.push(['metadata',id]);
+      return{name:id===7?'kick':'snare',crc:id===7?111:222};
+    },
+    deleteFile:async id=>actions.push(['delete',id]),
+    waitForMetadataUpdate:nodeId=>{
+      actions.push(['wait-metadata',nodeId]);
+      return Promise.resolve({data:{metadata:{free_space_in_bytes:456}}});
+    },
+    syncMetadataAfterMutation:async(nodeId,eventPromise)=>{
+      await eventPromise;
+      actions.push(['sync-metadata',nodeId]);
+    },
+    assertSlotsDeleted:async ids=>actions.push(['verify-list',...ids]),
+    removeDeviceFile:id=>{removed.push(id);actions.push(['remove-file',id]);},
+    renderDeviceStats:(metadata,count)=>actions.push(['stats',metadata.free_space_in_bytes,count]),
+    readDevice:async()=>actions.push(['resync']),
+    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+  });
+
+  assert.equal(await controller.deleteSamples(targets),true);
+
+  assert.deepEqual(cleared,[7,8]);
+  assert.deepEqual(removed,[7,8]);
+  assert.deepEqual(actions.filter(item=>item[0]==='delete'),[['delete',7],['delete',8]]);
+  assert.deepEqual(actions.filter(item=>item[0]==='verify-list'),[['verify-list',7,8]]);
+  assert.equal(actions.some(item=>item[0]==='resync'),false);
+  assert.equal(actions.at(-2)[0],'hide');
+  assert.deepEqual(actions.at(-1),['mutating',false]);
+
+  const info7=actions.findIndex(item=>item[0]==='info'&&item[1]===7);
+  const metadata7=actions.findIndex(item=>item[0]==='metadata'&&item[1]===7);
+  const delete7=actions.findIndex(item=>item[0]==='delete'&&item[1]===7);
+  const sync7=actions.findIndex(item=>item[0]==='sync-metadata');
+  assert.ok(info7>=0&&metadata7>info7&&delete7>metadata7&&sync7>delete7);
+});
+
+test('sample delete controller refuses a changed target before FILE_DELETE and resyncs the same session',async()=>{
+  const actions=[];
+  let deleteCalls=0,resyncCalls=0;
+  const slot={id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick',crc:111}};
+  const controller=createSampleDeleteController({
+    getMemory:()=>({clearSlot(){},countOccupied:()=>1}),
+    getSoundsParentId:()=>1000,
+    getSoundsMetadata:()=>({}),
+    isConnected:()=>true,
+    isSynchronized:()=>true,
+    hasPendingPropertyWrites:()=>false,
+    confirmAction:async()=>true,
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession(){},
+    getDeviceSessionToken:()=> 'session-a',
+    setMutating:value=>actions.push(['mutating',value]),
+    setGlobalProgress(){},
+    hideGlobalProgress:()=>actions.push(['hide']),
+    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:101}),
+    getFileMetadata:async()=>({name:'kick',crc:111}),
+    deleteFile:async()=>{deleteCalls++;},
+    waitForMetadataUpdate:()=>Promise.resolve(null),
+    syncMetadataAfterMutation:async()=>{},
+    assertSlotsDeleted:async()=>{},
+    removeDeviceFile(){},
+    renderDeviceStats(){},
+    readDevice:async()=>{resyncCalls++;},
+    logTechnical(){}
+  });
+
+  await assert.rejects(
+    ()=>controller.deleteSamples([slot]),
+    /Sample slot changed before delete; reload the library and confirm again/
+  );
+  assert.equal(deleteCalls,0);
+  assert.equal(resyncCalls,1);
+  assert.deepEqual(actions,[['mutating',true],['hide'],['mutating',false]]);
+});
+
+test('sample delete controller blocks deletion while a property write is pending and respects cancel',async()=>{
+  let confirms=0,deletes=0,mutations=0;
+  const slot={id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick'}};
+  const base={
+    getMemory:()=>({clearSlot(){},countOccupied:()=>1}),
+    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
+    isConnected:()=>true,isSynchronized:()=>true,
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    setMutating:()=>{mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
+    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:100}),
+    getFileMetadata:async()=>({name:'kick'}),
+    deleteFile:async()=>{deletes++;},
+    waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},
+    assertSlotsDeleted:async()=>{},removeDeviceFile(){},renderDeviceStats(){},readDevice:async()=>{},logTechnical(){}
+  };
+  const pending=createSampleDeleteController({
+    ...base,
+    hasPendingPropertyWrites:()=>true,
+    confirmAction:async()=>{confirms++;return true;}
+  });
+  await assert.rejects(
+    ()=>pending.deleteSamples([slot]),
+    /pending sample property write/
+  );
+  assert.equal(confirms,0);
+  assert.equal(deletes,0);
+
+  const cancelled=createSampleDeleteController({
+    ...base,
+    hasPendingPropertyWrites:()=>false,
+    confirmAction:async()=>{confirms++;return false;}
+  });
+  assert.equal(await cancelled.deleteSamples([slot]),false);
+  assert.equal(confirms,1);
+  assert.equal(deletes,0);
+  assert.equal(mutations,0);
 });

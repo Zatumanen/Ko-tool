@@ -27,6 +27,7 @@ import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
 import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
 import{createSampleReadController}from './ui/sampleReadController.js?v=20260930-5';
+import{createSampleDeleteController}from './ui/sampleDeleteController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -247,17 +248,6 @@ export function initEp133Browser({showError}={}){
       throw new Error('Source sample changed before MOVE delete: CRC mismatch in slot '+String(slot.id).padStart(3,'0')+'.');
     assertMetadataReadback(slot.id,snapshot.metadata,currentMetadata);
   };
-  const assertDeleteTargetUnchanged=async slot=>{
-    const info=await getFileInfo(slot.nodeId||slot.id);
-    if(Number(info.nodeId)!==Number(slot.id)||Number(info.parentId)!==Number(soundsParentId)||Number(info.fileSize)!==Number(slot.file?.size||0))
-      throw new Error('Sample slot changed before delete; reload the library and confirm again.');
-    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
-    if(slot.meta?.crc!=null&&Number(currentMetadata?.crc)!==Number(slot.meta.crc))
-      throw new Error('Sample slot changed before delete; CRC no longer matches the selected sample.');
-    if(slot.meta?.name!=null&&String(currentMetadata?.name)!==String(slot.meta.name))
-      throw new Error('Sample slot changed before delete; name no longer matches the selected sample.');
-  };
-
   const getDroppedFiles=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
@@ -301,6 +291,26 @@ export function initEp133Browser({showError}={}){
   });
   const stopCurrentPreview=()=>sampleReadController.stopPreview();
   const auditionSample=slot=>sampleReadController.audition(slot);
+  const sampleDeleteController=createSampleDeleteController({
+    getMemory:()=>memory,
+    getSoundsParentId:()=>soundsParentId,
+    getSoundsMetadata:()=>soundsMetadata,
+    isConnected,
+    isSynchronized:()=>synchronized,
+    hasPendingPropertyWrites:()=>propertiesController.hasPendingWrites(),
+    confirmAction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+    setMutating,setGlobalProgress,hideGlobalProgress,
+    getFileInfo,getFileMetadata,deleteFile,
+    waitForMetadataUpdate,syncMetadataAfterMutation,
+    assertSlotsDeleted,
+    removeDeviceFile:nodeId=>{
+      deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(nodeId));
+    },
+    renderDeviceStats,
+    readDevice:()=>readDevice(),
+    logTechnical
+  });
+  const deleteSamples=targets=>sampleDeleteController.deleteSamples(targets);
   const fileEventController=createFileEventController({
     isConnected,
     getMemory:()=>memory,
@@ -519,44 +529,6 @@ export function initEp133Browser({showError}={}){
       if(isConnected()&&getDeviceSessionToken()===sessionToken){
         try{await readDevice();}
         catch(syncError){logTechnical('RESYNC AFTER TRANSFER ERROR',syncError);}
-      }
-      throw error;
-    }finally{
-      hideGlobalProgress();
-      setMutating(false);
-    }
-  };
-
-  const deleteSamples=async targets=>{
-    if(!targets?.length||!isConnected()||!synchronized)return false;
-    if(propertiesController.hasPendingWrites())throw new Error('Wait for the pending sample property write to finish before deleting samples.');
-    const message=targets.length>1
-      ?'DELETE '+targets.length+' SELECTED SAMPLES?'
-      :'DELETE "'+String(targets[0]?.meta?.name||targets[0]?.file?.name||'SAMPLE').toUpperCase()+'"?';
-    if(!await confirmAction(message))return false;
-    const sessionToken=captureBatchSession();
-    setMutating(true);
-    try{
-      for(let index=0;index<targets.length;index++){
-        assertBatchSession(sessionToken);
-        const slot=targets[index];
-        setGlobalProgress('DELETE',(index/targets.length)*100);
-        await assertDeleteTargetUnchanged(slot);
-        const metadataUpdate=waitForMetadataUpdate(soundsParentId);
-        await deleteFile(slot.nodeId||slot.id);
-        assertBatchSession(sessionToken);
-        await syncMetadataAfterMutation(soundsParentId,metadataUpdate);
-        deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(slot.nodeId||slot.id));
-        memory.clearSlot(slot.id);
-        setGlobalProgress('DELETE',((index+1)/targets.length)*100);
-      }
-      await assertSlotsDeleted(targets.map(slot=>slot.id));
-      renderDeviceStats(soundsMetadata,memory.countOccupied());
-      return true;
-    }catch(error){
-      if(isConnected()&&getDeviceSessionToken()===sessionToken){
-        try{await readDevice();}
-        catch(syncError){logTechnical('RESYNC AFTER DELETE ERROR',syncError);}
       }
       throw error;
     }finally{
