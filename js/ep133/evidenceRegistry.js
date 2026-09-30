@@ -186,6 +186,12 @@ export function validateEvidenceRegistry(registry=EVIDENCE_REGISTRY){
     if(identities.has(identity))throw new Error('Duplicate evidence scope: '+identity);
     identities.add(identity);
   }
+  for(const sku of KNOWN_SKUS){
+    for(const capability of KNOWN_CAPABILITIES){
+      if(!registry.some(record=>record.sku===sku&&record.capability===capability))
+        throw new Error('Evidence registry is missing '+sku+' '+capability+'.');
+    }
+  }
   return true;
 }
 
