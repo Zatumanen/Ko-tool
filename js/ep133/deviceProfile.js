@@ -1,13 +1,15 @@
-import{CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
+import{CAPABILITY_EVIDENCE,capabilityEvidence,resolveCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
 
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
 const VERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
   read:true,preserve:true,
-  source:'ep-series-sysex live verification on EP-133/EP-40 OS 2.5.1'
+  source:'ep-series-sysex live verification on EP-133/EP-40 OS 2.5.1',
+  firmwareRange:'2.5.1'
 });
 const VERIFIED_SAMPLE_TRANSFERS=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
   read:true,preserve:true,
-  source:'live-verified FILE sample library operations'
+  source:'live-verified FILE sample library operations on EP-133/EP-40 OS 2.5.1',
+  firmwareRange:'2.5.1'
 });
 const UNVERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
   read:true,preserve:true,
@@ -84,14 +86,16 @@ const GENERIC_PROFILE=Object.freeze({
 });
 const cloneTabs=tabs=>tabs.map(tab=>({name:tab.name,range:[...tab.range],color:tab.color}));
 
-export function getEpDeviceProfile(sku=''){
+export function getEpDeviceProfile(sku='',firmware=''){
   const key=String(sku||'').toUpperCase();
   const profile=PROFILES[key]||GENERIC_PROFILE;
-  const sampleMetadataEvidence=cloneCapabilityEvidence(profile.evidence.sampleMetadata);
-  const sampleTransferEvidence=cloneCapabilityEvidence(profile.evidence.sampleTransfers);
-  const sampleBarsEvidence=cloneCapabilityEvidence(profile.sampleBars.evidence);
+  const version=String(firmware||'');
+  const sampleMetadataEvidence=resolveCapabilityEvidence(profile.evidence.sampleMetadata,version);
+  const sampleTransferEvidence=resolveCapabilityEvidence(profile.evidence.sampleTransfers,version);
+  const sampleBarsEvidence=resolveCapabilityEvidence(profile.sampleBars.evidence,version);
   return{
     sku:key,
+    firmware:version,
     id:profile.id,
     title:profile.title,
     name:profile.name,
