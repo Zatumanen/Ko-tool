@@ -4,6 +4,7 @@ import{parseNullTerminatedString}from './packing.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260930-5';
 import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
+import{createFileScheduler}from './fileScheduler.js?v=20260930-5';
 
 const u16=(a,i)=>(a[i]<<8)|a[i+1];
 const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -12,27 +13,76 @@ const writeUtf8String=(view,offset,text,terminate=false)=>{const bytes=new TextE
 const TE_SYSEX_HEADER_OVERHEAD=8,TE_SYSEX_FOOTER_OVERHEAD=1;
 const deviceChunkSizes=new Map();
 const projectRuntimeGate=createProjectRuntimeGate();
-let fileOperationQueue=Promise.resolve();
 async function withBrowserFileLock(operation){
   const locks=globalThis.navigator?.locks;
   if(!locks?.request)return operation();
   const key=String(activeDeviceKey||'connected').replace(/[^a-z0-9_.:-]/gi,'_');
   return locks.request('ko-tool-ep-file:'+key,{mode:'exclusive'},operation);
 }
-function runFileOperation(operation){
-  const task=fileOperationQueue.then(()=>withBrowserFileLock(operation));
-  fileOperationQueue=task.catch(()=>{});
-  return task;
+const fileScheduler=createFileScheduler({withLock:withBrowserFileLock});
+function runFileOperation(operation,label='FILE operation'){
+  return fileScheduler.run(label,operation);
 }
 function runGuardedFileMutation(label,operation){
-  return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label));
+  return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label),label);
+}
+
+function createFileTransactionLease(){
+  let active=true;
+  const inFlight=new Set();
+  const assertActive=()=>{
+    if(!active)throw new Error('FILE transaction lease is no longer active.');
+  };
+  const track=operation=>(...args)=>{
+    assertActive();
+    const promise=Promise.resolve().then(()=>operation(...args));
+    inFlight.add(promise);
+    promise.then(()=>inFlight.delete(promise),()=>inFlight.delete(promise));
+    return promise;
+  };
+  const lease=Object.freeze({
+    initFileSystem:track(initFileSystemUnlocked),
+    listDeviceFiles:track(async onProgress=>{await initRead();return listDeviceFilesUnlocked(onProgress);}),
+    listDirectory:track(async(nodeId=0,path='/')=>{await initRead();return listDirectoryUnlocked(nodeId,path);}),
+    getFileMetadata:track(async(nodeId,key=null)=>{await ensureFileSystemInitializedUnlocked();return getMetadataByNodeId(nodeId,key);}),
+    getFileInfo:track(async fileId=>{await ensureFileSystemInitializedUnlocked();return getFileInfoUnlocked(fileId);}),
+    getFile:track(getFileUnlocked),
+    putFile:track(putFileUnlocked),
+    setFileMetadata:track(setFileMetadataUnlocked),
+    uploadSampleToSlot:track(uploadSampleToSlotUnlocked),
+    deleteFile:track(deleteFileUnlocked),
+    moveFile:track(moveFileUnlocked)
+  });
+  return{
+    lease,
+    async close(){
+      active=false;
+      if(inFlight.size)await Promise.allSettled([...inFlight]);
+    }
+  };
+}
+
+export function withFileTransaction(label,operation,{strict=false}={}){
+  if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
+  const transactionLabel=String(label||'FILE transaction');
+  return runFileOperation(async()=>{
+    const context=createFileTransactionLease();
+    try{
+      const execute=()=>operation(context.lease);
+      return strict
+        ?await withStrictFirmwareDebugGuard(execute,transactionLabel)
+        :await execute();
+    }finally{
+      await context.close();
+    }
+  },transactionLabel);
 }
 
 export function withSampleUploadBatch(operation){
   if(typeof operation!=='function')throw new TypeError('Sample upload batch requires an operation.');
   return withStrictFirmwareDebugGuard(operation,'sample upload batch');
 }
-export function resetFileSystemState(){deviceChunkSizes.clear();projectRuntimeGate.reset();fileOperationQueue=Promise.resolve();}
+export function resetFileSystemState(){deviceChunkSizes.clear();projectRuntimeGate.reset();fileScheduler.reset();}
 export function getProjectRuntimeSettleState(){return projectRuntimeGate.getState();}
 export function assertProjectRuntimeSettled(label='project operation'){return projectRuntimeGate.assertSettled(label);}
 const getDeviceKey=device=>device?.metadata?.serialNumber||device?.metadata?.serial||device?.deviceKey||null;
@@ -525,14 +575,19 @@ export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleR
 
 export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
-export async function deleteFile(fileId,{timeout=2000}={}){return runGuardedFileMutation('FILE_DELETE mutation',async()=>{if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');await ensureFileSystemInitializedUnlocked();await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);await initFileSystemUnlocked();});}
+async function deleteFileUnlocked(fileId,{timeout=2000}={}){
+  if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');
+  await ensureFileSystemInitializedUnlocked();
+  await requestFile(TE_SYSEX_FILE,buildFileDeletePayload(fileId),timeout);
+  await initFileSystemUnlocked();
+}
+export async function deleteFile(fileId,options={}){return runGuardedFileMutation('FILE_DELETE mutation',()=>deleteFileUnlocked(fileId,options));}
 
 const normalizeCrc=value=>{
   const number=Number(value);
   return Number.isInteger(number)&&number>=0&&number<=0xffffffff?(number>>>0):null;
 };
-export async function moveFile(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
-  return runGuardedFileMutation('FILE_MOVE mutation',async()=>{
+async function moveFileUnlocked(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
     await ensureFileSystemInitializedUnlocked();
     let sourceCrc=null;
     if(verifyCrc){
@@ -561,7 +616,9 @@ export async function moveFile(fileId,parentId,newFileId,{timeout=2000,verifyCrc
       crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc;
     }
     return{...moved,info,timedOut,metadata,sourceCrc,destinationCrc,crcVerified};
-  });
+}
+export async function moveFile(fileId,parentId,newFileId,options={}){
+  return runGuardedFileMutation('FILE_MOVE mutation',()=>moveFileUnlocked(fileId,parentId,newFileId,options));
 }
 
 async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
@@ -590,11 +647,12 @@ async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
 }
 export async function setFileMetadata(fileId,metadata,options={}){return runGuardedFileMutation('METADATA_SET mutation',()=>setFileMetadataUnlocked(fileId,metadata,options));}
 
-export async function uploadSampleToSlot({
+async function uploadSampleToSlotUnlocked({
   file,data,filename,parentId,destinationId,metadata={},
   allowedPlayModes=null,allowAdvancedMetadata=true,allowedBarValues=null,barWriteMode='preserve',
   onProgress,onCreated
 }){
+
   const bytes=data instanceof Uint8Array?data:new Uint8Array(await file.arrayBuffer());
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
@@ -607,14 +665,16 @@ export async function uploadSampleToSlot({
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
     allowedPlayModes,allowAdvancedMetadata,allowedBarValues,barWriteMode
   });
-  return runGuardedFileMutation('sample upload transaction',async()=>{
     const fileId=await putFileUnlocked({data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress});
     onCreated?.(fileId);
     if(Object.keys(writableMetadata).length)await setFileMetadataUnlocked(fileId,writableMetadata);
     await initFileSystemUnlocked();
     return fileId;
-  });
 }
+export async function uploadSampleToSlot(args){
+  return runGuardedFileMutation('sample upload transaction',()=>uploadSampleToSlotUnlocked(args));
+}
+
 export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
 
