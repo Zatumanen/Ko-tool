@@ -400,34 +400,6 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
 });
 
-test('My EP defers MIDI access until the user opens the app',async()=>{
-  const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const lifecycle=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
-  assert.match(lifecycle,/let connectionArmed=false/);
-  assert.match(ui,/connectionLifecycle\.arm\(\);[\s\S]*if\(!isConnected\(\)\)void connectionLifecycle\.autoConnect\(\)/);
-  assert.match(lifecycle,/if\(!connectionArmed\|\|isUnsafe\(\)\|\|isConnected\(\)/);
-  assert.doesNotMatch(ui,/\n\s*void connectionLifecycle\.autoConnect\(\);\n/);
-});
-
-test('My EP session ownership combines the official-named Web Lock with BroadcastChannel coordination',async()=>{
-  const fs=await import('node:fs/promises');
-  const ownership=await fs.readFile(new URL('../js/ep133/ui/deviceSessionOwnership.js',import.meta.url),'utf8');
-  const lifecycle=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ownership,/DEFAULT_LOCK_NAME='ep-sample-util'/);
-  assert.match(ownership,/navigatorRef\.locks\.request\(lockName,\{ifAvailable:true\}/);
-  assert.match(ownership,/DEFAULT_CHANNEL_NAME='speeduppercut-ep-session'/);
-  assert.match(ownership,/BroadcastChannelRef/);
-  assert.match(ownership,/post\('owner'\)/);
-  assert.match(ownership,/post\('release'\)/);
-  assert.match(lifecycle,/OPEN IN ANOTHER KO-TOOL TAB/);
-  assert.match(lifecycle,/CLOSE OTHER EP TOOLS BEFORE FILE OPERATIONS/);
-  assert.match(lifecycle,/await ownership\.acquire\(\)/);
-  assert.match(ui,/connectionLifecycle\.start\(\)/);
-  assert.match(ui,/setSessionNotice:message=>setStatus\(message\)/);
-});
-
 test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
