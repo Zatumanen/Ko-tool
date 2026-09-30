@@ -187,8 +187,9 @@ test('My EP uploads hydrate local transport metadata immediately after success',
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(source,/const localMetadata=prepareSampleLocalMetadata/);
-  assert.match(source,/memory\.setMetadata\(target\.id,localMetadata\)/);
-  assert.match(source,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  assert.match(source,/sampleStore\.setMetadata\(target\.id,localMetadata,\{verification:'provisional'\}\)/);
+  assert.match(source,/sampleStore\.upsertFile\(fileItem,[\s\S]*state:'provisional'[\s\S]*verification:'provisional'/);
+  assert.match(source,/sampleStore\.setMetadata\(nodeId,metadata\|\|\{\},\{verification:'verified'\}\)/);
   assert.match(source,/void hydrateUploadedFileItem\(id\)/);
 });
 
@@ -305,8 +306,8 @@ test('My EP normal upload commits local metadata without blocking on post-upload
   assert.doesNotMatch(successPath,/waitForMetadataUpdate\(soundsParentId\)/);
   assert.match(successPath,/buildProvisionalUploadedFileItem/);
   assert.match(successPath,/const localMetadata=prepareSampleLocalMetadata/);
-  assert.match(successPath,/memory\.setMetadata\(target\.id,localMetadata\)/);
-  assert.match(successPath,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  assert.match(successPath,/sampleStore\.upsertFile\(fileItem,/);
+  assert.match(successPath,/sampleStore\.setMetadata\(target\.id,localMetadata,\{verification:'provisional'\}\)/);
   assert.match(block,/setTimeoutFn\(\(\)=>\{[\s\S]*void hydrateUploadedFileItem\(id\)/);
 });
 
@@ -1894,7 +1895,7 @@ test('My EP pastes and drops audio into the shared forward-only uploader',async(
   assert.match(ui,/const slot=memory\.getSelected\(\)/);
   assert.match(ui,/uploadFilesToSlot\(slot,files\)/);
   assert.match(ui,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
-  assert.match(uploads,/const destinationId=memory\.findNextFree\(searchFrom\)/);
+  assert.match(uploads,/const destinationId=sampleStore\.findNextFree\(searchFrom\)/);
   assert.match(uploads,/searchFrom=destinationId\+1/);
 });
 
@@ -1917,9 +1918,10 @@ test('My EP exposes row delete only for a deletable selected sample',async()=>{
 test('My EP confirms one multi-delete and deletes selected samples sequentially',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
-  assert.match(source,/DELETE '\+targets\.length\+' SELECTED SAMPLES\?/);
+  assert.match(source,/const canonicalTargets=targets[\s\S]*sampleStore\.getSlot\(target\.id\)/);
+  assert.match(source,/DELETE '\+canonicalTargets\.length\+' SELECTED SAMPLES\?/);
   assert.match(source,/if\(!await confirmAction\(message\)\)return false/);
-  assert.match(source,/for\(let index=0;index<targets\.length;index\+\+\)[\s\S]*await deleteFile\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/for\(let index=0;index<canonicalTargets\.length;index\+\+\)[\s\S]*await deleteFile\(slot\.nodeId\|\|slot\.id\)/);
 });
 
 test('My EP uses Explorer-style Shift range and Ctrl/Cmd additive selection',async()=>{
@@ -2362,6 +2364,33 @@ test('SampleStore metadata is invalidated or refreshed by device file events',as
   assert.match(events,/sampleStore\.moveLocal\(oldId,item,/);
   assert.match(ui,/sampleStore\.clear\(\)/);
   assert.doesNotMatch(ui,/createSampleMetadataCache/);
+});
+
+test('SampleStore is the only sample-state mutation owner outside the sampleMemory projection',async()=>{
+  const fs=await import('node:fs/promises');
+  const paths=[
+    '../js/ep133/ui.js',
+    '../js/ep133/ui/sampleLibrarySync.js',
+    '../js/ep133/ui/fileEvents.js',
+    '../js/ep133/ui/samplePropertiesController.js',
+    '../js/ep133/ui/sampleDeleteController.js',
+    '../js/ep133/ui/sampleUploadController.js',
+    '../js/ep133/ui/sampleMoveController.js',
+    '../js/ep133/ui/sampleCopyController.js'
+  ];
+  const sources=await Promise.all(paths.map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
+  for(const source of sources){
+    assert.doesNotMatch(source,/sampleMetadataCache/);
+    assert.doesNotMatch(source,/\bdeviceFiles\b/);
+    assert.doesNotMatch(source,/memory\.setMetadata\(/);
+    assert.doesNotMatch(source,/memory\.mergeMetadata\(/);
+    assert.doesNotMatch(source,/memory\.setSlot\(/);
+    assert.doesNotMatch(source,/memory\.clearSlot\(/);
+  }
+  const ui=sources[0];
+  assert.match(ui,/const sampleStore=createSampleStore\(\)/);
+  assert.match(ui,/sampleStore\.bindMemory\(memory\)/);
+  assert.match(ui,/planSampleTransferTargets\(sampleStore\.getSlots\(\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

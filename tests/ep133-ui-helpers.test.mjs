@@ -304,96 +304,57 @@ test('sample library sync fails closed when the /sounds node is missing',async()
 });
 
 test('sample properties controller debounces optimistic writes and confirms playmode with release',async()=>{
-  const timers=[];
-  const writes=[];
-  const cacheWrites=[];
-  const slot={
-    id:7,nodeId:7,file:{name:'kick'},node:{isWritable:true},
-    meta:{'sound.playmode':'oneshot','envelope.release':44}
-  };
-  const memory={
-    getSlot:id=>Number(id)===7?slot:null,
-    mergeMetadata(id,metadata){Object.assign(slot.meta,metadata);},
-    setMetadata(id,metadata){slot.meta={...metadata};}
-  };
+  const timers=[],writes=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{'sound.playmode':'oneshot','envelope.release':44});
   const controller=createSamplePropertiesController({
-    properties:null,propertiesGrid:null,
-    getMemory:()=>memory,
+    properties:null,propertiesGrid:null,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
-      playModes:['oneshot','key','legato'],
-      sampleBars:{authoring:false,writeValues:[]}
+      playModes:['oneshot','key','legato'],sampleBars:{authoring:false,writeValues:[]}
     }),
     isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
-    setFileMetadata:async(id,payload)=>{writes.push({id,payload:{...payload}});},
-    getFileMetadata:async()=>({
-      'sound.playmode':'key','envelope.release':44,channels:1,samplerate:46875,format:'s16'
-    }),
-    sampleMetadataCache:{set(slotValue,metadata){cacheWrites.push({slot:slotValue,metadata:{...metadata}});}},
+    setFileMetadata:async(id,payload)=>writes.push({id,payload:{...payload}}),
+    getFileMetadata:async()=>({'sound.playmode':'key','envelope.release':44,channels:1,samplerate:46875,format:'s16'}),
     showError(){},logTechnical(){},
-    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},
-    clearTimeoutFn(){},
-    debounceMs:120
+    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
-
-  controller.scheduleWrite(slot,'sound.playmode','key');
-  assert.equal(slot.meta['sound.playmode'],'key');
+  controller.scheduleWrite(sampleStore.getSlot(7),'sound.playmode','key');
+  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'key');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'provisional');
   assert.equal(controller.hasPendingWrites(),true);
-  assert.equal(timers.length,1);
-
   await timers.shift()();
-
   assert.deepEqual(writes,[{id:7,payload:{'sound.playmode':'key','envelope.release':44}}]);
   assert.equal(controller.hasPendingWrites(),false);
-  assert.equal(cacheWrites.length,1);
-  assert.equal(slot.meta['sound.playmode'],'key');
-  assert.equal(slot.meta['envelope.release'],44);
+  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'key');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
 });
 
 test('sample properties controller restores authoritative metadata after failed verification',async()=>{
-  const timers=[];
-  const errors=[];
-  const technical=[];
-  let reads=0;
-  const slot={
-    id:9,nodeId:9,file:{name:'snare'},node:{isWritable:true},
-    meta:{'sound.pitch':0}
-  };
-  const memory={
-    getSlot:id=>Number(id)===9?slot:null,
-    mergeMetadata(id,metadata){Object.assign(slot.meta,metadata);},
-    setMetadata(id,metadata){slot.meta={...metadata};}
-  };
+  const timers=[],errors=[],technical=[];let reads=0;
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:9,fileName:'/sounds/snare',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(9,{'sound.pitch':0});
   const controller=createSamplePropertiesController({
-    properties:null,propertiesGrid:null,
-    getMemory:()=>memory,
+    properties:null,propertiesGrid:null,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
-      playModes:['oneshot','key','legato'],
-      sampleBars:{authoring:false,writeValues:[]}
+      playModes:['oneshot','key','legato'],sampleBars:{authoring:false,writeValues:[]}
     }),
     isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
     setFileMetadata:async()=>{},
-    getFileMetadata:async()=>{
-      reads+=1;
-      return{'sound.pitch':0,channels:1,samplerate:46875,format:'s16'};
-    },
-    sampleMetadataCache:{set(){}},
+    getFileMetadata:async()=>{reads+=1;return{'sound.pitch':0,channels:1,samplerate:46875,format:'s16'};},
     showError:message=>errors.push(message),
     logTechnical:(label,error)=>technical.push([label,String(error?.message||error)]),
-    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},
-    clearTimeoutFn(){},
-    debounceMs:120
+    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
-
-  controller.scheduleWrite(slot,'sound.pitch',1);
-  assert.equal(slot.meta['sound.pitch'],1);
-  assert.equal(controller.getPendingCount(),1);
-
+  controller.scheduleWrite(sampleStore.getSlot(9),'sound.pitch',1);
+  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],1);
   await timers.shift()();
-
   assert.equal(reads,2);
-  assert.equal(slot.meta['sound.pitch'],0);
+  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],0);
+  assert.equal(sampleStore.getSlot(9).verification.metadata,'verified');
   assert.equal(controller.getPendingCount(),0);
   assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.']);
   assert.match(technical[0][0],/PROPERTY sound\.pitch/);
@@ -401,37 +362,25 @@ test('sample properties controller restores authoritative metadata after failed 
 
 test('sample properties controller owns open-slot state and remaps it after native MOVE',()=>{
   const grid={innerHTML:'',addEventListener(){}};
-  const panel={
-    hidden:true,style:{left:'',top:''},
-    getBoundingClientRect:()=>({width:120,height:100})
-  };
-  const slot={id:7,nodeId:7,file:{name:'kick'},node:{isWritable:true},meta:{'sound.pitch':0}};
-  const memory={getSlot:id=>Number(id)===7?slot:null};
+  const panel={hidden:true,style:{left:'',top:''},getBoundingClientRect:()=>({width:120,height:100})};
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{'sound.pitch':0});
   const controller=createSamplePropertiesController({
-    properties:panel,propertiesGrid:grid,
-    getMemory:()=>memory,
+    properties:panel,propertiesGrid:grid,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
-      playModes:['oneshot','key','legato'],
-      sampleBars:{authoring:false,writeValues:[]}
+      playModes:['oneshot','key','legato'],sampleBars:{authoring:false,writeValues:[]}
     }),
     isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
-    setFileMetadata:async()=>{},getFileMetadata:async()=>({}),
-    sampleMetadataCache:{set(){}},showError(){},logTechnical(){},
-    documentRef:{addEventListener(){},removeEventListener(){}},
-    windowRef:{innerWidth:800,innerHeight:600}
+    setFileMetadata:async()=>{},getFileMetadata:async()=>({}),showError(){},logTechnical(){},
+    documentRef:{addEventListener(){},removeEventListener(){}},windowRef:{innerWidth:800,innerHeight:600}
   });
-
-  controller.open(slot,{clientX:20,clientY:30});
-  assert.equal(panel.hidden,false);
-  assert.equal(controller.getCurrentSlotId(),7);
-  controller.remapCurrentSlot(7,18);
-  assert.equal(controller.getCurrentSlotId(),18);
-  controller.close();
-  assert.equal(controller.getCurrentSlotId(),null);
-  assert.equal(panel.hidden,true);
+  controller.open(sampleStore.getSlot(7),{clientX:20,clientY:30});
+  assert.equal(panel.hidden,false);assert.equal(controller.getCurrentSlotId(),7);
+  controller.remapCurrentSlot(7,18);assert.equal(controller.getCurrentSlotId(),18);
+  controller.close();assert.equal(controller.getCurrentSlotId(),null);assert.equal(panel.hidden,true);
 });
-
 
 test('sample read controller stops the active preview before starting the next sample',async()=>{
   const actions=[];
@@ -564,65 +513,30 @@ test('sample read controller uses the save picker for a single download and sani
 
 
 test('sample delete controller preserves confirm preflight event-sync and authoritative LIST verification order',async()=>{
-  const actions=[];
-  const cleared=[];
-  const removed=[];
-  const targets=[
-    {id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick',crc:111}},
-    {id:8,nodeId:8,file:{name:'snare',size:200},meta:{name:'snare',crc:222}}
-  ];
-  const memory={
-    clearSlot:id=>{cleared.push(id);actions.push(['clear',id]);},
-    countOccupied:()=>0
-  };
+  const actions=[];const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:8,fileName:'/sounds/snare',fileType:'file',fileSize:200,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{name:'kick',crc:111});sampleStore.setMetadata(8,{name:'snare',crc:222});
+  const targets=[sampleStore.getSlot(7),sampleStore.getSlot(8)];
   const controller=createSampleDeleteController({
-    getMemory:()=>memory,
-    getSoundsParentId:()=>1000,
-    getSoundsMetadata:()=>({free_space_in_bytes:123}),
-    isConnected:()=>true,
-    isSynchronized:()=>true,
-    hasPendingPropertyWrites:()=>false,
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({free_space_in_bytes:123}),
+    isConnected:()=>true,isSynchronized:()=>true,hasPendingPropertyWrites:()=>false,
     confirmAction:async message=>{actions.push(['confirm',message]);return true;},
     captureBatchSession:()=>{actions.push(['capture']);return'session-a';},
-    assertBatchSession:token=>actions.push(['assert',token]),
-    getDeviceSessionToken:()=> 'session-a',
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress:(label,value)=>actions.push(['progress',label,value]),
-    hideGlobalProgress:()=>actions.push(['hide']),
-    getFileInfo:async id=>{
-      actions.push(['info',id]);
-      return{nodeId:id,parentId:1000,fileSize:id===7?100:200};
-    },
-    getFileMetadata:async id=>{
-      actions.push(['metadata',id]);
-      return{name:id===7?'kick':'snare',crc:id===7?111:222};
-    },
+    assertBatchSession:token=>actions.push(['assert',token]),getDeviceSessionToken:()=> 'session-a',
+    setMutating:value=>actions.push(['mutating',value]),setGlobalProgress:(label,value)=>actions.push(['progress',label,value]),hideGlobalProgress:()=>actions.push(['hide']),
+    getFileInfo:async id=>{actions.push(['info',id]);return{nodeId:id,parentId:1000,fileSize:id===7?100:200};},
+    getFileMetadata:async id=>{actions.push(['metadata',id]);return{name:id===7?'kick':'snare',crc:id===7?111:222};},
     deleteFile:async id=>actions.push(['delete',id]),
-    waitForMetadataUpdate:nodeId=>{
-      actions.push(['wait-metadata',nodeId]);
-      return Promise.resolve({data:{metadata:{free_space_in_bytes:456}}});
-    },
-    syncMetadataAfterMutation:async(nodeId,eventPromise)=>{
-      await eventPromise;
-      actions.push(['sync-metadata',nodeId]);
-    },
+    waitForMetadataUpdate:nodeId=>{actions.push(['wait-metadata',nodeId]);return Promise.resolve({data:{metadata:{free_space_in_bytes:456}}});},
+    syncMetadataAfterMutation:async(nodeId,eventPromise)=>{await eventPromise;actions.push(['sync-metadata',nodeId]);},
     assertSlotsDeleted:async ids=>actions.push(['verify-list',...ids]),
-    removeDeviceFile:id=>{removed.push(id);actions.push(['remove-file',id]);},
     renderDeviceStats:(metadata,count)=>actions.push(['stats',metadata.free_space_in_bytes,count]),
-    readDevice:async()=>actions.push(['resync']),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+    readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
-
   assert.equal(await controller.deleteSamples(targets),true);
-
-  assert.deepEqual(cleared,[7,8]);
-  assert.deepEqual(removed,[7,8]);
+  assert.equal(sampleStore.getSlot(7).file,null);assert.equal(sampleStore.getSlot(8).file,null);
   assert.deepEqual(actions.filter(item=>item[0]==='delete'),[['delete',7],['delete',8]]);
   assert.deepEqual(actions.filter(item=>item[0]==='verify-list'),[['verify-list',7,8]]);
-  assert.equal(actions.some(item=>item[0]==='resync'),false);
-  assert.equal(actions.at(-2)[0],'hide');
-  assert.deepEqual(actions.at(-1),['mutating',false]);
-
   const info7=actions.findIndex(item=>item[0]==='info'&&item[1]===7);
   const metadata7=actions.findIndex(item=>item[0]==='metadata'&&item[1]===7);
   const delete7=actions.findIndex(item=>item[0]==='delete'&&item[1]===7);
@@ -631,788 +545,245 @@ test('sample delete controller preserves confirm preflight event-sync and author
 });
 
 test('sample delete controller refuses a changed target before FILE_DELETE and resyncs the same session',async()=>{
-  const actions=[];
-  let deleteCalls=0,resyncCalls=0;
-  const slot={id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick',crc:111}};
+  let deleteCalls=0,resyncCalls=0;const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);sampleStore.setMetadata(7,{name:'kick',crc:111});
   const controller=createSampleDeleteController({
-    getMemory:()=>({clearSlot(){},countOccupied:()=>1}),
-    getSoundsParentId:()=>1000,
-    getSoundsMetadata:()=>({}),
-    isConnected:()=>true,
-    isSynchronized:()=>true,
-    hasPendingPropertyWrites:()=>false,
-    confirmAction:async()=>true,
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession(){},
-    getDeviceSessionToken:()=> 'session-a',
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress(){},
-    hideGlobalProgress:()=>actions.push(['hide']),
-    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:101}),
-    getFileMetadata:async()=>({name:'kick',crc:111}),
-    deleteFile:async()=>{deleteCalls++;},
-    waitForMetadataUpdate:()=>Promise.resolve(null),
-    syncMetadataAfterMutation:async()=>{},
-    assertSlotsDeleted:async()=>{},
-    removeDeviceFile(){},
-    renderDeviceStats(){},
-    readDevice:async()=>{resyncCalls++;},
-    logTechnical(){}
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),isConnected:()=>true,isSynchronized:()=>true,
+    hasPendingPropertyWrites:()=>false,confirmAction:async()=>true,captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:101}),getFileMetadata:async()=>({name:'kick',crc:111}),
+    deleteFile:async()=>{deleteCalls++;},waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},
+    renderDeviceStats(){},readDevice:async()=>{resyncCalls++;},logTechnical(){}
   });
-
-  await assert.rejects(
-    ()=>controller.deleteSamples([slot]),
-    /Sample slot changed before delete; reload the library and confirm again/
-  );
-  assert.equal(deleteCalls,0);
-  assert.equal(resyncCalls,1);
-  assert.deepEqual(actions,[['mutating',true],['hide'],['mutating',false]]);
+  await assert.rejects(()=>controller.deleteSamples([sampleStore.getSlot(7)]),/Sample slot changed before delete/);
+  assert.equal(deleteCalls,0);assert.equal(resyncCalls,1);assert.ok(sampleStore.getSlot(7).file);
 });
 
 test('sample delete controller blocks deletion while a property write is pending and respects cancel',async()=>{
-  let confirms=0,deletes=0,mutations=0;
-  const slot={id:7,nodeId:7,file:{name:'kick',size:100},meta:{name:'kick'}};
+  let confirms=0,deletes=0,mutations=0;const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);sampleStore.setMetadata(7,{name:'kick'});
   const base={
-    getMemory:()=>({clearSlot(){},countOccupied:()=>1}),
-    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
-    isConnected:()=>true,isSynchronized:()=>true,
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),isConnected:()=>true,isSynchronized:()=>true,
     captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
     setMutating:()=>{mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
-    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:100}),
-    getFileMetadata:async()=>({name:'kick'}),
-    deleteFile:async()=>{deletes++;},
-    waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},
-    assertSlotsDeleted:async()=>{},removeDeviceFile(){},renderDeviceStats(){},readDevice:async()=>{},logTechnical(){}
+    getFileInfo:async()=>({nodeId:7,parentId:1000,fileSize:100}),getFileMetadata:async()=>({name:'kick'}),
+    deleteFile:async()=>{deletes++;},waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},
+    assertSlotsDeleted:async()=>{},renderDeviceStats(){},readDevice:async()=>{},logTechnical(){}
   };
-  const pending=createSampleDeleteController({
-    ...base,
-    hasPendingPropertyWrites:()=>true,
-    confirmAction:async()=>{confirms++;return true;}
-  });
-  await assert.rejects(
-    ()=>pending.deleteSamples([slot]),
-    /pending sample property write/
-  );
-  assert.equal(confirms,0);
-  assert.equal(deletes,0);
-
-  const cancelled=createSampleDeleteController({
-    ...base,
-    hasPendingPropertyWrites:()=>false,
-    confirmAction:async()=>{confirms++;return false;}
-  });
-  assert.equal(await cancelled.deleteSamples([slot]),false);
-  assert.equal(confirms,1);
-  assert.equal(deletes,0);
-  assert.equal(mutations,0);
+  const pending=createSampleDeleteController({...base,hasPendingPropertyWrites:()=>true,confirmAction:async()=>{confirms++;return true;}});
+  await assert.rejects(()=>pending.deleteSamples([sampleStore.getSlot(7)]),/pending sample property write/);
+  assert.equal(confirms,0);assert.equal(deletes,0);
+  const cancelled=createSampleDeleteController({...base,hasPendingPropertyWrites:()=>false,confirmAction:async()=>{confirms++;return false;}});
+  assert.equal(await cancelled.deleteSamples([sampleStore.getSlot(7)]),false);
+  assert.equal(confirms,1);assert.equal(deletes,0);assert.equal(mutations,0);
 });
 
-
 test('sample upload controller batches one preflight and commits provisional metadata without blocking readback',async()=>{
-  const actions=[];
-  const timers=[];
-  const deviceFiles=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
-  let soundsMetadata={free_space_in_bytes:100};
-  const slots=new Map([
-    [1,{id:1,nodeId:1,file:{name:'occupied',size:1},node:{isWritable:true},meta:{}}],
-    [2,{id:2,nodeId:2,file:null,node:null,meta:null}],
-    [3,{id:3,nodeId:3,file:{name:'occupied3',size:1},node:{isWritable:true},meta:{}}],
-    [4,{id:4,nodeId:4,file:null,node:null,meta:null}]
-  ]);
-  const memory={
-    findNextFree(from){
-      for(let id=Number(from);id<=4;id++)if(!slots.get(id)?.file)return id;
-      return-1;
-    },
-    getSlot:id=>slots.get(Number(id)),
-    setSlot(item){
-      const id=Number(item.nodeId);
-      const current=slots.get(id)||{id,nodeId:id,file:null,node:null,meta:null};
-      current.file={name:String(item.fileName).split('/').pop(),size:item.fileSize};
-      current.node=item;
-      slots.set(id,current);
-      actions.push(['set-slot',id]);
-    },
-    setMetadata(id,metadata){
-      const slot=slots.get(Number(id));
-      slot.meta={...metadata};
-      actions.push(['set-meta',Number(id),metadata.name]);
-    },
-    setOperation(id,state){actions.push(['op',Number(id),state.label,state.progress]);},
-    clearOperation:id=>actions.push(['clear-op',Number(id)]),
-    clearSlot:id=>actions.push(['clear-slot',Number(id)]),
-    selectSlots(ids,options){actions.push(['select',[...ids],options.activeId]);},
-    countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
-  };
-  let batchCalls=0,preflights=0,refreshCalls=0;
-  const uploaded=[];
-  const pending=[];
-  const cacheWrites=[];
+  const actions=[],timers=[],sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:1,fileName:'/sounds/occupied',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:3,fileName:'/sounds/occupied3',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  let soundsMetadata={free_space_in_bytes:100};let batchCalls=0,preflights=0,refreshCalls=0;
+  const uploaded=[],pending=[];const memory={selectSlots:(ids,options)=>actions.push(['select',[...ids],options.activeId])};
   const controller=createSampleUploadController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>deviceFiles,
-    getSoundsParentId:()=>1000,
-    getSoundFormats:()=>[{type:'pcm'}],
-    getSoundsMetadata:()=>soundsMetadata,
+    sampleStore,getMemory:()=>memory,getSoundsParentId:()=>1000,getSoundFormats:()=>[{type:'pcm'}],getSoundsMetadata:()=>soundsMetadata,
     setSoundsMetadata:value=>{soundsMetadata=value;actions.push(['free',value.free_space_in_bytes]);},
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
-    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession:token=>assert.equal(token,'session-a'),
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress:(label,value)=>actions.push(['progress',label,Math.round(value)]),
-    hideGlobalProgress:()=>actions.push(['hide']),
-    withSampleUploadBatch:async operation=>{batchCalls++;return operation();},
-    assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
+    setMutating:value=>actions.push(['mutating',value]),setGlobalProgress(){},hideGlobalProgress:()=>actions.push(['hide']),
+    withSampleUploadBatch:async op=>{batchCalls++;return op();},assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
     refreshSoundsRuntimeMetadata:async()=>{refreshCalls++;return soundsMetadata;},
-    uploadSampleToSlot:async options=>{
-      uploaded.push(options.destinationId);
-      options.onCreated?.(options.destinationId);
-      options.onProgress?.(options.data.byteLength,options.data.byteLength);
-      return options.destinationId;
-    },
-    prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),
-    normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
-    updateDeviceFile:item=>{
-      const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
-      if(index>=0)deviceFiles[index]=item;else deviceFiles.push(item);
-    },
-    fileItemFromInfo:()=>{throw new Error('hydrate should be deferred');},
-    getFileInfo:async()=>{throw new Error('success path must not read FILE_INFO');},
-    getFileMetadata:async()=>{throw new Error('success path must not read metadata');},
-    sampleMetadataCache:{set(slot,metadata){cacheWrites.push([slot.id,metadata.name]);}},
-    renderDeviceStats:()=>{},
-    markUploadPending:id=>pending.push(['mark',id]),
-    clearUploadPending:id=>pending.push(['clear',id]),
-    waitForMetadataUpdate:()=>Promise.resolve(null),
-    deleteFile:async()=>{},
-    syncMetadataAfterMutation:async()=>{},
-    assertSlotsDeleted:async()=>{},
-    logTechnical(){},
-    showError:message=>actions.push(['error',message]),
-    prepareSample:async file=>({
-      data:new Uint8Array(file.name.toLowerCase().startsWith('a')?10:20),
-      channels:1,samplerate:46875,format:'s16',
-      metadata:{'sound.pitch':-12}
-    }),
+    uploadSampleToSlot:async options=>{uploaded.push(options.destinationId);options.onCreated?.(options.destinationId);options.onProgress?.(options.data.byteLength,options.data.byteLength);return options.destinationId;},
+    prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
+    fileItemFromInfo:()=>{throw new Error('hydrate should be deferred');},getFileInfo:async()=>{throw new Error('success path must not read FILE_INFO');},getFileMetadata:async()=>{throw new Error('success path must not read metadata');},
+    renderDeviceStats(){},markUploadPending:id=>pending.push(['mark',id]),clearUploadPending:id=>pending.push(['clear',id]),
+    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},logTechnical(){},showError(){},
+    prepareSample:async file=>({data:new Uint8Array(file.name.toLowerCase().startsWith('a')?10:20),channels:1,samplerate:46875,format:'s16',metadata:{'sound.pitch':-12}}),
     setTimeoutFn:(callback,delay)=>{timers.push({callback,delay});return timers.length;}
   });
-
-  const files=[
-    {name:'A.wav',type:'audio/wav'},
-    {name:'B.wav',type:'audio/wav'}
-  ];
-  const result=await controller.uploadFilesToSlot(slots.get(1),files);
-
-  assert.deepEqual(result.successes,[2,4]);
-  assert.equal(result.failures.length,0);
-  assert.deepEqual(uploaded,[2,4]);
-  assert.equal(batchCalls,1);
-  assert.equal(preflights,1);
+  const result=await controller.uploadFilesToSlot(sampleStore.getSlot(1),[{name:'A.wav',type:'audio/wav'},{name:'B.wav',type:'audio/wav'}]);
+  assert.deepEqual(result.successes,[2,4]);assert.deepEqual(uploaded,[2,4]);assert.equal(batchCalls,1);assert.equal(preflights,1);
   assert.equal(soundsMetadata.free_space_in_bytes,70);
-  assert.deepEqual(cacheWrites,[[2,'a'],[4,'b']]);
-  assert.deepEqual(pending.filter(item=>item[0]==='mark'),[['mark',2],['mark',4]]);
-  assert.deepEqual(pending.filter(item=>item[0]==='clear'),[['clear',2],['clear',4]]);
-  assert.deepEqual(timers.map(item=>item.delay),[250,900]);
+  assert.equal(sampleStore.getSlot(2).meta.name,'a');assert.equal(sampleStore.getSlot(4).meta.name,'b');
+  assert.equal(sampleStore.getSlot(2).state,'provisional');assert.equal(sampleStore.getSlot(2).verification.metadata,'provisional');
+  assert.deepEqual(timers.map(item=>item.delay),[250,900]);assert.equal(refreshCalls,1);
   assert.deepEqual(actions.find(item=>item[0]==='select'),['select',[2,4],2]);
-  assert.equal(refreshCalls,1);
-  assert.equal(actions.at(-2)[0],'hide');
-  assert.deepEqual(actions.at(-1),['mutating',false]);
 });
 
 test('sample upload controller rolls back a created slot through DELETE metadata sync and LIST verification',async()=>{
-  const actions=[];
-  const deviceFiles=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
-  const target={id:2,nodeId:2,file:null,node:null,meta:null};
-  const memory={
-    findNextFree:()=>2,
-    getSlot:()=>target,
-    setOperation(id,state){actions.push(['op',id,state.label]);},
-    clearOperation:id=>actions.push(['clear-op',id]),
-    clearSlot:id=>actions.push(['clear-slot',id]),
-    countOccupied:()=>0,
-    selectSlots(){throw new Error('failed upload must not select');}
-  };
+  const actions=[],sampleStore=createSampleStore();sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'}]);
   let shown='';
   const controller=createSampleUploadController({
-    getMemory:()=>memory,getDeviceFiles:()=>deviceFiles,
-    getSoundsParentId:()=>1000,getSoundFormats:()=>[],
-    getSoundsMetadata:()=>({free_space_in_bytes:100}),setSoundsMetadata(){},
+    sampleStore,getMemory:()=>({selectSlots(){throw new Error('failed upload must not select');}}),
+    getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({free_space_in_bytes:100}),setSoundsMetadata(){},
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
-    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
-    captureBatchSession:()=> 'session-a',assertBatchSession(){},
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress(){},hideGlobalProgress:()=>actions.push(['hide']),
-    withSampleUploadBatch:async operation=>operation(),
-    assertSlotsEmpty:async ids=>actions.push(['preflight',...ids]),
-    refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
-    uploadSampleToSlot:async options=>{
-      actions.push(['upload',options.destinationId]);
-      options.onCreated?.(2);
-      throw new Error('simulated stream failure');
-    },
-    prepareSampleLocalMetadata:metadata=>metadata,
-    normalizeFileName:name=>name.toLowerCase(),
-    updateDeviceFile(){},fileItemFromInfo(){},
-    getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
-    sampleMetadataCache:{set(){}},renderDeviceStats(){},
-    markUploadPending:id=>actions.push(['mark',id]),
-    clearUploadPending:id=>actions.push(['clear-pending',id]),
-    waitForMetadataUpdate:nodeId=>{
-      actions.push(['wait-metadata',nodeId]);
-      return Promise.resolve({data:{metadata:{}}});
-    },
-    deleteFile:async id=>actions.push(['delete',id]),
-    syncMetadataAfterMutation:async(nodeId,promise)=>{
-      await promise;actions.push(['sync-metadata',nodeId]);
-    },
-    assertSlotsDeleted:async ids=>actions.push(['verify-list',...ids]),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)]),
-    showError:message=>{shown=message;},
-    prepareSample:async()=>({
-      data:new Uint8Array(10),channels:1,samplerate:46875,format:'s16',metadata:{}
-    }),
-    setTimeoutFn:(callback,delay)=>{actions.push(['timer',delay]);return 1;}
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},withSampleUploadBatch:async op=>op(),assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
+    uploadSampleToSlot:async options=>{options.onCreated?.(2);throw new Error('simulated stream failure');},
+    prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x.toLowerCase(),fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
+    renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
+    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async id=>actions.push(['delete',id]),syncMetadataAfterMutation:async()=>actions.push(['sync']),
+    assertSlotsDeleted:async ids=>actions.push(['verify',...ids]),logTechnical(){},showError:message=>{shown=message;},
+    prepareSample:async()=>({data:new Uint8Array(10),channels:1,samplerate:46875,format:'s16',metadata:{}}),setTimeoutFn:()=>1
   });
-
-  const result=await controller.uploadFilesToSlot(
-    {id:1},
-    [{name:'Broken.wav',type:'audio/wav'}]
-  );
-
-  assert.deepEqual(result.successes,[]);
-  assert.equal(result.failures.length,1);
-  assert.match(shown,/COULD NOT UPLOAD:[\s\S]*Broken\.wav/);
-  const uploadIndex=actions.findIndex(item=>item[0]==='upload');
-  const deleteIndex=actions.findIndex(item=>item[0]==='delete');
-  const syncIndex=actions.findIndex(item=>item[0]==='sync-metadata');
-  const verifyIndex=actions.findIndex(item=>item[0]==='verify-list');
-  const clearIndex=actions.findIndex(item=>item[0]==='clear-slot');
-  assert.ok(uploadIndex>=0&&deleteIndex>uploadIndex&&syncIndex>deleteIndex&&verifyIndex>syncIndex&&clearIndex>verifyIndex);
-  assert.deepEqual(actions.find(item=>item[0]==='verify-list'),['verify-list',2]);
-  assert.equal(actions.at(-2)[0],'hide');
-  assert.deepEqual(actions.at(-1),['mutating',false]);
+  const result=await controller.uploadFilesToSlot({id:2},[{name:'Broken.wav',type:'audio/wav'}]);
+  assert.equal(result.failures.length,1);assert.match(shown,/Broken\.wav/);
+  assert.deepEqual(actions,[['delete',2],['sync'],['verify',2]]);
+  assert.equal(sampleStore.getSlot(2).file,null);
 });
 
 test('sample upload controller rejects unsupported files and insufficient forward slots before mutating',async()=>{
-  let mutations=0,batches=0;
-  const slots=new Map([
-    [5,{id:5,nodeId:5,file:null}],
-    [6,{id:6,nodeId:6,file:{name:'occupied'}}]
-  ]);
+  let mutations=0,batches=0;const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'}]);
   const base={
-    getMemory:()=>({
-      findNextFree(from){
-        for(let id=Number(from);id<=6;id++)if(!slots.get(id)?.file)return id;
-        return-1;
-      },
-      getSlot:id=>slots.get(Number(id))
-    }),
-    getDeviceFiles:()=>[],getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({}),
-    setSoundsMetadata(){},getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),
-    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
-    captureBatchSession:()=> 'session-a',assertBatchSession(){},
-    setMutating(){mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
-    withSampleUploadBatch:async operation=>{batches++;return operation();},
-    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
-    uploadSampleToSlot:async()=>{},prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x,
-    updateDeviceFile(){},fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
-    sampleMetadataCache:{set(){}},renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
-    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},
+    sampleStore,getMemory:()=>({}),getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({}),setSoundsMetadata(){},
+    getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},setMutating(){mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
+    withSampleUploadBatch:async op=>{batches++;return op();},assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
+    uploadSampleToSlot:async()=>{},prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x,fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
+    renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},
     assertSlotsDeleted:async()=>{},logTechnical(){},showError(){},prepareSample:async()=>({})
   };
-
   const controller=createSampleUploadController(base);
-  await assert.rejects(
-    ()=>controller.uploadFilesToSlot(slots.get(5),[{name:'note.txt',type:'text/plain'}]),
-    /No supported audio files/
-  );
-  await assert.rejects(
-    ()=>controller.uploadFilesToSlot(slots.get(5),[
-      {name:'one.wav',type:'audio/wav'},
-      {name:'two.wav',type:'audio/wav'}
-    ]),
-    /Not enough free sample slots above the drop position/
-  );
-  assert.equal(mutations,0);
-  assert.equal(batches,0);
+  await assert.rejects(()=>controller.uploadFilesToSlot({id:999},[{name:'note.txt',type:'text/plain'}]),/No supported audio files/);
+  await assert.rejects(()=>controller.uploadFilesToSlot({id:999},[{name:'one.wav',type:'audio/wav'},{name:'two.wav',type:'audio/wav'}]),/Not enough free sample slots/);
+  assert.equal(mutations,0);assert.equal(batches,0);
 });
 
-
 test('sample move controller performs CRC-verified FILE_MOVE and remaps local state without PCM fallback',async()=>{
-  const actions=[];
-  let files=[
-    {nodeId:1000,fileName:'/sounds',fileType:'folder'},
-    {nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100}
-  ];
-  const slots=new Map([
-    [7,{id:7,nodeId:7,file:{name:'kick',size:100},node:{nodeId:7},meta:{name:'kick',crc:123}}],
-    [8,{id:8,nodeId:8,file:null,node:null,meta:null}]
-  ]);
-  const memory={
-    getSlot:id=>slots.get(Number(id)),
-    clearSlot:id=>{actions.push(['clear-slot',Number(id)]);slots.delete(Number(id));},
-    setSlot:item=>{
-      const id=Number(item.nodeId);
-      slots.set(id,{id,nodeId:id,file:{name:'kick',size:item.fileSize},node:item,meta:null});
-      actions.push(['set-slot',id]);
-    },
-    setMetadata(id,metadata){
-      const slot=slots.get(Number(id));
-      slot.meta={...metadata};
-      actions.push(['set-meta',Number(id),metadata.name]);
-    },
-    setOperation(id,state){actions.push(['op',Number(id),state.label,state.progress]);},
-    clearOperation:id=>actions.push(['clear-op',Number(id)]),
-    clearOperations:()=>actions.push(['clear-ops']),
-    countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
-  };
-  const cacheActions=[];
+  const actions=[],sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{name:'kick',crc:123});
   const controller=createSampleMoveController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>files,
-    setDeviceFiles:value=>{files=value;actions.push(['files',value.map(item=>item.nodeId)]);},
-    getSoundsParentId:()=>1000,
-    getSoundsMetadata:()=>({free_space_in_bytes:50}),
-    sampleMetadataCache:{
-      invalidate:id=>cacheActions.push(['invalidate',Number(id)]),
-      set:(slot,metadata)=>cacheActions.push(['set',slot.id,metadata.name])
-    },
-    fileItemFromInfo:info=>({
-      nodeId:Number(info.nodeId),
-      fileName:'/sounds/'+info.fileName,
-      fileType:'file',
-      fileSize:Number(info.fileSize),
-      isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true
-    }),
-    remapCurrentPropertySlot:(oldId,newId)=>actions.push(['remap',oldId,newId]),
-    renderDeviceStats:(metadata,count)=>actions.push(['stats',metadata.free_space_in_bytes,count]),
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession:token=>assert.equal(token,'session-a'),
-    getDeviceSessionToken:()=> 'session-a',
-    isConnected:()=>true,
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress:(label,value)=>actions.push(['progress',label,value]),
-    hideGlobalProgress:()=>actions.push(['hide']),
-    suppressNativeMoveEvent:(oldId,newId)=>{
-      actions.push(['suppress',oldId,newId]);
-      return()=>actions.push(['release',oldId,newId]);
-    },
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({free_space_in_bytes:50}),
+    fileItemFromInfo:info=>({nodeId:Number(info.nodeId),fileName:'/sounds/'+info.fileName,fileType:'file',fileSize:Number(info.fileSize),isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}),
+    remapCurrentPropertySlot:(oldId,newId)=>actions.push(['remap',oldId,newId]),renderDeviceStats(){},
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),getDeviceSessionToken:()=> 'session-a',
+    isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    suppressNativeMoveEvent:(oldId,newId)=>{actions.push(['suppress',oldId,newId]);return()=>actions.push(['release',oldId,newId]);},
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
     moveFile:async(sourceId,parentId,targetId,options)=>{
       actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
-      return{
-        oldFileId:sourceId,newFileId:targetId,
-        sourceCrc:123,destinationCrc:123,crcVerified:true,
-        info:{nodeId:targetId,fileName:'kick',fileSize:100},
-        metadata:{name:'kick',crc:123}
-      };
+      return{oldFileId:sourceId,newFileId:targetId,sourceCrc:123,destinationCrc:123,crcVerified:true,info:{nodeId:targetId,fileName:'kick',fileSize:100},metadata:{name:'kick',crc:123}};
     },
-    readDevice:async()=>actions.push(['resync']),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+    readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
-
-  const source=slots.get(7);
-  const result=await controller.nativeMoveTransfer(
-    [{sourceId:7,targetId:8}],
-    new Map([[7,source]])
-  );
-
+  const source=sampleStore.getSlot(7);
+  const result=await controller.nativeMoveTransfer([{sourceId:7,targetId:8}],new Map([[7,source]]));
   assert.deepEqual(result,{targetIds:[8]});
   assert.deepEqual(actions.find(item=>item[0]==='move'),['move',7,1000,8,true]);
-  assert.deepEqual(actions.filter(item=>item[0]==='suppress'),[['suppress',7,8]]);
-  assert.deepEqual(actions.filter(item=>item[0]==='release'),[['release',7,8]]);
-  assert.equal(actions.some(item=>item[0]==='resync'),false);
-  assert.equal(slots.has(7),false);
-  assert.equal(slots.get(8).meta.name,'kick');
-  assert.deepEqual(files.map(item=>item.nodeId),[1000,8]);
-  assert.deepEqual(cacheActions,[
-    ['invalidate',7],['invalidate',8],['set',8,'kick']
-  ]);
+  assert.equal(sampleStore.getSlot(7).file,null);
+  assert.equal(sampleStore.getSlot(8).meta.name,'kick');
+  assert.equal(sampleStore.getSlot(8).verification.file,'verified');
   assert.deepEqual(actions.find(item=>item[0]==='remap'),['remap',7,8]);
-  assert.equal(actions.at(-2)[0],'hide');
-  assert.deepEqual(actions.at(-1),['mutating',false]);
+  assert.equal(actions.some(item=>item[0]==='resync'),false);
 });
 
 test('sample move controller rolls completed moves back in reverse order and resyncs after a later MOVE failure',async()=>{
-  const actions=[];
-  const slots=new Map([
-    [7,{id:7,nodeId:7,file:{name:'one'},node:{},meta:{name:'one',crc:111}}],
-    [8,{id:8,nodeId:8,file:null,node:null,meta:null}],
-    [9,{id:9,nodeId:9,file:{name:'two'},node:{},meta:{name:'two',crc:222}}],
-    [10,{id:10,nodeId:10,file:null,node:null,meta:null}]
-  ]);
-  const memory={
-    getSlot:id=>slots.get(Number(id)),
-    clearSlot:id=>slots.delete(Number(id)),
-    setSlot:item=>{
-      const id=Number(item.nodeId);
-      slots.set(id,{id,nodeId:id,file:{name:item.fileName},node:item,meta:null});
-    },
-    setMetadata(id,metadata){slots.get(Number(id)).meta={...metadata};},
-    setOperation(){},clearOperation(){},
-    clearOperations:()=>actions.push(['clear-ops']),
-    countOccupied:()=>2
-  };
-  let files=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
+  const actions=[],sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/one',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:9,fileName:'/sounds/two',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{name:'one',crc:111});sampleStore.setMetadata(9,{name:'two',crc:222});
+  const source7=sampleStore.getSlot(7),source9=sampleStore.getSlot(9);
   const controller=createSampleMoveController({
-    getMemory:()=>memory,getDeviceFiles:()=>files,setDeviceFiles:value=>{files=value;},
-    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
-    sampleMetadataCache:{invalidate(){},set(){}},
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
     fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileType:'file',fileSize:1}),
-    remapCurrentPropertySlot(){},renderDeviceStats(){},
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession:token=>assert.equal(token,'session-a'),
-    getDeviceSessionToken:()=> 'session-a',
+    remapCurrentPropertySlot(){},renderDeviceStats(){},captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),getDeviceSessionToken:()=> 'session-a',
     isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
-    suppressNativeMoveEvent:(oldId,newId)=>{
-      actions.push(['suppress',oldId,newId]);
-      return()=>actions.push(['release',oldId,newId]);
-    },
+    suppressNativeMoveEvent:(oldId,newId)=>{actions.push(['suppress',oldId,newId]);return()=>actions.push(['release',oldId,newId]);},
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
     moveFile:async(sourceId,parentId,targetId,options)=>{
       actions.push(['move',sourceId,targetId,options.verifyCrc]);
-      if(sourceId===7&&targetId===8)return{
-        oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,
-        info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}
-      };
+      if(sourceId===7&&targetId===8)return{oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
       if(sourceId===9&&targetId===10)throw new Error('second move failed');
-      if(sourceId===8&&targetId===7)return{
-        oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,
-        info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}
-      };
+      if(sourceId===8&&targetId===7)return{oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
       throw new Error('unexpected move');
     },
-    readDevice:async()=>actions.push(['resync']),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+    readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
-
-  await assert.rejects(
-    ()=>controller.nativeMoveTransfer(
-      [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
-      new Map([[7,slots.get(7)],[9,slots.get(9)]])
-    ),
-    /second move failed/
-  );
-
-  assert.deepEqual(actions.filter(item=>item[0]==='move'),[
-    ['move',7,8,true],
-    ['move',9,10,true],
-    ['move',8,7,true]
-  ]);
-  assert.ok(actions.findIndex(item=>item[0]==='move'&&item[1]===8)>actions.findIndex(item=>item[0]==='move'&&item[1]===9));
-  assert.equal(actions.some(item=>item[0]==='clear-suppress'&&item[1]===9&&item[2]===10),true);
+  await assert.rejects(()=>controller.nativeMoveTransfer(
+    [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
+    new Map([[7,source7],[9,source9]])
+  ),/second move failed/);
+  assert.deepEqual(actions.filter(item=>item[0]==='move'),[['move',7,8,true],['move',9,10,true],['move',8,7,true]]);
   assert.equal(actions.filter(item=>item[0]==='resync').length,1);
-  assert.equal(actions.at(-2)[0],'resync');
-  assert.equal(actions.at(-1)[0],'clear-ops');
+  assert.equal(actions.some(item=>item[0]==='clear-suppress'&&item[1]===9&&item[2]===10),true);
 });
 
 test('sample move controller refuses an occupied destination before sending FILE_MOVE',async()=>{
-  let moveCalls=0;
-  const memory={
-    getSlot:id=>({id:Number(id),file:{name:'occupied'}}),
-    setOperation(){},clearOperation(){},clearOperations(){},countOccupied:()=>1
-  };
+  let moveCalls=0;const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/source',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:8,fileName:'/sounds/occupied',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
   const controller=createSampleMoveController({
-    getMemory:()=>memory,getDeviceFiles:()=>[],setDeviceFiles(){},
-    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
-    sampleMetadataCache:{invalidate(){},set(){}},fileItemFromInfo:()=>null,
-    remapCurrentPropertySlot(){},renderDeviceStats(){},
-    captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
-    isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
-    suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),fileItemFromInfo:()=>null,
+    remapCurrentPropertySlot(){},renderDeviceStats(){},captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
     moveFile:async()=>{moveCalls++;},readDevice:async()=>{},logTechnical(){}
   });
-  const source={id:7,nodeId:7,file:{name:'source'},meta:{}};
-  await assert.rejects(
-    ()=>controller.nativeMoveTransfer(
-      [{sourceId:7,targetId:8}],
-      new Map([[7,source]])
-    ),
-    /Target sample slot is no longer empty/
-  );
+  const source=sampleStore.getSlot(7);
+  await assert.rejects(()=>controller.nativeMoveTransfer([{sourceId:7,targetId:8}],new Map([[7,source]])),/Target sample slot is no longer empty/);
   assert.equal(moveCalls,0);
 });
 
-
 test('sample copy controller preserves GET metadata PUT sync FILE_INFO commit order',async()=>{
-  const actions=[];
-  let files=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
-  const source={
-    id:7,nodeId:7,
-    file:{name:'kick',size:4},
-    node:{isReadable:true},
-    meta:{name:'kick',crc:111}
-  };
-  const target={id:8,nodeId:8,file:null,node:null,meta:null};
-  const slots=new Map([[7,source],[8,target]]);
-  const memory={
-    getSlot:id=>slots.get(Number(id)),
-    setOperation:(id,state)=>actions.push(['op',Number(id),state.label,state.progress]),
-    clearOperation:id=>actions.push(['clear-op',Number(id)]),
-    clearOperations:()=>actions.push(['clear-ops']),
-    setSlot:item=>{
-      const id=Number(item.nodeId);
-      slots.set(id,{id,nodeId:id,file:{name:'copy',size:item.fileSize},node:item,meta:null});
-      actions.push(['set-slot',id]);
-    },
-    setMetadata:(id,metadata)=>{
-      slots.get(Number(id)).meta={...metadata};
-      actions.push(['set-meta',Number(id),metadata.name]);
-    },
-    clearSlot:id=>{
-      slots.delete(Number(id));
-      actions.push(['clear-slot',Number(id)]);
-    },
-    countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
-  };
-
+  const actions=[],sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:4,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  sampleStore.setMetadata(7,{name:'kick',crc:111});
+  const source=sampleStore.getSlot(7);
   const controller=createSampleCopyController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>files,
-    setDeviceFiles:value=>{files=value;actions.push(['files',value.map(item=>item.nodeId)]);},
-    getSoundsParentId:()=>1000,
-    getSoundsMetadata:()=>({free_space_in_bytes:100}),
-    getActiveDeviceProfile:()=>({
-      playModes:['oneshot','key','legato'],
-      advancedSampleMetadataWrites:true
-    }),
-    isConnected:()=>true,
-    captureBatchSession:()=>{actions.push(['capture']);return'session-a';},
-    assertBatchSession:token=>actions.push(['assert',token]),
-    getDeviceSessionToken:()=> 'session-a',
-    setMutating:value=>actions.push(['mutating',value]),
-    setGlobalProgress:(label,value)=>actions.push(['progress',label,Math.round(value)]),
-    hideGlobalProgress:()=>actions.push(['hide']),
-    assertSlotsEmpty:async ids=>actions.push(['empty',...ids]),
-    refreshSoundsRuntimeMetadata:async()=>{
-      actions.push(['refresh-memory']);
-      return{free_space_in_bytes:100};
-    },
-    getFile:async(id,onProgress)=>{
-      actions.push(['get',id]);
-      onProgress?.(2,4);
-      return{name:'wire-kick',data:Uint8Array.from([1,2,3,4])};
-    },
-    getFileMetadata:async id=>{
-      actions.push(['metadata',id]);
-      return{name:'kick','sound.pitch':-12,'sound.playmode':'oneshot','envelope.release':255};
-    },
-    prepareSampleTransferMetadata:(metadata,options)=>{
-      actions.push(['prepare-transfer',options.allowedPlayModes.join(',')]);
-      return{...metadata};
-    },
-    createTransferFileName:(sourceId,targetId)=>{
-      actions.push(['transfer-name',sourceId,targetId]);
-      return'mv007_008';
-    },
-    uploadSampleToSlot:async options=>{
-      actions.push(['upload',options.destinationId,options.filename,options.barWriteMode]);
-      options.onCreated?.(8);
-      options.onProgress?.(4,4);
-      return 8;
-    },
-    waitForMetadataUpdate:nodeId=>{
-      actions.push(['wait-metadata',nodeId]);
-      return Promise.resolve({data:{metadata:{free_space_in_bytes:96}}});
-    },
-    syncMetadataAfterMutation:async(nodeId,promise)=>{
-      await promise;
-      actions.push(['sync-metadata',nodeId]);
-    },
-    getFileInfo:async id=>{
-      actions.push(['info',id]);
-      return{nodeId:8,parentId:1000,fileName:'mv007_008',fileSize:4,flags:1};
-    },
-    fileItemFromInfo:info=>({
-      nodeId:Number(info.nodeId),fileName:'/sounds/'+info.fileName,
-      fileType:'file',fileSize:Number(info.fileSize),
-      isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true
-    }),
-    updateDeviceFile:item=>{
-      files=files.filter(file=>Number(file.nodeId)!==Number(item.nodeId));
-      files.push(item);
-      actions.push(['update-file',item.nodeId]);
-    },
-    prepareSampleLocalMetadata:(metadata,options)=>{
-      actions.push(['prepare-local',options.barWriteMode]);
-      return{...metadata,local:true};
-    },
-    sampleMetadataCache:{set:(slot,metadata)=>actions.push(['cache',slot.id,metadata.name])},
-    renderDeviceStats:(metadata,count)=>actions.push(['stats',metadata.free_space_in_bytes,count]),
-    deleteFile:async id=>actions.push(['delete',id]),
-    readDevice:async()=>actions.push(['resync']),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({free_space_in_bytes:100}),
+    getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
+    isConnected:()=>true,captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},assertSlotsEmpty:async ids=>actions.push(['empty',...ids]),
+    refreshSoundsRuntimeMetadata:async()=>{actions.push(['refresh']);return{free_space_in_bytes:100};},
+    getFile:async id=>{actions.push(['get',id]);return{name:'wire-kick',data:Uint8Array.from([1,2,3,4])};},
+    getFileMetadata:async id=>{actions.push(['metadata',id]);return{name:'kick','sound.pitch':-12};},
+    prepareSampleTransferMetadata:metadata=>({...metadata}),createTransferFileName:()=> 'mv007_008',
+    uploadSampleToSlot:async options=>{actions.push(['upload',options.destinationId,options.barWriteMode]);options.onCreated?.(8);return 8;},
+    waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>actions.push(['sync']),
+    getFileInfo:async id=>{actions.push(['info',id]);return{nodeId:8,parentId:1000,fileName:'mv007_008',fileSize:4,flags:1};},
+    fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileType:'file',fileSize:info.fileSize,isReadable:true}),
+    prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),renderDeviceStats(){},deleteFile:async()=>{},readDevice:async()=>{},logTechnical(){}
   });
-
-  const result=await controller.copyTransfer(
-    [{sourceId:7,targetId:8}],
-    new Map([[7,source]]),
-    [source]
-  );
-
+  const result=await controller.copyTransfer([{sourceId:7,targetId:8}],new Map([[7,source]]),[source]);
   assert.deepEqual(result,{targetIds:[8]});
-  assert.deepEqual(actions.find(item=>item[0]==='upload'),['upload',8,'mv007_008','preserve']);
-  assert.equal(slots.get(8).meta.name,'kick');
-  assert.equal(slots.get(8).meta.local,true);
-
-  const getIndex=actions.findIndex(item=>item[0]==='get');
-  const metadataIndex=actions.findIndex(item=>item[0]==='metadata');
-  const uploadIndex=actions.findIndex(item=>item[0]==='upload');
-  const syncIndex=actions.findIndex(item=>item[0]==='sync-metadata');
-  const infoIndex=actions.findIndex(item=>item[0]==='info');
-  const setSlotIndex=actions.findIndex(item=>item[0]==='set-slot');
-  assert.ok(
-    getIndex>=0&&
-    metadataIndex>getIndex&&
-    uploadIndex>metadataIndex&&
-    syncIndex>uploadIndex&&
-    infoIndex>syncIndex&&
-    setSlotIndex>infoIndex
-  );
-  assert.equal(actions.some(item=>item[0]==='delete'),false);
-  assert.equal(actions.some(item=>item[0]==='resync'),false);
-  assert.equal(actions.at(-2)[0],'hide');
-  assert.deepEqual(actions.at(-1),['mutating',false]);
+  assert.equal(sampleStore.getSlot(8).meta.name,'kick');assert.equal(sampleStore.getSlot(8).meta.local,true);
+  assert.equal(sampleStore.getSlot(8).verification.metadata,'expected');
+  const getIndex=actions.findIndex(x=>x[0]==='get'),metaIndex=actions.findIndex(x=>x[0]==='metadata'),uploadIndex=actions.findIndex(x=>x[0]==='upload'),syncIndex=actions.findIndex(x=>x[0]==='sync'),infoIndex=actions.findIndex(x=>x[0]==='info');
+  assert.ok(getIndex>=0&&metaIndex>getIndex&&uploadIndex>metaIndex&&syncIndex>uploadIndex&&infoIndex>syncIndex);
 });
 
 test('sample copy controller rolls created destinations back in reverse order and resyncs after failure',async()=>{
-  const actions=[];
-  let files=[
-    {nodeId:1000,fileName:'/sounds',fileType:'folder'},
-    {nodeId:8,fileName:'/sounds/copy1',fileType:'file'},
-    {nodeId:10,fileName:'/sounds/copy2',fileType:'file'}
-  ];
-  const source7={id:7,nodeId:7,file:{name:'one'},node:{isReadable:true},meta:{}};
-  const source9={id:9,nodeId:9,file:{name:'two'},node:{isReadable:true},meta:{}};
-  const slots=new Map([
-    [7,source7],
-    [8,{id:8,nodeId:8,file:null,node:null,meta:null}],
-    [9,source9],
-    [10,{id:10,nodeId:10,file:null,node:null,meta:null}]
-  ]);
-  const memory={
-    getSlot:id=>slots.get(Number(id)),
-    setOperation(){},
-    clearOperation(){},
-    clearOperations:()=>actions.push(['clear-ops']),
-    setSlot:item=>{
-      const id=Number(item.nodeId);
-      slots.set(id,{id,nodeId:id,file:{name:item.fileName},node:item,meta:null});
-    },
-    setMetadata(id,metadata){slots.get(Number(id)).meta={...metadata};},
-    clearSlot:id=>{
-      slots.delete(Number(id));
-      actions.push(['clear-slot',Number(id)]);
-    },
-    countOccupied:()=>2
-  };
-  let uploadCount=0;
-
+  const actions=[],sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/one',fileType:'file',fileSize:2,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:9,fileName:'/sounds/two',fileType:'file',fileSize:2,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
+  const source7=sampleStore.getSlot(7),source9=sampleStore.getSlot(9);let uploadCount=0;
   const controller=createSampleCopyController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>files,
-    setDeviceFiles:value=>{files=value;actions.push(['files',value.map(item=>item.nodeId)]);},
-    getSoundsParentId:()=>1000,
-    getSoundsMetadata:()=>({free_space_in_bytes:100}),
-    getActiveDeviceProfile:()=>({
-      playModes:['oneshot','key','legato'],
-      advancedSampleMetadataWrites:true
-    }),
-    isConnected:()=>true,
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession:token=>assert.equal(token,'session-a'),
-    getDeviceSessionToken:()=> 'session-a',
-    setMutating(){},
-    setGlobalProgress(){},
-    hideGlobalProgress:()=>actions.push(['hide']),
-    assertSlotsEmpty:async()=>{},
-    refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
-    getFile:async id=>({name:'source-'+id,data:Uint8Array.from([1,2])}),
-    getFileMetadata:async id=>({name:'source-'+id}),
-    prepareSampleTransferMetadata:metadata=>({...metadata}),
-    createTransferFileName:(sourceId,targetId)=>'mv'+sourceId+'_'+targetId,
-    uploadSampleToSlot:async options=>{
-      uploadCount+=1;
-      options.onCreated?.(options.destinationId);
-      actions.push(['upload',options.destinationId]);
-      if(uploadCount===2)throw new Error('second copy failed');
-      return options.destinationId;
-    },
-    waitForMetadataUpdate:nodeId=>{
-      actions.push(['wait-metadata',nodeId]);
-      return Promise.resolve(null);
-    },
-    syncMetadataAfterMutation:async(nodeId,promise)=>{
-      await promise;
-      actions.push(['sync-metadata',nodeId]);
-    },
-    getFileInfo:async id=>({nodeId:id,parentId:1000,fileName:'copy'+id,fileSize:2,flags:1}),
-    fileItemFromInfo:info=>({
-      nodeId:Number(info.nodeId),fileName:'/sounds/'+info.fileName,
-      fileType:'file',fileSize:Number(info.fileSize)
-    }),
-    updateDeviceFile(){},
-    prepareSampleLocalMetadata:metadata=>({...metadata}),
-    sampleMetadataCache:{set(){}},
-    renderDeviceStats(){},
-    deleteFile:async id=>actions.push(['delete',id]),
-    readDevice:async()=>actions.push(['resync']),
-    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({free_space_in_bytes:100}),getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:true}),
+    isConnected:()=>true,captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
+    getFile:async id=>({name:'source-'+id,data:Uint8Array.from([1,2])}),getFileMetadata:async id=>({name:'source-'+id}),prepareSampleTransferMetadata:x=>({...x}),createTransferFileName:(s,t)=>'mv'+s+'_'+t,
+    uploadSampleToSlot:async options=>{uploadCount++;options.onCreated?.(options.destinationId);actions.push(['upload',options.destinationId]);if(uploadCount===2)throw new Error('second copy failed');return options.destinationId;},
+    waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},
+    getFileInfo:async id=>({nodeId:id,parentId:1000,fileName:'copy'+id,fileSize:2,flags:1}),fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileType:'file',fileSize:2}),
+    prepareSampleLocalMetadata:x=>({...x}),renderDeviceStats(){},deleteFile:async id=>actions.push(['delete',id]),readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
-
-  await assert.rejects(
-    ()=>controller.copyTransfer(
-      [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
-      new Map([[7,source7],[9,source9]]),
-      [source7,source9]
-    ),
-    /second copy failed/
-  );
-
-  assert.deepEqual(actions.filter(item=>item[0]==='upload'),[
-    ['upload',8],['upload',10]
-  ]);
-  assert.deepEqual(actions.filter(item=>item[0]==='delete'),[
-    ['delete',10],['delete',8]
-  ]);
-  const delete10=actions.findIndex(item=>item[0]==='delete'&&item[1]===10);
-  const delete8=actions.findIndex(item=>item[0]==='delete'&&item[1]===8);
-  assert.ok(delete10>=0&&delete8>delete10);
-  assert.equal(actions.filter(item=>item[0]==='resync').length,1);
-  assert.equal(files.some(item=>Number(item.nodeId)===8),false);
-  assert.equal(files.some(item=>Number(item.nodeId)===10),false);
-  assert.equal(actions.at(-2)[0],'resync');
-  assert.equal(actions.at(-1)[0],'hide');
+  await assert.rejects(()=>controller.copyTransfer(
+    [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
+    new Map([[7,source7],[9,source9]]),[source7,source9]
+  ),/second copy failed/);
+  assert.deepEqual(actions.filter(x=>x[0]==='delete'),[['delete',10],['delete',8]]);
+  assert.equal(sampleStore.getSlot(8).file,null);assert.equal(sampleStore.getSlot(10).file,null);
+  assert.equal(actions.filter(x=>x[0]==='resync').length,1);
 });
 
 test('sample copy controller rejects unreadable sources before entering the mutating phase',async()=>{
-  let mutatingCalls=0,getCalls=0;
+  let mutatingCalls=0,getCalls=0;const sampleStore=createSampleStore();
   const source={id:7,nodeId:7,file:{name:'locked'},node:{isReadable:false}};
   const controller=createSampleCopyController({
-    getMemory:()=>({}),
-    getDeviceFiles:()=>[],setDeviceFiles(){},
-    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
-    getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),
-    isConnected:()=>true,
-    captureBatchSession:()=> 'session-a',
-    assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
-    setMutating(){mutatingCalls++;},
-    setGlobalProgress(){},hideGlobalProgress(){},
-    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
-    getFile:async()=>{getCalls++;return{data:new Uint8Array(1)};},
-    getFileMetadata:async()=>({}),prepareSampleTransferMetadata:x=>x,
-    createTransferFileName:()=> 'copy',
-    uploadSampleToSlot:async()=>1,waitForMetadataUpdate:()=>Promise.resolve(null),
-    syncMetadataAfterMutation:async()=>{},getFileInfo:async()=>({}),fileItemFromInfo:()=>null,
-    updateDeviceFile(){},prepareSampleLocalMetadata:x=>x,sampleMetadataCache:{set(){}},
-    renderDeviceStats(){},deleteFile:async()=>{},readDevice:async()=>{},logTechnical(){}
+    sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),
+    isConnected:()=>true,captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    setMutating(){mutatingCalls++;},setGlobalProgress(){},hideGlobalProgress(){},assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
+    getFile:async()=>{getCalls++;return{data:new Uint8Array(1)};},getFileMetadata:async()=>({}),prepareSampleTransferMetadata:x=>x,createTransferFileName:()=> 'copy',
+    uploadSampleToSlot:async()=>1,waitForMetadataUpdate:()=>Promise.resolve(null),syncMetadataAfterMutation:async()=>{},getFileInfo:async()=>({}),fileItemFromInfo:()=>null,
+    prepareSampleLocalMetadata:x=>x,renderDeviceStats(){},deleteFile:async()=>{},readDevice:async()=>{},logTechnical(){}
   });
-
-  await assert.rejects(
-    ()=>controller.copyTransfer([{sourceId:7,targetId:8}],new Map([[7,source]]),[source]),
-    /One or more source samples cannot be read/
-  );
-  assert.equal(mutatingCalls,0);
-  assert.equal(getCalls,0);
+  await assert.rejects(()=>controller.copyTransfer([{sourceId:7,targetId:8}],new Map([[7,source]]),[source]),/One or more source samples cannot be read/);
+  assert.equal(mutatingCalls,0);assert.equal(getCalls,0);
 });

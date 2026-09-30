@@ -1,11 +1,12 @@
 export function createSampleDeleteController({
-  getMemory,getSoundsParentId,getSoundsMetadata,
+  sampleStore,
+  getSoundsParentId,getSoundsMetadata,
   isConnected,isSynchronized,hasPendingPropertyWrites,
   confirmAction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   setMutating,setGlobalProgress,hideGlobalProgress,
   getFileInfo,getFileMetadata,deleteFile,
   waitForMetadataUpdate,syncMetadataAfterMutation,
-  assertSlotsDeleted,removeDeviceFile,renderDeviceStats,
+  assertSlotsDeleted,renderDeviceStats,
   readDevice,logTechnical
 }={}){
   const assertDeleteTargetUnchanged=async slot=>{
@@ -31,21 +32,25 @@ export function createSampleDeleteController({
     if(hasPendingPropertyWrites())
       throw new Error('Wait for the pending sample property write to finish before deleting samples.');
 
-    const message=targets.length>1
-      ?'DELETE '+targets.length+' SELECTED SAMPLES?'
-      :'DELETE "'+String(targets[0]?.meta?.name||targets[0]?.file?.name||'SAMPLE').toUpperCase()+'"?';
+    const canonicalTargets=targets
+      .map(target=>sampleStore.getSlot(target.id))
+      .filter(slot=>slot?.file);
+    if(!canonicalTargets.length)return false;
+
+    const message=canonicalTargets.length>1
+      ?'DELETE '+canonicalTargets.length+' SELECTED SAMPLES?'
+      :'DELETE "'+String(canonicalTargets[0]?.meta?.name||canonicalTargets[0]?.file?.name||'SAMPLE').toUpperCase()+'"?';
     if(!await confirmAction(message))return false;
 
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
-    const memory=getMemory();
     setMutating(true);
 
     try{
-      for(let index=0;index<targets.length;index++){
+      for(let index=0;index<canonicalTargets.length;index++){
         assertBatchSession(sessionToken);
-        const slot=targets[index];
-        setGlobalProgress('DELETE',(index/targets.length)*100);
+        const slot=canonicalTargets[index];
+        setGlobalProgress('DELETE',(index/canonicalTargets.length)*100);
 
         await assertDeleteTargetUnchanged(slot);
 
@@ -55,13 +60,12 @@ export function createSampleDeleteController({
         assertBatchSession(sessionToken);
         await syncMetadataAfterMutation(soundsParentId,metadataUpdate);
 
-        removeDeviceFile(slot.nodeId||slot.id);
-        memory.clearSlot(slot.id);
-        setGlobalProgress('DELETE',((index+1)/targets.length)*100);
+        sampleStore.removeFile(slot.nodeId||slot.id);
+        setGlobalProgress('DELETE',((index+1)/canonicalTargets.length)*100);
       }
 
-      await assertSlotsDeleted(targets.map(slot=>slot.id));
-      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+      await assertSlotsDeleted(canonicalTargets.map(slot=>slot.id));
+      renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
       return true;
     }catch(error){
       if(isConnected()&&getDeviceSessionToken()===sessionToken){

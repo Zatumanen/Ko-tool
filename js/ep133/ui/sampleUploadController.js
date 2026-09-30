@@ -2,7 +2,7 @@ import{prepareEp133Sample}from '../audio.js?v=20260930-5';
 import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20260930-5';
 
 export function createSampleUploadController({
-  getMemory,getDeviceFiles,
+  sampleStore,getMemory,
   getSoundsParentId,getSoundFormats,getSoundsMetadata,setSoundsMetadata,
   getActiveDeviceProfile,
   isConnected,isSynchronized,isDeviceUnsafe,
@@ -10,8 +10,8 @@ export function createSampleUploadController({
   setMutating,setGlobalProgress,hideGlobalProgress,
   withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
   uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
-  updateDeviceFile,fileItemFromInfo,getFileInfo,getFileMetadata,
-  sampleMetadataCache,renderDeviceStats,
+  fileItemFromInfo,getFileInfo,getFileMetadata,
+  renderDeviceStats,
   markUploadPending,clearUploadPending,
   waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
   logTechnical,showError,
@@ -19,17 +19,14 @@ export function createSampleUploadController({
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
 }={}){
   const hydrateUploadedFileItem=async nodeId=>{
-    const memory=getMemory();
     try{
       const info=await getFileInfo(nodeId);
       const item=fileItemFromInfo(info);
       if(!item)return;
-      updateDeviceFile(item);
-      memory.setSlot(item);
+      sampleStore.upsertFile(item,{state:'ready',verification:'verified'});
       const metadata=await getFileMetadata(nodeId);
-      memory.setMetadata(nodeId,metadata||{});
-      sampleMetadataCache.set(memory.getSlot(nodeId),metadata||{});
-      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+      sampleStore.setMetadata(nodeId,metadata||{},{verification:'verified'});
+      renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
     }catch(error){
       logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);
     }
@@ -46,13 +43,12 @@ export function createSampleUploadController({
     ));
     if(!audioFiles.length)throw new Error('No supported audio files were found.');
 
-    const memory=getMemory();
     const targets=[];
     let searchFrom=slot.id;
     for(const file of audioFiles){
-      const destinationId=memory.findNextFree(searchFrom);
+      const destinationId=sampleStore.findNextFree(searchFrom);
       if(destinationId===-1)break;
-      targets.push({file,slot:memory.getSlot(destinationId)});
+      targets.push({file,slot:sampleStore.getSlot(destinationId)});
       searchFrom=destinationId+1;
     }
     if(targets.length<audioFiles.length)
@@ -82,13 +78,13 @@ export function createSampleUploadController({
           const target=item.slot;
 
           try{
-            memory.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
+            sampleStore.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
             const prepared=await prepareSample(item.file,{
               formats:getSoundFormats(),
               onProgress:(value,info)=>{
                 const progress=Math.max(0,Math.min(100,Number(value)||0));
                 const phase=String(info?.status||'preparing').toUpperCase();
-                memory.setOperation(target.id,{
+                sampleStore.setOperation(target.id,{
                   status:String(info?.status||'preparing'),
                   label:phase,
                   progress
@@ -108,7 +104,7 @@ export function createSampleUploadController({
             if(remainingFreeSpace!=null&&prepared.data.byteLength>remainingFreeSpace)
               throw new Error('Not enough free sample memory on the connected EP.');
 
-            memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+            sampleStore.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
             let createdId=null;
             markUploadPending(target.id);
 
@@ -129,7 +125,7 @@ export function createSampleUploadController({
               },
               onProgress:(done,total)=>{
                 const local=total?done/total:0;
-                memory.setOperation(target.id,{
+                sampleStore.setOperation(target.id,{
                   status:'uploading',
                   label:'UPLOADING',
                   progress:local*100
@@ -148,11 +144,14 @@ export function createSampleUploadController({
               fileSize:prepared.data.byteLength,
               fileName:item.file.name
             },{
-              deviceFiles:getDeviceFiles(),
+              deviceFiles:sampleStore.getFiles(),
               normalizeFileName
             });
-            updateDeviceFile(fileItem);
-            memory.setSlot(fileItem);
+            sampleStore.upsertFile(fileItem,{
+              state:'provisional',
+              verification:'provisional',
+              preserveMetadata:false
+            });
 
             const localMetadata=prepareSampleLocalMetadata(
               {...metadata,name:normalizeFileName(item.file.name)},
@@ -162,8 +161,7 @@ export function createSampleUploadController({
                 barWriteMode:'omit'
               }
             );
-            memory.setMetadata(target.id,localMetadata);
-            sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
+            sampleStore.setMetadata(target.id,localMetadata,{verification:'provisional'});
 
             if(remainingFreeSpace!=null){
               remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
@@ -174,14 +172,14 @@ export function createSampleUploadController({
               setSoundsMetadata(currentSoundsMetadata);
             }
 
-            renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
-            memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
+            renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
+            sampleStore.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
             successes.push(target.id);
             setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
           }catch(error){
             clearUploadPending(target.id);
             failures.push({file:item.file,error});
-            memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+            sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
             logTechnical('UPLOAD '+item.file.name,error);
 
             const createdId=Number(item.createdId)||0;
@@ -191,7 +189,7 @@ export function createSampleUploadController({
                 await deleteFile(createdId);
                 await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
                 await assertSlotsDeleted([createdId]);
-                memory.clearSlot(createdId);
+                sampleStore.removeFile(createdId);
               }catch(rollbackError){
                 logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
               }
@@ -202,17 +200,18 @@ export function createSampleUploadController({
         }
       });
 
-      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+      renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
 
       if(successes.length){
-        memory.selectSlots(successes,{
+        const memory=getMemory();
+        memory?.selectSlots?.(successes,{
           activeId:successes[0],
           preview:false,
           navigate:true
         });
         setTimeoutFn(()=>{
           for(const id of successes){
-            const current=memory.getSlot(id)?.node;
+            const current=sampleStore.getSlot(id)?.node;
             if(
               current?.isWritable||
               current?.isDeletable||
@@ -239,7 +238,7 @@ export function createSampleUploadController({
     }finally{
       for(const item of targets)clearUploadPending(item.slot.id);
       setTimeoutFn(()=>{
-        for(const item of targets)memory.clearOperation(item.slot.id);
+        for(const item of targets)sampleStore.clearOperation(item.slot.id);
       },900);
       hideGlobalProgress();
       setMutating(false);
