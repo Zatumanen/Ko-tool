@@ -150,6 +150,27 @@ test('project write persists recovery checkpoint before the first PUT and marks 
   assert.equal(records[0].status,'verified');
   assert.deepEqual([...records[0].original.data],[...harness.backup]);
   assert.equal(records[0].device.identityHash.length,8);
+  assert.equal(records[0].transactionStatus,'succeeded');
+  assert.equal(records[0].failurePhase,null);
+  assert.deepEqual(
+    records[0].journal.map(event=>[event.phase,event.status]),
+    [
+      ['PRECHECK','completed'],
+      ['CHECKPOINT','started'],
+      ['CHECKPOINT','completed'],
+      ['WRITE','started'],
+      ['WRITE','completed'],
+      ['READBACK','started'],
+      ['READBACK','completed'],
+      ['RELOAD','skipped'],
+      ['VERIFY','started'],
+      ['VERIFY','completed']
+    ]
+  );
+  assert.deepEqual(
+    result.transactionJournal.events.map(event=>event.phase),
+    records[0].journal.map(event=>event.phase)
+  );
 });
 
 test('project write fails closed before PUT when persistent checkpoint creation fails',async()=>{
@@ -170,6 +191,16 @@ test('project write marks a checkpoint rolled-back after a post-write verificati
   const records=await harness.filesystem.listProjectRecoveryCheckpoints();
   assert.equal(records.length,1);
   assert.equal(records[0].status,'rolled-back');
+  assert.equal(records[0].failurePhase,'READBACK');
+  assert.equal(records[0].transactionStatus,'rolled-back');
+  assert.deepEqual(
+    records[0].journal.slice(-3).map(event=>[event.phase,event.status]),
+    [
+      ['READBACK','failed'],
+      ['ROLLBACK','started'],
+      ['ROLLBACK','completed']
+    ]
+  );
   assert.equal(harness.actions.filter(action=>action==='put').length,2);
 });
 
@@ -182,5 +213,14 @@ test('unsafe/disconnect after candidate write retains a requires-recovery checkp
   const records=await harness.filesystem.listProjectRecoveryCheckpoints();
   assert.equal(records.length,1);
   assert.equal(records[0].status,'requires-recovery');
+  assert.equal(records[0].failurePhase,'WRITE');
+  assert.equal(records[0].transactionStatus,'requires-recovery');
+  assert.deepEqual(
+    records[0].journal.slice(-2).map(event=>[event.phase,event.status]),
+    [
+      ['WRITE','started'],
+      ['WRITE','failed']
+    ]
+  );
   assert.equal(harness.actions.filter(action=>action==='put').length,1);
 });
