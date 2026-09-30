@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -332,6 +332,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.ok(token);
   const fileProtocol=await read('js/ep133/fileProtocol.js');
   const sampleFilesystem=await read('js/ep133/sampleFilesystem.js');
+  const projectFilesystem=await read('js/ep133/projectFilesystem.js');
   const filesystem=await read('js/ep133/filesystem.js');
   const fileScheduler=await read('js/ep133/fileScheduler.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
@@ -373,6 +374,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
+  assert.equal(projectFilesystem.includes("./projectArchive.js?v="+token),true);
+  assert.equal(projectFilesystem.includes("./projectProfile.js?v="+token),true);
+  assert.equal(projectFilesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
   assert.equal(index.includes("./projectHil.js?v="+token),true);
   const [reader,sequencer,hil,deviceProfile,projectProfile]=await Promise.all([
@@ -389,6 +393,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(filesystem.includes("./fileScheduler.js?v="+token),true);
   assert.equal(filesystem.includes("./fileProtocol.js?v="+token),true);
   assert.equal(filesystem.includes("./sampleFilesystem.js?v="+token),true);
+  assert.equal(filesystem.includes("./projectFilesystem.js?v="+token),true);
   assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
 });
@@ -1555,9 +1560,9 @@ test('no-op project write HIL requires exact destructive acknowledgement and an 
 
 test('project upload can verify PUT/readback without activating or reloading the project',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function uploadProjectArchive');
-  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('const uploadProjectArchive=async');
+  const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/performReload=true/);
   assert.match(block,/profile\.projectReloadVerified&&performReload/);
@@ -1725,35 +1730,35 @@ test('EP project readback comparison rejects payload changes in candidate member
 
 test('EP project upload checkpoints, verifies, reloads, and rolls back in guarded order',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function uploadProjectArchive');
-  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('const uploadProjectArchive=async');
+  const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/withStrictFirmwareDebugGuard/);
-  assert.match(block,/const backup=await getFileUnlocked\(destination\.nodeId\)/);
+  assert.match(block,/const backup=await getFile\(destination\.nodeId\)/);
   assert.match(block,/await onBackup\?\.\(/);
-  assert.match(block,/const readback=await getFileUnlocked\(destination\.nodeId\)/);
+  assert.match(block,/const readback=await getFile\(destination\.nodeId\)/);
   assert.match(block,/compareProjectArchiveMembers\(data,readback\.data\)/);
-  assert.match(block,/reloadProjectUnlocked\(destination\.nodeId,parent\.nodeId/);
+  assert.match(block,/reloadProject\(destination\.nodeId,parent\.nodeId/);
   assert.match(block,/compareProjectArchiveMembers\(backup\.data,restored\.data\)/);
   assert.match(block,/error\.projectRollbackSucceeded=true/);
   assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)throw error/);
-  assert.ok(block.indexOf('const backup=await getFileUnlocked')<block.indexOf('await putFileUnlocked'));
+  assert.ok(block.indexOf('const backup=await getFile')<block.indexOf('await putFile'));
   assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
 });
 
 test('EP project reload cycles active project and verifies project group and pad metadata',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('async function reloadProjectUnlocked');
-  const end=source.indexOf('export async function reloadProjectArchive',start);
+  const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('const reloadProject=async');
+  const end=source.indexOf('const reloadProjectArchive=async',start);
   const block=source.slice(start,end);
-  assert.match(block,/setFileMetadataUnlocked\(projectsNodeId,\{active:cycledProject\}\)/);
+  assert.match(block,/setFileMetadata\(projectsNodeId,\{active:cycledProject\}\)/);
   assert.match(block,/await sleep\(200\)/);
-  assert.match(block,/setFileMetadataUnlocked\(projectsNodeId,\{active:projectId\}\)/);
-  assert.match(block,/const activeProject=await getActiveNodeUnlocked\(projectsNodeId\)/);
-  assert.match(block,/setFileMetadataUnlocked\(groupRootId,\{active:activeGroup\}\)/);
-  assert.match(block,/setFileMetadataUnlocked\(activeGroup,\{active:activePad\}\)/);
+  assert.match(block,/setFileMetadata\(projectsNodeId,\{active:projectId\}\)/);
+  assert.match(block,/const activeProject=await getActiveNode\(projectsNodeId\)/);
+  assert.match(block,/setFileMetadata\(groupRootId,\{active:activeGroup\}\)/);
+  assert.match(block,/setFileMetadata\(activeGroup,\{active:activePad\}\)/);
 });
 
 test('EP guarded firmware debug mode escalates debug SysEx only during strict transactions',async()=>{
@@ -1776,9 +1781,9 @@ test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 char
 
 test('EP-1320 project transport stays opaque while semantic validation and reload remain blocked',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function uploadProjectArchive');
-  const end=source.indexOf('export async function downloadProjectArchive',start);
+  const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
+  const start=source.indexOf('const uploadProjectArchive=async');
+  const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
   assert.match(block,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
@@ -1788,20 +1793,24 @@ test('EP-1320 project transport stays opaque while semantic validation and reloa
   assert.match(block,/:null;/);
 });
 
-test('EP project archive upload uses the TE 15s timeout and unlocked PUT primitive',async()=>{
+test('EP project archive upload uses the TE 15s timeout through injected unlocked transport',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function uploadProjectArchive');
-  const end=source.indexOf('export async function downloadProjectArchive',start);
-  const block=source.slice(start,end);
+  const [project,filesystem]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+  ]);
+  const start=project.indexOf('const uploadProjectArchive=async');
+  const end=project.indexOf('const downloadProjectArchive=async',start);
+  const block=project.slice(start,end);
   assert.match(block,/timeout=15000/);
   assert.match(block,/requireInactive=false,expectedActiveProjectFid=null/);
   assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
   assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
   assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
   assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
-  assert.match(block,/await putFileUnlocked\(/);
-  assert.doesNotMatch(block,/await putFile\(/);
+  assert.match(block,/await putFile\(\{/);
+  assert.match(filesystem,/putFile:putFileUnlocked/);
+  assert.doesNotMatch(project,/putFileUnlocked/);
 });
 
 test('EP small metadata framing matches TE charCode byte semantics',()=>{
@@ -2359,16 +2368,16 @@ test('project runtime gate blocks project operations for the live-verified reloa
 
 test('project reload marks runtime settling and later project mutations honor the gate',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const reloadStart=source.indexOf('async function reloadProjectUnlocked');
-  const reloadEnd=source.indexOf('export async function reloadProjectArchive',reloadStart);
+  const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
+  const reloadStart=source.indexOf('const reloadProject=async');
+  const reloadEnd=source.indexOf('const reloadProjectArchive=async',reloadStart);
   const reload=source.slice(reloadStart,reloadEnd);
   assert.match(reload,/const runtimeSettle=projectRuntimeGate\.markReload\(\)/);
-  assert.match(reload,/runtimeSettle\};/);
-  const publicReload=source.slice(reloadEnd,source.indexOf('export function assertProjectWriteActiveGuard',reloadEnd));
+  assert.match(reload,/runtimeSettle/);
+  const publicReload=source.slice(reloadEnd,source.indexOf('const uploadProjectArchive=async',reloadEnd));
   assert.match(publicReload,/assertProjectRuntimeSettled\('project reload'\)/);
-  const uploadStart=source.indexOf('export async function uploadProjectArchive');
-  const uploadEnd=source.indexOf('export async function downloadProjectArchive',uploadStart);
+  const uploadStart=source.indexOf('const uploadProjectArchive=async');
+  const uploadEnd=source.indexOf('const downloadProjectArchive=async',uploadStart);
   assert.match(source.slice(uploadStart,uploadEnd),/assertProjectRuntimeSettled\('project write'\)/);
 });
 
@@ -2584,36 +2593,40 @@ test('remaining compound sample reads and verification windows use FILE transact
   assert.match(ui,/withFileTransaction\('sample rename transaction',[\s\S]*\{strict:true\}\)/);
 });
 
-test('project compound transport already occupies one FILE scheduler task with unlocked primitives',async()=>{
+test('project layer occupies one scheduler task while filesystem injects unlocked primitives',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const [project,filesystem]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+  ]);
 
-  const uploadStart=source.indexOf('export async function uploadProjectArchive');
-  const uploadEnd=source.indexOf('export async function downloadProjectArchive',uploadStart);
-  const upload=source.slice(uploadStart,uploadEnd);
-  assert.match(upload,/return runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
-  assert.match(upload,/await listDirectoryUnlocked\(/);
-  assert.match(upload,/await getFileUnlocked\(/);
-  assert.match(upload,/await putFileUnlocked\(/);
-  assert.doesNotMatch(upload,/await listDirectory\(/);
-  assert.doesNotMatch(upload,/await getFile\(/);
-  assert.doesNotMatch(upload,/await putFile\(/);
+  const uploadStart=project.indexOf('const uploadProjectArchive=async');
+  const uploadEnd=project.indexOf('const downloadProjectArchive=async',uploadStart);
+  const upload=project.slice(uploadStart,uploadEnd);
+  assert.match(upload,/runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
+  assert.match(upload,/await listDirectory\(/);
+  assert.match(upload,/await getFile\(/);
+  assert.match(upload,/await putFile\(/);
 
-  const downloadStart=uploadEnd;
-  const downloadEnd=source.indexOf('async function deleteFileUnlocked',downloadStart);
-  const download=source.slice(downloadStart,downloadEnd);
-  assert.match(download,/downloadProjectArchive[\s\S]*runFileOperation\(async\(\)=>/);
-  assert.match(download,/listDeviceFilesUnlocked\(\)/);
-  assert.match(download,/getFileUnlocked\(node\.nodeId,onProgress\)/);
+  const download=project.slice(uploadEnd,project.indexOf('return\{',uploadEnd));
+  assert.match(download,/runFileOperation\(async\(\)=>/);
+  assert.match(download,/listDeviceFiles\(\)/);
+  assert.match(download,/getFile\(node\.nodeId,onProgress\)/);
 
-  const reloadStart=source.indexOf('export async function reloadProjectArchive');
-  const reloadEnd=source.indexOf('export function assertProjectWriteActiveGuard',reloadStart);
-  const reload=source.slice(reloadStart,reloadEnd);
-  assert.match(reload,/return runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
-  assert.match(reload,/listDirectoryUnlocked\(/);
-  assert.match(reload,/reloadProjectUnlocked\(/);
+  const reloadStart=project.indexOf('const reloadProjectArchive=async');
+  const reloadEnd=project.indexOf('const uploadProjectArchive=async',reloadStart);
+  const reload=project.slice(reloadStart,reloadEnd);
+  assert.match(reload,/runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
+  assert.match(reload,/listDirectory\(/);
+  assert.match(reload,/reloadProject\(/);
+
+  assert.match(filesystem,/listDirectory:listDirectoryUnlocked/);
+  assert.match(filesystem,/listDeviceFiles:listDeviceFilesUnlocked/);
+  assert.match(filesystem,/getFile:getFileUnlocked/);
+  assert.match(filesystem,/putFile:putFileUnlocked/);
+  assert.match(filesystem,/getFileMetadata:getMetadataByNodeId/);
+  assert.match(filesystem,/setFileMetadata:setFileMetadataUnlocked/);
 });
-
 
 test('FILE protocol builders and parsers live in a device-independent pure module',async()=>{
   const fs=await import('node:fs/promises');
@@ -2691,4 +2704,28 @@ test('sample upload orchestration preserves PUT SET INIT order through injected 
     ['metadata',7,-12],
     ['init']
   ]);
+});
+
+
+test('project filesystem layer owns project orchestration without importing device transport directly',async()=>{
+  const fs=await import('node:fs/promises');
+  const [project,filesystem]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+  ]);
+  assert.doesNotMatch(project,/from ['"]\.\/device\.js/);
+  assert.doesNotMatch(project,/requestFile|requestRead|fileScheduler|navigator\.locks/);
+  assert.match(project,/export function createProjectFilesystem/);
+  assert.match(project,/export function assertProjectWriteActiveGuard/);
+  assert.match(filesystem,/from '\.\/projectFilesystem\.js\?v=20260930-5'/);
+  assert.doesNotMatch(filesystem,/function connectedProjectProfile/);
+  assert.doesNotMatch(filesystem,/async function reloadProjectUnlocked/);
+  assert.doesNotMatch(filesystem,/parseProjectArchive\(/);
+});
+
+test('filesystem facade preserves the project write guard export',async()=>{
+  const facade=await import('../js/ep133/filesystem.js');
+  const project=await import('../js/ep133/projectFilesystem.js');
+  const args={destinationFid:9000,activeProjectFid:3000,requireInactive:true,expectedActiveProjectFid:3000};
+  assert.equal(facade.assertProjectWriteActiveGuard(args),project.assertProjectWriteActiveGuard(args));
 });
