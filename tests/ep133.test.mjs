@@ -1987,7 +1987,8 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
   assert.match(source,/key==='sound\.bars'&&profile\.sampleBars\?\.authoring!==true/);
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ui,/barWriteMode:'omit'/);
+  const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  assert.match(uploads,/barWriteMode:'omit'/);
   assert.match(ui,/barWriteMode:'preserve'/);
 });
 
