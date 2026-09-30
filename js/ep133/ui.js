@@ -13,12 +13,11 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
 import{
-  createSampleSlots,createSampleMemory,
-  planSampleTransferTargets
+  createSampleMemory,planSampleTransferTargets
 }from './sampleMemory.js?v=20260930-5';
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{createSamplePropertiesController}from './ui/samplePropertiesController.js?v=20260930-5';
-import{createSampleMetadataCache}from './sampleMetadataCache.js?v=20260930-5';
+import{createSampleStore}from './sampleStore.js?v=20260930-5';
 import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
 import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
 import{getSoundsParentId,buildFileItemFromInfo,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
@@ -80,7 +79,6 @@ export function initEp133Browser({showError}={}){
   let soundsParentId=0;
   let soundFormats=[];
   let soundsMetadata={};
-  let deviceFiles=[];
   let synchronized=false;
   let metadataHydrating=false;
   let mutating=false;
@@ -89,7 +87,8 @@ export function initEp133Browser({showError}={}){
   let activeDeviceProfile=getEpDeviceProfile();
   let lastDeviceInfo={title:'MY EP',name:''};
   let propertiesController=null;
-  const sampleMetadataCache=createSampleMetadataCache();
+  const sampleStore=createSampleStore();
+  const sampleMetadataCache=sampleStore.asMetadataCache();
   const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
   const waitForMetadataUpdate=nodeId=>waitForFileEvent(
     event=>event?.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED&&Number(event?.data?.nodeId)===Number(nodeId),
@@ -99,7 +98,7 @@ export function initEp133Browser({showError}={}){
     soundsMetadata={...soundsMetadata,...(metadata||{})};
     if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
     if(Array.isArray(metadata?.tabs)&&metadata.tabs.length)memory?.setTabs?.(metadata.tabs);
-    renderDeviceStats(soundsMetadata,memory?.countOccupied?.()||0);
+    renderDeviceStats(soundsMetadata,sampleStore.countOccupied());
     return soundsMetadata;
   };
   const syncMetadataAfterMutation=async(nodeId,eventPromise)=>{
@@ -107,8 +106,7 @@ export function initEp133Browser({showError}={}){
     const metadata=event?.data?.metadata||await getFileMetadata(nodeId);
     if(Number(nodeId)===Number(soundsParentId))return applySoundsMetadata(metadata);
     if(Number(nodeId)>=1&&Number(nodeId)<=999){
-      memory.setMetadata(Number(nodeId),metadata||{});
-      sampleMetadataCache.set(memory.getSlot(Number(nodeId)),metadata||{});
+      sampleStore.setMetadata(Number(nodeId),metadata||{});
       propertiesController?.renderIfCurrent(Number(nodeId));
     }
     return metadata;
@@ -170,19 +168,14 @@ export function initEp133Browser({showError}={}){
     confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
 
-  const fileItemFromInfo=info=>buildFileItemFromInfo(info,deviceFiles);
-  const updateDeviceFile=item=>{
-    if(!item)return;
-    const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
-    if(index>=0)deviceFiles[index]=item;
-    else deviceFiles.push(item);
-  };
+  const fileItemFromInfo=info=>buildFileItemFromInfo(info,sampleStore.getFiles());
+  const updateDeviceFile=item=>sampleStore.upsertFile(item);
   const replaceSoundFiles=files=>{
     const sounds=Array.isArray(files)?files:[];
-    deviceFiles=[
-      ...deviceFiles.filter(item=>!/^\/sounds\/[^/]+$/.test(item?.fileName||'')),
+    sampleStore.replaceFiles([
+      ...sampleStore.getFiles().filter(item=>!/^\/sounds\/[^/]+$/.test(item?.fileName||'')),
       ...sounds
-    ];
+    ]);
     return sounds;
   };
   const readAuthoritativeFiles=async()=>{
@@ -291,9 +284,7 @@ export function initEp133Browser({showError}={}){
     getFileInfo,getFileMetadata,deleteFile,
     waitForMetadataUpdate,syncMetadataAfterMutation,
     assertSlotsDeleted,
-    removeDeviceFile:nodeId=>{
-      deviceFiles=deviceFiles.filter(item=>Number(item.nodeId)!==Number(nodeId));
-    },
+    removeDeviceFile:nodeId=>sampleStore.removeFile(nodeId),
     renderDeviceStats,
     readDevice:()=>readDevice(),
     logTechnical
@@ -301,17 +292,13 @@ export function initEp133Browser({showError}={}){
   const deleteSamples=targets=>sampleDeleteController.deleteSamples(targets);
   const fileEventController=createFileEventController({
     isConnected,
-    getMemory:()=>memory,
-    sampleMetadataCache,
+    sampleStore,
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
-    getDeviceFiles:()=>deviceFiles,
-    setDeviceFiles:files=>{deviceFiles=files;},
     getCurrentPropertySlotId:()=>propertiesController.getCurrentSlotId(),
     getFileInfo,
     getFileMetadata,
     fileItemFromInfo,
-    updateDeviceFile,
     applySoundsMetadata,
     renderProperties:slot=>propertiesController.render(slot),
     renderDeviceStats,
@@ -328,12 +315,12 @@ export function initEp133Browser({showError}={}){
     if(latest&&typeof latest==='object')soundsMetadata={...soundsMetadata,...latest};
     if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
     if(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length)memory?.setTabs(soundsMetadata.tabs);
-    renderDeviceStats(soundsMetadata,memory?.countOccupied?.()||0);
+    renderDeviceStats(soundsMetadata,sampleStore.countOccupied());
     return soundsMetadata;
   };
   const sampleUploadController=createSampleUploadController({
     getMemory:()=>memory,
-    getDeviceFiles:()=>deviceFiles,
+    getDeviceFiles:()=>sampleStore.getFiles(),
     getSoundsParentId:()=>soundsParentId,
     getSoundFormats:()=>soundFormats,
     getSoundsMetadata:()=>soundsMetadata,
@@ -356,8 +343,8 @@ export function initEp133Browser({showError}={}){
   const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const sampleMoveController=createSampleMoveController({
     getMemory:()=>memory,
-    getDeviceFiles:()=>deviceFiles,
-    setDeviceFiles:files=>{deviceFiles=Array.isArray(files)?files:[];},
+    getDeviceFiles:()=>sampleStore.getFiles(),
+    setDeviceFiles:files=>sampleStore.replaceFiles(Array.isArray(files)?files:[]),
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
     sampleMetadataCache,
@@ -376,8 +363,8 @@ export function initEp133Browser({showError}={}){
 
   const sampleCopyController=createSampleCopyController({
     getMemory:()=>memory,
-    getDeviceFiles:()=>deviceFiles,
-    setDeviceFiles:files=>{deviceFiles=Array.isArray(files)?files:[];},
+    getDeviceFiles:()=>sampleStore.getFiles(),
+    setDeviceFiles:files=>sampleStore.replaceFiles(Array.isArray(files)?files:[]),
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
     getActiveDeviceProfile:()=>activeDeviceProfile,
@@ -443,20 +430,20 @@ export function initEp133Browser({showError}={}){
     onDragStart:closeProperties,
     onUserError:(message,error)=>reportError(message,error)
   });
+  sampleStore.bindMemory(memory);
   updateMutationAvailability();
 
   const sampleLibrarySync=createSampleLibrarySyncController({
     captureBatchSession,assertBatchSession,
     getMemory:()=>memory,
     getActiveDeviceProfile:()=>activeDeviceProfile,
-    sampleMetadataCache,
+    sampleStore,
     listDirectory,getFileMetadata,
     setSynchronized:value=>{synchronized=!!value;},
     setMetadataHydrating:value=>{metadataHydrating=!!value;},
     setSoundsParentId:value=>{soundsParentId=Number(value)||0;},
     setSoundFormats:value=>{soundFormats=Array.isArray(value)?value:[];},
     setSoundsMetadata:value=>{soundsMetadata=value&&typeof value==='object'?value:{};},
-    setDeviceFiles:value=>{deviceFiles=Array.isArray(value)?value:[];},
     updateMutationAvailability,closeProperties,
     setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
     reportError,logTechnical
@@ -497,15 +484,11 @@ export function initEp133Browser({showError}={}){
     hideGlobalProgress();
     panel.classList.add('device-disconnected');
     setConnectionOverlay(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
-    if(!everConnected){
-      renderDeviceStats({},0);
-      memory.setSlots(createSampleSlots([]));
-    }
+    if(!everConnected)renderDeviceStats({},0);
     soundsParentId=0;
     soundFormats=[];
     soundsMetadata={};
-    deviceFiles=[];
-    sampleMetadataCache.clear();
+    sampleStore.clear();
     setStatus(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 

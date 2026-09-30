@@ -101,3 +101,31 @@ test('SampleStore prioritization keeps selected then active-range then remaining
     [5,2,3,9]
   );
 });
+
+
+test('SampleStore preserves exact metadata history across inventory refresh without treating it as current state',()=>{
+  const store=createSampleStore();
+  store.replaceFiles([file(7,'kick',100),file(8,'snare',80)]);
+  store.setMetadata(7,{name:'cached kick',crc:111});
+  store.setMetadata(8,{name:'cached snare',crc:222});
+
+  store.resetInventory({preserveMetadata:true});
+  assert.equal(store.countOccupied(),0);
+  assert.equal(store.getSlot(7).meta,null);
+
+  store.replaceFiles([file(7,'kick',100),file(8,'snare',81)]);
+  assert.equal(store.getCachedMetadata(store.getSlot(7)).name,'cached kick');
+  assert.equal(store.getSlot(7).meta.name,'cached kick');
+  assert.equal(store.getSlot(8).meta,null);
+});
+
+test('SampleStore invalidation prevents stale metadata from being reused after a device event',()=>{
+  const store=createSampleStore();
+  store.replaceFiles([file(7,'kick',100)]);
+  store.setMetadata(7,{name:'old',crc:111});
+  store.invalidateMetadata(7);
+  store.resetInventory({preserveMetadata:true});
+  store.replaceFiles([file(7,'kick',100)]);
+  assert.equal(store.getCachedMetadata(store.getSlot(7)),null);
+  assert.equal(store.getSlot(7).meta,null);
+});

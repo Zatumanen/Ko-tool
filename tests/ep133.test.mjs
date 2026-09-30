@@ -247,7 +247,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -337,6 +337,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleUploadController=await read('js/ep133/ui/sampleUploadController.js');
   const sampleMoveController=await read('js/ep133/ui/sampleMoveController.js');
   const sampleCopyController=await read('js/ep133/ui/sampleCopyController.js');
+  const sampleStore=await read('js/ep133/sampleStore.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
@@ -344,7 +345,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/sampleCopyController.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
-  assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
+  assert.equal(ui.includes("./sampleStore.js?v="+token),true);
   assert.equal(ui.includes("./sampleMemory.js?v="+token),true);
   assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
   assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
@@ -362,8 +363,8 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(sampleUploadController.includes("./fileModel.js?v="+token),true);
   assert.doesNotMatch(sampleMoveController,/from [\'\"]/);
   assert.doesNotMatch(sampleCopyController,/from [\'\"]/);
-  assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
-  assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
+  assert.equal(sampleLibrarySync.includes("../sampleStore.js?v="+token),true);
+  assert.equal(sampleStore.includes("./sampleMemory.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
@@ -2270,9 +2271,10 @@ test('My EP exposes the sample library before prioritized metadata hydration com
   const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   assert.match(source,/setMetadataHydrating\(pending\.length>0\)/);
   assert.ok(source.indexOf('setSynchronized(true)')<source.indexOf('for(const slot of pending)'));
-  assert.match(source,/prioritizeMetadataSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
-  assert.match(source,/sampleMetadataCache\.get\(slot\)/);
-  assert.match(source,/sampleMetadataCache\.set\(memory\.getSlot\(slot\.id\),metadata\)/);
+  assert.match(source,/prioritizeSampleSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
+  assert.match(source,/sampleStore\.getCachedMetadata\(slot\)/);
+  assert.match(source,/sampleStore\.setMetadata\(slot\.id,metadata,\{verification:'cached'\}\)/);
+  assert.match(source,/sampleStore\.setMetadata\(slot\.id,metadata\)/);
   assert.match(source,/LOADING '\+pending\.length\+' METADATA · '\+cached\+' CACHED/);
   assert.match(source,/setMetadataHydrating\(false\);[\s\S]*setGlobalProgress\('SYNC',100\)/);
   assert.match(ui,/synchronized&&!metadataHydrating&&!mutating/);
@@ -2330,7 +2332,7 @@ test('project reload marks runtime settling and later project mutations honor th
   assert.match(source.slice(uploadStart,uploadEnd),/assertProjectRuntimeSettled\('project write'\)/);
 });
 
-test('sample metadata cache reuses only matching slot fingerprints and prioritizes active work',async()=>{
+test('legacy sample metadata cache helper remains behavior-compatible during Store migration',async()=>{
   const {createSampleMetadataCache,prioritizeMetadataSlots,sampleMetadataFingerprint}=await import('../js/ep133/sampleMetadataCache.js');
   const slot=id=>({id,nodeId:id,file:{name:id+'.pcm',path:'/sounds/'+id+'.pcm',size:id*10}});
   const cache=createSampleMetadataCache();
@@ -2344,23 +2346,22 @@ test('sample metadata cache reuses only matching slot fingerprints and prioritiz
   assert.deepEqual(cache.get(one),{name:'kick',channels:2});
   cache.invalidate(1);
   assert.equal(cache.get(one),null);
-
   const ordered=prioritizeMetadataSlots([slot(150),slot(3),slot(105),slot(110),slot(2)],{
-    selectedId:110,
-    activeRange:[100,199]
+    selectedId:110,activeRange:[100,199]
   });
   assert.deepEqual(ordered.map(item=>item.id),[110,105,150,2,3]);
 });
 
-test('sample metadata cache is invalidated or refreshed by device file events',async()=>{
+test('SampleStore metadata is invalidated or refreshed by device file events',async()=>{
   const fs=await import('node:fs/promises');
   const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(events,/sampleMetadataCache\.merge\(memory\.getSlot\(nodeId\),payload\.metadata\|\|\{\}\)/);
-  assert.match(events,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)\{\n        if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return;\n        sampleMetadataCache\.invalidate/);
-  assert.match(events,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)\{\n        const nodeId=Number\(payload\.nodeId\);\n        sampleMetadataCache\.invalidate\(nodeId\)/);
-  assert.match(events,/sampleMetadataCache\.invalidate\(oldId\);\n    sampleMetadataCache\.invalidate\(newId\)/);
-  assert.match(ui,/sampleMetadataCache\.clear\(\)/);
+  assert.match(events,/sampleStore\.mergeMetadata\(nodeId,payload\.metadata\|\|\{\}\)/);
+  assert.match(events,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)[\s\S]*sampleStore\.invalidateMetadata\(nodeId\)/);
+  assert.match(events,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)[\s\S]*sampleStore\.removeFile\(nodeId\)/);
+  assert.match(events,/sampleStore\.moveLocal\(oldId,item,/);
+  assert.match(ui,/sampleStore\.clear\(\)/);
+  assert.doesNotMatch(ui,/createSampleMetadataCache/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{

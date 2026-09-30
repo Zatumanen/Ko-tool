@@ -1,12 +1,11 @@
-import{createSampleSlots}from '../sampleMemory.js?v=20260930-5';
-import{prioritizeMetadataSlots}from '../sampleMetadataCache.js?v=20260930-5';
+import{prioritizeSampleSlots}from '../sampleStore.js?v=20260930-5';
 
 export function createSampleLibrarySyncController({
   captureBatchSession,assertBatchSession,
-  getMemory,getActiveDeviceProfile,sampleMetadataCache,
+  getMemory,getActiveDeviceProfile,sampleStore,
   listDirectory,getFileMetadata,
   setSynchronized,setMetadataHydrating,
-  setSoundsParentId,setSoundFormats,setSoundsMetadata,setDeviceFiles,
+  setSoundsParentId,setSoundFormats,setSoundsMetadata,
   updateMutationAvailability,closeProperties,
   setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
   reportError,logTechnical,
@@ -27,13 +26,12 @@ export function createSampleLibrarySyncController({
 
     try{
       memory.setTabs(activeDeviceProfile.fallbackTabs);
-      memory.setSlots(createSampleSlots([]));
+      sampleStore.resetInventory({preserveMetadata:true});
       renderDeviceStats({},0);
 
       setSoundsParentId(0);
       setSoundFormats([]);
       setSoundsMetadata({});
-      setDeviceFiles([]);
 
       const rootEntries=await listDirectory(0,'/');
       assertBatchSession(sessionToken);
@@ -46,10 +44,8 @@ export function createSampleLibrarySyncController({
       const soundEntries=await listDirectory(soundsParentId,'/sounds');
       assertBatchSession(sessionToken);
 
-      const deviceFiles=[...rootEntries,...soundEntries];
-      setDeviceFiles(deviceFiles);
-      memory.setEntries(soundEntries);
-      renderDeviceStats({},memory.countOccupied());
+      sampleStore.replaceFiles([...rootEntries,...soundEntries]);
+      renderDeviceStats({},sampleStore.countOccupied());
       setGlobalProgress('SYNC',8);
 
       const soundsMetadata=await getFileMetadata(soundsParentId);
@@ -64,18 +60,18 @@ export function createSampleLibrarySyncController({
         :activeDeviceProfile.fallbackTabs;
       memory.setTabs(activeTabs);
 
-      const occupied=createSampleSlots(deviceFiles).filter(slot=>slot.file);
+      const occupied=sampleStore.getSlots().filter(slot=>slot.file);
       renderDeviceStats(soundsMetadata,occupied.length);
 
       const activeRange=activeTabs?.[preferredTabIndex]?.range||null;
-      const ordered=prioritizeMetadataSlots(occupied,{selectedId:preferredSelectedId,activeRange});
+      const ordered=prioritizeSampleSlots(occupied,{selectedId:preferredSelectedId,activeRange});
       const pending=[];
       let loaded=0,cached=0;
 
       for(const slot of ordered){
-        const metadata=sampleMetadataCache.get(slot);
+        const metadata=sampleStore.getCachedMetadata(slot);
         if(metadata){
-          memory.setMetadata(slot.id,metadata);
+          sampleStore.setMetadata(slot.id,metadata,{verification:'cached'});
           loaded+=1;
           cached+=1;
         }else pending.push(slot);
@@ -85,14 +81,14 @@ export function createSampleLibrarySyncController({
       setSynchronized(true);
       updateMutationAvailability();
       setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
-      if(pending.length)setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING '+pending.length+' METADATA · '+cached+' CACHED');
+      if(pending.length)
+        setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING '+pending.length+' METADATA · '+cached+' CACHED');
 
       for(const slot of pending){
         assertBatchSession(sessionToken);
         try{
           const metadata=await getFileMetadata(slot.nodeId);
-          memory.setMetadata(slot.id,metadata);
-          sampleMetadataCache.set(memory.getSlot(slot.id),metadata);
+          sampleStore.setMetadata(slot.id,metadata);
         }catch(error){
           logTechnical('METADATA SLOT '+slot.id,error);
         }
