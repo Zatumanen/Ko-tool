@@ -7,6 +7,7 @@ import{createSampleLibrarySyncController}from '../js/ep133/ui/sampleLibrarySync.
 import{createSamplePropertiesController}from '../js/ep133/ui/samplePropertiesController.js';
 import{createSampleReadController,sampleDownloadName}from '../js/ep133/ui/sampleReadController.js';
 import{createSampleDeleteController}from '../js/ep133/ui/sampleDeleteController.js';
+import{createSampleUploadController}from '../js/ep133/ui/sampleUploadController.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -730,4 +731,235 @@ test('sample delete controller blocks deletion while a property write is pending
   assert.equal(confirms,1);
   assert.equal(deletes,0);
   assert.equal(mutations,0);
+});
+
+
+test('sample upload controller batches one preflight and commits provisional metadata without blocking readback',async()=>{
+  const actions=[];
+  const timers=[];
+  const deviceFiles=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
+  let soundsMetadata={free_space_in_bytes:100};
+  const slots=new Map([
+    [1,{id:1,nodeId:1,file:{name:'occupied',size:1},node:{isWritable:true},meta:{}}],
+    [2,{id:2,nodeId:2,file:null,node:null,meta:null}],
+    [3,{id:3,nodeId:3,file:{name:'occupied3',size:1},node:{isWritable:true},meta:{}}],
+    [4,{id:4,nodeId:4,file:null,node:null,meta:null}]
+  ]);
+  const memory={
+    findNextFree(from){
+      for(let id=Number(from);id<=4;id++)if(!slots.get(id)?.file)return id;
+      return-1;
+    },
+    getSlot:id=>slots.get(Number(id)),
+    setSlot(item){
+      const id=Number(item.nodeId);
+      const current=slots.get(id)||{id,nodeId:id,file:null,node:null,meta:null};
+      current.file={name:String(item.fileName).split('/').pop(),size:item.fileSize};
+      current.node=item;
+      slots.set(id,current);
+      actions.push(['set-slot',id]);
+    },
+    setMetadata(id,metadata){
+      const slot=slots.get(Number(id));
+      slot.meta={...metadata};
+      actions.push(['set-meta',Number(id),metadata.name]);
+    },
+    setOperation(id,state){actions.push(['op',Number(id),state.label,state.progress]);},
+    clearOperation:id=>actions.push(['clear-op',Number(id)]),
+    clearSlot:id=>actions.push(['clear-slot',Number(id)]),
+    selectSlots(ids,options){actions.push(['select',[...ids],options.activeId]);},
+    countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
+  };
+  let batchCalls=0,preflights=0,refreshCalls=0;
+  const uploaded=[];
+  const pending=[];
+  const cacheWrites=[];
+  const controller=createSampleUploadController({
+    getMemory:()=>memory,
+    getDeviceFiles:()=>deviceFiles,
+    getSoundsParentId:()=>1000,
+    getSoundFormats:()=>[{type:'pcm'}],
+    getSoundsMetadata:()=>soundsMetadata,
+    setSoundsMetadata:value=>{soundsMetadata=value;actions.push(['free',value.free_space_in_bytes]);},
+    getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
+    setMutating:value=>actions.push(['mutating',value]),
+    setGlobalProgress:(label,value)=>actions.push(['progress',label,Math.round(value)]),
+    hideGlobalProgress:()=>actions.push(['hide']),
+    withSampleUploadBatch:async operation=>{batchCalls++;return operation();},
+    assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
+    refreshSoundsRuntimeMetadata:async()=>{refreshCalls++;return soundsMetadata;},
+    uploadSampleToSlot:async options=>{
+      uploaded.push(options.destinationId);
+      options.onCreated?.(options.destinationId);
+      options.onProgress?.(options.data.byteLength,options.data.byteLength);
+      return options.destinationId;
+    },
+    prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),
+    normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
+    updateDeviceFile:item=>{
+      const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
+      if(index>=0)deviceFiles[index]=item;else deviceFiles.push(item);
+    },
+    fileItemFromInfo:()=>{throw new Error('hydrate should be deferred');},
+    getFileInfo:async()=>{throw new Error('success path must not read FILE_INFO');},
+    getFileMetadata:async()=>{throw new Error('success path must not read metadata');},
+    sampleMetadataCache:{set(slot,metadata){cacheWrites.push([slot.id,metadata.name]);}},
+    renderDeviceStats:()=>{},
+    markUploadPending:id=>pending.push(['mark',id]),
+    clearUploadPending:id=>pending.push(['clear',id]),
+    waitForMetadataUpdate:()=>Promise.resolve(null),
+    deleteFile:async()=>{},
+    syncMetadataAfterMutation:async()=>{},
+    assertSlotsDeleted:async()=>{},
+    logTechnical(){},
+    showError:message=>actions.push(['error',message]),
+    prepareSample:async file=>({
+      data:new Uint8Array(file.name.toLowerCase().startsWith('a')?10:20),
+      channels:1,samplerate:46875,format:'s16',
+      metadata:{'sound.pitch':-12}
+    }),
+    setTimeoutFn:(callback,delay)=>{timers.push({callback,delay});return timers.length;}
+  });
+
+  const files=[
+    {name:'A.wav',type:'audio/wav'},
+    {name:'B.wav',type:'audio/wav'}
+  ];
+  const result=await controller.uploadFilesToSlot(slots.get(1),files);
+
+  assert.deepEqual(result.successes,[2,4]);
+  assert.equal(result.failures.length,0);
+  assert.deepEqual(uploaded,[2,4]);
+  assert.equal(batchCalls,1);
+  assert.equal(preflights,1);
+  assert.equal(soundsMetadata.free_space_in_bytes,70);
+  assert.deepEqual(cacheWrites,[[2,'a'],[4,'b']]);
+  assert.deepEqual(pending.filter(item=>item[0]==='mark'),[['mark',2],['mark',4]]);
+  assert.deepEqual(pending.filter(item=>item[0]==='clear'),[['clear',2],['clear',4]]);
+  assert.deepEqual(timers.map(item=>item.delay),[250,900]);
+  assert.deepEqual(actions.find(item=>item[0]==='select'),['select',[2,4],2]);
+  assert.equal(refreshCalls,1);
+  assert.equal(actions.at(-2)[0],'hide');
+  assert.deepEqual(actions.at(-1),['mutating',false]);
+});
+
+test('sample upload controller rolls back a created slot through DELETE metadata sync and LIST verification',async()=>{
+  const actions=[];
+  const deviceFiles=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
+  const target={id:2,nodeId:2,file:null,node:null,meta:null};
+  const memory={
+    findNextFree:()=>2,
+    getSlot:()=>target,
+    setOperation(id,state){actions.push(['op',id,state.label]);},
+    clearOperation:id=>actions.push(['clear-op',id]),
+    clearSlot:id=>actions.push(['clear-slot',id]),
+    countOccupied:()=>0,
+    selectSlots(){throw new Error('failed upload must not select');}
+  };
+  let shown='';
+  const controller=createSampleUploadController({
+    getMemory:()=>memory,getDeviceFiles:()=>deviceFiles,
+    getSoundsParentId:()=>1000,getSoundFormats:()=>[],
+    getSoundsMetadata:()=>({free_space_in_bytes:100}),setSoundsMetadata(){},
+    getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    setMutating:value=>actions.push(['mutating',value]),
+    setGlobalProgress(){},hideGlobalProgress:()=>actions.push(['hide']),
+    withSampleUploadBatch:async operation=>operation(),
+    assertSlotsEmpty:async ids=>actions.push(['preflight',...ids]),
+    refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
+    uploadSampleToSlot:async options=>{
+      actions.push(['upload',options.destinationId]);
+      options.onCreated?.(2);
+      throw new Error('simulated stream failure');
+    },
+    prepareSampleLocalMetadata:metadata=>metadata,
+    normalizeFileName:name=>name.toLowerCase(),
+    updateDeviceFile(){},fileItemFromInfo(){},
+    getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
+    sampleMetadataCache:{set(){}},renderDeviceStats(){},
+    markUploadPending:id=>actions.push(['mark',id]),
+    clearUploadPending:id=>actions.push(['clear-pending',id]),
+    waitForMetadataUpdate:nodeId=>{
+      actions.push(['wait-metadata',nodeId]);
+      return Promise.resolve({data:{metadata:{}}});
+    },
+    deleteFile:async id=>actions.push(['delete',id]),
+    syncMetadataAfterMutation:async(nodeId,promise)=>{
+      await promise;actions.push(['sync-metadata',nodeId]);
+    },
+    assertSlotsDeleted:async ids=>actions.push(['verify-list',...ids]),
+    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)]),
+    showError:message=>{shown=message;},
+    prepareSample:async()=>({
+      data:new Uint8Array(10),channels:1,samplerate:46875,format:'s16',metadata:{}
+    }),
+    setTimeoutFn:(callback,delay)=>{actions.push(['timer',delay]);return 1;}
+  });
+
+  const result=await controller.uploadFilesToSlot(
+    {id:1},
+    [{name:'Broken.wav',type:'audio/wav'}]
+  );
+
+  assert.deepEqual(result.successes,[]);
+  assert.equal(result.failures.length,1);
+  assert.match(shown,/COULD NOT UPLOAD:[\s\S]*Broken\.wav/);
+  const uploadIndex=actions.findIndex(item=>item[0]==='upload');
+  const deleteIndex=actions.findIndex(item=>item[0]==='delete');
+  const syncIndex=actions.findIndex(item=>item[0]==='sync-metadata');
+  const verifyIndex=actions.findIndex(item=>item[0]==='verify-list');
+  const clearIndex=actions.findIndex(item=>item[0]==='clear-slot');
+  assert.ok(uploadIndex>=0&&deleteIndex>uploadIndex&&syncIndex>deleteIndex&&verifyIndex>syncIndex&&clearIndex>verifyIndex);
+  assert.deepEqual(actions.find(item=>item[0]==='verify-list'),['verify-list',2]);
+  assert.equal(actions.at(-2)[0],'hide');
+  assert.deepEqual(actions.at(-1),['mutating',false]);
+});
+
+test('sample upload controller rejects unsupported files and insufficient forward slots before mutating',async()=>{
+  let mutations=0,batches=0;
+  const slots=new Map([
+    [5,{id:5,nodeId:5,file:null}],
+    [6,{id:6,nodeId:6,file:{name:'occupied'}}]
+  ]);
+  const base={
+    getMemory:()=>({
+      findNextFree(from){
+        for(let id=Number(from);id<=6;id++)if(!slots.get(id)?.file)return id;
+        return-1;
+      },
+      getSlot:id=>slots.get(Number(id))
+    }),
+    getDeviceFiles:()=>[],getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({}),
+    setSoundsMetadata(){},getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    setMutating(){mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
+    withSampleUploadBatch:async operation=>{batches++;return operation();},
+    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
+    uploadSampleToSlot:async()=>{},prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x,
+    updateDeviceFile(){},fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
+    sampleMetadataCache:{set(){}},renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
+    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},
+    assertSlotsDeleted:async()=>{},logTechnical(){},showError(){},prepareSample:async()=>({})
+  };
+
+  const controller=createSampleUploadController(base);
+  await assert.rejects(
+    ()=>controller.uploadFilesToSlot(slots.get(5),[{name:'note.txt',type:'text/plain'}]),
+    /No supported audio files/
+  );
+  await assert.rejects(
+    ()=>controller.uploadFilesToSlot(slots.get(5),[
+      {name:'one.wav',type:'audio/wav'},
+      {name:'two.wav',type:'audio/wav'}
+    ]),
+    /Not enough free sample slots above the drop position/
+  );
+  assert.equal(mutations,0);
+  assert.equal(batches,0);
 });

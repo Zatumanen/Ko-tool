@@ -12,7 +12,6 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample}from './audio.js?v=20260930-5';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
@@ -22,12 +21,13 @@ import{createSamplePropertiesController}from './ui/samplePropertiesController.js
 import{createSampleMetadataCache}from './sampleMetadataCache.js?v=20260930-5';
 import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
 import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
-import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
+import{getSoundsParentId,buildFileItemFromInfo,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
 import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
 import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
 import{createSampleReadController}from './ui/sampleReadController.js?v=20260930-5';
 import{createSampleDeleteController}from './ui/sampleDeleteController.js?v=20260930-5';
+import{createSampleUploadController}from './ui/sampleUploadController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -169,25 +169,11 @@ export function initEp133Browser({showError}={}){
   });
 
   const fileItemFromInfo=info=>buildFileItemFromInfo(info,deviceFiles);
-  const provisionalUploadedFileItem=args=>buildProvisionalUploadedFileItem(args,{deviceFiles,normalizeFileName});
   const updateDeviceFile=item=>{
     if(!item)return;
     const index=deviceFiles.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));
     if(index>=0)deviceFiles[index]=item;
     else deviceFiles.push(item);
-  };
-  const hydrateUploadedFileItem=async nodeId=>{
-    try{
-      const info=await getFileInfo(nodeId);
-      const item=fileItemFromInfo(info);
-      if(!item)return;
-      updateDeviceFile(item);
-      memory.setSlot(item);
-      const metadata=await getFileMetadata(nodeId);
-      memory.setMetadata(nodeId,metadata||{});
-      sampleMetadataCache.set(memory.getSlot(nodeId),metadata||{});
-      renderDeviceStats(soundsMetadata,memory.countOccupied());
-    }catch(error){logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);}
   };
   const replaceSoundFiles=files=>{
     const sounds=Array.isArray(files)?files:[];
@@ -349,6 +335,29 @@ export function initEp133Browser({showError}={}){
     if(Number.isFinite(freeSpace)&&freeSpace>=0&&Number(byteLength)>freeSpace)
       throw new Error('Not enough free sample memory on the connected EP.');
   };
+  const sampleUploadController=createSampleUploadController({
+    getMemory:()=>memory,
+    getDeviceFiles:()=>deviceFiles,
+    getSoundsParentId:()=>soundsParentId,
+    getSoundFormats:()=>soundFormats,
+    getSoundsMetadata:()=>soundsMetadata,
+    setSoundsMetadata:value=>{soundsMetadata=value&&typeof value==='object'?value:{};},
+    getActiveDeviceProfile:()=>activeDeviceProfile,
+    isConnected,
+    isSynchronized:()=>synchronized,
+    isDeviceUnsafe:()=>deviceUnsafe,
+    captureBatchSession,assertBatchSession,
+    setMutating,setGlobalProgress,hideGlobalProgress,
+    withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
+    uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
+    updateDeviceFile,fileItemFromInfo,getFileInfo,getFileMetadata,
+    sampleMetadataCache,renderDeviceStats,
+    markUploadPending,clearUploadPending,
+    waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
+    logTechnical,
+    showError:message=>showError?.(message)
+  });
+  const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const applyNativeMoveLocally=(source,target,moved)=>{
     const oldId=Number(moved.oldFileId),newId=Number(moved.newFileId);
     const oldMeta=moved.metadata||source.meta||memory.getSlot(oldId)?.meta||null;
@@ -567,157 +576,6 @@ export function initEp133Browser({showError}={}){
     onUserError:(message,error)=>reportError(message,error)
   });
   updateMutationAvailability();
-
-  async function uploadFilesToSlot(slot,files){
-    if(!isConnected())throw new Error('EP device is disconnected.');
-    if(!synchronized||!soundsParentId)throw new Error('Sample library is still synchronizing.');
-    if(!slot||!files?.length)return;
-    const audioFiles=Array.from(files).filter(file=>file&&(/\.(wav|mp3|aac|ogg|flac|m4a|aif|aiff)$/i.test(file.name)||String(file.type||'').startsWith('audio/')));
-    if(!audioFiles.length)throw new Error('No supported audio files were found.');
-
-    const targets=[];
-    let searchFrom=slot.id;
-    for(const file of audioFiles){
-      const destinationId=memory.findNextFree(searchFrom);
-      if(destinationId===-1)break;
-      targets.push({file,slot:memory.getSlot(destinationId)});
-      searchFrom=destinationId+1;
-    }
-    if(targets.length<audioFiles.length)throw new Error('Not enough free sample slots above the drop position.');
-
-    const sessionToken=captureBatchSession();
-    setMutating(true);
-    const successes=[];
-    const failures=[];
-    try{
-      await withSampleUploadBatch(async()=>{
-        await assertSlotsEmpty(targets.map(item=>item.slot.id));
-        let remainingFreeSpace=Number(soundsMetadata?.free_space_in_bytes);
-        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0){
-          const latestSounds=await refreshSoundsRuntimeMetadata();
-          remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
-        }
-        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
-
-        for(let index=0;index<targets.length;index++){
-          assertBatchSession(sessionToken);
-          const item=targets[index];
-          const target=item.slot;
-          try{
-            memory.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
-            const prepared=await prepareEp133Sample(item.file,{
-              formats:soundFormats,
-              onProgress:(value,info)=>{
-                const progress=Math.max(0,Math.min(100,Number(value)||0));
-                const phase=String(info?.status||'preparing').toUpperCase();
-                memory.setOperation(target.id,{status:String(info?.status||'preparing'),label:phase,progress});
-                setGlobalProgress('UPLOAD',((index+(progress/100)*.35)/targets.length)*100);
-              }
-            });
-            assertBatchSession(sessionToken);
-            const metadata={
-              channels:prepared.channels,
-              samplerate:prepared.samplerate,
-              format:prepared.format,
-              ...(prepared.metadata||{})
-            };
-            if(remainingFreeSpace!=null&&prepared.data.byteLength>remainingFreeSpace)
-              throw new Error('Not enough free sample memory on the connected EP.');
-
-            memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
-            let createdId=null;
-            markUploadPending(target.id);
-            const fileId=await uploadSampleToSlot({
-              file:item.file,
-              data:prepared.data,
-              filename:item.file.name,
-              parentId:soundsParentId,
-              destinationId:target.id,
-              metadata,
-              allowedPlayModes:activeDeviceProfile.playModes,
-              allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-              barWriteMode:'omit',
-              onCreated:id=>{createdId=Number(id)||target.id;item.createdId=createdId;},
-              onProgress:(done,total)=>{
-                const local=total?done/total:0;
-                memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:local*100});
-                setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
-              }
-            });
-            assertBatchSession(sessionToken);
-            if(Number(fileId)!==Number(target.id))
-              throw new Error('The device wrote a sample to an unexpected slot.');
-
-            const fileItem=provisionalUploadedFileItem({
-              nodeId:fileId,
-              parentId:soundsParentId,
-              fileSize:prepared.data.byteLength,
-              fileName:item.file.name
-            });
-            updateDeviceFile(fileItem);
-            memory.setSlot(fileItem);
-
-            const localMetadata=prepareSampleLocalMetadata({...metadata,name:normalizeFileName(item.file.name)},{
-              allowedPlayModes:activeDeviceProfile.playModes,
-              allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites,
-              barWriteMode:'omit'
-            });
-            memory.setMetadata(target.id,localMetadata);
-            sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
-
-            if(remainingFreeSpace!=null){
-              remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
-              soundsMetadata={...soundsMetadata,free_space_in_bytes:remainingFreeSpace};
-            }
-            renderDeviceStats(soundsMetadata,memory.countOccupied());
-            memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
-            successes.push(target.id);
-            setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
-          }catch(error){
-            clearUploadPending(target.id);
-            failures.push({file:item.file,error});
-            memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
-            logTechnical('UPLOAD '+item.file.name,error);
-            const createdId=Number(item.createdId)||0;
-            if(createdId&&isConnected()&&!deviceUnsafe){
-              try{
-                const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
-                await deleteFile(createdId);
-                await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
-                await assertSlotsDeleted([createdId]);
-                memory.clearSlot(createdId);
-              }catch(rollbackError){
-                logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
-              }
-            }
-            if(deviceUnsafe)break;
-          }
-        }
-      });
-
-      renderDeviceStats(soundsMetadata,memory.countOccupied());
-      if(successes.length){
-        memory.selectSlots(successes,{activeId:successes[0],preview:false,navigate:true});
-        setTimeout(()=>{
-          for(const id of successes){
-            const current=memory.getSlot(id)?.node;
-            if(current?.isWritable||current?.isDeletable||current?.isMovable||current?.isPlayable)continue;
-            void hydrateUploadedFileItem(id);
-          }
-        },250);
-      }
-      if(failures.length){
-        const names=failures.map(item=>'• '+item.file.name).join('\n');
-        showError?.('COULD NOT UPLOAD:\n'+names);
-      }
-      if(successes.length)void refreshSoundsRuntimeMetadata().catch(error=>logTechnical('UPLOAD FREE SPACE REFRESH',error));
-    }finally{
-      for(const item of targets)clearUploadPending(item.slot.id);
-      setTimeout(()=>{for(const item of targets)memory.clearOperation(item.slot.id);},900);
-      hideGlobalProgress();
-      setMutating(false);
-    }
-  }
 
   const sampleLibrarySync=createSampleLibrarySyncController({
     captureBatchSession,assertBatchSession,

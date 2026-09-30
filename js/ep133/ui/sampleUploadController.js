@@ -1,0 +1,250 @@
+import{prepareEp133Sample}from '../audio.js?v=20260930-5';
+import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20260930-5';
+
+export function createSampleUploadController({
+  getMemory,getDeviceFiles,
+  getSoundsParentId,getSoundFormats,getSoundsMetadata,setSoundsMetadata,
+  getActiveDeviceProfile,
+  isConnected,isSynchronized,isDeviceUnsafe,
+  captureBatchSession,assertBatchSession,
+  setMutating,setGlobalProgress,hideGlobalProgress,
+  withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
+  uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
+  updateDeviceFile,fileItemFromInfo,getFileInfo,getFileMetadata,
+  sampleMetadataCache,renderDeviceStats,
+  markUploadPending,clearUploadPending,
+  waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
+  logTechnical,showError,
+  prepareSample=prepareEp133Sample,
+  setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
+}={}){
+  const hydrateUploadedFileItem=async nodeId=>{
+    const memory=getMemory();
+    try{
+      const info=await getFileInfo(nodeId);
+      const item=fileItemFromInfo(info);
+      if(!item)return;
+      updateDeviceFile(item);
+      memory.setSlot(item);
+      const metadata=await getFileMetadata(nodeId);
+      memory.setMetadata(nodeId,metadata||{});
+      sampleMetadataCache.set(memory.getSlot(nodeId),metadata||{});
+      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+    }catch(error){
+      logTechnical('UPLOAD HYDRATE SLOT '+nodeId,error);
+    }
+  };
+
+  const uploadFilesToSlot=async(slot,files)=>{
+    if(!isConnected())throw new Error('EP device is disconnected.');
+    if(!isSynchronized()||!getSoundsParentId())throw new Error('Sample library is still synchronizing.');
+    if(!slot||!files?.length)return;
+
+    const audioFiles=Array.from(files).filter(file=>file&&(
+      /\.(wav|mp3|aac|ogg|flac|m4a|aif|aiff)$/i.test(file.name)||
+      String(file.type||'').startsWith('audio/')
+    ));
+    if(!audioFiles.length)throw new Error('No supported audio files were found.');
+
+    const memory=getMemory();
+    const targets=[];
+    let searchFrom=slot.id;
+    for(const file of audioFiles){
+      const destinationId=memory.findNextFree(searchFrom);
+      if(destinationId===-1)break;
+      targets.push({file,slot:memory.getSlot(destinationId)});
+      searchFrom=destinationId+1;
+    }
+    if(targets.length<audioFiles.length)
+      throw new Error('Not enough free sample slots above the drop position.');
+
+    const sessionToken=captureBatchSession();
+    const soundsParentId=Number(getSoundsParentId())||0;
+    setMutating(true);
+    const successes=[];
+    const failures=[];
+
+    try{
+      await withSampleUploadBatch(async()=>{
+        await assertSlotsEmpty(targets.map(item=>item.slot.id));
+
+        let currentSoundsMetadata=getSoundsMetadata();
+        let remainingFreeSpace=Number(currentSoundsMetadata?.free_space_in_bytes);
+        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0){
+          const latestSounds=await refreshSoundsRuntimeMetadata();
+          remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
+        }
+        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
+
+        for(let index=0;index<targets.length;index++){
+          assertBatchSession(sessionToken);
+          const item=targets[index];
+          const target=item.slot;
+
+          try{
+            memory.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
+            const prepared=await prepareSample(item.file,{
+              formats:getSoundFormats(),
+              onProgress:(value,info)=>{
+                const progress=Math.max(0,Math.min(100,Number(value)||0));
+                const phase=String(info?.status||'preparing').toUpperCase();
+                memory.setOperation(target.id,{
+                  status:String(info?.status||'preparing'),
+                  label:phase,
+                  progress
+                });
+                setGlobalProgress('UPLOAD',((index+(progress/100)*.35)/targets.length)*100);
+              }
+            });
+
+            assertBatchSession(sessionToken);
+            const metadata={
+              channels:prepared.channels,
+              samplerate:prepared.samplerate,
+              format:prepared.format,
+              ...(prepared.metadata||{})
+            };
+
+            if(remainingFreeSpace!=null&&prepared.data.byteLength>remainingFreeSpace)
+              throw new Error('Not enough free sample memory on the connected EP.');
+
+            memory.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+            let createdId=null;
+            markUploadPending(target.id);
+
+            const profile=getActiveDeviceProfile();
+            const fileId=await uploadSampleToSlot({
+              file:item.file,
+              data:prepared.data,
+              filename:item.file.name,
+              parentId:soundsParentId,
+              destinationId:target.id,
+              metadata,
+              allowedPlayModes:profile.playModes,
+              allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
+              barWriteMode:'omit',
+              onCreated:id=>{
+                createdId=Number(id)||target.id;
+                item.createdId=createdId;
+              },
+              onProgress:(done,total)=>{
+                const local=total?done/total:0;
+                memory.setOperation(target.id,{
+                  status:'uploading',
+                  label:'UPLOADING',
+                  progress:local*100
+                });
+                setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
+              }
+            });
+
+            assertBatchSession(sessionToken);
+            if(Number(fileId)!==Number(target.id))
+              throw new Error('The device wrote a sample to an unexpected slot.');
+
+            const fileItem=buildProvisionalUploadedFileItem({
+              nodeId:fileId,
+              parentId:soundsParentId,
+              fileSize:prepared.data.byteLength,
+              fileName:item.file.name
+            },{
+              deviceFiles:getDeviceFiles(),
+              normalizeFileName
+            });
+            updateDeviceFile(fileItem);
+            memory.setSlot(fileItem);
+
+            const localMetadata=prepareSampleLocalMetadata(
+              {...metadata,name:normalizeFileName(item.file.name)},
+              {
+                allowedPlayModes:profile.playModes,
+                allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
+                barWriteMode:'omit'
+              }
+            );
+            memory.setMetadata(target.id,localMetadata);
+            sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
+
+            if(remainingFreeSpace!=null){
+              remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
+              currentSoundsMetadata={
+                ...getSoundsMetadata(),
+                free_space_in_bytes:remainingFreeSpace
+              };
+              setSoundsMetadata(currentSoundsMetadata);
+            }
+
+            renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+            memory.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
+            successes.push(target.id);
+            setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
+          }catch(error){
+            clearUploadPending(target.id);
+            failures.push({file:item.file,error});
+            memory.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+            logTechnical('UPLOAD '+item.file.name,error);
+
+            const createdId=Number(item.createdId)||0;
+            if(createdId&&isConnected()&&!isDeviceUnsafe()){
+              try{
+                const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
+                await deleteFile(createdId);
+                await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
+                await assertSlotsDeleted([createdId]);
+                memory.clearSlot(createdId);
+              }catch(rollbackError){
+                logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
+              }
+            }
+
+            if(isDeviceUnsafe())break;
+          }
+        }
+      });
+
+      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+
+      if(successes.length){
+        memory.selectSlots(successes,{
+          activeId:successes[0],
+          preview:false,
+          navigate:true
+        });
+        setTimeoutFn(()=>{
+          for(const id of successes){
+            const current=memory.getSlot(id)?.node;
+            if(
+              current?.isWritable||
+              current?.isDeletable||
+              current?.isMovable||
+              current?.isPlayable
+            )continue;
+            void hydrateUploadedFileItem(id);
+          }
+        },250);
+      }
+
+      if(failures.length){
+        const names=failures.map(item=>'• '+item.file.name).join('\n');
+        showError?.('COULD NOT UPLOAD:\n'+names);
+      }
+
+      if(successes.length){
+        void refreshSoundsRuntimeMetadata().catch(error=>
+          logTechnical('UPLOAD FREE SPACE REFRESH',error)
+        );
+      }
+
+      return{successes:[...successes],failures:[...failures]};
+    }finally{
+      for(const item of targets)clearUploadPending(item.slot.id);
+      setTimeoutFn(()=>{
+        for(const item of targets)memory.clearOperation(item.slot.id);
+      },900);
+      hideGlobalProgress();
+      setMutating(false);
+    }
+  };
+
+  return{uploadFilesToSlot,hydrateUploadedFileItem};
+}
