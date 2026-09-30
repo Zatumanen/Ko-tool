@@ -3,7 +3,7 @@ export function createSampleMoveController({
   getSoundsParentId,getSoundsMetadata,
   fileItemFromInfo,
   remapCurrentPropertySlot,renderDeviceStats,
-  captureBatchSession,assertBatchSession,getDeviceSessionToken,
+  withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   isConnected,setMutating,setGlobalProgress,hideGlobalProgress,
   suppressNativeMoveEvent,clearNativeMoveSuppression,
   moveFile,readDevice,logTechnical
@@ -26,13 +26,19 @@ export function createSampleMoveController({
     renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
   };
 
+  const runMoveTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample move transaction',operation,{strict:true})
+    :operation({moveFile});
   const nativeMoveTransfer=async(plan,sourceById)=>{
     const completed=[];
+    let needsResync=false;
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
 
     setMutating(true);
     try{
+      return await runMoveTransaction(async fileOps=>{
+        try{
       for(let index=0;index<plan.length;index++){
         assertBatchSession(sessionToken);
         const pair=plan[index];
@@ -48,7 +54,7 @@ export function createSampleMoveController({
         const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
         let moved;
         try{
-          moved=await moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true});
+          moved=await fileOps.moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true});
         }catch(error){
           clearNativeMoveSuppression(sourceNodeId,target.id);
           throw error;
@@ -73,13 +79,13 @@ export function createSampleMoveController({
       for(const pair of plan)sampleStore.clearOperation(pair.targetId);
       setGlobalProgress('MOVE',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
-    }catch(error){
+        }catch(error){
       if(completed.length&&isConnected()&&getDeviceSessionToken()===sessionToken){
         for(const pair of [...completed].reverse()){
           try{
             assertBatchSession(sessionToken);
             const releaseSuppression=suppressNativeMoveEvent(pair.targetId,pair.sourceId);
-            const restored=await moveFile(
+            const restored=await fileOps.moveFile(
               pair.targetId,
               soundsParentId,
               pair.sourceId,
@@ -102,14 +108,18 @@ export function createSampleMoveController({
           }
         }
 
-        try{
-          await readDevice();
-        }catch(syncError){
-          logTechnical('RESYNC AFTER NATIVE MOVE ERROR',syncError);
-        }
+        needsResync=true;
       }
 
       sampleStore.clearOperations();
+      throw error;
+        }
+      });
+    }catch(error){
+      if(needsResync&&isConnected()&&getDeviceSessionToken()===sessionToken){
+        try{await readDevice();}
+        catch(syncError){logTechnical('RESYNC AFTER NATIVE MOVE ERROR',syncError);}
+      }
       throw error;
     }finally{
       hideGlobalProgress();

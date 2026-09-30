@@ -2,16 +2,21 @@ export function createSampleDeleteController({
   sampleStore,
   getSoundsParentId,getSoundsMetadata,
   isConnected,isSynchronized,hasPendingPropertyWrites,
-  confirmAction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+  confirmAction,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   setMutating,setGlobalProgress,hideGlobalProgress,
   getFileInfo,getFileMetadata,deleteFile,
   waitForMetadataUpdate,syncMetadataAfterMutation,
   assertSlotsDeleted,renderDeviceStats,
   readDevice,logTechnical
 }={}){
-  const assertDeleteTargetUnchanged=async slot=>{
+  const runDeleteTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample delete transaction',operation,{strict:true})
+    :operation({getFileInfo,getFileMetadata,deleteFile});
+  const assertDeleteTargetUnchanged=async(slot,fileOps=null)=>{
     const soundsParentId=Number(getSoundsParentId())||0;
-    const info=await getFileInfo(slot.nodeId||slot.id);
+    const readInfo=fileOps?.getFileInfo||getFileInfo;
+    const readMetadata=fileOps?.getFileMetadata||getFileMetadata;
+    const info=await readInfo(slot.nodeId||slot.id);
     if(
       Number(info.nodeId)!==Number(slot.id)||
       Number(info.parentId)!==soundsParentId||
@@ -20,7 +25,7 @@ export function createSampleDeleteController({
       throw new Error('Sample slot changed before delete; reload the library and confirm again.');
     }
 
-    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
+    const currentMetadata=await readMetadata(slot.nodeId||slot.id);
     if(slot.meta?.crc!=null&&Number(currentMetadata?.crc)!==Number(slot.meta.crc))
       throw new Error('Sample slot changed before delete; CRC no longer matches the selected sample.');
     if(slot.meta?.name!=null&&String(currentMetadata?.name)!==String(slot.meta.name))
@@ -47,26 +52,28 @@ export function createSampleDeleteController({
     setMutating(true);
 
     try{
+      await runDeleteTransaction(async fileOps=>{
       for(let index=0;index<canonicalTargets.length;index++){
         assertBatchSession(sessionToken);
         const slot=canonicalTargets[index];
         setGlobalProgress('DELETE',(index/canonicalTargets.length)*100);
 
-        await assertDeleteTargetUnchanged(slot);
+        await assertDeleteTargetUnchanged(slot,fileOps);
 
         const metadataUpdate=waitForMetadataUpdate(soundsParentId);
-        await deleteFile(slot.nodeId||slot.id);
+        await fileOps.deleteFile(slot.nodeId||slot.id);
 
         assertBatchSession(sessionToken);
-        await syncMetadataAfterMutation(soundsParentId,metadataUpdate);
+        await syncMetadataAfterMutation(soundsParentId,metadataUpdate,fileOps);
 
         sampleStore.removeFile(slot.nodeId||slot.id);
         setGlobalProgress('DELETE',((index+1)/canonicalTargets.length)*100);
       }
 
-      await assertSlotsDeleted(canonicalTargets.map(slot=>slot.id));
+      await assertSlotsDeleted(canonicalTargets.map(slot=>slot.id),fileOps);
       renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
       return true;
+      });
     }catch(error){
       if(isConnected()&&getDeviceSessionToken()===sessionToken){
         try{
