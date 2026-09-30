@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -333,6 +333,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const filesystem=await read('js/ep133/filesystem.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
   const samplePropertiesController=await read('js/ep133/ui/samplePropertiesController.js');
+  const sampleReadController=await read('js/ep133/ui/sampleReadController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
@@ -346,7 +347,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
   assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleReadController.js?v="+token),true);
   assert.equal(samplePropertiesController.includes("../sampleProperties.js?v="+token),true);
+  assert.equal(sampleReadController.includes("../audio.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -1876,10 +1879,10 @@ test('My EP pastes and drops audio into the shared forward-only uploader',async(
 
 test('My EP stops the previous preview before starting the newly selected sample',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/if\(playingSlotId\)await stopCurrentPreview\(\)/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8');
+  assert.match(source,/if\(playingNodeId\)await stopPreview\(\)/);
   assert.match(source,/await startPlayback\(nodeId,true\)/);
-  assert.match(source,/memory\.setPreviewing\(slot\.id\)/);
+  assert.match(source,/getMemory\(\)\?\.setPreviewing\?\.\(slot\.id\)/);
   assert.doesNotMatch(source,/playbackThrottleTimer/);
 });
 
@@ -2012,8 +2015,9 @@ test('My EP is sample-only and uses SLOT NAME SIZE CH RATE columns',async()=>{
 
 test('My EP multi-download emits individual WAV downloads instead of ZIP',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8');
   assert.match(source,/for\(let index=0;index<selectedSlots\.length;index\+\+\)[\s\S]*performDownload\(selectedSlots\[index\]/);
+  assert.match(source,/saveAs:false/);
   assert.doesNotMatch(source,/createZip/);
   assert.doesNotMatch(source,/samples\.zip/);
 });

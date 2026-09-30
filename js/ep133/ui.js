@@ -12,7 +12,7 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{prepareEp133Sample,createEp133Wav}from './audio.js?v=20260930-5';
+import{prepareEp133Sample}from './audio.js?v=20260930-5';
 import{
   createSampleSlots,createSampleMemory,
   planSampleTransferTargets
@@ -26,6 +26,7 @@ import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,
 import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
 import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
+import{createSampleReadController}from './ui/sampleReadController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -84,8 +85,6 @@ export function initEp133Browser({showError}={}){
   let everConnected=false;
   let activeDeviceProfile=getEpDeviceProfile();
   let lastDeviceInfo={title:'MY EP',name:''};
-  let playingSlotId=null;
-  let previewTimer=null;
   let propertiesController=null;
   const sampleMetadataCache=createSampleMetadataCache();
   const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
@@ -275,50 +274,6 @@ export function initEp133Browser({showError}={}){
     .map(item=>item.getAsFile?.())
     .filter(Boolean);
 
-  const fallbackDownload=(blob,name)=>{
-    const url=URL.createObjectURL(blob);
-    const anchor=document.createElement('a');
-    anchor.href=url;
-    anchor.download=name;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1200);
-  };
-  const saveBlobAs=async(blob,name)=>{
-    if(window.showSaveFilePicker){
-      try{
-        const handle=await window.showSaveFilePicker({
-          suggestedName:name,
-          types:[{description:'WAV audio',accept:{'audio/wav':['.wav']}}]
-        });
-        const writable=await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        return true;
-      }catch(error){
-        if(error?.name==='AbortError')return false;
-        if(error?.name!=='NotAllowedError'&&error?.name!=='SecurityError')throw error;
-      }
-    }
-    fallbackDownload(blob,name);
-    return true;
-  };
-  const downloadName=(slot,result)=>{
-    const raw=String(slot?.meta?.name||slot?.file?.name||result?.name||'sample')
-      .replace(/\.[^.]+$/,'')
-      .replace(/[\\/:*?"<>|]/g,'_')
-      .trim()||'sample';
-    return raw+'.wav';
-  };
-  const makeWav=async slot=>{
-    const result=await getFile(slot.nodeId||slot.id);
-    const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
-    const meta=slot.meta||await getFileMetadata(slot.nodeId||slot.id);
-    const wav=await createEp133Wav(bytes,{name:result?.name||slot.file?.name||'sample',metadata:meta});
-    return{wav,result};
-  };
-
   propertiesController=createSamplePropertiesController({
     properties,propertiesGrid,
     getMemory:()=>memory,
@@ -335,6 +290,17 @@ export function initEp133Browser({showError}={}){
   const openProperties=(slot,event)=>propertiesController.open(slot,event);
 
   let memory;
+  const sampleReadController=createSampleReadController({
+    getMemory:()=>memory,
+    isConnected,
+    startPlayback,stopPlayback,
+    getFile,getFileMetadata,
+    captureBatchSession,assertBatchSession,
+    setGlobalProgress,hideGlobalProgress,
+    reportError
+  });
+  const stopCurrentPreview=()=>sampleReadController.stopPreview();
+  const auditionSample=slot=>sampleReadController.audition(slot);
   const fileEventController=createFileEventController({
     isConnected,
     getMemory:()=>memory,
@@ -373,52 +339,6 @@ export function initEp133Browser({showError}={}){
     if(Number.isFinite(freeSpace)&&freeSpace>=0&&Number(byteLength)>freeSpace)
       throw new Error('Not enough free sample memory on the connected EP.');
   };
-  const stopCurrentPreview=async()=>{
-    clearTimeout(previewTimer);
-    previewTimer=null;
-    const nodeId=playingSlotId;
-    playingSlotId=null;
-    memory?.setPreviewing?.(null);
-    if(nodeId&&isConnected()){
-      try{await stopPlayback(nodeId);}
-      catch(error){console.warn('EP preview stop failed',error);}
-    }
-  };
-  const auditionSample=async slot=>{
-    if(!slot?.file||!isConnected())return;
-    const nodeId=slot.nodeId||slot.id;
-    try{
-      if(playingSlotId)await stopCurrentPreview();
-      await startPlayback(nodeId,true);
-      playingSlotId=nodeId;
-      memory.setPreviewing(slot.id);
-      previewTimer=setTimeout(()=>{
-        if(playingSlotId===nodeId){
-          playingSlotId=null;
-          memory.setPreviewing(null);
-        }
-      },1050);
-    }catch(error){
-      reportError('COULD NOT PREVIEW SAMPLE.',error);
-    }
-  };
-
-  const performDownload=async(slot,{saveAs=false,index=0,total=1}={})=>{
-    const base=(index/Math.max(1,total))*100;
-    setGlobalProgress('DOWNLOAD',base);
-    const result=await getFile(slot.nodeId||slot.id,(done,size)=>{
-      const local=size?done/size:0;
-      setGlobalProgress('DOWNLOAD',((index+local)/Math.max(1,total))*100);
-    });
-    const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
-    const meta=slot.meta||await getFileMetadata(slot.nodeId||slot.id);
-    const wav=await createEp133Wav(bytes,{name:result?.name||slot.file?.name||'sample',metadata:meta});
-    const filename=downloadName(slot,result);
-    if(saveAs)await saveBlobAs(wav,filename);
-    else fallbackDownload(wav,filename);
-    setGlobalProgress('DOWNLOAD',((index+1)/Math.max(1,total))*100);
-  };
-
   const applyNativeMoveLocally=(source,target,moved)=>{
     const oldId=Number(moved.oldFileId),newId=Number(moved.newFileId);
     const oldMeta=moved.metadata||source.meta||memory.getSlot(oldId)?.meta||null;
@@ -666,19 +586,8 @@ export function initEp133Browser({showError}={}){
       memory.setMetadata(slot.id,readback);
       return String(readback?.name||name);
     },
-    onDownload:async slot=>{
-      try{await performDownload(slot,{saveAs:true,index:0,total:1});}
-      finally{hideGlobalProgress();}
-    },
-    onDownloadMany:async selectedSlots=>{
-      const sessionToken=captureBatchSession();
-      try{
-        for(let index=0;index<selectedSlots.length;index++){
-          assertBatchSession(sessionToken);
-          await performDownload(selectedSlots[index],{saveAs:false,index,total:selectedSlots.length});
-        }
-      }finally{hideGlobalProgress();}
-    },
+    onDownload:slot=>sampleReadController.downloadOne(slot),
+    onDownloadMany:selectedSlots=>sampleReadController.downloadMany(selectedSlots),
     onTransfer:transactionalTransfer,
     onDrop:async(slot,event)=>uploadFilesToSlot(slot,getDroppedFiles(event)),
     onContext:(slot,event)=>openProperties(slot,event),
