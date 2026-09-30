@@ -1,7 +1,7 @@
 export function createSampleMoveController({
-  getMemory,getDeviceFiles,setDeviceFiles,
+  sampleStore,
   getSoundsParentId,getSoundsMetadata,
-  sampleMetadataCache,fileItemFromInfo,
+  fileItemFromInfo,
   remapCurrentPropertySlot,renderDeviceStats,
   captureBatchSession,assertBatchSession,getDeviceSessionToken,
   isConnected,setMutating,setGlobalProgress,hideGlobalProgress,
@@ -9,38 +9,27 @@ export function createSampleMoveController({
   moveFile,readDevice,logTechnical
 }={}){
   const applyNativeMoveLocally=(source,target,moved)=>{
-    const memory=getMemory();
     const oldId=Number(moved.oldFileId);
     const newId=Number(moved.newFileId);
-    const oldMeta=moved.metadata||source.meta||memory.getSlot(oldId)?.meta||null;
+    const oldMeta=moved.metadata||source.meta||sampleStore.getMetadata(oldId)||null;
     const item=fileItemFromInfo(moved.info);
     if(!item||Number(item.nodeId)!==newId)
       throw new Error('The native FILE_MOVE destination could not be resolved.');
 
-    const files=(getDeviceFiles()||[])
-      .filter(file=>Number(file.nodeId)!==oldId&&Number(file.nodeId)!==newId);
-    files.push(item);
-    setDeviceFiles(files);
-
-    sampleMetadataCache.invalidate(oldId);
-    sampleMetadataCache.invalidate(newId);
-    if(oldId!==newId)memory.clearSlot(oldId);
-    memory.setSlot(item);
-
-    if(oldMeta){
-      memory.setMetadata(newId,oldMeta);
-      sampleMetadataCache.set(memory.getSlot(newId),oldMeta);
-    }
+    sampleStore.moveLocal(oldId,item,{
+      metadata:oldMeta,
+      state:'ready',
+      verification:'verified'
+    });
 
     remapCurrentPropertySlot(oldId,newId);
-    renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
+    renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
   };
 
   const nativeMoveTransfer=async(plan,sourceById)=>{
     const completed=[];
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
-    const memory=getMemory();
 
     setMutating(true);
     try{
@@ -48,12 +37,12 @@ export function createSampleMoveController({
         assertBatchSession(sessionToken);
         const pair=plan[index];
         const source=sourceById.get(pair.sourceId);
-        const target=memory.getSlot(pair.targetId);
+        const target=sampleStore.getSlot(pair.targetId);
         if(!source||!target)throw new Error('Invalid native MOVE plan.');
         if(target.file)throw new Error('Target sample slot is no longer empty.');
 
         const sourceNodeId=Number(source.nodeId||source.id);
-        memory.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
+        sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
         setGlobalProgress('MOVE',(index/plan.length)*100);
 
         const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
@@ -77,11 +66,11 @@ export function createSampleMoveController({
           throw new Error('Native FILE_MOVE CRC verification failed for slot '+source.id+' -> '+target.id+'.');
 
         applyNativeMoveLocally(source,target,moved);
-        memory.setOperation(target.id,{status:'complete',label:'MOVED',progress:100});
+        sampleStore.setOperation(target.id,{status:'complete',label:'MOVED',progress:100});
         setGlobalProgress('MOVE',((index+1)/plan.length)*100);
       }
 
-      for(const pair of plan)memory.clearOperation(pair.targetId);
+      for(const pair of plan)sampleStore.clearOperation(pair.targetId);
       setGlobalProgress('MOVE',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
     }catch(error){
@@ -120,7 +109,7 @@ export function createSampleMoveController({
         }
       }
 
-      memory.clearOperations();
+      sampleStore.clearOperations();
       throw error;
     }finally{
       hideGlobalProgress();

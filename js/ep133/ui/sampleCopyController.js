@@ -1,5 +1,5 @@
 export function createSampleCopyController({
-  getMemory,getDeviceFiles,setDeviceFiles,
+  sampleStore,
   getSoundsParentId,getSoundsMetadata,getActiveDeviceProfile,
   isConnected,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   setMutating,setGlobalProgress,hideGlobalProgress,
@@ -7,8 +7,8 @@ export function createSampleCopyController({
   getFile,getFileMetadata,
   prepareSampleTransferMetadata,createTransferFileName,
   uploadSampleToSlot,waitForMetadataUpdate,syncMetadataAfterMutation,
-  getFileInfo,fileItemFromInfo,updateDeviceFile,
-  prepareSampleLocalMetadata,sampleMetadataCache,renderDeviceStats,
+  getFileInfo,fileItemFromInfo,
+  prepareSampleLocalMetadata,renderDeviceStats,
   deleteFile,readDevice,logTechnical
 }={}){
   const assertSampleFitsAvailableMemory=async byteLength=>{
@@ -23,7 +23,6 @@ export function createSampleCopyController({
     if((sources||[]).some(item=>item.node?.isReadable!==true))
       throw new Error('One or more source samples cannot be read.');
 
-    const memory=getMemory();
     const soundsParentId=Number(getSoundsParentId())||0;
     const profile=getActiveDeviceProfile();
     const created=[];
@@ -36,11 +35,11 @@ export function createSampleCopyController({
         assertBatchSession(sessionToken);
         const pair=plan[index];
         const source=sourceById.get(pair.sourceId);
-        const target=memory.getSlot(pair.targetId);
+        const target=sampleStore.getSlot(pair.targetId);
         if(!source||!target)throw new Error('Invalid transfer plan.');
 
         const operationLabel='COPYING';
-        memory.setOperation(target.id,{
+        sampleStore.setOperation(target.id,{
           status:'uploading',
           label:operationLabel,
           progress:0
@@ -87,7 +86,7 @@ export function createSampleCopyController({
           onProgress:(done,total)=>{
             const local=total?done/total:0;
             const rowProgress=Math.round(local*100);
-            memory.setOperation(target.id,{
+            sampleStore.setOperation(target.id,{
               status:'uploading',
               label:operationLabel,
               progress:rowProgress
@@ -107,18 +106,16 @@ export function createSampleCopyController({
         if(!item||Number(item.nodeId)!==Number(target.id))
           throw new Error('The destination slot could not be verified.');
 
-        updateDeviceFile(item);
-        memory.setSlot(item);
+        sampleStore.upsertFile(item,{state:'ready',verification:'verified',preserveMetadata:false});
 
         const localMetadata=prepareSampleLocalMetadata(expectedMetadata,{
           allowedPlayModes:profile.playModes,
           allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
           barWriteMode:'preserve'
         });
-        memory.setMetadata(target.id,localMetadata);
-        sampleMetadataCache.set(memory.getSlot(target.id),localMetadata);
+        sampleStore.setMetadata(target.id,localMetadata,{verification:'expected'});
 
-        memory.setOperation(target.id,{
+        sampleStore.setOperation(target.id,{
           status:'complete',
           label:'COPIED',
           progress:100
@@ -126,8 +123,8 @@ export function createSampleCopyController({
         setGlobalProgress('COPY',((index+.95)/plan.length)*100);
       }
 
-      renderDeviceStats(getSoundsMetadata(),memory.countOccupied());
-      for(const id of created)memory.clearOperation(id);
+      renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
+      for(const id of created)sampleStore.clearOperation(id);
       setGlobalProgress('COPY',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
     }catch(error){
@@ -141,14 +138,11 @@ export function createSampleCopyController({
           }catch(rollbackError){
             logTechnical('TRANSFER ROLLBACK SLOT '+id,rollbackError);
           }
-
-          memory.clearSlot(id);
-          setDeviceFiles((getDeviceFiles()||[])
-            .filter(item=>Number(item.nodeId)!==Number(id)));
+          sampleStore.removeFile(id);
         }
       }
 
-      memory.clearOperations();
+      sampleStore.clearOperations();
 
       if(isConnected()&&getDeviceSessionToken()===sessionToken){
         try{

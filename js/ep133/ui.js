@@ -88,7 +88,6 @@ export function initEp133Browser({showError}={}){
   let lastDeviceInfo={title:'MY EP',name:''};
   let propertiesController=null;
   const sampleStore=createSampleStore();
-  const sampleMetadataCache=sampleStore.asMetadataCache();
   const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
   const waitForMetadataUpdate=nodeId=>waitForFileEvent(
     event=>event?.type===TE_SYSEX_FILE_EVENT_METADATA_UPDATED&&Number(event?.data?.nodeId)===Number(nodeId),
@@ -169,7 +168,6 @@ export function initEp133Browser({showError}={}){
   });
 
   const fileItemFromInfo=info=>buildFileItemFromInfo(info,sampleStore.getFiles());
-  const updateDeviceFile=item=>sampleStore.upsertFile(item);
   const replaceSoundFiles=files=>{
     const sounds=Array.isArray(files)?files:[];
     sampleStore.replaceFiles([
@@ -247,13 +245,13 @@ export function initEp133Browser({showError}={}){
 
   propertiesController=createSamplePropertiesController({
     properties,propertiesGrid,
-    getMemory:()=>memory,
+    sampleStore,
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,
     isSynchronized:()=>synchronized,
     isMetadataHydrating:()=>metadataHydrating,
     isMutating:()=>mutating,
-    setFileMetadata,getFileMetadata,sampleMetadataCache,
+    setFileMetadata,getFileMetadata,
     showError:message=>showError?.(message),
     logTechnical,escapeHtml
   });
@@ -273,7 +271,7 @@ export function initEp133Browser({showError}={}){
   const stopCurrentPreview=()=>sampleReadController.stopPreview();
   const auditionSample=slot=>sampleReadController.audition(slot);
   const sampleDeleteController=createSampleDeleteController({
-    getMemory:()=>memory,
+    sampleStore,
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
     isConnected,
@@ -283,9 +281,7 @@ export function initEp133Browser({showError}={}){
     setMutating,setGlobalProgress,hideGlobalProgress,
     getFileInfo,getFileMetadata,deleteFile,
     waitForMetadataUpdate,syncMetadataAfterMutation,
-    assertSlotsDeleted,
-    removeDeviceFile:nodeId=>sampleStore.removeFile(nodeId),
-    renderDeviceStats,
+    assertSlotsDeleted,renderDeviceStats,
     readDevice:()=>readDevice(),
     logTechnical
   });
@@ -319,8 +315,7 @@ export function initEp133Browser({showError}={}){
     return soundsMetadata;
   };
   const sampleUploadController=createSampleUploadController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>sampleStore.getFiles(),
+    sampleStore,getMemory:()=>memory,
     getSoundsParentId:()=>soundsParentId,
     getSoundFormats:()=>soundFormats,
     getSoundsMetadata:()=>soundsMetadata,
@@ -333,8 +328,8 @@ export function initEp133Browser({showError}={}){
     setMutating,setGlobalProgress,hideGlobalProgress,
     withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
-    updateDeviceFile,fileItemFromInfo,getFileInfo,getFileMetadata,
-    sampleMetadataCache,renderDeviceStats,
+    fileItemFromInfo,getFileInfo,getFileMetadata,
+    renderDeviceStats,
     markUploadPending,clearUploadPending,
     waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
     logTechnical,
@@ -342,12 +337,9 @@ export function initEp133Browser({showError}={}){
   });
   const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const sampleMoveController=createSampleMoveController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>sampleStore.getFiles(),
-    setDeviceFiles:files=>sampleStore.replaceFiles(Array.isArray(files)?files:[]),
+    sampleStore,
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
-    sampleMetadataCache,
     fileItemFromInfo,
     remapCurrentPropertySlot:(oldId,newId)=>propertiesController.remapCurrentSlot(oldId,newId),
     renderDeviceStats,
@@ -362,9 +354,7 @@ export function initEp133Browser({showError}={}){
     sampleMoveController.nativeMoveTransfer(plan,sourceById);
 
   const sampleCopyController=createSampleCopyController({
-    getMemory:()=>memory,
-    getDeviceFiles:()=>sampleStore.getFiles(),
-    setDeviceFiles:files=>sampleStore.replaceFiles(Array.isArray(files)?files:[]),
+    sampleStore,
     getSoundsParentId:()=>soundsParentId,
     getSoundsMetadata:()=>soundsMetadata,
     getActiveDeviceProfile:()=>activeDeviceProfile,
@@ -374,8 +364,8 @@ export function initEp133Browser({showError}={}){
     getFile,getFileMetadata,
     prepareSampleTransferMetadata,createTransferFileName,
     uploadSampleToSlot,waitForMetadataUpdate,syncMetadataAfterMutation,
-    getFileInfo,fileItemFromInfo,updateDeviceFile,
-    prepareSampleLocalMetadata,sampleMetadataCache,renderDeviceStats,
+    getFileInfo,fileItemFromInfo,
+    prepareSampleLocalMetadata,renderDeviceStats,
     deleteFile,
     readDevice:()=>readDevice(),
     logTechnical
@@ -392,13 +382,14 @@ export function initEp133Browser({showError}={}){
       throw new Error('Wait for the pending sample property write to finish before moving or copying samples.');
 
     const sourceIds=sources.map(item=>item.id);
-    const plan=planSampleTransferTargets(memory.getSlots(),sourceIds,draggedId,dropSlot.id);
-    if(plan.length!==sources.length)
+    const canonicalSources=sourceIds.map(id=>sampleStore.getSlot(id)).filter(slot=>slot?.file);
+    const plan=planSampleTransferTargets(sampleStore.getSlots(),sourceIds,draggedId,dropSlot.id);
+    if(plan.length!==sources.length||canonicalSources.length!==sources.length)
       throw new Error('No valid free destination slots are available.');
 
-    const sourceById=new Map(sources.map(item=>[item.id,item]));
+    const sourceById=new Map(canonicalSources.map(item=>[item.id,item]));
     if(!copy)return nativeMoveTransfer(plan,sourceById);
-    return copyTransfer(plan,sourceById,sources);
+    return copyTransfer(plan,sourceById,canonicalSources);
   };
 
   memory=createSampleMemory({
@@ -419,7 +410,7 @@ export function initEp133Browser({showError}={}){
       if(!name)return null;
       await setFileMetadata(slot.nodeId||slot.id,{name});
       const readback=await getFileMetadata(slot.nodeId||slot.id);
-      memory.setMetadata(slot.id,readback);
+      sampleStore.setMetadata(slot.id,readback,{verification:'verified'});
       return String(readback?.name||name);
     },
     onDownload:slot=>sampleReadController.downloadOne(slot),

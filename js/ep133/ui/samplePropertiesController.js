@@ -4,9 +4,9 @@ import{
 
 export function createSamplePropertiesController({
   properties,propertiesGrid,
-  getMemory,getActiveDeviceProfile,
+  sampleStore,getActiveDeviceProfile,
   isConnected,isSynchronized,isMetadataHydrating,isMutating,
-  setFileMetadata,getFileMetadata,sampleMetadataCache,
+  setFileMetadata,getFileMetadata,
   showError,logTechnical,escapeHtml=String,
   documentRef=globalThis.document,windowRef=globalThis.window,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay),
@@ -33,7 +33,7 @@ export function createSamplePropertiesController({
 
   const renderCurrent=()=>{
     if(!currentPropertySlotId)return;
-    const slot=getMemory()?.getSlot?.(currentPropertySlotId);
+    const slot=sampleStore?.getSlot?.(currentPropertySlotId);
     if(slot?.file)render(slot);
   };
 
@@ -62,14 +62,15 @@ export function createSamplePropertiesController({
 
   const open=(slot,event)=>{
     const profile=getActiveDeviceProfile();
-    if(!slot?.file||!isConnected()||!isSynchronized()||isMetadataHydrating()||isMutating())return;
+    const canonical=sampleStore?.getSlot?.(slot?.id)||slot;
+    if(!canonical?.file||!isConnected()||!isSynchronized()||isMetadataHydrating()||isMutating())return;
     if(!profile.advancedSampleMetadataWrites){
       close();
       showError?.('SAMPLE PROPERTIES ARE NOT VERIFIED FOR '+(profile.name||'THIS EP')+'.');
       return;
     }
-    currentPropertySlotId=slot.id;
-    render(slot);
+    currentPropertySlotId=canonical.id;
+    render(canonical);
     position(event);
   };
 
@@ -81,8 +82,7 @@ export function createSamplePropertiesController({
       return;
     }
 
-    const memory=getMemory();
-    const slot=memory?.getSlot?.(state.slotId);
+    const slot=sampleStore?.getSlot?.(state.slotId);
     if(!slot?.file||!isConnected()){
       pendingPropertyKeys.delete(id);
       propertyStates.delete(id);
@@ -110,12 +110,15 @@ export function createSamplePropertiesController({
         if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
       }
 
-      memory.setMetadata(slot.id,readback);
-      sampleMetadataCache.set(memory.getSlot(slot.id),readback);
+      sampleStore.setMetadata(slot.id,readback,{verification:'verified'});
       state.committed=readback?.[state.key]??sentValue;
 
       if(state.version!==version){
-        memory.mergeMetadata(slot.id,{[state.key]:state.desired,...state.extra});
+        sampleStore.mergeMetadata(
+          slot.id,
+          {[state.key]:state.desired,...state.extra},
+          {verification:'provisional'}
+        );
         state.inFlight=false;
         clearTimeoutFn(state.timer);
         state.timer=setTimeoutFn(()=>flushPropertyWrite(id),40);
@@ -135,10 +138,13 @@ export function createSamplePropertiesController({
       }
 
       if(restored){
-        memory.setMetadata(slot.id,restored);
-        sampleMetadataCache.set(memory.getSlot(slot.id),restored);
+        sampleStore.setMetadata(slot.id,restored,{verification:'verified'});
       }else{
-        memory.mergeMetadata(slot.id,{[state.key]:state.committed});
+        sampleStore.mergeMetadata(
+          slot.id,
+          {[state.key]:state.committed},
+          {verification:'unknown'}
+        );
       }
 
       pendingPropertyKeys.delete(id);
@@ -153,14 +159,15 @@ export function createSamplePropertiesController({
 
   const scheduleWrite=(slot,key,value,extra={})=>{
     const profile=getActiveDeviceProfile();
-    if(!slot?.file||!isConnected()||!isSynchronized()||isMutating()||!profile.advancedSampleMetadataWrites)return;
+    const canonical=sampleStore?.getSlot?.(slot?.id)||slot;
+    if(!canonical?.file||!isConnected()||!isSynchronized()||isMutating()||!profile.advancedSampleMetadataWrites)return;
 
-    const id=propertyStateId(slot.id,key);
+    const id=propertyStateId(canonical.id,key);
     let state=propertyStates.get(id);
     if(!state){
       state={
-        slotId:slot.id,key,
-        committed:slot.meta?.[key],
+        slotId:canonical.id,key,
+        committed:canonical.meta?.[key],
         desired:value,
         extra:{...extra},
         timer:null,
@@ -176,28 +183,32 @@ export function createSamplePropertiesController({
     clearTimeoutFn(state.timer);
     pendingPropertyKeys.add(id);
 
-    const memory=getMemory();
-    memory.mergeMetadata(slot.id,{[key]:value,...extra});
-    renderIfCurrent(slot.id);
+    sampleStore.mergeMetadata(
+      canonical.id,
+      {[key]:value,...extra},
+      {verification:'provisional'}
+    );
+    renderIfCurrent(canonical.id);
     state.timer=setTimeoutFn(()=>flushPropertyWrite(id),debounceMs);
   };
 
   const change=(slot,key,direction)=>{
     const profile=getActiveDeviceProfile();
-    if(!slot?.file||slot.node?.isWritable!==true||!profile.advancedSampleMetadataWrites)return;
+    const canonical=sampleStore?.getSlot?.(slot?.id)||slot;
+    if(!canonical?.file||canonical.node?.isWritable!==true||!profile.advancedSampleMetadataWrites)return;
     if(key==='sound.bars'&&profile.sampleBars?.authoring!==true)return;
 
-    const result=getSamplePropertyChange(slot,key,direction,{
+    const result=getSamplePropertyChange(canonical,key,direction,{
       playModes:profile.playModes,
       barPolicy:profile.sampleBars
     });
-    if(result)scheduleWrite(slot,key,result.value,result.extra);
+    if(result)scheduleWrite(canonical,key,result.value,result.extra);
   };
 
   propertiesGrid?.addEventListener('click',event=>{
     const button=event.target.closest('[data-property]');
     if(!button||!currentPropertySlotId)return;
-    const slot=getMemory()?.getSlot?.(currentPropertySlotId);
+    const slot=sampleStore?.getSlot?.(currentPropertySlotId);
     change(slot,button.dataset.property,Number(button.dataset.direction)||0);
   });
 
@@ -207,7 +218,7 @@ export function createSamplePropertiesController({
     event.preventDefault();
 
     const slotId=currentPropertySlotId;
-    const slot=getMemory()?.getSlot?.(slotId);
+    const slot=sampleStore?.getSlot?.(slotId);
     const startY=event.clientY;
     const startValue=Number(slot?.meta?.['sound.bpm'])>0?Math.round(Number(slot.meta['sound.bpm'])):120;
     let lastValue=startValue;
@@ -217,7 +228,7 @@ export function createSamplePropertiesController({
       const next=Math.max(1,Math.min(200,startValue+delta));
       if(next===lastValue)return;
       lastValue=next;
-      const current=getMemory()?.getSlot?.(slotId);
+      const current=sampleStore?.getSlot?.(slotId);
       if(current)scheduleWrite(current,'sound.bpm',next);
     };
 
