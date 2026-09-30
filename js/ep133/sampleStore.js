@@ -266,23 +266,6 @@ export function createSampleStore(){
     return cached?cloneObject(cached.metadata):null;
   };
 
-  const asMetadataCache=()=>({
-    get:slot=>getCachedMetadata(slot),
-    set:(slot,metadata)=>{
-      const id=Number(slot?.nodeId||slot?.id);
-      if(!Number.isInteger(id))return null;
-      return setMetadata(id,metadata);
-    },
-    merge:(slot,patch)=>{
-      const id=Number(slot?.nodeId||slot?.id);
-      if(!Number.isInteger(id))return null;
-      return mergeMetadata(id,patch);
-    },
-    invalidate:id=>invalidateMetadata(id),
-    clear:()=>metadataHistory.clear(),
-    size:()=>metadataHistory.size
-  });
-
   const getSoundsParentId=()=>soundsParentId;
   const setSoundsParentId=value=>{
     soundsParentId=Number(value)||0;
@@ -408,7 +391,7 @@ export function createSampleStore(){
     getSoundsParentId,setSoundsParentId,getSoundsMetadata,setSoundsMetadata,mergeSoundsMetadata,
     getSoundFormats,getSoundTabs,
     replaceFiles,resetInventory,upsertFile,removeFile,
-    setMetadata,mergeMetadata,invalidateMetadata,asMetadataCache,
+    setMetadata,mergeMetadata,invalidateMetadata,
     setOperation,clearOperation,clearOperations,
     setVerification,setState,moveLocal,clear
   };
