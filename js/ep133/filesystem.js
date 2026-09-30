@@ -1,9 +1,6 @@
 import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INIT_SUBSCRIBE,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_PUT_TYPE_INIT,TE_SYSEX_FILE_PUT_TYPE_DATA,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR,TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_INIT,TE_SYSEX_FILE_METADATA_SET_PAGED_TYPE_DATA,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED}from './constants.js';
 import{requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard,getConnectedDeviceInfo}from './device.js?v=20260930-5';
 import{parseNullTerminatedString}from './packing.js';
-import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies}from './projectArchive.js?v=20260930-5';
-import{assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from './projectProfile.js?v=20260930-5';
-import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
 import{createFileScheduler}from './fileScheduler.js?v=20260930-5';
 import{
   readU16 as u16,readU32 as u32,
@@ -13,11 +10,33 @@ import{
   normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,
   uploadSampleToSlotWithTransport
 }from './sampleFilesystem.js?v=20260930-5';
+import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20260930-5';
 export{normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName};
 export{calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,buildMetadataGetPayload,parseFileListEntries,buildFileInfoPayload,parseFileInfoResponse,buildFileDeletePayload,buildFileMovePayload,parseFileMoveResponse,buildFilePutInitPayload,validateFilePutPage,buildFilePutDataPayload,buildMetadataSetPayload,buildMetadataPagedInitPayload,buildMetadataPagedDataPayload,validateFileGetChunk,buildFileGetInitPayload,buildFileGetDataPayload};
+export{assertProjectWriteActiveGuard};
+
+const projectFilesystem=createProjectFilesystem({
+  runFileOperation,
+  withStrictFirmwareDebugGuard,
+  getConnectedDeviceInfo,
+  markDeviceUnsafe,
+  isDeviceUnsafe,
+  initRead,
+  initFileSystem:initFileSystemUnlocked,
+  listDirectory:listDirectoryUnlocked,
+  listDeviceFiles:listDeviceFilesUnlocked,
+  getFile:getFileUnlocked,
+  putFile:putFileUnlocked,
+  getFileMetadata:getMetadataByNodeId,
+  setFileMetadata:setFileMetadataUnlocked
+});
+export function getProjectRuntimeSettleState(){return projectFilesystem.getProjectRuntimeSettleState();}
+export function assertProjectRuntimeSettled(label='project operation'){return projectFilesystem.assertProjectRuntimeSettled(label);}
+export function reloadProjectArchive(projectNumber,options={}){return projectFilesystem.reloadProjectArchive(projectNumber,options);}
+export function uploadProjectArchive(file,options={}){return projectFilesystem.uploadProjectArchive(file,options);}
+export function downloadProjectArchive(path,onProgress){return projectFilesystem.downloadProjectArchive(path,onProgress);}
 
 const deviceChunkSizes=new Map();
-const projectRuntimeGate=createProjectRuntimeGate();
 async function withBrowserFileLock(operation){
   const locks=globalThis.navigator?.locks;
   if(!locks?.request)return operation();
@@ -87,25 +106,15 @@ export function withSampleUploadBatch(operation){
   if(typeof operation!=='function')throw new TypeError('Sample upload batch requires an operation.');
   return withStrictFirmwareDebugGuard(operation,'sample upload batch');
 }
-export function resetFileSystemState(){deviceChunkSizes.clear();projectRuntimeGate.reset();fileScheduler.reset();}
-export function getProjectRuntimeSettleState(){return projectRuntimeGate.getState();}
-export function assertProjectRuntimeSettled(label='project operation'){return projectRuntimeGate.assertSettled(label);}
+export function resetFileSystemState(){deviceChunkSizes.clear();projectFilesystem.resetProjectRuntime();fileScheduler.reset();}
 const getDeviceKey=device=>device?.metadata?.serialNumber||device?.metadata?.serial||device?.deviceKey||null;
 let activeDeviceKey=null;
 onConnectionChange(({connected,device})=>{
   activeDeviceKey=connected?getDeviceKey(device):null;
-  if(!connected){deviceChunkSizes.clear();projectRuntimeGate.reset();}
+  if(!connected){deviceChunkSizes.clear();projectFilesystem.resetProjectRuntime();}
 });
 function getCachedChunkSize(){return activeDeviceKey?deviceChunkSizes.get(activeDeviceKey)||0:0;}
 async function ensureFileSystemInitializedUnlocked(){if(!getCachedChunkSize())await initFileSystemUnlocked();}
-function connectedProjectProfile(mode='transport'){
-  const info=getConnectedDeviceInfo();
-  if(!info)throw new Error('EP-series device is not connected.');
-  const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
-  if(mode==='authoring')return assertProjectAuthoringSupported(info.sku,firmware);
-  if(mode==='reload')return assertProjectReloadSupported(info.sku,firmware);
-  return assertProjectTransportSupported(info.sku,firmware);
-}
 
 
 async function initFileSystemUnlocked(maxResponseLength=4*1024*1024){const response=await requestFile(TE_SYSEX_FILE,buildFileInitPayload(maxResponseLength));if(response.rawData.length<5)throw new Error('Invalid EP-series FILE_INIT response.');const chunkSize=u32(response.rawData,1);if(!chunkSize)throw new Error('EP-series returned an invalid FILE chunk size.');if(activeDeviceKey)deviceChunkSizes.set(activeDeviceKey,chunkSize);return chunkSize;}
@@ -205,175 +214,6 @@ export async function putFile(args){return runGuardedFileMutation('FILE_PUT muta
 
 async function listDeviceFilesUnlocked(onProgress){const result=[];async function walk(nodeId=0,path='/'){for(let page=0;;page++){if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));const raw=response.rawData;if(raw.length<=2)break;const pageNo=u16(raw,0);if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);for(const entry of parseFileListEntries(raw.slice(2))){const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;const item={...entry,fileName:full};result.push(item);onProgress?.(item,result.length);if(entry.fileType==='folder')await walk(entry.nodeId,full);}}}await walk();return result;}
 
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const positiveActive=value=>{
-  const number=Number(value);
-  return Number.isInteger(number)&&number>0?number:null;
-};
-async function getActiveNodeUnlocked(nodeId){
-  const metadata=await getMetadataByNodeId(nodeId,'active');
-  return positiveActive(metadata?.active);
-}
-async function captureProjectActivationUnlocked(projectId,projectsNodeId){
-  const groupRootId=projectId+100;
-  const activeProject=await getActiveNodeUnlocked(projectsNodeId);
-  const activeGroup=await getActiveNodeUnlocked(groupRootId);
-  const activePad=activeGroup?await getActiveNodeUnlocked(activeGroup):null;
-  return{activeProject,activeGroup,activePad,groupRootId};
-}
-async function reloadProjectUnlocked(projectId,projectsNodeId,{cycle=true,activeGroup=null,activePad=null}={}){
-  const groupRootId=projectId+100;
-  let cycledProject=null;
-  if(cycle){
-    const projects=await listDirectoryUnlocked(projectsNodeId,'/projects');
-    cycledProject=projects.find(item=>item.fileType==='folder'&&Number(item.nodeId)!==Number(projectId))?.nodeId||null;
-    if(cycledProject){
-      await setFileMetadataUnlocked(projectsNodeId,{active:cycledProject});
-      const cycleReadback=await getActiveNodeUnlocked(projectsNodeId);
-      if(cycleReadback!==cycledProject)throw new Error(`EP project cycle readback active=${cycleReadback}, expected ${cycledProject}.`);
-      await sleep(200);
-    }
-  }
-  await setFileMetadataUnlocked(projectsNodeId,{active:projectId});
-  const activeProject=await getActiveNodeUnlocked(projectsNodeId);
-  if(activeProject!==projectId)throw new Error(`EP project reload readback active=${activeProject}, expected ${projectId}.`);
-
-  let groupReadback=null,padReadback=null;
-  if(positiveActive(activeGroup)){
-    await setFileMetadataUnlocked(groupRootId,{active:activeGroup});
-    groupReadback=await getActiveNodeUnlocked(groupRootId);
-    if(groupReadback!==activeGroup)throw new Error(`EP group reload readback active=${groupReadback}, expected ${activeGroup}.`);
-  }
-  if(positiveActive(activePad)&&positiveActive(activeGroup)){
-    await setFileMetadataUnlocked(activeGroup,{active:activePad});
-    padReadback=await getActiveNodeUnlocked(activeGroup);
-    if(padReadback!==activePad)throw new Error(`EP pad reload readback active=${padReadback}, expected ${activePad}.`);
-  }
-  const runtimeSettle=projectRuntimeGate.markReload();
-  return{activeProjectFid:activeProject,activeGroupFid:groupReadback,activePadFid:padReadback,cycledProjectFid:cycledProject,runtimeSettle};
-}
-export async function reloadProjectArchive(projectNumber,{cycle=true}={}){
-  return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
-    assertProjectRuntimeSettled('project reload');
-    connectedProjectProfile('reload');
-    const project=String(projectNumber).padStart(2,'0');
-    await initRead();
-    const root=await listDirectoryUnlocked(0,'/');
-    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
-    if(!parent)throw new Error('EP-series /projects node is not available.');
-    const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
-    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
-    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
-    const state=await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId);
-    return reloadProjectUnlocked(destination.nodeId,parent.nodeId,{cycle,activeGroup:state.activeGroup,activePad:state.activePad});
-  },'project reload'));
-}
-
-export function assertProjectWriteActiveGuard({destinationFid,activeProjectFid,requireInactive=false,expectedActiveProjectFid=null}={}){
-  const destination=Number(destinationFid),active=Number(activeProjectFid);
-  if(!Number.isInteger(destination)||destination<=0)throw new Error('Project write guard requires a valid destination FID.');
-  if(!Number.isInteger(active)||active<=0)throw new Error('Project write guard requires a valid active project FID.');
-  if(requireInactive&&active===destination)throw new Error('Refusing project write: destination project is currently active.');
-  if(expectedActiveProjectFid!=null&&active!==Number(expectedActiveProjectFid))
-    throw new Error('Refusing project write: active project changed after preflight.');
-  return active;
-}
-
-export async function uploadProjectArchive(file,{onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,requireInactive=false,expectedActiveProjectFid=null}={}){
-  return runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
-    assertProjectRuntimeSettled('project write');
-    const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
-    if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
-    const project=match[1];
-    const data=new Uint8Array(await file.arrayBuffer());
-    if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
-    const profile=connectedProjectProfile('transport');
-    if(profile.projectAuthoring)validateProjectArchive(data,{profile});
-    else parseProjectArchive(data);
-
-    await initRead();
-    const root=await listDirectoryUnlocked(0,'/');
-    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
-    if(!parent)throw new Error('EP-series /projects node is not available.');
-    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
-    const occupiedSampleSlots=sounds
-      ?(await listDirectoryUnlocked(sounds.nodeId,'/sounds')).map(item=>Number(item.nodeId)).filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
-      :[];
-    const sampleDependencies=profile.projectAuthoring
-      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
-      :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
-    const projects=await listDirectoryUnlocked(parent.nodeId,'/projects');
-    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
-    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
-
-    const backup=await getFileUnlocked(destination.nodeId);
-    if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
-    else parseProjectArchive(backup.data);
-    const activation=profile.projectReloadVerified&&performReload
-      ?await captureProjectActivationUnlocked(destination.nodeId,parent.nodeId)
-      :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
-    await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
-
-    let activeProjectBeforeWrite=null;
-    if(requireInactive||expectedActiveProjectFid!=null){
-      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
-        destinationFid:destination.nodeId,
-        activeProjectFid:await getActiveNodeUnlocked(parent.nodeId),
-        requireInactive,
-        expectedActiveProjectFid
-      });
-    }
-
-    let candidateWritten=false;
-    try{
-      await putFileUnlocked({data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
-      candidateWritten=true;
-      await initFileSystemUnlocked();
-
-      const readback=await getFileUnlocked(destination.nodeId);
-      if(profile.projectAuthoring)validateProjectArchive(readback.data,{profile});
-      else parseProjectArchive(readback.data);
-      const verification=compareProjectArchiveMembers(data,readback.data);
-      const reload=profile.projectReloadVerified&&performReload
-        ?await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
-          cycle:cycleReload,
-          activeGroup:activation.activeGroup,
-          activePad:activation.activePad
-        })
-        :null;
-      return{
-        project,
-        fileId:destination.nodeId,
-        verification,
-        reload,
-        sampleDependencies,
-        activeProjectBeforeWrite,
-        backup:{name:backup.name,size:backup.size}
-      };
-    }catch(error){
-      if(!candidateWritten||isDeviceUnsafe())throw error;
-      try{
-        await putFileUnlocked({data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,metadata:null,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]});
-        await initFileSystemUnlocked();
-        const restored=await getFileUnlocked(destination.nodeId);
-        compareProjectArchiveMembers(backup.data,restored.data);
-        if(profile.projectReloadVerified&&performReload)await reloadProjectUnlocked(destination.nodeId,parent.nodeId,{
-          cycle:cycleReload,
-          activeGroup:activation.activeGroup,
-          activePad:activation.activePad
-        });
-        error.projectRollbackSucceeded=true;
-      }catch(rollbackError){
-        error.projectRollbackSucceeded=false;
-        error.rollbackError=rollbackError;
-        markDeviceUnsafe('Project rollback failed after a project write verification error: '+String(rollbackError?.message||rollbackError));
-      }
-      throw error;
-    }
-  },'project write transaction'));
-}
-
-export async function downloadProjectArchive(path,onProgress){return runFileOperation(async()=>{await initRead();const files=await listDeviceFilesUnlocked(),node=files.find(item=>item.fileName===path);if(!node)throw new Error(`EP-series project path not found: ${path}`);return getFileUnlocked(node.nodeId,onProgress);});}
 
 async function deleteFileUnlocked(fileId,{timeout=2000}={}){
   if(!Number.isInteger(fileId)||fileId<1||fileId>0xffff)throw new Error('EP-series file id must be a 16-bit positive integer.');
