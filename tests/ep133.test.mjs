@@ -1890,8 +1890,13 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/reloadProject\(destination\.nodeId,parent\.nodeId/);
   assert.match(block,/compareProjectArchiveMembers\(backup\.data,restored\.data\)/);
   assert.match(block,/error\.projectRollbackSucceeded=true/);
-  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)throw error/);
-  assert.ok(block.indexOf('const backup=await getFile')<block.indexOf('await putFile'));
+  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)\{[\s\S]*status:'requires-recovery'[\s\S]*throw error/);
+  assert.match(block,/await recoveryStore\.saveCheckpoint\(recoveryCheckpoint\)/);
+  assert.match(block,/status:'rolled-back'/);
+  const backupIndex=block.indexOf('const backup=await getFile');
+  const checkpointIndex=block.indexOf('await recoveryStore.saveCheckpoint');
+  const putIndex=block.indexOf('await putFile');
+  assert.ok(backupIndex>=0&&checkpointIndex>backupIndex&&putIndex>checkpointIndex);
   assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
 });
 
