@@ -753,9 +753,9 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
   assert.match(ui,/const assertSlotsDeleted=async\(ids,fileOps=null\)=>/);
-  assert.match(ui,/const files=await readAuthoritativeFiles\(\)/);
-  assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
-  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\)\)/);
+  assert.match(ui,/const files=await readAuthoritativeFiles\(fileOps\)/);
+  assert.match(source,/await assertDeleteTargetUnchanged\(slot,fileOps\)/);
+  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\),fileOps\)/);
 });
 
 test('My EP keeps event-first metadata sync lease-aware for destructive mutations but not the normal upload fast path',async()=>{
