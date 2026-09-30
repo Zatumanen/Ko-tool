@@ -100,7 +100,18 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
 test('waveform editor browser modules pass Node syntax checks',async()=>{
   const{execFileSync}=await import('node:child_process');
   const{fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/waveform-editor.js','../js/audio/waveform-editor.js','../js/app.js']){
+  for(const relative of ['../js/waveform-editor.js','../js/audio/waveform-editor.js','../js/audio/chop.js','../js/app.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
+});
+
+
+test('waveform UI composes chop core without duplicating transient analysis',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/waveform-editor.js',import.meta.url),'utf8');
+  assert.match(source,/from '.\/audio\/chop\.js\?v=20260930-5'/);
+  assert.match(source,/detectTransientChopCuts\(sourceBuffer,\{slices:chopTarget\}\)/);
+  assert.match(source,/buildEvenChopCuts\(sourceBuffer,chopTarget\)/);
+  assert.match(source,/renderChopWavs\(sourceBuffer,chopCuts/);
+  assert.doesNotMatch(source,/rmsWindowMs|baselineMs|attackBacktrackRatio/);
 });
