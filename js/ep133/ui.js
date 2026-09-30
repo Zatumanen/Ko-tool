@@ -1,6 +1,6 @@
 import{
   connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
-  listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withSampleUploadBatch,
+  listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName
 }from './index.js?v=20260930-5';
@@ -96,9 +96,10 @@ export function initEp133Browser({showError}={}){
     renderDeviceStats(soundsMetadata,sampleStore.countOccupied());
     return soundsMetadata;
   };
-  const syncMetadataAfterMutation=async(nodeId,eventPromise)=>{
+  const syncMetadataAfterMutation=async(nodeId,eventPromise,fileOps=null)=>{
     const event=await eventPromise;
-    const metadata=event?.data?.metadata||await getFileMetadata(nodeId);
+    const readMetadata=fileOps?.getFileMetadata||getFileMetadata;
+    const metadata=event?.data?.metadata||await readMetadata(nodeId);
     if(Number(nodeId)===Number(sampleStore.getSoundsParentId()))return applySoundsMetadata(metadata);
     if(Number(nodeId)>=1&&Number(nodeId)<=999){
       sampleStore.setMetadata(Number(nodeId),metadata||{});
@@ -172,22 +173,23 @@ export function initEp133Browser({showError}={}){
     ]);
     return sounds;
   };
-  const readAuthoritativeFiles=async()=>{
+  const readAuthoritativeFiles=async(fileOps=null)=>{
     const soundsParentId=sampleStore.getSoundsParentId();
     if(!soundsParentId)return[];
-    return replaceSoundFiles(await listDirectory(soundsParentId,'/sounds'));
+    const list=fileOps?.listDirectory||listDirectory;
+    return replaceSoundFiles(await list(soundsParentId,'/sounds'));
   };
-  const assertSlotsEmpty=async ids=>{
+  const assertSlotsEmpty=async(ids,fileOps=null)=>{
     const requested=[...new Set((ids||[]).map(Number))];
-    const files=await readAuthoritativeFiles();
+    const files=await readAuthoritativeFiles(fileOps);
     const occupied=soundSlotIds(files);
     const collisions=requested.filter(id=>occupied.has(id));
     if(collisions.length)throw new Error('Target sample slot changed on the device: '+collisions.map(id=>String(id).padStart(3,'0')).join(', ')+'. Reload before retrying.');
     return files;
   };
-  const assertSlotsDeleted=async ids=>{
+  const assertSlotsDeleted=async(ids,fileOps=null)=>{
     const requested=[...new Set((ids||[]).map(Number))];
-    const files=await readAuthoritativeFiles();
+    const files=await readAuthoritativeFiles(fileOps);
     const occupied=soundSlotIds(files);
     const remaining=requested.filter(id=>occupied.has(id));
     if(remaining.length)throw new Error('EP-series delete was not confirmed by /sounds LIST for slot(s): '+remaining.map(id=>String(id).padStart(3,'0')).join(', '));
@@ -274,7 +276,7 @@ export function initEp133Browser({showError}={}){
     isConnected,
     isSynchronized:()=>synchronized,
     hasPendingPropertyWrites:()=>propertiesController.hasPendingWrites(),
-    confirmAction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+    confirmAction,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
     setMutating,setGlobalProgress,hideGlobalProgress,
     getFileInfo,getFileMetadata,deleteFile,
     waitForMetadataUpdate,syncMetadataAfterMutation,
@@ -302,10 +304,11 @@ export function initEp133Browser({showError}={}){
     suppressNativeMoveEvent,clearNativeMoveSuppression,
     markUploadPending,clearUploadPending
   }=fileEventController;
-  const refreshSoundsRuntimeMetadata=async()=>{
+  const refreshSoundsRuntimeMetadata=async(fileOps=null)=>{
     const soundsParentId=sampleStore.getSoundsParentId();
     if(!soundsParentId)return sampleStore.getSoundsMetadata();
-    const latest=await getFileMetadata(soundsParentId);
+    const readMetadata=fileOps?.getFileMetadata||getFileMetadata;
+    const latest=await readMetadata(soundsParentId);
     const soundsMetadata=latest&&typeof latest==='object'
       ?sampleStore.mergeSoundsMetadata(latest)
       :sampleStore.getSoundsMetadata();
@@ -325,7 +328,7 @@ export function initEp133Browser({showError}={}){
     isDeviceUnsafe:()=>deviceUnsafe,
     captureBatchSession,assertBatchSession,
     setMutating,setGlobalProgress,hideGlobalProgress,
-    withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
+    withFileTransaction,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
     fileItemFromInfo,getFileInfo,getFileMetadata,
     renderDeviceStats,
@@ -342,7 +345,7 @@ export function initEp133Browser({showError}={}){
     fileItemFromInfo,
     remapCurrentPropertySlot:(oldId,newId)=>propertiesController.remapCurrentSlot(oldId,newId),
     renderDeviceStats,
-    captureBatchSession,assertBatchSession,getDeviceSessionToken,
+    withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
     isConnected,setMutating,setGlobalProgress,hideGlobalProgress,
     suppressNativeMoveEvent,clearNativeMoveSuppression,
     moveFile,
@@ -357,7 +360,7 @@ export function initEp133Browser({showError}={}){
     getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     getActiveDeviceProfile:()=>activeDeviceProfile,
-    isConnected,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+    isConnected,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
     setMutating,setGlobalProgress,hideGlobalProgress,
     assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     getFile,getFileMetadata,

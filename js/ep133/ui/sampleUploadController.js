@@ -8,7 +8,7 @@ export function createSampleUploadController({
   isConnected,isSynchronized,isDeviceUnsafe,
   captureBatchSession,assertBatchSession,
   setMutating,setGlobalProgress,hideGlobalProgress,
-  withSampleUploadBatch,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
+  withFileTransaction,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
   uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
   fileItemFromInfo,getFileInfo,getFileMetadata,
   renderDeviceStats,
@@ -32,6 +32,9 @@ export function createSampleUploadController({
     }
   };
 
+  const runUploadTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample upload batch',operation,{strict:true})
+    :operation({uploadSampleToSlot,deleteFile});
   const uploadFilesToSlot=async(slot,files)=>{
     if(!isConnected())throw new Error('EP device is disconnected.');
     if(!isSynchronized()||!getSoundsParentId())throw new Error('Sample library is still synchronizing.');
@@ -61,13 +64,13 @@ export function createSampleUploadController({
     const failures=[];
 
     try{
-      await withSampleUploadBatch(async()=>{
-        await assertSlotsEmpty(targets.map(item=>item.slot.id));
+      await runUploadTransaction(async fileOps=>{
+        await assertSlotsEmpty(targets.map(item=>item.slot.id),fileOps);
 
         let currentSoundsMetadata=getSoundsMetadata();
         let remainingFreeSpace=Number(currentSoundsMetadata?.free_space_in_bytes);
         if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0){
-          const latestSounds=await refreshSoundsRuntimeMetadata();
+          const latestSounds=await refreshSoundsRuntimeMetadata(fileOps);
           remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
         }
         if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
@@ -109,7 +112,7 @@ export function createSampleUploadController({
             markUploadPending(target.id);
 
             const profile=getActiveDeviceProfile();
-            const fileId=await uploadSampleToSlot({
+            const fileId=await fileOps.uploadSampleToSlot({
               file:item.file,
               data:prepared.data,
               filename:item.file.name,
@@ -186,9 +189,9 @@ export function createSampleUploadController({
             if(createdId&&isConnected()&&!isDeviceUnsafe()){
               try{
                 const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
-                await deleteFile(createdId);
-                await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
-                await assertSlotsDeleted([createdId]);
+                await fileOps.deleteFile(createdId);
+                await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate,fileOps);
+                await assertSlotsDeleted([createdId],fileOps);
                 sampleStore.removeFile(createdId);
               }catch(rollbackError){
                 logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);

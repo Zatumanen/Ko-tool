@@ -1,7 +1,7 @@
 export function createSampleCopyController({
   sampleStore,
   getSoundsParentId,getSoundsMetadata,getActiveDeviceProfile,
-  isConnected,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+  isConnected,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   setMutating,setGlobalProgress,hideGlobalProgress,
   assertSlotsEmpty,refreshSoundsRuntimeMetadata,
   getFile,getFileMetadata,
@@ -11,8 +11,11 @@ export function createSampleCopyController({
   prepareSampleLocalMetadata,renderDeviceStats,
   deleteFile,readDevice,logTechnical
 }={}){
-  const assertSampleFitsAvailableMemory=async byteLength=>{
-    const latest=await refreshSoundsRuntimeMetadata();
+  const runCopyTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample copy transaction',operation,{strict:true})
+    :operation({getFile,getFileMetadata,uploadSampleToSlot,getFileInfo,deleteFile});
+  const assertSampleFitsAvailableMemory=async(byteLength,fileOps=null)=>{
+    const latest=await refreshSoundsRuntimeMetadata(fileOps);
     const freeSpace=Number(latest?.free_space_in_bytes);
     if(Number.isFinite(freeSpace)&&freeSpace>=0&&Number(byteLength)>freeSpace)
       throw new Error('Not enough free sample memory on the connected EP.');
@@ -26,10 +29,13 @@ export function createSampleCopyController({
     const soundsParentId=Number(getSoundsParentId())||0;
     const profile=getActiveDeviceProfile();
     const created=[];
+    let needsResync=false;
 
     setMutating(true);
     try{
-      await assertSlotsEmpty(plan.map(pair=>pair.targetId));
+      return await runCopyTransaction(async fileOps=>{
+        try{
+      await assertSlotsEmpty(plan.map(pair=>pair.targetId),fileOps);
 
       for(let index=0;index<plan.length;index++){
         assertBatchSession(sessionToken);
@@ -45,7 +51,7 @@ export function createSampleCopyController({
           progress:0
         });
 
-        const downloaded=await getFile(source.nodeId||source.id,(done,total)=>{
+        const downloaded=await fileOps.getFile(source.nodeId||source.id,(done,total)=>{
           const local=total?done/total:0;
           setGlobalProgress('COPY',((index+local*.35)/plan.length)*100);
         });
@@ -56,7 +62,7 @@ export function createSampleCopyController({
           :new Uint8Array(downloaded?.data||[]);
         if(!bytes.byteLength)throw new Error('The device returned an empty sample.');
 
-        const sourceMetadata=await getFileMetadata(source.nodeId||source.id);
+        const sourceMetadata=await fileOps.getFileMetadata(source.nodeId||source.id);
         assertBatchSession(sessionToken);
 
         const metadata=prepareSampleTransferMetadata(sourceMetadata,{
@@ -66,11 +72,11 @@ export function createSampleCopyController({
         const transferName=createTransferFileName(source.id,target.id);
         const expectedMetadata={...metadata,name:displayName};
 
-        await assertSampleFitsAvailableMemory(bytes.byteLength);
-        await assertSlotsEmpty([target.id]);
+        await assertSampleFitsAvailableMemory(bytes.byteLength,fileOps);
+        await assertSlotsEmpty([target.id],fileOps);
 
         const metadataUpdate=waitForMetadataUpdate(soundsParentId);
-        const fileId=await uploadSampleToSlot({
+        const fileId=await fileOps.uploadSampleToSlot({
           data:bytes,
           filename:transferName,
           parentId:soundsParentId,
@@ -96,12 +102,12 @@ export function createSampleCopyController({
         });
 
         assertBatchSession(sessionToken);
-        await syncMetadataAfterMutation(soundsParentId,metadataUpdate);
+        await syncMetadataAfterMutation(soundsParentId,metadataUpdate,fileOps);
 
         if(Number(fileId)!==Number(target.id))
           throw new Error('The device wrote a sample to an unexpected slot.');
 
-        const info=await getFileInfo(fileId);
+        const info=await fileOps.getFileInfo(fileId);
         const item=fileItemFromInfo(info);
         if(!item||Number(item.nodeId)!==Number(target.id))
           throw new Error('The destination slot could not be verified.');
@@ -127,14 +133,14 @@ export function createSampleCopyController({
       for(const id of created)sampleStore.clearOperation(id);
       setGlobalProgress('COPY',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
-    }catch(error){
+        }catch(error){
       if(isConnected()){
         for(const id of [...created].reverse()){
           try{
             assertBatchSession(sessionToken);
             const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
-            await deleteFile(id);
-            await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate);
+            await fileOps.deleteFile(id);
+            await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate,fileOps);
           }catch(rollbackError){
             logTechnical('TRANSFER ROLLBACK SLOT '+id,rollbackError);
           }
@@ -144,14 +150,16 @@ export function createSampleCopyController({
 
       sampleStore.clearOperations();
 
-      if(isConnected()&&getDeviceSessionToken()===sessionToken){
-        try{
-          await readDevice();
-        }catch(syncError){
-          logTechnical('RESYNC AFTER TRANSFER ERROR',syncError);
-        }
-      }
+      needsResync=true;
 
+      throw error;
+        }
+      });
+    }catch(error){
+      if(needsResync&&isConnected()&&getDeviceSessionToken()===sessionToken){
+        try{await readDevice();}
+        catch(syncError){logTechnical('RESYNC AFTER TRANSFER ERROR',syncError);}
+      }
       throw error;
     }finally{
       hideGlobalProgress();

@@ -752,27 +752,28 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   const fs=await import('node:fs/promises');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
-  assert.match(ui,/const assertSlotsDeleted=async ids=>/);
-  assert.match(ui,/const files=await readAuthoritativeFiles\(\)/);
-  assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
-  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\)\)/);
+  assert.match(ui,/const assertSlotsDeleted=async\(ids,fileOps=null\)=>/);
+  assert.match(ui,/const files=await readAuthoritativeFiles\(fileOps\)/);
+  assert.match(source,/await assertDeleteTargetUnchanged\(slot,fileOps\)/);
+  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\),fileOps\)/);
 });
 
-test('My EP keeps event-first metadata sync for destructive mutations but not the normal upload fast path',async()=>{
+test('My EP keeps event-first metadata sync lease-aware for destructive mutations but not the normal upload fast path',async()=>{
   const fs=await import('node:fs/promises');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const deletes=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(ui,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
   assert.match(ui,/\{timeout:500\}/);
-  assert.match(ui,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
+  assert.match(ui,/const readMetadata=fileOps\?\.getFileMetadata\|\|getFileMetadata/);
+  assert.match(ui,/const metadata=event\?\.data\?\.metadata\|\|await readMetadata\(nodeId\)/);
   const uploadStart=uploads.indexOf('const uploadFilesToSlot=async');
   const uploadBlock=uploads.slice(uploadStart);
   const uploadSuccess=uploadBlock.slice(0,uploadBlock.indexOf('}catch(error){'));
   assert.doesNotMatch(uploadSuccess,/waitForMetadataUpdate\(soundsParentId\)/);
   assert.doesNotMatch(uploadSuccess,/syncMetadataAfterMutation\(soundsParentId/);
   assert.match(deletes,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
-  assert.match(deletes,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
+  assert.match(deletes,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate,fileOps\)/);
 });
 
 test('My EP aborts batches when the connected MIDI session changes',async()=>{
@@ -816,13 +817,13 @@ test('EP native MOVE can verify source and destination CRC without downloading P
   assert.doesNotMatch(block,/getFileUnlocked\(/);
 });
 
-test('EP sample reorder uses native FILE_MOVE only and resolves the authoritative destination',async()=>{
+test('EP sample reorder uses one native FILE_MOVE transaction and resolves the authoritative destination',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(move,/await moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
+  assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
   assert.match(move,/completed\.push\(\{[\s\S]*sourceId:source\.id,[\s\S]*targetId:target\.id,[\s\S]*crc:moved\.sourceCrc/);
   assert.match(move,/if\(moved\.crcVerified!==true\)/);
   assert.match(move,/applyNativeMoveLocally\(source,target,moved\)/);
@@ -1849,17 +1850,18 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 });
 
 
-test('My EP normal upload preflights one batch instead of repeating FILE checks per sample',async()=>{
+test('My EP normal upload preflights one transaction instead of repeating FILE checks per sample',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   const start=source.indexOf('const uploadFilesToSlot=async');
   const block=source.slice(start);
   const successPath=block.slice(0,block.indexOf('}catch(error){'));
-  assert.match(block,/await withSampleUploadBatch\(async\(\)=>\{/);
-  assert.match(block,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\)\)/);
+  assert.match(source,/withFileTransaction\('sample upload batch',operation,\{strict:true\}\)/);
+  assert.match(block,/await runUploadTransaction\(async fileOps=>\{/);
+  assert.match(block,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\),fileOps\)/);
   assert.equal((successPath.match(/assertSlotsEmpty\(/g)||[]).length,1);
-  assert.doesNotMatch(successPath,/assertSampleFitsAvailableMemory\(/);
-  assert.doesNotMatch(successPath,/syncMetadataAfterMutation\(soundsParentId/);
+  assert.match(successPath,/await fileOps\.uploadSampleToSlot\(\{/);
+  assert.doesNotMatch(successPath,/await uploadSampleToSlot\(\{/);
   assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
   assert.match(successPath,/let remainingFreeSpace=Number\(currentSoundsMetadata\?\.free_space_in_bytes\)/);
   assert.match(successPath,/remainingFreeSpace=Math\.max\(0,remainingFreeSpace-prepared\.data\.byteLength\)/);
@@ -1867,14 +1869,29 @@ test('My EP normal upload preflights one batch instead of repeating FILE checks 
   assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
 });
 
-test('sample upload batch guard remains compatible while the FILE transaction lease is introduced',async()=>{
+test('sample mutation controllers reserve strict FILE transaction leases',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  assert.match(source,/export function withSampleUploadBatch\(operation\)/);
-  assert.match(source,/return withStrictFirmwareDebugGuard\(operation,'sample upload batch'\)/);
-  assert.match(source,/export function withFileTransaction\(label,operation,\{strict=false\}=\{\}\)/);
-  assert.match(source,/const lease=Object\.freeze\(\{[\s\S]*getFile:[\s\S]*uploadSampleToSlot:[\s\S]*deleteFile:[\s\S]*moveFile:/);
-  assert.match(source,/strict[\s\S]*withStrictFirmwareDebugGuard\(execute,transactionLabel\)/);
+  const [uploads,deletes,moves,copies,ui]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+  ]);
+  assert.match(uploads,/withFileTransaction\('sample upload batch',operation,\{strict:true\}\)/);
+  assert.match(deletes,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
+  assert.match(moves,/withFileTransaction\('sample move transaction',operation,\{strict:true\}\)/);
+  assert.match(copies,/withFileTransaction\('sample copy transaction',operation,\{strict:true\}\)/);
+  assert.match(uploads,/fileOps\.uploadSampleToSlot\(/);
+  assert.match(uploads,/fileOps\.deleteFile\(/);
+  assert.match(deletes,/fileOps\.deleteFile\(/);
+  assert.match(moves,/fileOps\.moveFile\(/);
+  assert.match(copies,/fileOps\.getFile\(/);
+  assert.match(copies,/fileOps\.getFileMetadata\(/);
+  assert.match(copies,/fileOps\.uploadSampleToSlot\(/);
+  assert.match(copies,/fileOps\.getFileInfo\(/);
+  assert.match(copies,/fileOps\.deleteFile\(/);
+  assert.match(ui,/withFileTransaction/);
 });
 
 test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
@@ -1916,13 +1933,15 @@ test('My EP exposes row delete only for a deletable selected sample',async()=>{
   assert.match(source,/selectedFiles\(\)\.filter\(item=>item\.node\?\.isDeletable===true\)/);
 });
 
-test('My EP confirms one multi-delete and deletes selected samples sequentially',async()=>{
+test('My EP confirms one multi-delete and deletes selected samples sequentially inside one FILE transaction',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
   assert.match(source,/const canonicalTargets=targets[\s\S]*sampleStore\.getSlot\(target\.id\)/);
   assert.match(source,/DELETE '\+canonicalTargets\.length\+' SELECTED SAMPLES\?/);
   assert.match(source,/if\(!await confirmAction\(message\)\)return false/);
-  assert.match(source,/for\(let index=0;index<canonicalTargets\.length;index\+\+\)[\s\S]*await deleteFile\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/await runDeleteTransaction\(async fileOps=>\{/);
+  assert.match(source,/for\(let index=0;index<canonicalTargets\.length;index\+\+\)[\s\S]*await fileOps\.deleteFile\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\),fileOps\)/);
 });
 
 test('My EP uses Explorer-style Shift range and Ctrl/Cmd additive selection',async()=>{
@@ -2291,7 +2310,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   assert.match(source,/await listDirectory\(soundsParentId,'\/sounds'\)/);
   assert.doesNotMatch(source,/listDeviceFiles\(/);
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ui,/readAuthoritativeFiles=async\(\)=>\{[\s\S]*listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.match(ui,/readAuthoritativeFiles=async\(fileOps=null\)=>\{[\s\S]*const list=fileOps\?\.listDirectory\|\|listDirectory[\s\S]*list\(soundsParentId,'\/sounds'\)/);
 });
 
 test('My EP drag reorder does not require sample READ capability',async()=>{
@@ -2493,4 +2512,36 @@ test('EP FILE scheduler exposes an explicit non-reentrant transaction lease',asy
   assert.doesNotMatch(source,/fileOperationQueue/);
   assert.match(scheduler,/const task=queue\.then\(async\(\)=>/);
   assert.match(scheduler,/queue=task\.catch\(\(\)=>\{\}\)/);
+});
+
+
+test('sample COPY transaction uses only lease-bound FILE operations until it exits',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
+  const start=source.indexOf('const copyTransfer=async');
+  const block=source.slice(start);
+  assert.match(block,/return await runCopyTransaction\(async fileOps=>\{/);
+  assert.match(block,/await fileOps\.getFile\(/);
+  assert.match(block,/await fileOps\.getFileMetadata\(/);
+  assert.match(block,/await fileOps\.uploadSampleToSlot\(/);
+  assert.match(block,/await fileOps\.getFileInfo\(/);
+  assert.match(block,/await fileOps\.deleteFile\(/);
+  assert.doesNotMatch(block,/await getFile\(/);
+  assert.doesNotMatch(block,/await getFileMetadata\(/);
+  assert.doesNotMatch(block,/await uploadSampleToSlot\(/);
+  assert.doesNotMatch(block,/await getFileInfo\(/);
+  assert.doesNotMatch(block,/await deleteFile\(/);
+});
+
+test('sample MOVE and COPY resync only after their FILE transaction lease exits',async()=>{
+  const fs=await import('node:fs/promises');
+  const [move,copy]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8')
+  ]);
+  for(const source of [move,copy]){
+    const transactionEnd=source.indexOf('});\n    }catch(error){');
+    const resync=source.indexOf('await readDevice()');
+    assert.ok(transactionEnd>=0&&resync>transactionEnd);
+  }
 });
