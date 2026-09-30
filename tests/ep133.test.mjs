@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -334,6 +334,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
   const samplePropertiesController=await read('js/ep133/ui/samplePropertiesController.js');
   const sampleReadController=await read('js/ep133/ui/sampleReadController.js');
+  const sampleDeleteController=await read('js/ep133/ui/sampleDeleteController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
@@ -348,8 +349,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleReadController.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleDeleteController.js?v="+token),true);
   assert.equal(samplePropertiesController.includes("../sampleProperties.js?v="+token),true);
   assert.equal(sampleReadController.includes("../audio.js?v="+token),true);
+  assert.doesNotMatch(sampleDeleteController,/from [\'\"]/);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -720,7 +723,7 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('const transactionalTransfer=async');
-  const block=source.slice(start,source.indexOf('const deleteSamples=async',start));
+  const block=source.slice(start,source.indexOf('memory=createSampleMemory',start));
   assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(block,/NATIVE FILE_MOVE FAILED/);
   assert.doesNotMatch(block,/sourceSnapshots/);
@@ -733,28 +736,28 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
 
 test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const assertSlotsDeleted=async ids=>/);
-  assert.match(source,/const files=await readAuthoritativeFiles\(\)/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
+  assert.match(ui,/const assertSlotsDeleted=async ids=>/);
+  assert.match(ui,/const files=await readAuthoritativeFiles\(\)/);
   assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
   assert.match(source,/await assertSlotsDeleted\(targets\.map\(slot=>slot\.id\)\)/);
 });
 
 test('My EP keeps event-first metadata sync for destructive mutations but not the normal upload fast path',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
-  assert.match(source,/\{timeout:500\}/);
-  assert.match(source,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
-  const uploadStart=source.indexOf('async function uploadFilesToSlot');
-  const uploadBlock=source.slice(uploadStart,source.indexOf('const sampleLibrarySync=',uploadStart));
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const deletes=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
+  assert.match(ui,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
+  assert.match(ui,/\{timeout:500\}/);
+  assert.match(ui,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
+  const uploadStart=ui.indexOf('async function uploadFilesToSlot');
+  const uploadBlock=ui.slice(uploadStart,ui.indexOf('const sampleLibrarySync=',uploadStart));
   const uploadSuccess=uploadBlock.slice(0,uploadBlock.indexOf('}catch(error){'));
   assert.doesNotMatch(uploadSuccess,/waitForMetadataUpdate\(soundsParentId\)/);
   assert.doesNotMatch(uploadSuccess,/syncMetadataAfterMutation\(soundsParentId/);
-  const deleteStart=source.indexOf('const deleteSamples=async');
-  const deleteBlock=source.slice(deleteStart,source.indexOf('memory=createSampleMemory',deleteStart));
-  assert.match(deleteBlock,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
-  assert.match(deleteBlock,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
+  assert.match(deletes,/const metadataUpdate=waitForMetadataUpdate\(soundsParentId\)/);
+  assert.match(deletes,/await syncMetadataAfterMutation\(soundsParentId,metadataUpdate\)/);
 });
 
 test('My EP aborts batches when the connected MIDI session changes',async()=>{
@@ -806,7 +809,7 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
   assert.match(source,/const item=fileItemFromInfo\(moved\.info\)/);
   assert.doesNotMatch(nativeBlock,/getFile\(/);
   assert.doesNotMatch(nativeBlock,/getFileMetadata\(/);
-  const transferBlock=source.slice(end,source.indexOf('const deleteSamples=async',end));
+  const transferBlock=source.slice(end,source.indexOf('memory=createSampleMemory',end));
   assert.match(transferBlock,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(transferBlock,/NATIVE FILE_MOVE FAILED/);
 });
@@ -1895,7 +1898,7 @@ test('My EP exposes row delete only for a deletable selected sample',async()=>{
 
 test('My EP confirms one multi-delete and deletes selected samples sequentially',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
   assert.match(source,/DELETE '\+targets\.length\+' SELECTED SAMPLES\?/);
   assert.match(source,/if\(!await confirmAction\(message\)\)return false/);
   assert.match(source,/for\(let index=0;index<targets\.length;index\+\+\)[\s\S]*await deleteFile\(slot\.nodeId\|\|slot\.id\)/);
