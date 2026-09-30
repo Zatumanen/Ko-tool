@@ -375,7 +375,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectRecovery.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -460,6 +460,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const fileProtocol=await read('js/ep133/fileProtocol.js');
   const sampleFilesystem=await read('js/ep133/sampleFilesystem.js');
   const projectFilesystem=await read('js/ep133/projectFilesystem.js');
+  const projectRecovery=await read('js/ep133/projectRecovery.js');
   const filesystem=await read('js/ep133/filesystem.js');
   const fileScheduler=await read('js/ep133/fileScheduler.js');
   const fileTransport=await read('js/ep133/fileTransport.js');
@@ -502,7 +503,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
+  assert.equal(index.includes("./projectRecovery.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectArchive.js?v="+token),true);
+  assert.equal(projectFilesystem.includes("./projectRecovery.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectProfile.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
@@ -521,6 +524,8 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(filesystem.includes("./fileProtocol.js?v="+token),true);
   assert.equal(filesystem.includes("./sampleFilesystem.js?v="+token),true);
   assert.equal(filesystem.includes("./projectFilesystem.js?v="+token),true);
+  assert.equal(filesystem.includes("./projectRecovery.js?v="+token),true);
+  assert.equal(projectRecovery.includes("indexedDB"),true);
   assert.equal(fileTransport.includes("./device.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileScheduler.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileProtocol.js?v="+token),true);
@@ -1885,8 +1890,13 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/reloadProject\(destination\.nodeId,parent\.nodeId/);
   assert.match(block,/compareProjectArchiveMembers\(backup\.data,restored\.data\)/);
   assert.match(block,/error\.projectRollbackSucceeded=true/);
-  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)throw error/);
-  assert.ok(block.indexOf('const backup=await getFile')<block.indexOf('await putFile'));
+  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)\{[\s\S]*status:'requires-recovery'[\s\S]*throw error/);
+  assert.match(block,/await recoveryStore\.saveCheckpoint\(recoveryCheckpoint\)/);
+  assert.match(block,/status:'rolled-back'/);
+  const backupIndex=block.indexOf('const backup=await getFile');
+  const checkpointIndex=block.indexOf('await recoveryStore.saveCheckpoint');
+  const putIndex=block.indexOf('await putFile');
+  assert.ok(backupIndex>=0&&checkpointIndex>backupIndex&&putIndex>checkpointIndex);
   assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
 });
 

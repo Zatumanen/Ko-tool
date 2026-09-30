@@ -10,6 +10,7 @@ import{
   uploadSampleToSlotWithTransport
 }from './sampleFilesystem.js?v=20260930-5';
 import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20260930-5';
+import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20260930-5';
 
 export{
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -27,6 +28,8 @@ export{
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
 };
 
+const projectRecoveryStore=createBrowserProjectRecoveryStore();
+
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,
@@ -40,7 +43,8 @@ const projectFilesystem=createProjectFilesystem({
   getFile:fileTransportInternals.getFile,
   putFile:fileTransportInternals.putFile,
   getFileMetadata:fileTransportInternals.getFileMetadata,
-  setFileMetadata:fileTransportInternals.setFileMetadata
+  setFileMetadata:fileTransportInternals.setFileMetadata,
+  recoveryStore:projectRecoveryStore
 });
 
 const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(args,{
@@ -93,6 +97,18 @@ export function uploadProjectArchive(file,options={}){
 
 export function downloadProjectArchive(path,onProgress){
   return projectFilesystem.downloadProjectArchive(path,onProgress);
+}
+
+export function getProjectRecoveryCheckpoint(id){
+  return projectFilesystem.getProjectRecoveryCheckpoint(id);
+}
+
+export function listProjectRecoveryCheckpoints(){
+  return projectFilesystem.listProjectRecoveryCheckpoints();
+}
+
+export function deleteProjectRecoveryCheckpoint(id){
+  return projectFilesystem.deleteProjectRecoveryCheckpoint(id);
 }
 
 onConnectionChange(({connected})=>{
