@@ -42,6 +42,7 @@ export function initEp133Browser({showError}={}){
   const tabs=document.getElementById('ep133-sample-tabs');
   const search=document.getElementById('ep133-sample-search');
   const searchClear=document.getElementById('ep133-search-clear');
+  const searchCount=document.getElementById('ep133-search-count');
   const deviceHead=document.getElementById('ep133-device-head');
   const deviceName=document.getElementById('ep133-device');
   const connectionOverlay=document.getElementById('ep133-connection-overlay');
@@ -296,6 +297,7 @@ export function initEp133Browser({showError}={}){
     tabsEl:tabs,
     searchEl:search,
     searchClearEl:searchClear,
+    searchCountEl:searchCount,
     onSelect:slot=>{
       closeProperties();
       setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'');

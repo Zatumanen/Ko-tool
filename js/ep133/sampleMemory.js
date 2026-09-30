@@ -1,3 +1,7 @@
+import{
+  normalizeSampleSearchQuery,matchesSampleSearch,filterSampleSearchResults,formatSampleSearchCount
+}from './ui/globalSearchController.js?v=20260930-5';
+
 export const EP_SAMPLE_SLOT_COUNT=999;
 export const EP_SAMPLE_PAGE_SIZE=29;
 
@@ -88,6 +92,7 @@ export function createSampleMemory({
   tabsEl,
   searchEl,
   searchClearEl,
+  searchCountEl,
   onSelect,
   onPlay,
   onDrop,
@@ -114,6 +119,7 @@ export function createSampleMemory({
   let mutationsEnabled=false;
   let dragSourceId=0;
   let suppressClick=false;
+  let searchCursorId=null;
   const slotOperations=new Map();
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -133,15 +139,26 @@ export function createSampleMemory({
     return text+' kHz';
   };
   const tabForSlot=id=>sampleTabs.findIndex(tab=>id>=tab.range[0]&&id<=tab.range[1]);
-  const query=()=>String(searchEl?.value||'').trim().toLowerCase();
-  const matchesSearch=slot=>{
-    const q=query();
-    if(!q)return false;
-    return String(slot.id).includes(q)||slotName(slot).toLowerCase().includes(q);
-  };
+  const query=()=>normalizeSampleSearchQuery(searchEl?.value||'');
+  const searchResults=()=>filterSampleSearchResults(slots,query());
+  const matchesSearch=slot=>matchesSampleSearch(slot,query());
   const visible=()=>{
+    const q=query();
+    if(q)return searchResults();
     const tab=sampleTabs[activeTab]||sampleTabs[0];
     return tab?slots.slice(tab.range[0]-1,tab.range[1]):[];
+  };
+  const updateSearchPresentation=()=>{
+    const q=query();
+    const count=q?searchResults().length:0;
+    if(searchCountEl){
+      searchCountEl.textContent=q?formatSampleSearchCount(count):'';
+      searchCountEl.hidden=!q;
+    }
+    if(searchClearEl){
+      searchClearEl.disabled=!q;
+      searchClearEl.setAttribute('aria-disabled',q?'false':'true');
+    }
   };
   const selectedFiles=()=>[...selectedIds].sort((a,b)=>a-b).map(id=>slots[id-1]).filter(slot=>slot?.file);
   const scrollSelectedIntoView=()=>{
@@ -194,15 +211,27 @@ export function createSampleMemory({
     }
     setSelection([slot.id],slot.id,{preview:!!slot.file});
   };
-  const syncSearchTab=()=>{
+  const syncSearch=()=>{
     const q=query();
-    if(!q){render();return;}
-    const match=slots.find(matchesSearch);
-    if(match){
-      const tabIndex=tabForSlot(match.id);
-      if(tabIndex>=0&&tabIndex!==activeTab){activeTab=tabIndex;renderTabs();}
+    if(!q){
+      searchCursorId=null;
+      render();
+      return;
     }
+    const results=searchResults();
+    searchCursorId=results.some(slot=>slot.id===selectedId)?selectedId:null;
     render();
+  };
+  const navigateSearch=direction=>{
+    const results=searchResults();
+    if(!results.length)return;
+    let index=results.findIndex(slot=>slot.id===searchCursorId);
+    if(index<0)index=results.findIndex(slot=>slot.id===selectedId);
+    if(index<0)index=direction>0?-1:0;
+    const next=(index+direction+results.length)%results.length;
+    const target=results[next];
+    searchCursorId=target.id;
+    setSelection([target.id],target.id,{preview:false,navigate:true});
   };
 
   const renderTabs=()=>{
@@ -216,7 +245,16 @@ export function createSampleMemory({
         activeTab=Number(button.dataset.tab);
         renderTabs();
         const tab=sampleTabs[activeTab];
-        if(tab)setSelection([tab.range[0]],tab.range[0],{preview:false,navigate:false});
+        if(!tab)return;
+        if(query()){
+          const match=searchResults().find(slot=>slot.id>=tab.range[0]&&slot.id<=tab.range[1]);
+          if(match){
+            searchCursorId=match.id;
+            setSelection([match.id],match.id,{preview:false,navigate:false});
+          }else render();
+          return;
+        }
+        setSelection([tab.range[0]],tab.range[0],{preview:false,navigate:false});
       });
     });
   };
@@ -256,8 +294,15 @@ export function createSampleMemory({
   };
 
   const render=()=>{
+    updateSearchPresentation();
     if(!listEl)return;
-    listEl.innerHTML=visible().map(slot=>{
+    const visibleSlots=visible();
+    listEl.classList.toggle('search-active',!!query());
+    if(query()&&!visibleSlots.length){
+      listEl.innerHTML='<div class="ep133-empty ep133-search-empty">NO MATCHES</div>';
+      return;
+    }
+    listEl.innerHTML=visibleSlots.map(slot=>{
       const active=slot.id===selectedId;
       const secondary=selectedIds.has(slot.id)&&!active;
       const occupied=!!slot.file;
@@ -454,9 +499,23 @@ export function createSampleMemory({
   };
   document.addEventListener('keydown',keyDown);
 
-  searchEl?.addEventListener('input',syncSearchTab);
+  searchEl?.addEventListener('input',syncSearch);
+  searchEl?.addEventListener('keydown',event=>{
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();
+      navigateSearch(event.key==='ArrowDown'?1:-1);
+      return;
+    }
+    if(event.key==='Escape'&&query()){
+      event.preventDefault();
+      searchEl.value='';
+      searchCursorId=null;
+      render();
+    }
+  });
   searchClearEl?.addEventListener('click',()=>{
     if(searchEl)searchEl.value='';
+    searchCursorId=null;
     render();
     searchEl?.focus();
   });
@@ -467,7 +526,7 @@ export function createSampleMemory({
   const projection={
     setSlots(next){
       slots=Array.isArray(next)&&next.length?next:createSampleSlots([]);
-      selectedId=null;selectedIds=new Set();selectionAnchor=null;previewingId=null;
+      selectedId=null;selectedIds=new Set();selectionAnchor=null;previewingId=null;searchCursorId=null;
       activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
       renderTabs();render();
     },

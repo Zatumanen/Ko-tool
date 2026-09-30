@@ -46,7 +46,18 @@
     max_capacity:64000000,
     free_space_in_bytes:64000000-[...samples.values()].reduce((n,s)=>n+s.data.length,0),
     formats:[{type:'pcm',formats:[{format:'s16',channels:[1,2],samplerate:{native:46875,range:[8000,46875]}}]}],
-    tabs:[{name:'ALL',range:[1,999],color:1}]
+    tabs:[
+      {name:'KICK',range:[1,99],color:1},
+      {name:'SNARE',range:[100,199],color:1},
+      {name:'CYMB',range:[200,299],color:1},
+      {name:'PERC',range:[300,399],color:1},
+      {name:'BASS',range:[400,499],color:1},
+      {name:'MELOD',range:[500,599],color:1},
+      {name:'LOOP',range:[600,699],color:1},
+      {name:'USER 1',range:[700,799],color:2},
+      {name:'USER 2',range:[800,899],color:2},
+      {name:'SFX',range:[900,999],color:3}
+    ]
   });
 
   class Input{

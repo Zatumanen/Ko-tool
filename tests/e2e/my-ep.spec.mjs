@@ -54,9 +54,35 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
   await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('kick808');
   await expect(page.locator('[data-slot="8"] [data-name-input]')).toHaveValue('snare');
 
-  await page.locator('#ep133-sample-search').fill('snare');
-  await expect(page.locator('[data-slot="8"]')).toHaveClass(/search-match/);
+  await page.locator('[data-tab="1"]').click();
+  await expect(page.locator('[data-slot="7"]')).toHaveCount(0);
+
+  const search=page.locator('#ep133-sample-search');
+  await search.fill('kick808 7007');
+  await expect(page.locator('.ep133-sample-row')).toHaveCount(1);
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/search-match/);
+  await expect(page.locator('#ep133-search-count')).toHaveText('1 MATCH');
+
+  await search.fill('46875');
+  await expect(page.locator('.ep133-sample-row')).toHaveCount(2);
+  await expect(page.locator('#ep133-search-count')).toHaveText('2 MATCHES');
+  await search.press('ArrowDown');
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+  await search.press('ArrowDown');
+  await expect(page.locator('[data-slot="8"]')).toHaveClass(/selected/);
+
+  await search.fill('008');
+  await expect(page.locator('.ep133-sample-row')).toHaveCount(1);
+  await expect(page.locator('[data-slot="8"]')).toBeVisible();
+
+  await search.fill('definitely-no-match');
+  await expect(page.locator('.ep133-sample-row')).toHaveCount(0);
+  await expect(page.locator('#ep133-search-count')).toHaveText('0 MATCHES');
+  await expect(page.locator('.ep133-search-empty')).toHaveText('NO MATCHES');
+
   await page.locator('#ep133-search-clear').click();
+  await expect(page.locator('#ep133-search-count')).toBeHidden();
+  await expect(page.locator('.ep133-sample-row')).toHaveCount(99);
 
   const name=page.locator('[data-slot="7"] [data-name-input]');
   await name.dblclick();
