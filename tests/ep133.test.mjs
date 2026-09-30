@@ -2380,7 +2380,10 @@ test('SampleStore is the only sample-state mutation owner outside the sampleMemo
   assert.match(store,/memory\?\.mergeMetadata\?\./);
   assert.match(store,/memory\.setSlot\?\./);
   assert.match(store,/memory\.clearSlot\?\./);
-  assert.match(memory,/setMetadata,mergeMetadata/);
+  assert.match(memory,/const setMetadata=/);
+  assert.match(memory,/const mergeMetadata=/);
+  assert.match(memory,/const setSlot=/);
+  assert.match(memory,/const clearSlot=/);
   await assert.rejects(
     fs.access(new URL('../js/ep133/sampleMetadataCache.js',import.meta.url)),
     error=>error?.code==='ENOENT'
