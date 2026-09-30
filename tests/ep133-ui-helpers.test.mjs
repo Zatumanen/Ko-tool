@@ -10,6 +10,10 @@ import{createSampleDeleteController}from '../js/ep133/ui/sampleDeleteController.
 import{createSampleUploadController}from '../js/ep133/ui/sampleUploadController.js';
 import{createSampleMoveController}from '../js/ep133/ui/sampleMoveController.js';
 import{createSampleCopyController}from '../js/ep133/ui/sampleCopyController.js';
+import{createSampleRenameController}from '../js/ep133/ui/sampleRenameController.js';
+import{createSampleTransferCoordinator}from '../js/ep133/ui/sampleTransferCoordinator.js';
+import{createSampleVerificationController}from '../js/ep133/ui/sampleVerification.js';
+import{createDeviceView}from '../js/ep133/ui/deviceView.js';
 import{createSampleStore}from '../js/ep133/sampleStore.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
@@ -1033,4 +1037,163 @@ test('external FILE event info and metadata reconciliation uses one coherent rea
     ['metadata',7]
   ]);
   assert.equal(sampleStore.getSlot(7).meta.name,'kick');
+});
+
+
+test('sample rename controller re-resolves canonical state and keeps SET/readback in one strict transaction',async()=>{
+  const actions=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{
+    nodeId:7,fileName:'/sounds/canonical',fileType:'file',fileSize:12,
+    isWritable:true,isReadable:true,isDeletable:true,isMovable:true,isPlayable:true
+  }]);
+  sampleStore.setMetadata(7,{name:'canonical'});
+
+  const controller=createSampleRenameController({
+    sampleStore,isConnected:()=>true,isSynchronized:()=>true,
+    normalizeFileName:value=>String(value).trim().toLowerCase(),
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options?.strict]);
+      return operation({
+        setFileMetadata:async(id,payload)=>actions.push(['set',id,payload.name]),
+        getFileMetadata:async id=>{actions.push(['get',id]);return{name:'renamed'};}
+      });
+    },
+    setFileMetadata:async()=>{throw new Error('public SET must not run');},
+    getFileMetadata:async()=>{throw new Error('public GET must not run');}
+  });
+
+  const result=await controller.rename({id:7,file:{name:'stale'}},' Renamed ');
+  assert.equal(result,'renamed');
+  assert.deepEqual(actions,[
+    ['transaction','sample rename transaction',true],
+    ['set',7,'renamed'],
+    ['get',7]
+  ]);
+  assert.equal(sampleStore.getSlot(7).meta.name,'renamed');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
+});
+
+test('sample transfer coordinator owns transfer planning and delegates canonical sources only',async()=>{
+  const actions=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{
+    nodeId:7,fileName:'/sounds/source',fileType:'file',fileSize:12,
+    isWritable:true,isReadable:true,isDeletable:true,isMovable:true,isPlayable:true
+  }]);
+  const coordinator=createSampleTransferCoordinator({
+    sampleStore,getActiveDeviceProfile:()=>({name:'K.O. II',sampleTransfers:true}),
+    isConnected:()=>true,isSynchronized:()=>true,getSoundsParentId:()=>1000,
+    hasPendingPropertyWrites:()=>false,
+    moveTransfer:async(plan,sourceById)=>{
+      actions.push(['move',plan,sourceById.get(7)?.file?.name]);
+      return{targetIds:plan.map(item=>item.targetId)};
+    },
+    copyTransfer:async()=>{throw new Error('copy should not run');}
+  });
+
+  const result=await coordinator.transfer(
+    [{id:7,file:{name:'stale'}}],
+    {id:8},
+    {draggedId:7}
+  );
+  assert.deepEqual(result,{targetIds:[8]});
+  assert.deepEqual(actions,[['move',[{sourceId:7,targetId:8}],'source']]);
+});
+
+test('sample transfer coordinator blocks unverified transfers and pending property writes before mutation',async()=>{
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/source',fileType:'file',fileSize:1}]);
+  let moveCalls=0;
+  const base={
+    sampleStore,isConnected:()=>true,isSynchronized:()=>true,getSoundsParentId:()=>1000,
+    moveTransfer:async()=>{moveCalls++;},copyTransfer:async()=>{}
+  };
+  const unsupported=createSampleTransferCoordinator({
+    ...base,getActiveDeviceProfile:()=>({name:'EP-1320',sampleTransfers:false}),
+    hasPendingPropertyWrites:()=>false
+  });
+  await assert.rejects(()=>unsupported.transfer([sampleStore.getSlot(7)],{id:8},{draggedId:7}),/NOT VERIFIED/);
+
+  const pending=createSampleTransferCoordinator({
+    ...base,getActiveDeviceProfile:()=>({name:'K.O. II',sampleTransfers:true}),
+    hasPendingPropertyWrites:()=>true
+  });
+  await assert.rejects(()=>pending.transfer([sampleStore.getSlot(7)],{id:8},{draggedId:7}),/pending sample property write/);
+  assert.equal(moveCalls,0);
+});
+
+test('sample verification controller refreshes authoritative /sounds state before empty and deleted assertions',async()=>{
+  const calls=[];
+  const sampleStore=createSampleStore();
+  sampleStore.setSoundsParentId(1000);
+  sampleStore.replaceFiles([
+    {nodeId:1000,fileName:'/sounds',fileType:'folder'},
+    {nodeId:4,fileName:'/other/item',fileType:'file'}
+  ]);
+  let soundEntries=[{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:10}];
+  const controller=createSampleVerificationController({
+    sampleStore,
+    listDirectory:async(nodeId,path)=>{
+      calls.push([nodeId,path]);
+      return soundEntries;
+    }
+  });
+
+  await controller.assertSlotsEmpty([8]);
+  assert.equal(sampleStore.getSlot(7).file.name,'kick');
+  assert.equal(sampleStore.getFiles().some(item=>item.fileName==='/other/item'),true);
+  await assert.rejects(()=>controller.assertSlotsEmpty([7]),/Target sample slot changed/);
+  await assert.rejects(()=>controller.assertSlotsDeleted([7]),/delete was not confirmed/);
+
+  soundEntries=[];
+  await controller.assertSlotsDeleted([7]);
+  assert.equal(sampleStore.getSlot(7).file,null);
+  assert.deepEqual(calls.every(item=>item[0]===1000&&item[1]==='/sounds'),true);
+});
+
+test('device view owns identity memory overlay status and MIDI activity rendering',()=>{
+  const makeClassList=()=>({
+    values:new Set(),
+    toggle(name,enabled){if(enabled)this.values.add(name);else this.values.delete(name);},
+    add(name){this.values.add(name);},
+    remove(name){this.values.delete(name);},
+    contains(name){return this.values.has(name);}
+  });
+  const title={textContent:''},deviceName={textContent:''},overlay={textContent:''},status={textContent:''};
+  const head={classList:makeClassList()},stats={textContent:''},meter={style:{width:''}},count={textContent:''};
+  const tx={classList:makeClassList()},rx={classList:makeClassList()};
+  const timers=[];
+  const view=createDeviceView({
+    title,deviceName,deviceHead:head,connectionOverlay:overlay,status,
+    memoryStats:stats,memoryMeter:meter,sampleCount:count,txIndicator:tx,rxIndicator:rx,
+    getDeviceProfile:sku=>sku==='TE032AS001'
+      ?{title:'MY EP-133 K.O. II',name:'EP-133'}
+      :{title:'MY EP',name:''},
+    setTimeoutFn:(callback,delay)=>{timers.push({callback,delay});return timers.length;},
+    clearTimeoutFn(){}
+  });
+
+  const profile=view.renderIdentity({connected:true,device:{sku:'TE032AS001'}});
+  assert.equal(profile.name,'EP-133');
+  assert.equal(title.textContent,'MY EP-133 K.O. II');
+  assert.equal(deviceName.textContent,'EP-133');
+  assert.equal(view.hasEverConnected(),true);
+
+  view.renderStats({max_capacity:10000000,free_space_in_bytes:2500000},438);
+  assert.equal(stats.textContent,'7.5 / 10 MB');
+  assert.equal(meter.style.width,'75.0%');
+  assert.equal(count.textContent,'438');
+
+  view.setConnectionOverlay('DEVICE DISCONNECTED');
+  assert.equal(overlay.textContent,'DEVICE DISCONNECTED');
+  assert.equal(head.classList.contains('disconnected'),true);
+  view.setStatus('READY');
+  assert.equal(status.textContent,'READY');
+
+  view.pulseMidiActivity('tx');
+  assert.equal(tx.classList.contains('active'),true);
+  assert.equal(timers[0].delay,250);
+  timers[0].callback();
+  assert.equal(tx.classList.contains('active'),false);
 });
