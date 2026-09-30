@@ -86,6 +86,17 @@
 .ep133-library-hint{padding:5px 7px;border:2px inset var(--win-dark);background:#fff;font:10px "Courier New",monospace;line-height:1.35;color:#333}
 .ep133-sample-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:3px;background:#fff;border-bottom:1px solid #aaa}
 .ep133-sample-tab{min-height:27px;padding:3px 7px;background:var(--win-gray);border:2px outset var(--win-gray);font:11px "Courier New",monospace;cursor:pointer}
+.ep133-search-box button:disabled{opacity:.28;cursor:default}
+.ep133-sample-list.search-active .ep133-sample-row.search-match:not(.selected):not(.multi-selected){
+  box-shadow:inset 3px 0 #000080;
+}
+.ep133-search-empty{
+  padding:14px 8px;
+  text-align:center;
+  font:700 10px "Courier New",monospace;
+  color:#555;
+}
+
 .ep133-sample-columns{display:grid;grid-template-columns:46px minmax(0,1fr) 90px;gap:7px;padding:3px 8px;border-bottom:1px solid #aaa;background:#e6e6e6;color:#555;font:700 9px "Courier New",monospace}
 .ep133-sample-columns span:last-child{text-align:right}
 .ep133-sample-tab.selected{border-style:inset;background:#fff;font-weight:bold}
@@ -451,11 +462,11 @@
 .ep133-sample-tab.selected:before{background:#fff}
 
 .ep133-search-box{
-  flex:0 0 116px;
+  flex:0 0 176px;
   height:25px;
   margin-bottom:2px;
   display:grid;
-  grid-template-columns:18px minmax(0,1fr) 18px;
+  grid-template-columns:18px minmax(0,1fr) auto 18px;
   align-items:center;
   border:2px inset var(--win-dark);
   background:#fff;
@@ -475,6 +486,15 @@
   background:#fff;
   font:10px "Courier New",monospace;
 }
+.ep133-search-count{
+  min-width:48px;
+  padding:0 2px;
+  text-align:right;
+  white-space:nowrap;
+  color:#444;
+  font:700 8px "Courier New",monospace;
+}
+.ep133-search-count[hidden]{display:none!important}
 .ep133-search-box button{
   width:16px;
   height:16px;
