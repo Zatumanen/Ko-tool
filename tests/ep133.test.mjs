@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -332,11 +332,12 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.ok(token);
   const filesystem=await read('js/ep133/filesystem.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
+  const samplePropertiesController=await read('js/ep133/ui/samplePropertiesController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
-  assert.equal(ui.includes("./sampleProperties.js?v="+token),true);
+  assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
   assert.equal(ui.includes("./sampleMemory.js?v="+token),true);
   assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
@@ -345,6 +346,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
   assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
+  assert.equal(samplePropertiesController.includes("../sampleProperties.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -1961,9 +1963,9 @@ test('sample bar metadata is preserved exactly but remains read-only until HIL a
 
 test('My EP Properties uses source-backed enums, debounced writes, playmode release pairing, and readback',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const source=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   const helpers=await fs.readFile(new URL('../js/ep133/sampleProperties.js',import.meta.url),'utf8');
-  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{playModes:activeDeviceProfile\.playModes,barPolicy:activeDeviceProfile\.sampleBars\}\)/);
+  assert.match(source,/getSamplePropertyChange\(slot,key,direction,\{[\s\S]*playModes:profile\.playModes,[\s\S]*barPolicy:profile\.sampleBars/);
   assert.match(helpers,/export const TIME_MODES=Object\.freeze\(\['off','bpm','bar'\]\)/);
   assert.doesNotMatch(helpers,/BAR_VALUES/);
   assert.match(helpers,/data-readonly="true"/);
@@ -1972,18 +1974,21 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
-  assert.match(source,/key==='sound\.bars'&&activeDeviceProfile\.sampleBars\?\.authoring!==true/);
-  assert.match(source,/barWriteMode:'omit'/);
-  assert.match(source,/barWriteMode:'preserve'/);
+  assert.match(source,/key==='sound\.bars'&&profile\.sampleBars\?\.authoring!==true/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(ui,/barWriteMode:'omit'/);
+  assert.match(ui,/barWriteMode:'preserve'/);
 });
+
 test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/!activeDeviceProfile\.advancedSampleMetadataWrites/);
-  assert.match(source,/SAMPLE PROPERTIES ARE NOT VERIFIED FOR/);
-  assert.match(source,/!activeDeviceProfile\.sampleTransfers/);
-  assert.match(source,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
-  assert.match(source,/allowAdvancedMetadata:activeDeviceProfile\.advancedSampleMetadataWrites/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
+  assert.match(properties,/!profile\.advancedSampleMetadataWrites/);
+  assert.match(properties,/SAMPLE PROPERTIES ARE NOT VERIFIED FOR/);
+  assert.match(ui,/!activeDeviceProfile\.sampleTransfers/);
+  assert.match(ui,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
+  assert.match(ui,/allowAdvancedMetadata:activeDeviceProfile\.advancedSampleMetadataWrites/);
 });
 
 
