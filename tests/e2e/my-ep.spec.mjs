@@ -17,6 +17,9 @@ const openMyEp=async page=>{
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.midiAccessRequests.length),{
     message:'My EP should request Web MIDI after acquiring the device session'
   }).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.requestCount),{
+    message:'Fake EP should receive GREET after identity discovery'
+  }).toBeGreaterThan(0);
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('');
   await expect(page.locator('#ep133-status')).toContainText('SYNCED');
   await expect(page.locator('.ep133-sample-row.occupied')).toHaveCount(2);
