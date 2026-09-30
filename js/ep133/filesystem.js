@@ -99,21 +99,10 @@ export function downloadProjectArchive(path,onProgress){
   return projectFilesystem.downloadProjectArchive(path,onProgress);
 }
 
-export function getProjectRecoveryCheckpoint(id){
-  return projectFilesystem.getProjectRecoveryCheckpoint(id);
-}
-
-export function listProjectRecoveryCheckpoints(){
-  return projectFilesystem.listProjectRecoveryCheckpoints();
-}
-
-export function deleteProjectRecoveryCheckpoint(id){
-  return projectFilesystem.deleteProjectRecoveryCheckpoint(id);
-}
-
-export function getProjectTransactionJournal(id){
-  return projectFilesystem.getProjectTransactionJournal(id);
-}
+export const getProjectRecoveryCheckpoint=id=>projectFilesystem.getProjectRecoveryCheckpoint(id);
+export const listProjectRecoveryCheckpoints=()=>projectFilesystem.listProjectRecoveryCheckpoints();
+export const deleteProjectRecoveryCheckpoint=id=>projectFilesystem.deleteProjectRecoveryCheckpoint(id);
+export const getProjectTransactionJournal=id=>projectFilesystem.getProjectTransactionJournal(id);
 
 onConnectionChange(({connected})=>{
   if(!connected)projectFilesystem.resetProjectRuntime();
