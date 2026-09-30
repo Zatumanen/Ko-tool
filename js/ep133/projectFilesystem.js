@@ -7,6 +7,7 @@ import{
 }from './projectProfile.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
 import{createProjectRecoveryCheckpoint}from './projectRecovery.js?v=20260930-5';
+import{createProjectTransactionJournal}from './projectTransactionJournal.js?v=20260930-5';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const positiveActive=value=>{
@@ -56,6 +57,7 @@ export function createProjectFilesystem({
       throw new TypeError('Project filesystem recoveryStore.'+method+' is required.');
 
   const projectRuntimeGate=createProjectRuntimeGate();
+  const transactionJournal=createProjectTransactionJournal({recoveryStore});
   const updateRecoveryCheckpoint=async(id,patch)=>{
     try{return await recoveryStore.updateCheckpoint(id,patch);}
     catch{return null;}
@@ -209,13 +211,39 @@ export function createProjectFilesystem({
       operation:'project-write'
     });
     await recoveryStore.saveCheckpoint(recoveryCheckpoint);
-    await onBackup?.({
-      project,name:backup.name,size:backup.size,data:backup.data.slice(),
-      recoveryCheckpointId:recoveryCheckpoint.id
+    await transactionJournal.completePhase(recoveryCheckpoint.id,'PRECHECK',{
+      project,
+      destinationFid:destination.nodeId,
+      projectAuthoring:profile.projectAuthoring,
+      sampleDependencies:{
+        referenced:sampleDependencies.referencedSampleSlots?.length??null,
+        missing:sampleDependencies.missingSampleSlots?.length??null
+      },
+      activeProjectBeforeWrite
+    });
+    await transactionJournal.beginPhase(recoveryCheckpoint.id,'CHECKPOINT',{
+      originalCrc32:recoveryCheckpoint.original.crc32,
+      candidateCrc32:recoveryCheckpoint.candidate.crc32
     });
 
+    let mutationAttempted=false;
     let candidateWritten=false;
+    let phase='CHECKPOINT';
     try{
+      await onBackup?.({
+        project,name:backup.name,size:backup.size,data:backup.data.slice(),
+        recoveryCheckpointId:recoveryCheckpoint.id
+      });
+      await transactionJournal.completePhase(recoveryCheckpoint.id,'CHECKPOINT',{
+        originalBytes:backup.data.byteLength
+      });
+
+      phase='WRITE';
+      await transactionJournal.beginPhase(recoveryCheckpoint.id,'WRITE',{
+        bytes:data.byteLength,
+        destinationFid:destination.nodeId
+      });
+      mutationAttempted=true;
       await putFile({
         data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
         metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]
@@ -223,18 +251,47 @@ export function createProjectFilesystem({
       candidateWritten=true;
       await updateRecoveryCheckpoint(recoveryCheckpoint.id,{status:'candidate-written'});
       await initFileSystem();
+      await transactionJournal.completePhase(recoveryCheckpoint.id,'WRITE',{bytes:data.byteLength});
 
+      phase='READBACK';
+      await transactionJournal.beginPhase(recoveryCheckpoint.id,'READBACK',{
+        destinationFid:destination.nodeId
+      });
       const readback=await getFile(destination.nodeId);
       if(profile.projectAuthoring)validateProjectArchive(readback.data,{profile});
       else parseProjectArchive(readback.data);
+      await transactionJournal.completePhase(recoveryCheckpoint.id,'READBACK',{
+        bytes:readback.data.byteLength
+      });
+
       const verification=compareProjectArchiveMembers(data,readback.data);
-      const reload=profile.projectReloadVerified&&performReload
-        ?await reloadProject(destination.nodeId,parent.nodeId,{
+
+      phase='RELOAD';
+      let reload=null;
+      if(profile.projectReloadVerified&&performReload){
+        await transactionJournal.beginPhase(recoveryCheckpoint.id,'RELOAD',{
+          cycle:cycleReload
+        });
+        reload=await reloadProject(destination.nodeId,parent.nodeId,{
           cycle:cycleReload,
           activeGroup:activation.activeGroup,
           activePad:activation.activePad
-        })
-        :null;
+        });
+        await transactionJournal.completePhase(recoveryCheckpoint.id,'RELOAD',{
+          activeProjectFid:reload.activeProjectFid
+        });
+      }else{
+        await transactionJournal.skipPhase(recoveryCheckpoint.id,'RELOAD',{
+          reason:performReload?'reload-not-hardware-verified':'reload-disabled'
+        });
+      }
+
+      phase='VERIFY';
+      await transactionJournal.beginPhase(recoveryCheckpoint.id,'VERIFY');
+      await transactionJournal.completePhase(recoveryCheckpoint.id,'VERIFY',{
+        matchedMembers:verification.matched??null,
+        firmwareAddedMembers:verification.added??null
+      });
       const verifiedCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
         status:'verified',
         verifiedAt:new Date().toISOString()
@@ -250,17 +307,34 @@ export function createProjectFilesystem({
         recoveryCheckpoint:{
           id:recoveryCheckpoint.id,
           status:verifiedCheckpoint?.status||'candidate-written'
-        }
+        },
+        transactionJournal:await transactionJournal.getJournal(recoveryCheckpoint.id)
       };
     }catch(error){
+      try{await transactionJournal.failPhase(recoveryCheckpoint.id,phase,error);}
+      catch{}
+
+      if(!mutationAttempted){
+        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+          status:'aborted',
+          error:String(error?.message||error)
+        });
+        try{await transactionJournal.markAborted(recoveryCheckpoint.id,{phase});}catch{}
+        throw error;
+      }
+
       if(!candidateWritten||isDeviceUnsafe()){
         await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'requires-recovery',
           error:String(error?.message||error)
         });
+        try{await transactionJournal.markRequiresRecovery(recoveryCheckpoint.id,{phase});}catch{}
         throw error;
       }
       try{
+        await transactionJournal.beginPhase(recoveryCheckpoint.id,'ROLLBACK',{
+          failedPhase:phase
+        });
         await putFile({
           data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
           metadata:null,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]
@@ -276,6 +350,9 @@ export function createProjectFilesystem({
           }
         );
         error.projectRollbackSucceeded=true;
+        await transactionJournal.completePhase(recoveryCheckpoint.id,'ROLLBACK',{
+          restoredBytes:restored.data.byteLength
+        });
         await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'rolled-back',
           rollbackAt:new Date().toISOString(),
@@ -284,6 +361,8 @@ export function createProjectFilesystem({
       }catch(rollbackError){
         error.projectRollbackSucceeded=false;
         error.rollbackError=rollbackError;
+        try{await transactionJournal.failPhase(recoveryCheckpoint.id,'ROLLBACK',rollbackError,{failedPhase:phase});}
+        catch{}
         await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'rollback-failed',
           rollbackAt:new Date().toISOString(),
@@ -302,6 +381,7 @@ export function createProjectFilesystem({
   const getProjectRecoveryCheckpoint=id=>recoveryStore.getCheckpoint(id);
   const listProjectRecoveryCheckpoints=()=>recoveryStore.listCheckpoints();
   const deleteProjectRecoveryCheckpoint=id=>recoveryStore.deleteCheckpoint(id);
+  const getProjectTransactionJournal=id=>transactionJournal.getJournal(id);
 
   const downloadProjectArchive=async(path,onProgress)=>
     runFileOperation(async()=>{
@@ -321,6 +401,7 @@ export function createProjectFilesystem({
     downloadProjectArchive,
     getProjectRecoveryCheckpoint,
     listProjectRecoveryCheckpoints,
-    deleteProjectRecoveryCheckpoint
+    deleteProjectRecoveryCheckpoint,
+    getProjectTransactionJournal
   };
 }
