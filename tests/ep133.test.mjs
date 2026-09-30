@@ -6,7 +6,7 @@ import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,encodeTeSysex,parseTe
 import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFileGetInitPayload,buildFileGetDataPayload,buildMetadataGetPayload,assertProjectWriteActiveGuard}from '../js/ep133/filesystem.js';
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
-import{CAPABILITY_EVIDENCE,capabilityEvidence,canReadCapability,canPreserveCapability,canWriteCapability,assertCapabilityWritable}from '../js/ep133/capabilityEvidence.js';
+import{CAPABILITY_EVIDENCE,capabilityEvidence,compareFirmwareVersions,firmwareMatchesRange,resolveCapabilityEvidence,canReadCapability,canPreserveCapability,canWriteCapability,assertCapabilityWritable}from '../js/ep133/capabilityEvidence.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
@@ -147,16 +147,43 @@ test('capability evidence never promotes observed or preserve-only data to write
   assert.throws(()=>assertCapabilityWritable(captured,'captured field'),/capture-observed/);
 });
 
+test('firmware-scoped evidence grants write only inside the verified range',()=>{
+  const evidence=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
+    read:true,preserve:true,source:'HIL',firmwareRange:{min:'2.5.1',max:'2.5.3'}
+  });
+  assert.equal(compareFirmwareVersions('2.5.1','2.5.0'),1);
+  assert.equal(compareFirmwareVersions('2.5.1','2.5.1.0'),0);
+  assert.equal(compareFirmwareVersions('0.100.38','0.99.99'),1);
+  assert.equal(compareFirmwareVersions('not-a-version','2.5.1'),null);
+  assert.equal(firmwareMatchesRange('2.5.2',evidence.firmwareRange),true);
+  assert.equal(firmwareMatchesRange('2.6.0',evidence.firmwareRange),false);
+
+  const matched=resolveCapabilityEvidence(evidence,'2.5.2');
+  assert.equal(matched.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(matched.firmwareMatch,true);
+  assert.equal(canWriteCapability(matched),true);
+
+  for(const firmware of ['', '2.5.0','2.6.0']){
+    const unresolved=resolveCapabilityEvidence(evidence,firmware);
+    assert.equal(unresolved.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+    assert.equal(unresolved.firmwareMatch,false);
+    assert.equal(canReadCapability(unresolved),true);
+    assert.equal(canPreserveCapability(unresolved),true);
+    assert.equal(canWriteCapability(unresolved),false);
+    assert.match(unresolved.reason,/Authoring is disabled/);
+  }
+});
+
 test('EP-series identity accepts supported TE032 SKUs',()=>{
   for(const sku of ['TE032AS001','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
   assert.equal(isSupportedEpSku('TE032AS002'),false);
   assert.equal(isSupportedEpSku('TE010AS033'),false);
 });
 
-test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()=>{
-  const ep133=getEpDeviceProfile('TE032AS001');
-  const ep1320=getEpDeviceProfile('TE032AS005');
-  const ep40=getEpDeviceProfile('TE032AS006');
+test('EP SKU profiles keep device-specific play modes and gate writes by firmware evidence',()=>{
+  const ep133=getEpDeviceProfile('TE032AS001','2.5.1');
+  const ep1320=getEpDeviceProfile('TE032AS005','1.0.2');
+  const ep40=getEpDeviceProfile('TE032AS006','2.5.1');
   assert.deepEqual(ep133.playModes,['oneshot','key','legato']);
   assert.deepEqual(ep1320.playModes,['oneshot','key','legato']);
   assert.deepEqual(ep40.playModes,['oneshot','key','legato','loop']);
@@ -165,9 +192,22 @@ test('EP SKU profiles keep device-specific play modes and safe fallback tabs',()
   assert.equal(ep1320.advancedSampleMetadataWrites,false);
   assert.equal(ep1320.sampleTransfers,false);
   assert.equal(ep133.evidence.sampleMetadata.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(ep133.evidence.sampleMetadata.firmwareMatch,true);
+  assert.deepEqual(ep133.evidence.sampleMetadata.firmwareRange,{min:'2.5.1',max:'2.5.1'});
   assert.equal(ep40.evidence.sampleTransfers.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
   assert.equal(ep1320.evidence.sampleMetadata.level,CAPABILITY_EVIDENCE.UNVERIFIED);
   assert.equal(canWriteCapability(ep1320.evidence.sampleMetadata),false);
+
+  for(const firmware of ['', '2.5.2','3.0.0']){
+    const future=getEpDeviceProfile('TE032AS001',firmware);
+    assert.equal(future.advancedSampleMetadataWrites,false);
+    assert.equal(future.sampleTransfers,false);
+    assert.equal(future.evidence.sampleMetadata.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+    assert.equal(future.evidence.sampleMetadata.firmwareMatch,false);
+    assert.equal(canReadCapability(future.evidence.sampleMetadata),true);
+    assert.equal(canPreserveCapability(future.evidence.sampleMetadata),true);
+  }
+
   for(const profile of [ep133,ep1320,ep40]){
     assert.equal(profile.sampleBars.authoring,false);
     assert.deepEqual(profile.sampleBars.writeValues,[]);
@@ -1018,6 +1058,21 @@ test('EP project capability matrix separates EP-133 EP-40 and unverified EP-1320
   assert.equal(assertProjectTransportSupported('TE032AS005','1.0.2').id,'ep1320');
   assert.throws(()=>assertProjectAuthoringSupported('TE032AS005','1.0.2'),/not been hardware-verified/);
   assert.throws(()=>assertProjectReloadSupported('TE032AS005','1.0.2'),/not hardware-verified/);
+
+  for(const firmware of ['', '2.5.2','3.0.0']){
+    const future=getEpProjectProfile('TE032AS001',firmware);
+    assert.equal(future.projectTransport,true);
+    assert.equal(future.projectAuthoring,false);
+    assert.equal(future.projectReloadVerified,false);
+    assert.equal(future.sceneTimeSignatureAuthoring,false);
+    assert.equal(future.evidence.projectAuthoring.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+    assert.equal(future.evidence.projectAuthoring.firmwareMatch,false);
+    assert.equal(canPreserveCapability(future.evidence.projectAuthoring),true);
+    assert.throws(
+      ()=>assertProjectAuthoringSupported('TE032AS001',firmware),
+      /outside the verified firmware evidence 2\.5\.1/
+    );
+  }
 });
 
 test('EP-40 project validator accepts native 29-byte pads and 6-byte patterns',()=>{
