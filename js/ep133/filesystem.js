@@ -111,6 +111,10 @@ export function deleteProjectRecoveryCheckpoint(id){
   return projectFilesystem.deleteProjectRecoveryCheckpoint(id);
 }
 
+export function getProjectTransactionJournal(id){
+  return projectFilesystem.getProjectTransactionJournal(id);
+}
+
 onConnectionChange(({connected})=>{
   if(!connected)projectFilesystem.resetProjectRuntime();
 });
