@@ -1,34 +1,9 @@
-import{CAPABILITY_EVIDENCE,capabilityEvidence,resolveCapabilityEvidence,canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
+import{canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
+import{
+  CAPABILITY_KEYS,resolveRegisteredCapabilityEvidence
+}from './evidenceRegistry.js?v=20260930-5';
 
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
-const VERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
-  read:true,preserve:true,
-  source:'ep-series-sysex live verification on EP-133/EP-40 OS 2.5.1',
-  firmwareRange:'2.5.1'
-});
-const VERIFIED_SAMPLE_TRANSFERS=capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
-  read:true,preserve:true,
-  source:'live-verified FILE sample library operations on EP-133/EP-40 OS 2.5.1',
-  firmwareRange:'2.5.1'
-});
-const UNVERIFIED_SAMPLE_METADATA=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
-  read:true,preserve:true,
-  source:'shared EP-series FILE shape; no EP-1320 HIL campaign',
-  reason:'Advanced sample metadata authoring is not hardware-verified for this EP.'
-});
-const UNVERIFIED_SAMPLE_TRANSFERS=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
-  read:true,preserve:true,
-  source:'shared EP-series FILE shape; no EP-1320 HIL campaign',
-  reason:'Sample transfer authoring is not hardware-verified for this EP.'
-});
-const PRESERVE_ONLY_SAMPLE_BARS=Object.freeze({
-  writeValues:Object.freeze([]),
-  evidence:capabilityEvidence(CAPABILITY_EVIDENCE.PRESERVE_ONLY,{
-    read:true,preserve:true,
-    source:'hardware-observed power-of-2 clamp; exact slot authoring values unverified',
-    reason:'Sample bar authoring values are preserve-only until dedicated HIL verification.'
-  })
-});
 
 const EP133_FALLBACK_TABS=Object.freeze([
   {name:'KICK',range:[1,99],color:1},
@@ -53,36 +28,29 @@ const EP1320_FALLBACK_TABS=Object.freeze([
 ]);
 
 const GENERIC_FALLBACK_TABS=Object.freeze([{name:'SAMPLES',range:[1,999],color:1}]);
+const NO_SAMPLE_BAR_AUTHORING=Object.freeze([]);
 
 const PROFILES=Object.freeze({
   TE032AS001:Object.freeze({
     id:'ep133',title:'MY EP-133',name:'K.O. II',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP133_FALLBACK_TABS,
-    evidence:Object.freeze({sampleMetadata:VERIFIED_SAMPLE_METADATA,sampleTransfers:VERIFIED_SAMPLE_TRANSFERS}),
-    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    sampleBarWriteValues:NO_SAMPLE_BAR_AUTHORING
   }),
   TE032AS005:Object.freeze({
     id:'ep1320',title:'MY EP-1320',name:'MEDIEVAL',
     playModes:COMMON_PLAY_MODES,fallbackTabs:EP1320_FALLBACK_TABS,
-    evidence:Object.freeze({sampleMetadata:UNVERIFIED_SAMPLE_METADATA,sampleTransfers:UNVERIFIED_SAMPLE_TRANSFERS}),
-    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    sampleBarWriteValues:NO_SAMPLE_BAR_AUTHORING
   }),
   TE032AS006:Object.freeze({
     id:'ep40',title:'MY EP-40',name:'RIDDIM',
     playModes:Object.freeze([...COMMON_PLAY_MODES,'loop']),fallbackTabs:GENERIC_FALLBACK_TABS,
-    evidence:Object.freeze({sampleMetadata:VERIFIED_SAMPLE_METADATA,sampleTransfers:VERIFIED_SAMPLE_TRANSFERS}),
-    sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+    sampleBarWriteValues:NO_SAMPLE_BAR_AUTHORING
   })
 });
 
-const GENERIC=capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{
-  read:false,preserve:false,
-  reason:'The connected EP capability has not been verified.'
-});
 const GENERIC_PROFILE=Object.freeze({
   id:'ep',title:'MY EP',name:'',playModes:COMMON_PLAY_MODES,fallbackTabs:GENERIC_FALLBACK_TABS,
-  evidence:Object.freeze({sampleMetadata:GENERIC,sampleTransfers:GENERIC}),
-  sampleBars:PRESERVE_ONLY_SAMPLE_BARS
+  sampleBarWriteValues:NO_SAMPLE_BAR_AUTHORING
 });
 const cloneTabs=tabs=>tabs.map(tab=>({name:tab.name,range:[...tab.range],color:tab.color}));
 
@@ -90,9 +58,9 @@ export function getEpDeviceProfile(sku='',firmware=''){
   const key=String(sku||'').toUpperCase();
   const profile=PROFILES[key]||GENERIC_PROFILE;
   const version=String(firmware||'');
-  const sampleMetadataEvidence=resolveCapabilityEvidence(profile.evidence.sampleMetadata,version);
-  const sampleTransferEvidence=resolveCapabilityEvidence(profile.evidence.sampleTransfers,version);
-  const sampleBarsEvidence=resolveCapabilityEvidence(profile.sampleBars.evidence,version);
+  const sampleMetadataEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_METADATA,version);
+  const sampleTransferEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_TRANSFERS,version);
+  const sampleBarsEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_BARS,version);
   return{
     sku:key,
     firmware:version,
@@ -109,8 +77,8 @@ export function getEpDeviceProfile(sku='',firmware=''){
     advancedSampleMetadataWrites:canWriteCapability(sampleMetadataEvidence),
     sampleTransfers:canWriteCapability(sampleTransferEvidence),
     sampleBars:{
-      authoring:canWriteCapability(sampleBarsEvidence)&&profile.sampleBars.writeValues.length>0,
-      writeValues:[...profile.sampleBars.writeValues],
+      authoring:canWriteCapability(sampleBarsEvidence)&&profile.sampleBarWriteValues.length>0,
+      writeValues:[...profile.sampleBarWriteValues],
       evidence:sampleBarsEvidence
     }
   };
