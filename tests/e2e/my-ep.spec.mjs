@@ -11,6 +11,7 @@ const installFake=async page=>{
 
 const openMyEp=async page=>{
   await page.goto('/');
+  expect(await page.evaluate(()=>window.__fakeEp.midiAccessRequests.length)).toBe(0);
   await page.locator('#my-ep-icon').click();
   await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','false');
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('');
