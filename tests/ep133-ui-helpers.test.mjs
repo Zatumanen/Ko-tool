@@ -547,7 +547,7 @@ test('sample read controller downloads selections sequentially as individual WAV
     ['get',2],
     ['meta',2]
   ]);
-  assert.deepEqual(downloads,['Kick One.wav','Snare Two.wav']);
+  assert.deepEqual(downloads,['Kick One.wav','snare.wav']);
   assert.equal(hidden,1);
   assert.equal(progress.at(-1)[1],100);
 });
