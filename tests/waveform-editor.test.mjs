@@ -95,3 +95,12 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
   assert.equal(view.getUint32(24,true),100);
   assert.equal(view.getUint32(bytes.findIndex((_,i)=>String.fromCharCode(...bytes.slice(i,i+4))==='data')+4,true),100);
 });
+
+
+test('waveform editor browser modules pass Node syntax checks',async()=>{
+  const{execFileSync}=await import('node:child_process');
+  const{fileURLToPath}=await import('node:url');
+  for(const relative of ['../js/waveform-editor.js','../js/audio/waveform-editor.js','../js/app.js']){
+    execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
+  }
+});
