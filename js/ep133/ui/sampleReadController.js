@@ -11,7 +11,7 @@ export function sampleDownloadName(slot,result){
 export function createSampleReadController({
   sampleStore,getMemory,isConnected,
   startPlayback,stopPlayback,
-  getFile,getFileMetadata,
+  withFileTransaction,getFile,getFileMetadata,
   captureBatchSession,assertBatchSession,
   setGlobalProgress,hideGlobalProgress,
   reportError,
@@ -26,6 +26,9 @@ export function createSampleReadController({
 }={}){
   let playingNodeId=null;
   let previewTimer=null;
+  const runReadTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample download read',operation)
+    :operation({getFile,getFileMetadata});
   const canonicalSlot=slot=>{
     const id=Number(slot?.id||slot?.nodeId);
     return Number.isInteger(id)&&sampleStore?.getSlot?.(id)||slot||null;
@@ -102,12 +105,15 @@ export function createSampleReadController({
     if(!slot?.file)throw new Error('Sample is no longer available.');
     const divisor=Math.max(1,total);
     setGlobalProgress('DOWNLOAD',(index/divisor)*100);
-    const result=await getFile(slot.nodeId||slot.id,(done,size)=>{
-      const local=size?done/size:0;
-      setGlobalProgress('DOWNLOAD',((index+local)/divisor)*100);
+    const{result,meta}=await runReadTransaction(async fileOps=>{
+      const result=await fileOps.getFile(slot.nodeId||slot.id,(done,size)=>{
+        const local=size?done/size:0;
+        setGlobalProgress('DOWNLOAD',((index+local)/divisor)*100);
+      });
+      const meta=slot.meta||await fileOps.getFileMetadata(slot.nodeId||slot.id);
+      return{result,meta};
     });
     const bytes=result?.data instanceof Uint8Array?result.data:new Uint8Array(result?.data||[]);
-    const meta=slot.meta||await getFileMetadata(slot.nodeId||slot.id);
     const wav=await createWav(bytes,{
       name:result?.name||slot.file?.name||'sample',
       metadata:meta

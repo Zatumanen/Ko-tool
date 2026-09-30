@@ -843,3 +843,194 @@ test('sample read controller resolves stale UI snapshots through SampleStore bef
   await controller.audition(stale);
   assert.equal(starts,0);
 });
+
+
+test('sample library bootstrap commits one coherent FILE transaction snapshot before hydration',async()=>{
+  const actions=[];
+  const sampleStore=createSampleStore();
+  const memory={getSelected:()=>null,getActiveTab:()=>0,setTabs(){}};
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleStore,
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options??null]);
+      return operation({
+        listDirectory:async(nodeId,path)=>{
+          actions.push(['list',nodeId,path]);
+          if(nodeId===0)return[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}];
+          return[];
+        },
+        getFileMetadata:async nodeId=>{
+          actions.push(['metadata',nodeId]);
+          return{formats:[{type:'pcm'}],tabs:[{name:'BANK',range:[1,999]}]};
+        }
+      });
+    },
+    listDirectory:async()=>{throw new Error('public LIST must not run during bootstrap');},
+    getFileMetadata:async()=>{throw new Error('public metadata must not run during bootstrap');},
+    setSynchronized(){},setMetadataHydrating(){},updateMutationAvailability(){},closeProperties(){},
+    setGlobalProgress(){},hideGlobalProgress(){},renderDeviceStats(){},setStatus(){},
+    reportError(message,error){throw new Error(message+' '+error.message);},
+    logTechnical(){},scheduleHide:callback=>callback()
+  });
+  await controller.readDevice();
+  assert.deepEqual(actions,[
+    ['transaction','sample library bootstrap',null],
+    ['list',0,'/'],
+    ['list',1000,'/sounds'],
+    ['metadata',1000]
+  ]);
+  assert.equal(sampleStore.getSoundsParentId(),1000);
+  assert.equal(sampleStore.getSoundsMetadata().tabs[0].name,'BANK');
+});
+
+test('sample property SET and verification readback share one strict FILE transaction',async()=>{
+  const actions=[],timers=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:10,isWritable:true}]);
+  sampleStore.setMetadata(7,{'sound.pitch':0});
+  const controller=createSamplePropertiesController({
+    properties:null,propertiesGrid:null,sampleStore,
+    getActiveDeviceProfile:()=>({
+      name:'K.O. II',advancedSampleMetadataWrites:true,
+      playModes:['oneshot','key','legato'],sampleBars:{authoring:false,writeValues:[]}
+    }),
+    isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options?.strict]);
+      return operation({
+        setFileMetadata:async(id,payload)=>actions.push(['set',id,payload['sound.pitch']]),
+        getFileMetadata:async id=>{actions.push(['get',id]);return{'sound.pitch':1};}
+      });
+    },
+    setFileMetadata:async()=>{throw new Error('public SET must not run');},
+    getFileMetadata:async()=>{throw new Error('public GET must not run');},
+    showError(){},logTechnical(){},
+    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},
+    clearTimeoutFn(){},debounceMs:1
+  });
+  controller.scheduleWrite(sampleStore.getSlot(7),'sound.pitch',1);
+  await timers.shift()();
+  assert.deepEqual(actions,[
+    ['transaction','sample property write',true],
+    ['set',7,1],
+    ['get',7]
+  ]);
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
+});
+
+test('sample download GET and metadata fallback share one FILE read transaction',async()=>{
+  const actions=[],downloads=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:2,isReadable:true}]);
+  const anchor={href:'',download:'',click(){downloads.push(this.download);},remove(){}};
+  const controller=createSampleReadController({
+    sampleStore,getMemory:()=>({}),isConnected:()=>true,
+    startPlayback:async()=>{},stopPlayback:async()=>{},
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options??null]);
+      return operation({
+        getFile:async id=>{actions.push(['get-file',id]);return{name:'wire-kick',data:Uint8Array.from([1,2])};},
+        getFileMetadata:async id=>{actions.push(['get-meta',id]);return{name:'kick',channels:1,samplerate:46875,format:'s16'};}
+      });
+    },
+    getFile:async()=>{throw new Error('public FILE_GET must not run');},
+    getFileMetadata:async()=>{throw new Error('public METADATA_GET must not run');},
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    setGlobalProgress(){},hideGlobalProgress(){},reportError(){},
+    createWav:async()=>({bytes:[1]}),
+    windowRef:{},
+    documentRef:{createElement:()=>anchor,body:{appendChild(){}}},
+    urlApi:{createObjectURL:()=> 'blob:sample',revokeObjectURL(){}},
+    setTimeoutFn:()=>1
+  });
+  await controller.performDownload(sampleStore.getSlot(7),{saveAs:false});
+  assert.deepEqual(actions,[
+    ['transaction','sample download read',null],
+    ['get-file',7],
+    ['get-meta',7]
+  ]);
+  assert.deepEqual(downloads,['kick.wav']);
+});
+
+test('upload hydration reads FILE_INFO and metadata in one FILE transaction before Store commit',async()=>{
+  const actions=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'}]);
+  const controller=createSampleUploadController({
+    sampleStore,getMemory:()=>({}),
+    getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({}),
+    setSoundsMetadata(){},getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),
+    isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options??null]);
+      return operation({
+        getFileInfo:async id=>{
+          actions.push(['info',id]);
+          return{nodeId:id,parentId:1000,fileSize:20,fileName:'kick',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};
+        },
+        getFileMetadata:async id=>{
+          actions.push(['metadata',id]);
+          return{name:'kick',channels:1,samplerate:46875,format:'s16'};
+        }
+      });
+    },
+    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
+    uploadSampleToSlot:async()=>{},prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x,
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,sampleStore.getFiles()),
+    getFileInfo:async()=>{throw new Error('public FILE_INFO must not run');},
+    getFileMetadata:async()=>{throw new Error('public metadata must not run');},
+    renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
+    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},
+    syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},
+    logTechnical(){},showError(){},prepareSample:async()=>({})
+  });
+  await controller.hydrateUploadedFileItem(7);
+  assert.deepEqual(actions,[
+    ['transaction','sample upload hydration',null],
+    ['info',7],
+    ['metadata',7]
+  ]);
+  assert.equal(sampleStore.getSlot(7).meta.name,'kick');
+  assert.equal(sampleStore.getSlot(7).verification.file,'verified');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
+});
+
+test('external FILE event info and metadata reconciliation uses one coherent read transaction',async()=>{
+  const actions=[];
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:42,fileName:'/sounds',fileType:'folder'}]);
+  const controller=createFileEventController({
+    isConnected:()=>true,sampleStore,
+    getSoundsParentId:()=>42,getSoundsMetadata:()=>({}),getCurrentPropertySlotId:()=>null,
+    withFileTransaction:async(label,operation,options)=>{
+      actions.push(['transaction',label,options??null]);
+      return operation({
+        getFileInfo:async id=>{
+          actions.push(['info',id]);
+          return{nodeId:id,parentId:42,fileSize:10,fileName:'kick',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};
+        },
+        getFileMetadata:async id=>{
+          actions.push(['metadata',id]);
+          return{name:'kick',channels:1,samplerate:46875,format:'s16'};
+        }
+      });
+    },
+    getFileInfo:async()=>{throw new Error('public FILE_INFO must not run');},
+    getFileMetadata:async()=>{throw new Error('public metadata must not run');},
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,sampleStore.getFiles()),
+    applySoundsMetadata(){},renderProperties(){},renderDeviceStats(){},closeProperties(){},logTechnical(){}
+  });
+  await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_ADDED,data:{nodeId:7}});
+  assert.deepEqual(actions,[
+    ['transaction','FILE event reconciliation',null],
+    ['info',7],
+    ['metadata',7]
+  ]);
+  assert.equal(sampleStore.getSlot(7).meta.name,'kick');
+});

@@ -250,7 +250,7 @@ export function initEp133Browser({showError}={}){
     isSynchronized:()=>synchronized,
     isMetadataHydrating:()=>metadataHydrating,
     isMutating:()=>mutating,
-    setFileMetadata,getFileMetadata,
+    withFileTransaction,setFileMetadata,getFileMetadata,
     showError:message=>showError?.(message),
     logTechnical,escapeHtml
   });
@@ -262,7 +262,7 @@ export function initEp133Browser({showError}={}){
     sampleStore,getMemory:()=>memory,
     isConnected,
     startPlayback,stopPlayback,
-    getFile,getFileMetadata,
+    withFileTransaction,getFile,getFileMetadata,
     captureBatchSession,assertBatchSession,
     setGlobalProgress,hideGlobalProgress,
     reportError
@@ -291,7 +291,7 @@ export function initEp133Browser({showError}={}){
     getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     getCurrentPropertySlotId:()=>propertiesController.getCurrentSlotId(),
-    getFileInfo,
+    withFileTransaction,getFileInfo,
     getFileMetadata,
     fileItemFromInfo,
     applySoundsMetadata,
@@ -321,7 +321,6 @@ export function initEp133Browser({showError}={}){
     getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundFormats:()=>sampleStore.getSoundFormats(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
-    setSoundsMetadata:value=>sampleStore.setSoundsMetadata(value),
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,
     isSynchronized:()=>synchronized,
@@ -412,8 +411,10 @@ export function initEp133Browser({showError}={}){
       if(canonical.node?.isWritable!==true)throw new Error('This sample is not writable.');
       const name=normalizeFileName(value);
       if(!name)return null;
-      await setFileMetadata(canonical.nodeId||canonical.id,{name});
-      const readback=await getFileMetadata(canonical.nodeId||canonical.id);
+      const readback=await withFileTransaction('sample rename transaction',async fileOps=>{
+        await fileOps.setFileMetadata(canonical.nodeId||canonical.id,{name});
+        return fileOps.getFileMetadata(canonical.nodeId||canonical.id);
+      },{strict:true});
       sampleStore.setMetadata(canonical.id,readback,{verification:'verified'});
       return String(readback?.name||name);
     },
@@ -433,7 +434,7 @@ export function initEp133Browser({showError}={}){
     getMemory:()=>memory,
     getActiveDeviceProfile:()=>activeDeviceProfile,
     sampleStore,
-    listDirectory,getFileMetadata,
+    withFileTransaction,listDirectory,getFileMetadata,
     setSynchronized:value=>{synchronized=!!value;},
     setMetadataHydrating:value=>{metadataHydrating=!!value;},
     setSoundsMetadata:value=>sampleStore.setSoundsMetadata(value),
