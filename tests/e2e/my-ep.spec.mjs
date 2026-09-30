@@ -84,7 +84,16 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
     row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt}));
     row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
   },wav);
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===9))).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>{
+    const snapshot=window.__fakeEp.snapshot();
+    if(snapshot.some(x=>x.id===9))return'uploaded';
+    return JSON.stringify({
+      error:document.querySelector('#error-message')?.textContent||document.querySelector('.error-message')?.textContent||'',
+      technical:document.querySelector('#log-tab')?.textContent||'',
+      requests:window.__fakeEp.requestLog,
+      snapshot
+    });
+  }),{message:'WAV drop should complete FILE PUT into slot 9',timeout:10000}).toBe('uploaded');
   await expect(page.locator('[data-slot="9"]')).toHaveClass(/occupied/);
 
   await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
