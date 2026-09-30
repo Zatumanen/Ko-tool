@@ -185,12 +185,11 @@ import{requestRead,parseFileEvent,formatDeviceRejection,parseFirmwareDebugFrame}
 import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,buildFilePutDataPayload,buildFileInfoPayload,buildFileMovePayload,parseFileMoveResponse,buildMetadataSetPayload,prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName,validateFileGetChunk,validateFilePutPage}from '../js/ep133/filesystem.js';
 test('My EP uploads hydrate local transport metadata immediately after success',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const uploadStart=source.indexOf('async function uploadFilesToSlot');
-  const uploadBlock=source.slice(uploadStart,source.indexOf('const sampleLibrarySync=',uploadStart));
-  assert.match(uploadBlock,/const localMetadata=prepareSampleLocalMetadata/);
-  assert.match(uploadBlock,/memory\.setMetadata\(target\.id,localMetadata\)/);
-  assert.match(uploadBlock,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  assert.match(source,/const localMetadata=prepareSampleLocalMetadata/);
+  assert.match(source,/memory\.setMetadata\(target\.id,localMetadata\)/);
+  assert.match(source,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
+  assert.match(source,/void hydrateUploadedFileItem\(id\)/);
 });
 
 test('local uploaded sample metadata keeps transport fields needed by My EP rows',()=>{
@@ -248,7 +247,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -297,18 +296,18 @@ test('My EP holds the official-named app lock for the lifetime of the tab',async
 
 test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('async function uploadFilesToSlot');
-  const block=source.slice(start,source.indexOf('const sampleLibrarySync=',start));
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  const start=source.indexOf('const uploadFilesToSlot=async');
+  const block=source.slice(start);
   const successPath=block.slice(0,block.indexOf('}catch(error){'));
   assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
   assert.doesNotMatch(successPath,/await getFileMetadata\(target\.id\)/);
   assert.doesNotMatch(successPath,/waitForMetadataUpdate\(soundsParentId\)/);
-  assert.match(successPath,/provisionalUploadedFileItem/);
+  assert.match(successPath,/buildProvisionalUploadedFileItem/);
   assert.match(successPath,/const localMetadata=prepareSampleLocalMetadata/);
   assert.match(successPath,/memory\.setMetadata\(target\.id,localMetadata\)/);
   assert.match(successPath,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
-  assert.match(block,/setTimeout\(\(\)=>\{[\s\S]*void hydrateUploadedFileItem\(id\)/);
+  assert.match(block,/setTimeoutFn\(\(\)=>\{[\s\S]*void hydrateUploadedFileItem\(id\)/);
 });
 
 test('SpeedUpperCut statistics separate disk file size from offline EP PCM storage',async()=>{
@@ -335,9 +334,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const samplePropertiesController=await read('js/ep133/ui/samplePropertiesController.js');
   const sampleReadController=await read('js/ep133/ui/sampleReadController.js');
   const sampleDeleteController=await read('js/ep133/ui/sampleDeleteController.js');
+  const sampleUploadController=await read('js/ep133/ui/sampleUploadController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
-  assert.equal(ui.includes("./audio.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
@@ -350,9 +350,12 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleReadController.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleDeleteController.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
   assert.equal(samplePropertiesController.includes("../sampleProperties.js?v="+token),true);
   assert.equal(sampleReadController.includes("../audio.js?v="+token),true);
   assert.doesNotMatch(sampleDeleteController,/from [\'\"]/);
+  assert.equal(sampleUploadController.includes("../audio.js?v="+token),true);
+  assert.equal(sampleUploadController.includes("./fileModel.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -748,11 +751,12 @@ test('My EP keeps event-first metadata sync for destructive mutations but not th
   const fs=await import('node:fs/promises');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const deletes=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
+  const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(ui,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
   assert.match(ui,/\{timeout:500\}/);
   assert.match(ui,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
-  const uploadStart=ui.indexOf('async function uploadFilesToSlot');
-  const uploadBlock=ui.slice(uploadStart,ui.indexOf('const sampleLibrarySync=',uploadStart));
+  const uploadStart=uploads.indexOf('const uploadFilesToSlot=async');
+  const uploadBlock=uploads.slice(uploadStart);
   const uploadSuccess=uploadBlock.slice(0,uploadBlock.indexOf('}catch(error){'));
   assert.doesNotMatch(uploadSuccess,/waitForMetadataUpdate\(soundsParentId\)/);
   assert.doesNotMatch(uploadSuccess,/syncMetadataAfterMutation\(soundsParentId/);
@@ -1830,9 +1834,9 @@ test('EP FILE_PUT data packet carries page and raw PCM payload',()=>{
 
 test('My EP normal upload preflights one batch instead of repeating FILE checks per sample',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('async function uploadFilesToSlot');
-  const block=source.slice(start,source.indexOf('const sampleLibrarySync=',start));
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  const start=source.indexOf('const uploadFilesToSlot=async');
+  const block=source.slice(start);
   const successPath=block.slice(0,block.indexOf('}catch(error){'));
   assert.match(block,/await withSampleUploadBatch\(async\(\)=>\{/);
   assert.match(block,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\)\)/);
@@ -1840,9 +1844,9 @@ test('My EP normal upload preflights one batch instead of repeating FILE checks 
   assert.doesNotMatch(successPath,/assertSampleFitsAvailableMemory\(/);
   assert.doesNotMatch(successPath,/syncMetadataAfterMutation\(soundsParentId/);
   assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
-  assert.match(successPath,/let remainingFreeSpace=Number\(soundsMetadata\?\.free_space_in_bytes\)/);
+  assert.match(successPath,/let remainingFreeSpace=Number\(currentSoundsMetadata\?\.free_space_in_bytes\)/);
   assert.match(successPath,/remainingFreeSpace=Math\.max\(0,remainingFreeSpace-prepared\.data\.byteLength\)/);
-  assert.match(block,/onCreated:id=>\{createdId=Number\(id\)\|\|target\.id;item\.createdId=createdId;\}/);
+  assert.match(block,/onCreated:id=>\{[\s\S]*createdId=Number\(id\)\|\|target\.id;[\s\S]*item\.createdId=createdId/);
   assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
 });
 
@@ -1860,24 +1864,25 @@ test('sample upload batch guard keeps one strict firmware-debug preflight around
 
 test('own upload FILE_ADDED events do not insert readback traffic into the active batch',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/const pendingUploadEvents=new Set\(\)/);
-  assert.match(source,/if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return/);
-  assert.match(ui,/markUploadPending\(target\.id\)/);
-  assert.match(ui,/clearUploadPending\(item\.slot\.id\)/);
+  const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
+  const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  assert.match(events,/const pendingUploadEvents=new Set\(\)/);
+  assert.match(events,/if\(pendingUploadEvents\.has\(Number\(payload\.nodeId\)\)\)return/);
+  assert.match(uploads,/markUploadPending\(target\.id\)/);
+  assert.match(uploads,/clearUploadPending\(item\.slot\.id\)/);
 });
 
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/clipboardData\?\.items/);
-  assert.match(source,/window\.addEventListener\('paste'/);
-  assert.match(source,/const slot=memory\.getSelected\(\)/);
-  assert.match(source,/uploadFilesToSlot\(slot,files\)/);
-  assert.match(source,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
-  assert.match(source,/const destinationId=memory\.findNextFree\(searchFrom\)/);
-  assert.match(source,/searchFrom=destinationId\+1/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  assert.match(ui,/clipboardData\?\.items/);
+  assert.match(ui,/window\.addEventListener\('paste'/);
+  assert.match(ui,/const slot=memory\.getSelected\(\)/);
+  assert.match(ui,/uploadFilesToSlot\(slot,files\)/);
+  assert.match(ui,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
+  assert.match(uploads,/const destinationId=memory\.findNextFree\(searchFrom\)/);
+  assert.match(uploads,/searchFrom=destinationId\+1/);
 });
 
 test('My EP stops the previous preview before starting the newly selected sample',async()=>{
@@ -1982,7 +1987,8 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
   assert.match(source,/key==='sound\.bars'&&profile\.sampleBars\?\.authoring!==true/);
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ui,/barWriteMode:'omit'/);
+  const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  assert.match(uploads,/barWriteMode:'omit'/);
   assert.match(ui,/barWriteMode:'preserve'/);
 });
 
