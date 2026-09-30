@@ -10,6 +10,7 @@ import{createSampleDeleteController}from '../js/ep133/ui/sampleDeleteController.
 import{createSampleUploadController}from '../js/ep133/ui/sampleUploadController.js';
 import{createSampleMoveController}from '../js/ep133/ui/sampleMoveController.js';
 import{createSampleCopyController}from '../js/ep133/ui/sampleCopyController.js';
+import{createSampleStore}from '../js/ep133/sampleStore.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -80,31 +81,18 @@ test('provisional upload file model stays conservative until FILE_INFO hydration
 });
 
 test('FILE event controller suppresses active uploads and incrementally reconciles external additions',async()=>{
-  const slots=new Map();
-  const memory={
-    getSlot:id=>slots.get(Number(id))||{id:Number(id),file:null,meta:null,nodeId:Number(id)},
-    setSlot:item=>slots.set(Number(item.nodeId),{id:Number(item.nodeId),file:{name:item.fileName,size:item.fileSize},node:item,nodeId:Number(item.nodeId),meta:null}),
-    setMetadata(id,metadata){const slot=this.getSlot(id);slot.meta=metadata;slots.set(Number(id),slot);},
-    mergeMetadata(){},
-    clearSlot:id=>slots.delete(Number(id)),
-    countOccupied:()=>slots.size
-  };
-  const cache={invalidate(){},set(){},merge(){}};
-  const deviceFiles=[{nodeId:42,fileName:'/sounds',fileType:'folder'}];
-  let files=[...deviceFiles],infoReads=0,metadataReads=0;
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:42,fileName:'/sounds',fileType:'folder'}]);
+  let infoReads=0,metadataReads=0;
   const controller=createFileEventController({
     isConnected:()=>true,
-    getMemory:()=>memory,
-    sampleMetadataCache:cache,
+    sampleStore,
     getSoundsParentId:()=>42,
     getSoundsMetadata:()=>({}),
-    getDeviceFiles:()=>files,
-    setDeviceFiles:value=>{files=value;},
     getCurrentPropertySlotId:()=>null,
     getFileInfo:async id=>{infoReads++;return{nodeId:id,parentId:42,fileSize:100,fileName:'kick',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};},
     getFileMetadata:async()=>{metadataReads++;return{name:'kick',channels:1,samplerate:46875,format:'s16'};},
-    fileItemFromInfo:info=>buildFileItemFromInfo(info,files),
-    updateDeviceFile:item=>{const index=files.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));if(index>=0)files[index]=item;else files.push(item);},
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,sampleStore.getFiles()),
     applySoundsMetadata(){},renderProperties(){},renderDeviceStats(){},closeProperties(){},logTechnical(){}
   });
 
@@ -117,7 +105,7 @@ test('FILE event controller suppresses active uploads and incrementally reconcil
   await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_ADDED,data:{nodeId:7}});
   assert.equal(infoReads,1);
   assert.equal(metadataReads,1);
-  assert.equal(memory.getSlot(7).meta.name,'kick');
+  assert.equal(sampleStore.getSlot(7).meta.name,'kick');
 });
 
 test('FILE event controller ignores suppressed native moves and reconciles external moves without full resync',async()=>{
@@ -125,24 +113,19 @@ test('FILE event controller ignores suppressed native moves and reconciles exter
     nodeId:7,fileName:'/sounds/old',fileSize:100,fileType:'file',
     flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ,isReadable:true
   };
-  let files=[{nodeId:42,fileName:'/sounds',fileType:'folder'},oldItem],infoReads=0;
-  const slots=new Map([[7,{id:7,nodeId:7,file:{name:'old',size:100},node:oldItem,meta:{name:'old'}}]]);
-  const memory={
-    getSlot:id=>slots.get(Number(id))||{id:Number(id),nodeId:Number(id),file:null,meta:null},
-    clearSlot:id=>slots.delete(Number(id)),
-    setSlot:item=>slots.set(Number(item.nodeId),{id:Number(item.nodeId),nodeId:Number(item.nodeId),file:{name:item.fileName,size:item.fileSize},node:item,meta:null}),
-    setMetadata(id,metadata){const slot=this.getSlot(id);slot.meta=metadata;slots.set(Number(id),slot);},
-    mergeMetadata(){},countOccupied:()=>slots.size
-  };
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{nodeId:42,fileName:'/sounds',fileType:'folder'},oldItem]);
+  sampleStore.setMetadata(7,{name:'old'});
+  let infoReads=0;
   const controller=createFileEventController({
-    isConnected:()=>true,getMemory:()=>memory,
-    sampleMetadataCache:{invalidate(){},set(){},merge(){}},
-    getSoundsParentId:()=>42,getSoundsMetadata:()=>({}),getDeviceFiles:()=>files,setDeviceFiles:value=>{files=value;},
+    isConnected:()=>true,
+    sampleStore,
+    getSoundsParentId:()=>42,
+    getSoundsMetadata:()=>({}),
     getCurrentPropertySlotId:()=>null,
     getFileInfo:async id=>{infoReads++;return{nodeId:id,parentId:42,fileSize:100,fileName:'moved',flags:TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ};},
     getFileMetadata:async()=>({name:'moved'}),
-    fileItemFromInfo:info=>buildFileItemFromInfo(info,files),
-    updateDeviceFile:item=>{const index=files.findIndex(file=>Number(file.nodeId)===Number(item.nodeId));if(index>=0)files[index]=item;else files.push(item);},
+    fileItemFromInfo:info=>buildFileItemFromInfo(info,sampleStore.getFiles()),
     applySoundsMetadata(){},renderProperties(){},renderDeviceStats(){},closeProperties(){},logTechnical(){}
   });
 
@@ -153,8 +136,8 @@ test('FILE event controller ignores suppressed native moves and reconciles exter
   controller.clearNativeMoveSuppression(7,8);
   await controller.handleFileEvent({type:TE_SYSEX_FILE_EVENT_FILE_MOVED,data:{oldNodeId:7,parentId:42,nodeId:8}});
   assert.equal(infoReads,1);
-  assert.equal(slots.has(7),false);
-  assert.equal(memory.getSlot(8).meta.name,'moved');
+  assert.equal(sampleStore.getSlot(7).file,null);
+  assert.equal(sampleStore.getSlot(8).meta.name,'moved');
 });
 
 test('connection lifecycle does not request MIDI until armed and keeps reconnect cadence gated',async()=>{
@@ -215,37 +198,28 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
 
 
 test('sample library sync exposes LIST results before uncached metadata hydration completes',async()=>{
-  let synchronized=false,metadataHydrating=false,soundsParentId=0,soundFormats=[],soundsMetadata={},deviceFiles=[];
+  let synchronized=false,metadataHydrating=false,soundsParentId=0,soundFormats=[],soundsMetadata={};
   let resolveUncached;
   const uncachedMetadata=new Promise(resolve=>{resolveUncached=resolve;});
-  const slots=new Map();
   const tabs=[];
   const memory={
     getSelected:()=>({id:2}),
     getActiveTab:()=>0,
-    setTabs:value=>{tabs.splice(0,tabs.length,...value);},
-    setSlots(){slots.clear();},
-    setEntries(entries){
-      for(const entry of entries){
-        const id=Number(entry.nodeId);
-        slots.set(id,{id,nodeId:id,file:{name:entry.fileName,size:entry.fileSize},meta:null});
-      }
-    },
-    countOccupied:()=>slots.size,
-    setMetadata(id,metadata){const slot=slots.get(Number(id));if(slot)slot.meta=metadata;},
-    getSlot:id=>slots.get(Number(id))
+    setTabs:value=>{tabs.splice(0,tabs.length,...value);}
   };
-  const cache={
-    get:slot=>slot.id===2?{name:'cached',channels:1,samplerate:46875,format:'s16'}:null,
-    set(slot,metadata){slot.meta=metadata;}
-  };
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([
+    {nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0},
+    {nodeId:2,fileName:'/sounds/cached',fileType:'file',fileSize:20}
+  ]);
+  sampleStore.setMetadata(2,{name:'cached',channels:1,samplerate:46875,format:'s16'});
   const listCalls=[];
   const controller=createSampleLibrarySyncController({
     captureBatchSession:()=> 'session-a',
     assertBatchSession:token=>assert.equal(token,'session-a'),
     getMemory:()=>memory,
     getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
-    sampleMetadataCache:cache,
+    sampleStore,
     listDirectory:async(nodeId,path)=>{
       listCalls.push([nodeId,path]);
       if(nodeId===0)return[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}];
@@ -267,7 +241,6 @@ test('sample library sync exposes LIST results before uncached metadata hydratio
     setSoundsParentId:value=>{soundsParentId=value;},
     setSoundFormats:value=>{soundFormats=value;},
     setSoundsMetadata:value=>{soundsMetadata=value;},
-    setDeviceFiles:value=>{deviceFiles=value;},
     updateMutationAvailability(){},
     closeProperties(){},
     setGlobalProgress(){},
@@ -286,9 +259,10 @@ test('sample library sync exposes LIST results before uncached metadata hydratio
   assert.equal(metadataHydrating,true);
   assert.equal(soundsParentId,1000);
   assert.deepEqual(listCalls,[[0,'/'],[1000,'/sounds']]);
-  assert.equal(slots.get(2).meta.name,'cached');
-  assert.equal(slots.get(5).meta,null);
-  assert.equal(deviceFiles.length,3);
+  assert.equal(sampleStore.getSlot(2).meta.name,'cached');
+  assert.equal(sampleStore.getSlot(2).verification.metadata,'cached');
+  assert.equal(sampleStore.getSlot(5).meta,null);
+  assert.equal(sampleStore.getFiles().length,3);
   assert.equal(soundFormats.length,1);
   assert.equal(soundsMetadata.tabs[0].name,'BANK');
   assert.equal(tabs[0].name,'BANK');
@@ -298,26 +272,25 @@ test('sample library sync exposes LIST results before uncached metadata hydratio
 
   assert.equal(metadataHydrating,false);
   assert.equal(synchronized,true);
-  assert.equal(slots.get(5).meta.name,'live');
+  assert.equal(sampleStore.getSlot(5).meta.name,'live');
+  assert.equal(sampleStore.getSlot(5).verification.metadata,'verified');
 });
 
 test('sample library sync fails closed when the /sounds node is missing',async()=>{
   let synchronized=true,metadataHydrating=true,reported='';
-  const memory={
-    getSelected:()=>null,getActiveTab:()=>0,setTabs(){},setSlots(){},setEntries(){},
-    countOccupied:()=>0,setMetadata(){},getSlot:()=>null
-  };
+  const memory={getSelected:()=>null,getActiveTab:()=>0,setTabs(){}};
+  const sampleStore=createSampleStore();
   const controller=createSampleLibrarySyncController({
     captureBatchSession:()=> 'session-a',
     assertBatchSession(){},
     getMemory:()=>memory,
     getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
-    sampleMetadataCache:{get:()=>null,set(){}},
+    sampleStore,
     listDirectory:async()=>[],
     getFileMetadata:async()=>({}),
     setSynchronized:value=>{synchronized=value;},
     setMetadataHydrating:value=>{metadataHydrating=value;},
-    setSoundsParentId(){},setSoundFormats(){},setSoundsMetadata(){},setDeviceFiles(){},
+    setSoundsParentId(){},setSoundFormats(){},setSoundsMetadata(){},
     updateMutationAvailability(){},closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},
     renderDeviceStats(){},setStatus(){},
     reportError:message=>{reported=message;},
@@ -329,7 +302,6 @@ test('sample library sync fails closed when the /sounds node is missing',async()
   assert.equal(metadataHydrating,false);
   assert.equal(reported,'COULD NOT READ EP SAMPLE LIBRARY.');
 });
-
 
 test('sample properties controller debounces optimistic writes and confirms playmode with release',async()=>{
   const timers=[];
