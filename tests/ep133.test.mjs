@@ -2435,3 +2435,26 @@ test('EP FILE event parser matches reference event payloads',()=>{
   assert.deepEqual(parseFileEvent(3,metadata),{nodeId:42,metadata:{free_space_in_bytes:99}});
   assert.deepEqual(parseFileEvent(13,Uint8Array.from([0,7,0,42,0,8])),{oldNodeId:7,parentId:42,nodeId:8});
 });
+
+
+test('sampleMemory exposes sample-state mutation only through the SampleStore projection boundary',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
+  assert.match(source,/const projection=\{[\s\S]*setSlots\(next\)[\s\S]*setMetadata\(nodeId,meta\)[\s\S]*setSlot\(entry\)[\s\S]*clearSlot\(id\)[\s\S]*setOperation\(id,/);
+  assert.match(source,/return\{\s*projection,\s*setTabs\(/);
+  assert.doesNotMatch(source,/return\{\s*setSlots\(/);
+  assert.doesNotMatch(source,/const deleted=await onDelete/);
+  assert.doesNotMatch(source,/if\(renamed\)slot\.meta=/);
+});
+
+test('My EP read and rename paths re-resolve canonical SampleStore state before device I/O',async()=>{
+  const fs=await import('node:fs/promises');
+  const read=await fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(read,/const canonicalSlot=slot=>/);
+  assert.match(read,/sampleStore\?\.getSlot\?\.\(id\)/);
+  assert.match(read,/const audition=async inputSlot=>\{[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
+  assert.match(read,/const performDownload=async\(inputSlot,[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
+  assert.match(ui,/const canonical=sampleStore\.getSlot\(slot\?\.id\)/);
+  assert.match(ui,/await setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+});

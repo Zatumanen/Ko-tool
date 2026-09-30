@@ -230,8 +230,7 @@ export function createSampleMemory({
     }
     renamePending=true;
     try{
-      const renamed=await onRename?.(slot,value);
-      if(renamed)slot.meta={...(slot.meta||{}),name:renamed};
+      await onRename?.(slot,value);
     }catch(error){
       onUserError?.('COULD NOT RENAME SAMPLE.',error);
     }finally{
@@ -320,11 +319,7 @@ export function createSampleMemory({
         const targets=selectedFiles().filter(item=>item.node?.isDeletable===true);
         if(!targets.length)return;
         try{
-          const deleted=await onDelete?.(targets);
-          if(deleted!==false){
-            for(const item of targets)clearSlotInternal(item.id);
-            render();
-          }
+          await onDelete?.(targets);
         }catch(error){onUserError?.('COULD NOT DELETE SAMPLE.',error);}
       });
 
@@ -429,8 +424,7 @@ export function createSampleMemory({
     const targets=selectedFiles().filter(item=>item.node?.isDeletable===true);
     if(!targets.length)return;
     try{
-      const deleted=await onDelete?.(targets);
-      if(deleted!==false){for(const item of targets)clearSlotInternal(item.id);render();}
+      await onDelete?.(targets);
     }catch(error){onUserError?.('COULD NOT DELETE SAMPLE.',error);}
   };
   const keyDown=event=>{
@@ -457,20 +451,10 @@ export function createSampleMemory({
   renderTabs();
   render();
 
-  return{
+  const projection={
     setSlots(next){
       slots=Array.isArray(next)&&next.length?next:createSampleSlots([]);
       selectedId=null;selectedIds=new Set();selectionAnchor=null;previewingId=null;
-      activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
-      renderTabs();render();
-    },
-    setTabs(nextTabs){
-      const normalized=Array.isArray(nextTabs)?nextTabs.map(tab=>({
-        name:String(tab?.name??''),
-        range:[Number(tab?.range?.[0]),Number(tab?.range?.[1])],
-        color:tab?.color
-      })).filter(tab=>tab.name&&Number.isInteger(tab.range[0])&&Number.isInteger(tab.range[1])&&tab.range[0]>=1&&tab.range[1]>=tab.range[0]&&tab.range[1]<=EP_SAMPLE_SLOT_COUNT):[];
-      sampleTabs=normalized.length?normalized:DEFAULT_SAMPLE_TABS;
       activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
       renderTabs();render();
     },
@@ -490,31 +474,34 @@ export function createSampleMemory({
       if(previous?.meta)next.meta=previous.meta;
       slots[nodeId-1]=next;render();
     },
-    setEntries(entries){
-      let changed=false;
-      for(const entry of entries||[]){
-        const nodeId=Number(entry?.nodeId);
-        if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)continue;
-        const next=createSampleSlots([entry])[nodeId-1];
-        if(!next?.file)continue;
-        const previous=slots[nodeId-1];
-        if(previous?.meta)next.meta=previous.meta;
-        slots[nodeId-1]=next;changed=true;
-      }
-      if(changed)render();
-    },
     clearSlot(id){clearSlotInternal(id);render();},
-    countOccupied(){return slots.reduce((count,slot)=>count+(slot?.file?1:0),0);},
-    findNextFree(start=1){return findNextFreeSampleSlot(slots,start);},
     setOperation(id,{status='pending',label='',progress=null}={}){
       const nodeId=Number(id);
       if(!Number.isInteger(nodeId)||nodeId<1||nodeId>EP_SAMPLE_SLOT_COUNT)return;
       const numericProgress=Number(progress);
-      slotOperations.set(nodeId,{status:String(status),label:String(label||status).toUpperCase(),progress:Number.isFinite(numericProgress)?numericProgress:null});
+      slotOperations.set(nodeId,{
+        status:String(status),
+        label:String(label||status).toUpperCase(),
+        progress:Number.isFinite(numericProgress)?numericProgress:null
+      });
       render();
     },
     clearOperation(id){slotOperations.delete(Number(id));render();},
-    clearOperations(){slotOperations.clear();render();},
+    clearOperations(){slotOperations.clear();render();}
+  };
+
+  return{
+    projection,
+    setTabs(nextTabs){
+      const normalized=Array.isArray(nextTabs)?nextTabs.map(tab=>({
+        name:String(tab?.name??''),
+        range:[Number(tab?.range?.[0]),Number(tab?.range?.[1])],
+        color:tab?.color
+      })).filter(tab=>tab.name&&Number.isInteger(tab.range[0])&&Number.isInteger(tab.range[1])&&tab.range[0]>=1&&tab.range[1]>=tab.range[0]&&tab.range[1]<=EP_SAMPLE_SLOT_COUNT):[];
+      sampleTabs=normalized.length?normalized:DEFAULT_SAMPLE_TABS;
+      activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
+      renderTabs();render();
+    },
     setMutationsEnabled(enabled){mutationsEnabled=!!enabled;render();},
     setPreviewing(id){previewingId=Number(id)||null;render();},
     refresh(){render();},

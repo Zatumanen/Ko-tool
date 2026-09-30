@@ -783,3 +783,53 @@ test('sample copy controller rejects unreadable sources before entering the muta
   await assert.rejects(()=>controller.copyTransfer([{sourceId:7,targetId:8}],new Map([[7,source]]),[source]),/One or more source samples cannot be read/);
   assert.equal(mutatingCalls,0);assert.equal(getCalls,0);
 });
+
+test('sample read controller resolves stale UI snapshots through SampleStore before I/O',async()=>{
+  const sampleStore=createSampleStore();
+  sampleStore.replaceFiles([{
+    nodeId:7,fileName:'/sounds/canonical',fileType:'file',fileSize:2,
+    isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true
+  }]);
+  sampleStore.setMetadata(7,{
+    name:'Canonical.wav',channels:1,samplerate:46875,format:'s16'
+  });
+
+  const writes=[];
+  let starts=0;
+  const controller=createSampleReadController({
+    sampleStore,
+    getMemory:()=>({setPreviewing(){}}),
+    isConnected:()=>true,
+    startPlayback:async()=>{starts++;},
+    stopPlayback:async()=>{},
+    getFile:async id=>{
+      assert.equal(id,7);
+      return{name:'wire',data:Uint8Array.from([1,2])};
+    },
+    getFileMetadata:async()=>{throw new Error('canonical metadata should avoid readback');},
+    setGlobalProgress(){},
+    hideGlobalProgress(){},
+    createWav:async(bytes,options)=>{
+      writes.push(options);
+      return{wav:true};
+    },
+    windowRef:{
+      showSaveFilePicker:async options=>({
+        createWritable:async()=>({write:async()=>{},close:async()=>{}})
+      })
+    }
+  });
+
+  const stale={
+    id:7,nodeId:7,
+    file:{name:'stale.raw',size:999},
+    meta:{name:'Stale.wav',channels:2,samplerate:32000,format:'s16'}
+  };
+  const result=await controller.downloadOne(stale);
+  assert.equal(result.filename,'Canonical.wav');
+  assert.equal(writes[0].metadata.name,'Canonical.wav');
+
+  sampleStore.removeFile(7);
+  await controller.audition(stale);
+  assert.equal(starts,0);
+});

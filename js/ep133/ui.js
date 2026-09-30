@@ -257,7 +257,7 @@ export function initEp133Browser({showError}={}){
 
   let memory;
   const sampleReadController=createSampleReadController({
-    getMemory:()=>memory,
+    sampleStore,getMemory:()=>memory,
     isConnected,
     startPlayback,stopPlayback,
     getFile,getFileMetadata,
@@ -404,12 +404,14 @@ export function initEp133Browser({showError}={}){
     onDelete:deleteSamples,
     onRename:async(slot,value)=>{
       if(!isConnected()||!synchronized)throw new Error('Sample library is not ready.');
-      if(slot.node?.isWritable!==true)throw new Error('This sample is not writable.');
+      const canonical=sampleStore.getSlot(slot?.id);
+      if(!canonical?.file)throw new Error('This sample is no longer available.');
+      if(canonical.node?.isWritable!==true)throw new Error('This sample is not writable.');
       const name=normalizeFileName(value);
       if(!name)return null;
-      await setFileMetadata(slot.nodeId||slot.id,{name});
-      const readback=await getFileMetadata(slot.nodeId||slot.id);
-      sampleStore.setMetadata(slot.id,readback,{verification:'verified'});
+      await setFileMetadata(canonical.nodeId||canonical.id,{name});
+      const readback=await getFileMetadata(canonical.nodeId||canonical.id);
+      sampleStore.setMetadata(canonical.id,readback,{verification:'verified'});
       return String(readback?.name||name);
     },
     onDownload:slot=>sampleReadController.downloadOne(slot),
