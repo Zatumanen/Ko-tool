@@ -247,7 +247,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -335,9 +335,11 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleReadController=await read('js/ep133/ui/sampleReadController.js');
   const sampleDeleteController=await read('js/ep133/ui/sampleDeleteController.js');
   const sampleUploadController=await read('js/ep133/ui/sampleUploadController.js');
+  const sampleMoveController=await read('js/ep133/ui/sampleMoveController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleMoveController.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
@@ -356,6 +358,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.doesNotMatch(sampleDeleteController,/from [\'\"]/);
   assert.equal(sampleUploadController.includes("../audio.js?v="+token),true);
   assert.equal(sampleUploadController.includes("./fileModel.js?v="+token),true);
+  assert.doesNotMatch(sampleMoveController,/from [\'\"]/);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -724,9 +727,10 @@ test('EP FILE init ambiguity and browser lock guards remain explicit',async()=>{
 
 test('My EP native MOVE never falls back to copy-delete or PCM readback',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('const transactionalTransfer=async');
-  const block=source.slice(start,source.indexOf('memory=createSampleMemory',start));
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
+  const start=ui.indexOf('const transactionalTransfer=async');
+  const block=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
   assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(block,/NATIVE FILE_MOVE FAILED/);
   assert.doesNotMatch(block,/sourceSnapshots/);
@@ -735,6 +739,8 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
   const beforeCopy=block.slice(0,block.indexOf("if(sources.some"));
   assert.doesNotMatch(beforeCopy,/getFile\(/);
   assert.doesNotMatch(beforeCopy,/deleteFile\(/);
+  assert.doesNotMatch(move,/getFile\(/);
+  assert.doesNotMatch(move,/deleteFile\(/);
 });
 
 test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
@@ -802,18 +808,17 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('const nativeMoveTransfer=async');
-  const end=source.indexOf('const transactionalTransfer=async',start);
-  const nativeBlock=source.slice(start,end);
-  assert.match(nativeBlock,/await moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
-  assert.match(nativeBlock,/completed\.push\(\{sourceId:source\.id,targetId:target\.id,source,crc:moved\.sourceCrc\}\)/);
-  assert.match(nativeBlock,/if\(moved\.crcVerified!==true\)/);
-  assert.match(nativeBlock,/applyNativeMoveLocally\(source,target,moved\)/);
-  assert.match(source,/const item=fileItemFromInfo\(moved\.info\)/);
-  assert.doesNotMatch(nativeBlock,/getFile\(/);
-  assert.doesNotMatch(nativeBlock,/getFileMetadata\(/);
-  const transferBlock=source.slice(end,source.indexOf('memory=createSampleMemory',end));
+  const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(move,/await moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
+  assert.match(move,/completed\.push\(\{[\s\S]*sourceId:source\.id,[\s\S]*targetId:target\.id,[\s\S]*crc:moved\.sourceCrc/);
+  assert.match(move,/if\(moved\.crcVerified!==true\)/);
+  assert.match(move,/applyNativeMoveLocally\(source,target,moved\)/);
+  assert.match(move,/const item=fileItemFromInfo\(moved\.info\)/);
+  assert.doesNotMatch(move,/getFile\(/);
+  assert.doesNotMatch(move,/getFileMetadata\(/);
+  const start=ui.indexOf('const transactionalTransfer=async');
+  const transferBlock=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
   assert.match(transferBlock,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(transferBlock,/NATIVE FILE_MOVE FAILED/);
 });
@@ -821,14 +826,14 @@ test('EP sample reorder uses native FILE_MOVE only and resolves the authoritativ
 test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
   assert.match(source,/const pendingNativeMoveEvents=new Set\(\)/);
   assert.match(source,/pendingNativeMoveEvents\.has\(key\)\)return/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
   const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
   assert.doesNotMatch(movedBlock,/readDevice\(/);
-  assert.match(ui,/suppressNativeMoveEvent\(sourceNodeId,target\.id\)/);
-  assert.match(ui,/clearNativeMoveSuppression\(sourceNodeId,target\.id\)/);
+  assert.match(move,/suppressNativeMoveEvent\(sourceNodeId,target\.id\)/);
+  assert.match(move,/clearNativeMoveSuppression\(sourceNodeId,target\.id\)/);
 });
 
 test('EP FILE payload sizing matches the authoritative 7-bit transport formula',()=>{

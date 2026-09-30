@@ -8,6 +8,7 @@ import{createSamplePropertiesController}from '../js/ep133/ui/samplePropertiesCon
 import{createSampleReadController,sampleDownloadName}from '../js/ep133/ui/sampleReadController.js';
 import{createSampleDeleteController}from '../js/ep133/ui/sampleDeleteController.js';
 import{createSampleUploadController}from '../js/ep133/ui/sampleUploadController.js';
+import{createSampleMoveController}from '../js/ep133/ui/sampleMoveController.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -962,4 +963,200 @@ test('sample upload controller rejects unsupported files and insufficient forwar
   );
   assert.equal(mutations,0);
   assert.equal(batches,0);
+});
+
+
+test('sample move controller performs CRC-verified FILE_MOVE and remaps local state without PCM fallback',async()=>{
+  const actions=[];
+  let files=[
+    {nodeId:1000,fileName:'/sounds',fileType:'folder'},
+    {nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100}
+  ];
+  const slots=new Map([
+    [7,{id:7,nodeId:7,file:{name:'kick',size:100},node:{nodeId:7},meta:{name:'kick',crc:123}}],
+    [8,{id:8,nodeId:8,file:null,node:null,meta:null}]
+  ]);
+  const memory={
+    getSlot:id=>slots.get(Number(id)),
+    clearSlot:id=>{actions.push(['clear-slot',Number(id)]);slots.delete(Number(id));},
+    setSlot:item=>{
+      const id=Number(item.nodeId);
+      slots.set(id,{id,nodeId:id,file:{name:'kick',size:item.fileSize},node:item,meta:null});
+      actions.push(['set-slot',id]);
+    },
+    setMetadata(id,metadata){
+      const slot=slots.get(Number(id));
+      slot.meta={...metadata};
+      actions.push(['set-meta',Number(id),metadata.name]);
+    },
+    setOperation(id,state){actions.push(['op',Number(id),state.label,state.progress]);},
+    clearOperation:id=>actions.push(['clear-op',Number(id)]),
+    clearOperations:()=>actions.push(['clear-ops']),
+    countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
+  };
+  const cacheActions=[];
+  const controller=createSampleMoveController({
+    getMemory:()=>memory,
+    getDeviceFiles:()=>files,
+    setDeviceFiles:value=>{files=value;actions.push(['files',value.map(item=>item.nodeId)]);},
+    getSoundsParentId:()=>1000,
+    getSoundsMetadata:()=>({free_space_in_bytes:50}),
+    sampleMetadataCache:{
+      invalidate:id=>cacheActions.push(['invalidate',Number(id)]),
+      set:(slot,metadata)=>cacheActions.push(['set',slot.id,metadata.name])
+    },
+    fileItemFromInfo:info=>({
+      nodeId:Number(info.nodeId),
+      fileName:'/sounds/'+info.fileName,
+      fileType:'file',
+      fileSize:Number(info.fileSize),
+      isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true
+    }),
+    remapCurrentPropertySlot:(oldId,newId)=>actions.push(['remap',oldId,newId]),
+    renderDeviceStats:(metadata,count)=>actions.push(['stats',metadata.free_space_in_bytes,count]),
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
+    getDeviceSessionToken:()=> 'session-a',
+    isConnected:()=>true,
+    setMutating:value=>actions.push(['mutating',value]),
+    setGlobalProgress:(label,value)=>actions.push(['progress',label,value]),
+    hideGlobalProgress:()=>actions.push(['hide']),
+    suppressNativeMoveEvent:(oldId,newId)=>{
+      actions.push(['suppress',oldId,newId]);
+      return()=>actions.push(['release',oldId,newId]);
+    },
+    clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
+    moveFile:async(sourceId,parentId,targetId,options)=>{
+      actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
+      return{
+        oldFileId:sourceId,newFileId:targetId,
+        sourceCrc:123,destinationCrc:123,crcVerified:true,
+        info:{nodeId:targetId,fileName:'kick',fileSize:100},
+        metadata:{name:'kick',crc:123}
+      };
+    },
+    readDevice:async()=>actions.push(['resync']),
+    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+  });
+
+  const source=slots.get(7);
+  const result=await controller.nativeMoveTransfer(
+    [{sourceId:7,targetId:8}],
+    new Map([[7,source]])
+  );
+
+  assert.deepEqual(result,{targetIds:[8]});
+  assert.deepEqual(actions.find(item=>item[0]==='move'),['move',7,1000,8,true]);
+  assert.deepEqual(actions.filter(item=>item[0]==='suppress'),[['suppress',7,8]]);
+  assert.deepEqual(actions.filter(item=>item[0]==='release'),[['release',7,8]]);
+  assert.equal(actions.some(item=>item[0]==='resync'),false);
+  assert.equal(slots.has(7),false);
+  assert.equal(slots.get(8).meta.name,'kick');
+  assert.deepEqual(files.map(item=>item.nodeId),[1000,8]);
+  assert.deepEqual(cacheActions,[
+    ['invalidate',7],['invalidate',8],['set',8,'kick']
+  ]);
+  assert.deepEqual(actions.find(item=>item[0]==='remap'),['remap',7,8]);
+  assert.equal(actions.at(-2)[0],'hide');
+  assert.deepEqual(actions.at(-1),['mutating',false]);
+});
+
+test('sample move controller rolls completed moves back in reverse order and resyncs after a later MOVE failure',async()=>{
+  const actions=[];
+  const slots=new Map([
+    [7,{id:7,nodeId:7,file:{name:'one'},node:{},meta:{name:'one',crc:111}}],
+    [8,{id:8,nodeId:8,file:null,node:null,meta:null}],
+    [9,{id:9,nodeId:9,file:{name:'two'},node:{},meta:{name:'two',crc:222}}],
+    [10,{id:10,nodeId:10,file:null,node:null,meta:null}]
+  ]);
+  const memory={
+    getSlot:id=>slots.get(Number(id)),
+    clearSlot:id=>slots.delete(Number(id)),
+    setSlot:item=>{
+      const id=Number(item.nodeId);
+      slots.set(id,{id,nodeId:id,file:{name:item.fileName},node:item,meta:null});
+    },
+    setMetadata(id,metadata){slots.get(Number(id)).meta={...metadata};},
+    setOperation(){},clearOperation(){},
+    clearOperations:()=>actions.push(['clear-ops']),
+    countOccupied:()=>2
+  };
+  let files=[{nodeId:1000,fileName:'/sounds',fileType:'folder'}];
+  const controller=createSampleMoveController({
+    getMemory:()=>memory,getDeviceFiles:()=>files,setDeviceFiles:value=>{files=value;},
+    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
+    sampleMetadataCache:{invalidate(){},set(){}},
+    fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileType:'file',fileSize:1}),
+    remapCurrentPropertySlot(){},renderDeviceStats(){},
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
+    getDeviceSessionToken:()=> 'session-a',
+    isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    suppressNativeMoveEvent:(oldId,newId)=>{
+      actions.push(['suppress',oldId,newId]);
+      return()=>actions.push(['release',oldId,newId]);
+    },
+    clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
+    moveFile:async(sourceId,parentId,targetId,options)=>{
+      actions.push(['move',sourceId,targetId,options.verifyCrc]);
+      if(sourceId===7&&targetId===8)return{
+        oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,
+        info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}
+      };
+      if(sourceId===9&&targetId===10)throw new Error('second move failed');
+      if(sourceId===8&&targetId===7)return{
+        oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,
+        info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}
+      };
+      throw new Error('unexpected move');
+    },
+    readDevice:async()=>actions.push(['resync']),
+    logTechnical:(label,error)=>actions.push(['log',label,String(error?.message||error)])
+  });
+
+  await assert.rejects(
+    ()=>controller.nativeMoveTransfer(
+      [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
+      new Map([[7,slots.get(7)],[9,slots.get(9)]])
+    ),
+    /second move failed/
+  );
+
+  assert.deepEqual(actions.filter(item=>item[0]==='move'),[
+    ['move',7,8,true],
+    ['move',9,10,true],
+    ['move',8,7,true]
+  ]);
+  assert.ok(actions.findIndex(item=>item[0]==='move'&&item[1]===8)>actions.findIndex(item=>item[0]==='move'&&item[1]===9));
+  assert.equal(actions.some(item=>item[0]==='clear-suppress'&&item[1]===9&&item[2]===10),true);
+  assert.equal(actions.filter(item=>item[0]==='resync').length,1);
+  assert.equal(actions.at(-2)[0],'resync');
+  assert.equal(actions.at(-1)[0],'clear-ops');
+});
+
+test('sample move controller refuses an occupied destination before sending FILE_MOVE',async()=>{
+  let moveCalls=0;
+  const memory={
+    getSlot:id=>({id:Number(id),file:{name:'occupied'}}),
+    setOperation(){},clearOperation(){},clearOperations(){},countOccupied:()=>1
+  };
+  const controller=createSampleMoveController({
+    getMemory:()=>memory,getDeviceFiles:()=>[],setDeviceFiles(){},
+    getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),
+    sampleMetadataCache:{invalidate(){},set(){}},fileItemFromInfo:()=>null,
+    remapCurrentPropertySlot(){},renderDeviceStats(){},
+    captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
+    isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
+    moveFile:async()=>{moveCalls++;},readDevice:async()=>{},logTechnical(){}
+  });
+  const source={id:7,nodeId:7,file:{name:'source'},meta:{}};
+  await assert.rejects(
+    ()=>controller.nativeMoveTransfer(
+      [{sourceId:7,targetId:8}],
+      new Map([[7,source]])
+    ),
+    /Target sample slot is no longer empty/
+  );
+  assert.equal(moveCalls,0);
 });
