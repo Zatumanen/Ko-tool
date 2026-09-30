@@ -375,7 +375,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectRecovery.js','../js/ep133/projectTransactionJournal.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/ui/deviceSessionOwnership.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectRecovery.js','../js/ep133/projectTransactionJournal.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -410,16 +410,22 @@ test('My EP defers MIDI access until the user opens the app',async()=>{
   assert.doesNotMatch(ui,/\n\s*void connectionLifecycle\.autoConnect\(\);\n/);
 });
 
-test('My EP holds the official-named app lock for the lifetime of the tab',async()=>{
+test('My EP session ownership combines the official-named Web Lock with BroadcastChannel coordination',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
+  const ownership=await fs.readFile(new URL('../js/ep133/ui/deviceSessionOwnership.js',import.meta.url),'utf8');
+  const lifecycle=await fs.readFile(new URL('../js/ep133/ui/connectionLifecycle.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/locks\?\.request/);
-  assert.match(source,/request\('ep-sample-util',\{ifAvailable:true\}/);
-  assert.match(source,/OPEN IN ANOTHER TAB/);
-  assert.match(source,/return new Promise\(\(\)=>\{\}\)/);
-  assert.match(source,/if\(!await instanceLockGate\)/);
+  assert.match(ownership,/DEFAULT_LOCK_NAME='ep-sample-util'/);
+  assert.match(ownership,/navigatorRef\.locks\.request\(lockName,\{ifAvailable:true\}/);
+  assert.match(ownership,/DEFAULT_CHANNEL_NAME='speeduppercut-ep-session'/);
+  assert.match(ownership,/BroadcastChannelRef/);
+  assert.match(ownership,/post\('owner'\)/);
+  assert.match(ownership,/post\('release'\)/);
+  assert.match(lifecycle,/OPEN IN ANOTHER KO-TOOL TAB/);
+  assert.match(lifecycle,/CLOSE OTHER EP TOOLS BEFORE FILE OPERATIONS/);
+  assert.match(lifecycle,/await ownership\.acquire\(\)/);
   assert.match(ui,/connectionLifecycle\.start\(\)/);
+  assert.match(ui,/setSessionNotice:message=>setStatus\(message\)/);
 });
 
 test('My EP normal upload commits local metadata without blocking on post-upload readback',async()=>{
@@ -473,6 +479,8 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleMoveController=await read('js/ep133/ui/sampleMoveController.js');
   const sampleCopyController=await read('js/ep133/ui/sampleCopyController.js');
   const sampleStore=await read('js/ep133/sampleStore.js');
+  const deviceSessionOwnership=await read('js/ep133/ui/deviceSessionOwnership.js');
+  const connectionLifecycle=await read('js/ep133/ui/connectionLifecycle.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
@@ -487,6 +495,8 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
   assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
+  assert.equal(connectionLifecycle.includes("./deviceSessionOwnership.js?v="+token),true);
+  assert.equal(deviceSessionOwnership.includes("ep-sample-util"),true);
   assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleReadController.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleDeleteController.js?v="+token),true);

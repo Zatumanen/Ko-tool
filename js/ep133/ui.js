@@ -374,6 +374,7 @@ export function initEp133Browser({showError}={}){
     isConnected,
     isUnsafe:()=>deviceUnsafe,
     setConnectionOverlay,
+    setSessionNotice:message=>setStatus(message),
     showError:message=>showError?.(message),
     logTechnical
   });
