@@ -151,7 +151,12 @@ test('connection lifecycle does not request MIDI until armed and keeps reconnect
     connectEp133:async()=>{connectCalls++;},
     isConnected:()=>false,
     isUnsafe:()=>false,
-    navigatorRef:{},
+    sessionOwnership:{
+      start(){},
+      async acquire(){return true;},
+      dispose(){},
+      getState(){return{owned:true,blocked:false};}
+    },
     windowRef:{addEventListener:(type,listener)=>{if(type==='beforeunload')beforeUnload.push(listener);}},
     setIntervalFn:(callback,ms)=>{intervalCallback=callback;intervalMs=ms;return 77;},
     clearIntervalFn:id=>{cleared=id;}
@@ -185,7 +190,12 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
     },
     isConnected:()=>false,
     isUnsafe:()=>false,
-    navigatorRef:{},
+    sessionOwnership:{
+      start(){},
+      async acquire(){return true;},
+      dispose(){},
+      getState(){return{owned:true,blocked:false};}
+    },
     windowRef:{addEventListener(){}},
     setIntervalFn:()=>1,
     clearIntervalFn(){},
