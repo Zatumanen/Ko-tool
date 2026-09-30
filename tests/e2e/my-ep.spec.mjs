@@ -23,7 +23,7 @@ const openMyEp=async page=>{
   await expect.poll(()=>page.evaluate(()=>{
     const status=document.querySelector('#ep133-status')?.textContent||'';
     const overlay=document.querySelector('#ep133-connection-overlay')?.textContent||'';
-    if(status.includes('SYNCED')&&overlay==='')return'SYNCED';
+    if(status.startsWith('SYNCED ·')&&!status.includes('LOADING')&&overlay==='')return'SYNCED';
     return JSON.stringify({
       status,
       overlay,
