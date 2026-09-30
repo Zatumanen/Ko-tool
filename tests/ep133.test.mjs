@@ -247,7 +247,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -336,10 +336,12 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleDeleteController=await read('js/ep133/ui/sampleDeleteController.js');
   const sampleUploadController=await read('js/ep133/ui/sampleUploadController.js');
   const sampleMoveController=await read('js/ep133/ui/sampleMoveController.js');
+  const sampleCopyController=await read('js/ep133/ui/sampleCopyController.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
   assert.equal(ui.includes("./ui/sampleMoveController.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleCopyController.js?v="+token),true);
   assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
   assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
   assert.equal(ui.includes("./sampleMetadataCache.js?v="+token),true);
@@ -359,6 +361,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(sampleUploadController.includes("../audio.js?v="+token),true);
   assert.equal(sampleUploadController.includes("./fileModel.js?v="+token),true);
   assert.doesNotMatch(sampleMoveController,/from [\'\"]/);
+  assert.doesNotMatch(sampleCopyController,/from [\'\"]/);
   assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
   assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
@@ -681,12 +684,12 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
   const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const copySource=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
   assert.match(filesystemSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
   assert.match(filesystemSource,/filename:wireName/);
-  const uiSource=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(uiSource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
-  assert.match(uiSource,/created\.push\(createdId\)/);
-  assert.match(uiSource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
+  assert.match(copySource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
+  assert.match(copySource,/if\(!created\.includes\(createdId\)\)created\.push\(createdId\)/);
+  assert.match(copySource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
 test('EP uploads validate metadata before one guarded PUT metadata SET FILE_INIT transaction',async()=>{
@@ -732,13 +735,9 @@ test('My EP native MOVE never falls back to copy-delete or PCM readback',async()
   const start=ui.indexOf('const transactionalTransfer=async');
   const block=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
   assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
-  assert.doesNotMatch(block,/NATIVE FILE_MOVE FAILED/);
-  assert.doesNotMatch(block,/sourceSnapshots/);
-  assert.doesNotMatch(block,/deletePhase/);
-  assert.doesNotMatch(block,/if\(!copy\)\{/);
-  const beforeCopy=block.slice(0,block.indexOf("if(sources.some"));
-  assert.doesNotMatch(beforeCopy,/getFile\(/);
-  assert.doesNotMatch(beforeCopy,/deleteFile\(/);
+  assert.match(block,/return copyTransfer\(plan,sourceById,sources\)/);
+  assert.doesNotMatch(block,/getFile\(/);
+  assert.doesNotMatch(block,/deleteFile\(/);
   assert.doesNotMatch(move,/getFile\(/);
   assert.doesNotMatch(move,/deleteFile\(/);
 });
@@ -774,11 +773,19 @@ test('My EP aborts batches when the connected MIDI session changes',async()=>{
   const fs=await import('node:fs/promises');
   const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const batchControllers=await Promise.all([
+    '../js/ep133/ui/sampleLibrarySync.js',
+    '../js/ep133/ui/sampleReadController.js',
+    '../js/ep133/ui/sampleDeleteController.js',
+    '../js/ep133/ui/sampleUploadController.js',
+    '../js/ep133/ui/sampleMoveController.js',
+    '../js/ep133/ui/sampleCopyController.js'
+  ].map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
   const {createSessionGuard}=await import('../js/ep133/ui/sessionGuard.js');
   assert.match(device,/export function getDeviceSessionToken\(\)/);
   assert.match(device,/connectionEpoch,output\?\.id/);
   assert.match(ui,/createSessionGuard\(getDeviceSessionToken\)/);
-  assert.match(ui,/assertBatchSession\(sessionToken\)/);
+  for(const source of batchControllers)assert.match(source,/assertBatchSession\(sessionToken\)/);
   let token='session-a';
   const guard=createSessionGuard(()=>token);
   const captured=guard.captureBatchSession();
@@ -1991,10 +1998,10 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
   assert.match(source,/key==='sound\.bars'&&profile\.sampleBars\?\.authoring!==true/);
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
+  const copies=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
   assert.match(uploads,/barWriteMode:'omit'/);
-  assert.match(ui,/barWriteMode:'preserve'/);
+  assert.match(copies,/barWriteMode:'preserve'/);
 });
 
 test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
