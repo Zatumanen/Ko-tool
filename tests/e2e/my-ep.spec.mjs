@@ -65,8 +65,10 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
   await page.locator('[data-slot="7"] [data-name-input]').press('Enter');
   await expect.poll(()=>page.evaluate(()=>{
     const mutation=window.__fakeEp.requestLog.find(item=>item.command===5&&item.sub===7&&item.type===1);
+    const error=document.querySelector('#error-message')?.textContent||'';
+    const technical=document.querySelector('#log-tab')?.textContent||'';
     return mutation?{sent:true,id:(mutation.raw[2]<<8)|mutation.raw[3],raw:mutation.raw}:{
-      sent:false,requests:window.__fakeEp.requestLog
+      sent:false,error,technical,requests:window.__fakeEp.requestLog
     };
   }),{message:'Rename should send FILE METADATA SET',timeout:7000}).toMatchObject({sent:true,id:7});
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(x=>x.id===7)?.meta?.name),{
@@ -131,10 +133,17 @@ test('strict mutation firmware debug enters the unsafe recovery state in the bro
   await input.dblclick();
   await page.locator('[data-slot="7"] [data-name-input]').fill('unsafe-test');
   await page.locator('[data-slot="7"] [data-name-input]').press('Enter');
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.requestLog.some(item=>item.command===5&&item.sub===7&&item.type===1)),{
+  await expect.poll(()=>page.evaluate(()=>{
+    const sent=window.__fakeEp.requestLog.some(item=>item.command===5&&item.sub===7&&item.type===1);
+    return sent?'sent':JSON.stringify({
+      error:document.querySelector('#error-message')?.textContent||'',
+      technical:document.querySelector('#log-tab')?.textContent||'',
+      requests:window.__fakeEp.requestLog
+    });
+  }),{
     message:'Unsafe scenario should reach the strict METADATA SET mutation',
     timeout:7000
-  }).toBe(true);
+  }).toBe('sent');
 
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('POWER CYCLE EP · THEN RELOAD');
   await expect(page.locator('#ep133-status')).toContainText('EP FILE SAFETY LOCK');
