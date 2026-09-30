@@ -4,6 +4,7 @@ import{createFeedbackController}from '../js/ep133/ui/feedback.js';
 import{createFileEventController}from '../js/ep133/ui/fileEvents.js';
 import{createConnectionLifecycle}from '../js/ep133/ui/connectionLifecycle.js';
 import{createSampleLibrarySyncController}from '../js/ep133/ui/sampleLibrarySync.js';
+import{createSamplePropertiesController}from '../js/ep133/ui/samplePropertiesController.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -322,4 +323,134 @@ test('sample library sync fails closed when the /sounds node is missing',async()
   assert.equal(synchronized,false);
   assert.equal(metadataHydrating,false);
   assert.equal(reported,'COULD NOT READ EP SAMPLE LIBRARY.');
+});
+
+
+test('sample properties controller debounces optimistic writes and confirms playmode with release',async()=>{
+  const timers=[];
+  const writes=[];
+  const cacheWrites=[];
+  const slot={
+    id:7,nodeId:7,file:{name:'kick'},node:{isWritable:true},
+    meta:{'sound.playmode':'oneshot','envelope.release':44}
+  };
+  const memory={
+    getSlot:id=>Number(id)===7?slot:null,
+    mergeMetadata(id,metadata){Object.assign(slot.meta,metadata);},
+    setMetadata(id,metadata){slot.meta={...metadata};}
+  };
+  const controller=createSamplePropertiesController({
+    properties:null,propertiesGrid:null,
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({
+      name:'K.O. II',advancedSampleMetadataWrites:true,
+      playModes:['oneshot','key','legato'],
+      sampleBars:{authoring:false,writeValues:[]}
+    }),
+    isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
+    setFileMetadata:async(id,payload)=>{writes.push({id,payload:{...payload}});},
+    getFileMetadata:async()=>({
+      'sound.playmode':'key','envelope.release':44,channels:1,samplerate:46875,format:'s16'
+    }),
+    sampleMetadataCache:{set(slotValue,metadata){cacheWrites.push({slot:slotValue,metadata:{...metadata}});}},
+    showError(){},logTechnical(){},
+    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},
+    clearTimeoutFn(){},
+    debounceMs:120
+  });
+
+  controller.scheduleWrite(slot,'sound.playmode','key');
+  assert.equal(slot.meta['sound.playmode'],'key');
+  assert.equal(controller.hasPendingWrites(),true);
+  assert.equal(timers.length,1);
+
+  await timers.shift()();
+
+  assert.deepEqual(writes,[{id:7,payload:{'sound.playmode':'key','envelope.release':44}}]);
+  assert.equal(controller.hasPendingWrites(),false);
+  assert.equal(cacheWrites.length,1);
+  assert.equal(slot.meta['sound.playmode'],'key');
+  assert.equal(slot.meta['envelope.release'],44);
+});
+
+test('sample properties controller restores authoritative metadata after failed verification',async()=>{
+  const timers=[];
+  const errors=[];
+  const technical=[];
+  let reads=0;
+  const slot={
+    id:9,nodeId:9,file:{name:'snare'},node:{isWritable:true},
+    meta:{'sound.pitch':0}
+  };
+  const memory={
+    getSlot:id=>Number(id)===9?slot:null,
+    mergeMetadata(id,metadata){Object.assign(slot.meta,metadata);},
+    setMetadata(id,metadata){slot.meta={...metadata};}
+  };
+  const controller=createSamplePropertiesController({
+    properties:null,propertiesGrid:null,
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({
+      name:'K.O. II',advancedSampleMetadataWrites:true,
+      playModes:['oneshot','key','legato'],
+      sampleBars:{authoring:false,writeValues:[]}
+    }),
+    isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
+    setFileMetadata:async()=>{},
+    getFileMetadata:async()=>{
+      reads+=1;
+      return{'sound.pitch':0,channels:1,samplerate:46875,format:'s16'};
+    },
+    sampleMetadataCache:{set(){}},
+    showError:message=>errors.push(message),
+    logTechnical:(label,error)=>technical.push([label,String(error?.message||error)]),
+    setTimeoutFn:callback=>{timers.push(callback);return timers.length;},
+    clearTimeoutFn(){},
+    debounceMs:120
+  });
+
+  controller.scheduleWrite(slot,'sound.pitch',1);
+  assert.equal(slot.meta['sound.pitch'],1);
+  assert.equal(controller.getPendingCount(),1);
+
+  await timers.shift()();
+
+  assert.equal(reads,2);
+  assert.equal(slot.meta['sound.pitch'],0);
+  assert.equal(controller.getPendingCount(),0);
+  assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.']);
+  assert.match(technical[0][0],/PROPERTY sound\.pitch/);
+});
+
+test('sample properties controller owns open-slot state and remaps it after native MOVE',()=>{
+  const grid={innerHTML:'',addEventListener(){}};
+  const panel={
+    hidden:true,style:{left:'',top:''},
+    getBoundingClientRect:()=>({width:120,height:100})
+  };
+  const slot={id:7,nodeId:7,file:{name:'kick'},node:{isWritable:true},meta:{'sound.pitch':0}};
+  const memory={getSlot:id=>Number(id)===7?slot:null};
+  const controller=createSamplePropertiesController({
+    properties:panel,propertiesGrid:grid,
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({
+      name:'K.O. II',advancedSampleMetadataWrites:true,
+      playModes:['oneshot','key','legato'],
+      sampleBars:{authoring:false,writeValues:[]}
+    }),
+    isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
+    setFileMetadata:async()=>{},getFileMetadata:async()=>({}),
+    sampleMetadataCache:{set(){}},showError(){},logTechnical(){},
+    documentRef:{addEventListener(){},removeEventListener(){}},
+    windowRef:{innerWidth:800,innerHeight:600}
+  });
+
+  controller.open(slot,{clientX:20,clientY:30});
+  assert.equal(panel.hidden,false);
+  assert.equal(controller.getCurrentSlotId(),7);
+  controller.remapCurrentSlot(7,18);
+  assert.equal(controller.getCurrentSlotId(),18);
+  controller.close();
+  assert.equal(controller.getCurrentSlotId(),null);
+  assert.equal(panel.hidden,true);
 });
