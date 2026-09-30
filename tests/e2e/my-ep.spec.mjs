@@ -14,6 +14,9 @@ const openMyEp=async page=>{
   expect(await page.evaluate(()=>window.__fakeEp.midiAccessRequests.length)).toBe(0);
   await page.locator('#my-ep-icon').click();
   await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','false');
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.midiAccessRequests.length),{
+    message:'My EP should request Web MIDI after acquiring the device session'
+  }).toBe(1);
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('');
   await expect(page.locator('#ep133-status')).toContainText('SYNCED');
   await expect(page.locator('.ep133-sample-row.occupied')).toHaveCount(2);
