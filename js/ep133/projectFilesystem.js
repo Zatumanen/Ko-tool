@@ -6,6 +6,7 @@ import{
   assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported
 }from './projectProfile.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
+import{createProjectRecoveryCheckpoint}from './projectRecovery.js?v=20260930-5';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const positiveActive=value=>{
@@ -41,7 +42,8 @@ export function createProjectFilesystem({
   getFile,
   putFile,
   getFileMetadata,
-  setFileMetadata
+  setFileMetadata,
+  recoveryStore
 }={}){
   const required={
     runFileOperation,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
@@ -49,8 +51,15 @@ export function createProjectFilesystem({
   };
   for(const[name,value]of Object.entries(required))
     if(typeof value!=='function')throw new TypeError('Project filesystem dependency '+name+' is required.');
+  for(const method of ['saveCheckpoint','updateCheckpoint','getCheckpoint','listCheckpoints','deleteCheckpoint'])
+    if(typeof recoveryStore?.[method]!=='function')
+      throw new TypeError('Project filesystem recoveryStore.'+method+' is required.');
 
   const projectRuntimeGate=createProjectRuntimeGate();
+  const updateRecoveryCheckpoint=async(id,patch)=>{
+    try{return await recoveryStore.updateCheckpoint(id,patch);}
+    catch{return null;}
+  };
 
   const connectedProjectProfile=(mode='transport')=>{
     const info=getConnectedDeviceInfo();
@@ -149,6 +158,8 @@ export function createProjectFilesystem({
     const project=match[1];
     const data=new Uint8Array(await file.arrayBuffer());
     if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
+    const deviceInfo=getConnectedDeviceInfo();
+    if(!deviceInfo)throw new Error('EP-series device is not connected.');
     const profile=connectedProjectProfile('transport');
     if(profile.projectAuthoring)validateProjectArchive(data,{profile});
     else parseProjectArchive(data);
@@ -177,8 +188,6 @@ export function createProjectFilesystem({
     const activation=profile.projectReloadVerified&&performReload
       ?await captureProjectActivation(destination.nodeId,parent.nodeId)
       :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
-    await onBackup?.({project,name:backup.name,size:backup.size,data:backup.data.slice()});
-
     let activeProjectBeforeWrite=null;
     if(requireInactive||expectedActiveProjectFid!=null){
       activeProjectBeforeWrite=assertProjectWriteActiveGuard({
@@ -189,6 +198,22 @@ export function createProjectFilesystem({
       });
     }
 
+    const recoveryCheckpoint=createProjectRecoveryCheckpoint({
+      device:deviceInfo,
+      projectNumber:project,
+      destinationFid:destination.nodeId,
+      parentFid:parent.nodeId,
+      backup,
+      candidate:data,
+      activation,
+      operation:'project-write'
+    });
+    await recoveryStore.saveCheckpoint(recoveryCheckpoint);
+    await onBackup?.({
+      project,name:backup.name,size:backup.size,data:backup.data.slice(),
+      recoveryCheckpointId:recoveryCheckpoint.id
+    });
+
     let candidateWritten=false;
     try{
       await putFile({
@@ -196,6 +221,7 @@ export function createProjectFilesystem({
         metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]
       });
       candidateWritten=true;
+      await updateRecoveryCheckpoint(recoveryCheckpoint.id,{status:'candidate-written'});
       await initFileSystem();
 
       const readback=await getFile(destination.nodeId);
@@ -209,6 +235,10 @@ export function createProjectFilesystem({
           activePad:activation.activePad
         })
         :null;
+      const verifiedCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+        status:'verified',
+        verifiedAt:new Date().toISOString()
+      });
       return{
         project,
         fileId:destination.nodeId,
@@ -216,10 +246,20 @@ export function createProjectFilesystem({
         reload,
         sampleDependencies,
         activeProjectBeforeWrite,
-        backup:{name:backup.name,size:backup.size}
+        backup:{name:backup.name,size:backup.size},
+        recoveryCheckpoint:{
+          id:recoveryCheckpoint.id,
+          status:verifiedCheckpoint?.status||'candidate-written'
+        }
       };
     }catch(error){
-      if(!candidateWritten||isDeviceUnsafe())throw error;
+      if(!candidateWritten||isDeviceUnsafe()){
+        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+          status:'requires-recovery',
+          error:String(error?.message||error)
+        });
+        throw error;
+      }
       try{
         await putFile({
           data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
@@ -236,9 +276,20 @@ export function createProjectFilesystem({
           }
         );
         error.projectRollbackSucceeded=true;
+        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+          status:'rolled-back',
+          rollbackAt:new Date().toISOString(),
+          error:String(error?.message||error)
+        });
       }catch(rollbackError){
         error.projectRollbackSucceeded=false;
         error.rollbackError=rollbackError;
+        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+          status:'rollback-failed',
+          rollbackAt:new Date().toISOString(),
+          error:String(error?.message||error),
+          rollbackError:String(rollbackError?.message||rollbackError)
+        });
         markDeviceUnsafe(
           'Project rollback failed after a project write verification error: '+
           String(rollbackError?.message||rollbackError)
@@ -247,6 +298,10 @@ export function createProjectFilesystem({
       throw error;
     }
   },'project write transaction'));
+
+  const getProjectRecoveryCheckpoint=id=>recoveryStore.getCheckpoint(id);
+  const listProjectRecoveryCheckpoints=()=>recoveryStore.listCheckpoints();
+  const deleteProjectRecoveryCheckpoint=id=>recoveryStore.deleteCheckpoint(id);
 
   const downloadProjectArchive=async(path,onProgress)=>
     runFileOperation(async()=>{
@@ -263,6 +318,9 @@ export function createProjectFilesystem({
     assertProjectRuntimeSettled,
     reloadProjectArchive,
     uploadProjectArchive,
-    downloadProjectArchive
+    downloadProjectArchive,
+    getProjectRecoveryCheckpoint,
+    listProjectRecoveryCheckpoints,
+    deleteProjectRecoveryCheckpoint
   };
 }
