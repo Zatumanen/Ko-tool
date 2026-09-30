@@ -989,7 +989,7 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
       slot.meta={...metadata};
       actions.push(['set-meta',Number(id),metadata.name]);
     },
-    setOperation(id,state)=>actions.push(['op',Number(id),state.label,state.progress]),
+    setOperation(id,state){actions.push(['op',Number(id),state.label,state.progress]);},
     clearOperation:id=>actions.push(['clear-op',Number(id)]),
     clearOperations:()=>actions.push(['clear-ops']),
     countOccupied:()=>[...slots.values()].filter(slot=>slot.file).length
