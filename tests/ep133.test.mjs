@@ -752,7 +752,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
   const fs=await import('node:fs/promises');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
-  assert.match(ui,/const assertSlotsDeleted=async ids=>/);
+  assert.match(ui,/const assertSlotsDeleted=async\(ids,fileOps=null\)=>/);
   assert.match(ui,/const files=await readAuthoritativeFiles\(\)/);
   assert.match(source,/await assertDeleteTargetUnchanged\(slot\)/);
   assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\)\)/);
@@ -2310,7 +2310,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   assert.match(source,/await listDirectory\(soundsParentId,'\/sounds'\)/);
   assert.doesNotMatch(source,/listDeviceFiles\(/);
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ui,/readAuthoritativeFiles=async\(\)=>\{[\s\S]*listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.match(ui,/readAuthoritativeFiles=async\(fileOps=null\)=>\{[\s\S]*const list=fileOps\?\.listDirectory\|\|listDirectory[\s\S]*list\(soundsParentId,'\/sounds'\)/);
 });
 
 test('My EP drag reorder does not require sample READ capability',async()=>{

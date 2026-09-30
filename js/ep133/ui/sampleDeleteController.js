@@ -52,7 +52,7 @@ export function createSampleDeleteController({
     setMutating(true);
 
     try{
-      await runDeleteTransaction(async fileOps=>{
+      return await runDeleteTransaction(async fileOps=>{
       for(let index=0;index<canonicalTargets.length;index++){
         assertBatchSession(sessionToken);
         const slot=canonicalTargets[index];

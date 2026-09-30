@@ -577,17 +577,22 @@ test('sample delete controller blocks deletion while a property write is pending
 test('sample upload controller batches one preflight and commits provisional metadata without blocking readback',async()=>{
   const actions=[],timers=[],sampleStore=createSampleStore();
   sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:1,fileName:'/sounds/occupied',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:3,fileName:'/sounds/occupied3',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
-  let soundsMetadata={free_space_in_bytes:100};let batchCalls=0,preflights=0,refreshCalls=0;
+  let soundsMetadata={free_space_in_bytes:100};let transactionCalls=0,preflights=0,refreshCalls=0;
   const uploaded=[],pending=[];const memory={selectSlots:(ids,options)=>actions.push(['select',[...ids],options.activeId])};
+  const uploadSampleToSlot=async options=>{uploaded.push(options.destinationId);options.onCreated?.(options.destinationId);options.onProgress?.(options.data.byteLength,options.data.byteLength);return options.destinationId;};
+  const deleteFile=async()=>{};
   const controller=createSampleUploadController({
     sampleStore,getMemory:()=>memory,getSoundsParentId:()=>1000,getSoundFormats:()=>[{type:'pcm'}],getSoundsMetadata:()=>soundsMetadata,
     setSoundsMetadata:value=>{soundsMetadata=value;actions.push(['free',value.free_space_in_bytes]);},
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
     isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
     setMutating:value=>actions.push(['mutating',value]),setGlobalProgress(){},hideGlobalProgress:()=>actions.push(['hide']),
-    withSampleUploadBatch:async op=>{batchCalls++;return op();},assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
+    withFileTransaction:async(label,op,options)=>{
+      transactionCalls++;assert.equal(label,'sample upload batch');assert.equal(options.strict,true);
+      return op({uploadSampleToSlot,deleteFile});
+    },assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
     refreshSoundsRuntimeMetadata:async()=>{refreshCalls++;return soundsMetadata;},
-    uploadSampleToSlot:async options=>{uploaded.push(options.destinationId);options.onCreated?.(options.destinationId);options.onProgress?.(options.data.byteLength,options.data.byteLength);return options.destinationId;},
+    uploadSampleToSlot,deleteFile,
     prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
     fileItemFromInfo:()=>{throw new Error('hydrate should be deferred');},getFileInfo:async()=>{throw new Error('success path must not read FILE_INFO');},getFileMetadata:async()=>{throw new Error('success path must not read metadata');},
     renderDeviceStats(){},markUploadPending:id=>pending.push(['mark',id]),clearUploadPending:id=>pending.push(['clear',id]),
@@ -596,7 +601,7 @@ test('sample upload controller batches one preflight and commits provisional met
     setTimeoutFn:(callback,delay)=>{timers.push({callback,delay});return timers.length;}
   });
   const result=await controller.uploadFilesToSlot(sampleStore.getSlot(1),[{name:'A.wav',type:'audio/wav'},{name:'B.wav',type:'audio/wav'}]);
-  assert.deepEqual(result.successes,[2,4]);assert.deepEqual(uploaded,[2,4]);assert.equal(batchCalls,1);assert.equal(preflights,1);
+  assert.deepEqual(result.successes,[2,4]);assert.deepEqual(uploaded,[2,4]);assert.equal(transactionCalls,1);assert.equal(preflights,1);
   assert.equal(soundsMetadata.free_space_in_bytes,70);
   assert.equal(sampleStore.getSlot(2).meta.name,'a');assert.equal(sampleStore.getSlot(4).meta.name,'b');
   assert.equal(sampleStore.getSlot(2).state,'provisional');assert.equal(sampleStore.getSlot(2).verification.metadata,'provisional');
@@ -612,11 +617,16 @@ test('sample upload controller rolls back a created slot through DELETE metadata
     getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({free_space_in_bytes:100}),setSoundsMetadata(){},
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
     isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,captureBatchSession:()=> 'session-a',assertBatchSession(){},
-    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},withSampleUploadBatch:async op=>op(),assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
-    uploadSampleToSlot:async options=>{options.onCreated?.(2);throw new Error('simulated stream failure');},
+    setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    withFileTransaction:async(label,op,options)=>op({
+      uploadSampleToSlot:async uploadOptions=>{uploadOptions.onCreated?.(2);throw new Error('simulated stream failure');},
+      deleteFile:async id=>actions.push(['delete',id])
+    }),
+    assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:100}),
+    uploadSampleToSlot:async()=>{throw new Error('public upload should not run');},
     prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x.toLowerCase(),fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
     renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
-    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async id=>actions.push(['delete',id]),syncMetadataAfterMutation:async()=>actions.push(['sync']),
+    waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{throw new Error('public delete should not run');},syncMetadataAfterMutation:async()=>actions.push(['sync']),
     assertSlotsDeleted:async ids=>actions.push(['verify',...ids]),logTechnical(){},showError:message=>{shown=message;},
     prepareSample:async()=>({data:new Uint8Array(10),channels:1,samplerate:46875,format:'s16',metadata:{}}),setTimeoutFn:()=>1
   });
@@ -633,7 +643,7 @@ test('sample upload controller rejects unsupported files and insufficient forwar
     sampleStore,getMemory:()=>({}),getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({}),setSoundsMetadata(){},
     getActiveDeviceProfile:()=>({playModes:[],advancedSampleMetadataWrites:false}),isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
     captureBatchSession:()=> 'session-a',assertBatchSession(){},setMutating(){mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
-    withSampleUploadBatch:async op=>{batches++;return op();},assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
+    withFileTransaction:async(label,op)=>{batches++;return op({uploadSampleToSlot:async()=>{},deleteFile:async()=>{}});},assertSlotsEmpty:async()=>{},refreshSoundsRuntimeMetadata:async()=>({}),
     uploadSampleToSlot:async()=>{},prepareSampleLocalMetadata:x=>x,normalizeFileName:x=>x,fileItemFromInfo(){},getFileInfo:async()=>({}),getFileMetadata:async()=>({}),
     renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},
     assertSlotsDeleted:async()=>{},logTechnical(){},showError(){},prepareSample:async()=>({})
