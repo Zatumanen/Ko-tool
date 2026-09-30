@@ -392,7 +392,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
-  assert.match(source,/const soundsMetadata=await getFileMetadata\(soundsParentId\)/);
+  assert.match(source,/withFileTransaction\('sample library bootstrap',operation\)/);
+  assert.match(source,/fileOps\.listDirectory\(0,'\/'\)/);
+  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.match(source,/const soundsMetadata=await fileOps\.getFileMetadata\(soundsParentId\)/);
   assert.match(source,/const activeTabs=Array\.isArray\(soundsMetadata\?\.tabs\)[\s\S]*activeDeviceProfile\.fallbackTabs/);
   assert.match(source,/memory\.setTabs\(activeTabs\)/);
 });
@@ -836,12 +839,15 @@ test('EP sample reorder uses one native FILE_MOVE transaction and resolves the a
   assert.doesNotMatch(transferBlock,/NATIVE FILE_MOVE FAILED/);
 });
 
-test('My EP suppresses its own FILE_MOVED event but still syncs external moves incrementally',async()=>{
+test('My EP suppresses its own FILE_MOVED event and reconciles external moves in one read lease',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
   assert.match(source,/const pendingNativeMoveEvents=new Set\(\)/);
   assert.match(source,/pendingNativeMoveEvents\.has\(key\)\)return/);
+  assert.match(source,/withFileTransaction\('FILE event reconciliation',operation\)/);
+  assert.match(source,/const info=await fileOps\.getFileInfo\(newId\)/);
+  assert.match(source,/metadata=await fileOps\.getFileMetadata\(newId\)/);
   assert.match(source,/event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED[\s\S]*await syncMovedFile\(payload\)/);
   const movedBlock=source.match(/if\(event\.type===TE_SYSEX_FILE_EVENT_FILE_MOVED\)\{[\s\S]*?\n      \}/)?.[0]||'';
   assert.doesNotMatch(movedBlock,/readDevice\(/);
@@ -2017,8 +2023,9 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   assert.match(helpers,/data-readonly="true"/);
   assert.match(helpers,/export const PROPERTY_DEBOUNCE_MS=120/);
   assert.match(source,/payload\['envelope\.release'\]=Number\.isFinite\(release\)\?release:255/);
-  assert.match(source,/await setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
-  assert.match(source,/const readback=await getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
+  assert.match(source,/withFileTransaction\('sample property write',operation,\{strict:true\}\)/);
+  assert.match(source,/await fileOps\.setFileMetadata\(slot\.nodeId\|\|slot\.id,payload\)/);
+  assert.match(source,/const readback=await fileOps\.getFileMetadata\(slot\.nodeId\|\|slot\.id\)/);
   assert.match(source,/if\(!matches\)throw new Error\('EP did not confirm sample property '\+key\+'\.'\)/);
   assert.match(source,/key==='sound\.bars'&&profile\.sampleBars\?\.authoring!==true/);
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
@@ -2074,16 +2081,18 @@ test('My EP search highlights matches without filtering the current folder rows'
   assert.doesNotMatch(source,/\.filter\(slot=>\{\s*if\(!query/);
 });
 
-test('EP sample rename uses the reference METADATA SET name payload',async()=>{
-  const {normalizeFileName,buildMetadataSetPayload}=await import('../js/ep133/filesystem.js');
-  const name=normalizeFileName('Snärë Renamed.wav');
-  assert.equal(name,'snare renamed');
-  const payload=buildMetadataSetPayload(7,{name});
-  assert.equal(payload[0],7);
-  assert.equal(payload[1],1);
-  assert.equal(new DataView(payload.buffer).getUint16(2),7);
-  const end=payload.indexOf(0,4);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(payload.slice(4,end))),{name:'snare renamed'});
+test('EP sample rename uses one strict METADATA SET/readback transaction',async()=>{
+  const fs=await import('node:fs/promises');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const start=ui.indexOf('onRename:async(slot,value)=>');
+  const block=ui.slice(start,ui.indexOf('onDownload:',start));
+  assert.match(block,/const canonical=sampleStore\.getSlot\(slot\?\.id\)/);
+  assert.match(block,/withFileTransaction\('sample rename transaction',[\s\S]*\{strict:true\}\)/);
+  assert.match(block,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+  assert.match(block,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
+  assert.match(block,/sampleStore\.setMetadata\(canonical\.id,readback,\{verification:'verified'\}\)/);
+  assert.doesNotMatch(block,/await setFileMetadata\(/);
+  assert.doesNotMatch(block,/await getFileMetadata\(/);
 });
 
 test('EP sample filename normalization matches the device naming rules',async()=>{
@@ -2305,12 +2314,16 @@ test('My EP exposes the sample library before prioritized metadata hydration com
 
 test('My EP initial sample sync lists only root and the direct \/sounds directory',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
-  assert.match(source,/await listDirectory\(0,'\/'\)/);
-  assert.match(source,/await listDirectory\(soundsParentId,'\/sounds'\)/);
-  assert.doesNotMatch(source,/listDeviceFiles\(/);
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(ui,/readAuthoritativeFiles=async\(fileOps=null\)=>\{[\s\S]*const list=fileOps\?\.listDirectory\|\|listDirectory[\s\S]*list\(soundsParentId,'\/sounds'\)/);
+  const [source,ui]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+  ]);
+  assert.match(source,/runBootstrap\(async fileOps=>\{/);
+  assert.match(source,/fileOps\.listDirectory\(0,'\/'\)/);
+  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.doesNotMatch(source,/listDeviceFiles/);
+  assert.doesNotMatch(source,/listDirectory\([^)]*\/projects/);
+  assert.match(ui,/withFileTransaction,listDirectory,getFileMetadata/);
 });
 
 test('My EP drag reorder does not require sample READ capability',async()=>{
@@ -2544,4 +2557,53 @@ test('sample MOVE and COPY resync only after their FILE transaction lease exits'
     const resync=source.indexOf('await readDevice()');
     assert.ok(transactionEnd>=0&&resync>transactionEnd);
   }
+});
+
+
+test('remaining compound sample reads and verification windows use FILE transaction leases',async()=>{
+  const fs=await import('node:fs/promises');
+  const [library,properties,reads,uploads,events,ui]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+  ]);
+  assert.match(library,/withFileTransaction\('sample library bootstrap',operation\)/);
+  assert.match(properties,/withFileTransaction\('sample property write',operation,\{strict:true\}\)/);
+  assert.match(reads,/withFileTransaction\('sample download read',operation\)/);
+  assert.match(uploads,/withFileTransaction\('sample upload hydration',operation\)/);
+  assert.match(events,/withFileTransaction\('FILE event reconciliation',operation\)/);
+  assert.match(ui,/withFileTransaction\('sample rename transaction',[\s\S]*\{strict:true\}\)/);
+});
+
+test('project compound transport already occupies one FILE scheduler task with unlocked primitives',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+
+  const uploadStart=source.indexOf('export async function uploadProjectArchive');
+  const uploadEnd=source.indexOf('export async function downloadProjectArchive',uploadStart);
+  const upload=source.slice(uploadStart,uploadEnd);
+  assert.match(upload,/return runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
+  assert.match(upload,/await listDirectoryUnlocked\(/);
+  assert.match(upload,/await getFileUnlocked\(/);
+  assert.match(upload,/await putFileUnlocked\(/);
+  assert.doesNotMatch(upload,/await listDirectory\(/);
+  assert.doesNotMatch(upload,/await getFile\(/);
+  assert.doesNotMatch(upload,/await putFile\(/);
+
+  const downloadStart=uploadEnd;
+  const downloadEnd=source.indexOf('async function deleteFileUnlocked',downloadStart);
+  const download=source.slice(downloadStart,downloadEnd);
+  assert.match(download,/downloadProjectArchive[\s\S]*runFileOperation\(async\(\)=>/);
+  assert.match(download,/listDeviceFilesUnlocked\(\)/);
+  assert.match(download,/getFileUnlocked\(node\.nodeId,onProgress\)/);
+
+  const reloadStart=source.indexOf('export async function reloadProjectArchive');
+  const reloadEnd=source.indexOf('export function assertProjectWriteActiveGuard',reloadStart);
+  const reload=source.slice(reloadStart,reloadEnd);
+  assert.match(reload,/return runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
+  assert.match(reload,/listDirectoryUnlocked\(/);
+  assert.match(reload,/reloadProjectUnlocked\(/);
 });

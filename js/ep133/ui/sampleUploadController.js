@@ -18,13 +18,18 @@ export function createSampleUploadController({
   prepareSample=prepareEp133Sample,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
 }={}){
+  const runHydrationTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample upload hydration',operation)
+    :operation({getFileInfo,getFileMetadata});
   const hydrateUploadedFileItem=async nodeId=>{
     try{
-      const info=await getFileInfo(nodeId);
+      const{info,metadata}=await runHydrationTransaction(async fileOps=>({
+        info:await fileOps.getFileInfo(nodeId),
+        metadata:await fileOps.getFileMetadata(nodeId)
+      }));
       const item=fileItemFromInfo(info);
       if(!item)return;
       sampleStore.upsertFile(item,{state:'ready',verification:'verified'});
-      const metadata=await getFileMetadata(nodeId);
       sampleStore.setMetadata(nodeId,metadata||{},{verification:'verified'});
       renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
     }catch(error){

@@ -10,6 +10,7 @@ export function createFileEventController({
   getSoundsParentId,
   getSoundsMetadata,
   getCurrentPropertySlotId,
+  withFileTransaction,
   getFileInfo,
   getFileMetadata,
   fileItemFromInfo,
@@ -19,6 +20,9 @@ export function createFileEventController({
   closeProperties,
   logTechnical
 }={}){
+  const runEventReadTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('FILE event reconciliation',operation)
+    :operation({getFileInfo,getFileMetadata});
   const pendingNativeMoveEvents=new Set();
   const pendingUploadEvents=new Set();
   const nativeMoveEventKey=(oldNodeId,newNodeId)=>Number(oldNodeId)+':'+Number(newNodeId);
@@ -45,26 +49,33 @@ export function createFileEventController({
     const oldWasSound=!!oldItem&&/^\/sounds\/[^/]+$/.test(oldItem.fileName||'');
     const oldMeta=oldId>=1&&oldId<=999?sampleStore.getMetadata(oldId):null;
 
-    const info=await getFileInfo(newId);
-    const item=fileItemFromInfo(info);
+    const{item,newIsSound,metadata,metadataError}=await runEventReadTransaction(async fileOps=>{
+      const info=await fileOps.getFileInfo(newId);
+      const item=fileItemFromInfo(info);
+      if(!item)return{item:null,newIsSound:false,metadata:null,metadataError:null};
+      const newIsSound=
+        destinationParentId===Number(getSoundsParentId?.())&&
+        /^\/sounds\/[^/]+$/.test(item.fileName||'')&&
+        newId>=1&&newId<=999;
+      let metadata=null,metadataError=null;
+      if(newIsSound){
+        try{metadata=await fileOps.getFileMetadata(newId);}
+        catch(error){metadataError=error;}
+      }
+      return{item,newIsSound,metadata,metadataError};
+    });
     if(!item)return;
 
-    const newIsSound=
-      destinationParentId===Number(getSoundsParentId?.())&&
-      /^\/sounds\/[^/]+$/.test(item.fileName||'')&&
-      newId>=1&&newId<=999;
+    let resolvedMetadata=metadata;
+    if(newIsSound&&metadataError){
+      if(oldMeta)resolvedMetadata=oldMeta;
+      else logTechnical?.('MOVED SAMPLE METADATA '+newId,metadataError);
+    }
 
-    let metadata=null;
     if(newIsSound){
-      try{
-        metadata=await getFileMetadata(newId);
-      }catch(error){
-        if(oldMeta)metadata=oldMeta;
-        else logTechnical?.('MOVED SAMPLE METADATA '+newId,error);
-      }
       sampleStore.moveLocal(oldId,item,{
-        metadata,
-        verification:metadata?'verified':'unknown'
+        metadata:resolvedMetadata,
+        verification:resolvedMetadata?'verified':'unknown'
       });
     }else{
       sampleStore.removeFile(oldId);
@@ -95,17 +106,22 @@ export function createFileEventController({
         if(pendingUploadEvents.has(Number(payload.nodeId)))return;
         const nodeId=Number(payload.nodeId);
         sampleStore.invalidateMetadata(nodeId);
-        const info=await getFileInfo(nodeId);
-        const item=fileItemFromInfo(info);
+        const{item,metadata,metadataError}=await runEventReadTransaction(async fileOps=>{
+          const info=await fileOps.getFileInfo(nodeId);
+          const item=fileItemFromInfo(info);
+          if(!item)return{item:null,metadata:null,metadataError:null};
+          let metadata=null,metadataError=null;
+          if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
+            try{metadata=await fileOps.getFileMetadata(item.nodeId);}
+            catch(error){metadataError=error;}
+          }
+          return{item,metadata,metadataError};
+        });
         if(!item)return;
         sampleStore.upsertFile(item,{preserveMetadata:false});
         if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
-          try{
-            const metadata=await getFileMetadata(item.nodeId);
-            sampleStore.setMetadata(item.nodeId,metadata);
-          }catch(error){
-            logTechnical?.('SAMPLE EVENT METADATA '+item.nodeId,error);
-          }
+          if(metadata)sampleStore.setMetadata(item.nodeId,metadata);
+          else if(metadataError)logTechnical?.('SAMPLE EVENT METADATA '+item.nodeId,metadataError);
           renderDeviceStats?.(getSoundsMetadata?.()||{},sampleStore.countOccupied());
         }
         return;

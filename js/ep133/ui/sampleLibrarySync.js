@@ -3,13 +3,16 @@ import{prioritizeSampleSlots}from '../sampleStore.js?v=20260930-5';
 export function createSampleLibrarySyncController({
   captureBatchSession,assertBatchSession,
   getMemory,getActiveDeviceProfile,sampleStore,
-  listDirectory,getFileMetadata,
+  withFileTransaction,listDirectory,getFileMetadata,
   setSynchronized,setMetadataHydrating,
   updateMutationAvailability,closeProperties,
   setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
   reportError,logTechnical,
   scheduleHide=(callback,delay)=>setTimeout(callback,delay)
 }={}){
+  const runBootstrap=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample library bootstrap',operation)
+    :operation({listDirectory,getFileMetadata});
   const readDevice=async()=>{
     const memory=getMemory();
     const activeDeviceProfile=getActiveDeviceProfile();
@@ -31,23 +34,25 @@ export function createSampleLibrarySyncController({
       sampleStore.setSoundsParentId(0);
       sampleStore.setSoundsMetadata({});
 
-      const rootEntries=await listDirectory(0,'/');
-      assertBatchSession(sessionToken);
-      const soundsRoot=rootEntries.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
-      const soundsParentId=Number(soundsRoot?.nodeId)||0;
+      const{rootEntries,soundsParentId,soundEntries,soundsMetadata}=await runBootstrap(async fileOps=>{
+        const rootEntries=await fileOps.listDirectory(0,'/');
+        assertBatchSession(sessionToken);
+        const soundsRoot=rootEntries.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+        const soundsParentId=Number(soundsRoot?.nodeId)||0;
+        if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
+
+        const soundEntries=await fileOps.listDirectory(soundsParentId,'/sounds');
+        assertBatchSession(sessionToken);
+        const soundsMetadata=await fileOps.getFileMetadata(soundsParentId);
+        assertBatchSession(sessionToken);
+        return{rootEntries,soundsParentId,soundEntries,soundsMetadata};
+      });
+
       sampleStore.setSoundsParentId(soundsParentId);
-      if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
-
       setGlobalProgress('SYNC',4);
-      const soundEntries=await listDirectory(soundsParentId,'/sounds');
-      assertBatchSession(sessionToken);
-
       sampleStore.replaceFiles([...rootEntries,...soundEntries]);
       renderDeviceStats({},sampleStore.countOccupied());
       setGlobalProgress('SYNC',8);
-
-      const soundsMetadata=await getFileMetadata(soundsParentId);
-      assertBatchSession(sessionToken);
       sampleStore.setSoundsMetadata(soundsMetadata);
 
       const activeTabs=Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length

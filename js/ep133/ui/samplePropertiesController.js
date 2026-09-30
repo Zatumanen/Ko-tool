@@ -6,7 +6,7 @@ export function createSamplePropertiesController({
   properties,propertiesGrid,
   sampleStore,getActiveDeviceProfile,
   isConnected,isSynchronized,isMetadataHydrating,isMutating,
-  setFileMetadata,getFileMetadata,
+  withFileTransaction,setFileMetadata,getFileMetadata,
   showError,logTechnical,escapeHtml=String,
   documentRef=globalThis.document,windowRef=globalThis.window,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay),
@@ -14,6 +14,9 @@ export function createSamplePropertiesController({
   debounceMs=PROPERTY_DEBOUNCE_MS
 }={}){
   let currentPropertySlotId=null;
+  const runPropertyTransaction=operation=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample property write',operation,{strict:true})
+    :operation({setFileMetadata,getFileMetadata});
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
 
@@ -101,14 +104,16 @@ export function createSamplePropertiesController({
         payload['envelope.release']=Number.isFinite(release)?release:255;
       }
 
-      await setFileMetadata(slot.nodeId||slot.id,payload);
-      const readback=await getFileMetadata(slot.nodeId||slot.id);
-
-      for(const[key,value]of Object.entries(payload)){
-        const got=readback?.[key];
-        const matches=typeof value==='number'?Number(got)===Number(value):String(got)===String(value);
-        if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
-      }
+      const readback=await runPropertyTransaction(async fileOps=>{
+        await fileOps.setFileMetadata(slot.nodeId||slot.id,payload);
+        const readback=await fileOps.getFileMetadata(slot.nodeId||slot.id);
+        for(const[key,value]of Object.entries(payload)){
+          const got=readback?.[key];
+          const matches=typeof value==='number'?Number(got)===Number(value):String(got)===String(value);
+          if(!matches)throw new Error('EP did not confirm sample property '+key+'.');
+        }
+        return readback;
+      });
 
       sampleStore.setMetadata(slot.id,readback,{verification:'verified'});
       state.committed=readback?.[state.key]??sentValue;
