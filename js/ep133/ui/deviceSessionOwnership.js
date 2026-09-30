@@ -218,7 +218,16 @@ export function createDeviceSessionOwnership({
   };
 
   const release=()=>{
-    if(!owned&&releaseWebLock==null)return;
+    if(!owned&&releaseWebLock==null){
+      blocked=false;
+      ownerId=null;
+      ownerLastSeen=0;
+      mode='none';
+      acquirePromise=null;
+      stopHeartbeat();
+      notify();
+      return;
+    }
     const wasOwner=owned;
     owned=false;
     blocked=false;
