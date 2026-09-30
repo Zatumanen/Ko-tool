@@ -984,7 +984,7 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
       slots.set(id,{id,nodeId:id,file:{name:'kick',size:item.fileSize},node:item,meta:null});
       actions.push(['set-slot',id]);
     },
-    setMetadata(id,metadata)=>{
+    setMetadata(id,metadata){
       const slot=slots.get(Number(id));
       slot.meta={...metadata};
       actions.push(['set-meta',Number(id),metadata.name]);
