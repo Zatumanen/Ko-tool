@@ -773,11 +773,19 @@ test('My EP aborts batches when the connected MIDI session changes',async()=>{
   const fs=await import('node:fs/promises');
   const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const batchControllers=await Promise.all([
+    '../js/ep133/ui/sampleLibrarySync.js',
+    '../js/ep133/ui/sampleReadController.js',
+    '../js/ep133/ui/sampleDeleteController.js',
+    '../js/ep133/ui/sampleUploadController.js',
+    '../js/ep133/ui/sampleMoveController.js',
+    '../js/ep133/ui/sampleCopyController.js'
+  ].map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
   const {createSessionGuard}=await import('../js/ep133/ui/sessionGuard.js');
   assert.match(device,/export function getDeviceSessionToken\(\)/);
   assert.match(device,/connectionEpoch,output\?\.id/);
   assert.match(ui,/createSessionGuard\(getDeviceSessionToken\)/);
-  assert.match(ui,/assertBatchSession\(sessionToken\)/);
+  for(const source of batchControllers)assert.match(source,/assertBatchSession\(sessionToken\)/);
   let token='session-a';
   const guard=createSessionGuard(()=>token);
   const captured=guard.captureBatchSession();

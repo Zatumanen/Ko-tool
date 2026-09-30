@@ -1410,7 +1410,8 @@ test('sample copy controller rolls created destinations back in reverse order an
   assert.equal(actions.filter(item=>item[0]==='resync').length,1);
   assert.equal(files.some(item=>Number(item.nodeId)===8),false);
   assert.equal(files.some(item=>Number(item.nodeId)===10),false);
-  assert.equal(actions.at(-2)[0],'hide');
+  assert.equal(actions.at(-2)[0],'resync');
+  assert.equal(actions.at(-1)[0],'hide');
 });
 
 test('sample copy controller rejects unreadable sources before entering the mutating phase',async()=>{
