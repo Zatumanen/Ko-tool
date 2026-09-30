@@ -57,6 +57,8 @@ export function prioritizeSampleSlots(slots,{selectedId=null,activeRange=null}={
 export function createSampleStore(){
   let files=[];
   let slots=createCanonicalSlots([]);
+  let soundsParentId=0;
+  let soundsMetadata={};
   let memory=null;
   const listeners=new Set();
   const metadataHistory=new Map();
@@ -277,6 +279,26 @@ export function createSampleStore(){
     size:()=>metadataHistory.size
   });
 
+  const getSoundsParentId=()=>soundsParentId;
+  const setSoundsParentId=value=>{
+    soundsParentId=Number(value)||0;
+    emit('sounds-parent-set',{nodeId:soundsParentId});
+    return soundsParentId;
+  };
+  const getSoundsMetadata=()=>soundsMetadata&&typeof soundsMetadata==='object'?{...soundsMetadata}:{};
+  const setSoundsMetadata=metadata=>{
+    soundsMetadata=metadata&&typeof metadata==='object'?{...metadata}:{};
+    emit('sounds-metadata-set',{metadata:getSoundsMetadata()});
+    return getSoundsMetadata();
+  };
+  const mergeSoundsMetadata=metadata=>{
+    soundsMetadata={...soundsMetadata,...(metadata&&typeof metadata==='object'?metadata:{})};
+    emit('sounds-metadata-merged',{metadata:getSoundsMetadata()});
+    return getSoundsMetadata();
+  };
+  const getSoundFormats=()=>Array.isArray(soundsMetadata?.formats)?[...soundsMetadata.formats]:[];
+  const getSoundTabs=()=>Array.isArray(soundsMetadata?.tabs)?[...soundsMetadata.tabs]:[];
+
   const setOperation=(nodeId,operation)=>{
     const id=Number(nodeId);
     const slot=slots[id-1];
@@ -346,6 +368,8 @@ export function createSampleStore(){
     }else metadataHistory.clear();
     files=[];
     slots=createCanonicalSlots([]);
+    soundsParentId=0;
+    soundsMetadata={};
     projectAll();
     emit('cleared');
   };
@@ -374,6 +398,8 @@ export function createSampleStore(){
       return()=>listeners.delete(listener);
     },
     getFiles,getSlot,getSlots,getMetadata,getCachedMetadata,countOccupied,findNextFree,
+    getSoundsParentId,setSoundsParentId,getSoundsMetadata,setSoundsMetadata,mergeSoundsMetadata,
+    getSoundFormats,getSoundTabs,
     replaceFiles,resetInventory,upsertFile,removeFile,
     setMetadata,mergeMetadata,invalidateMetadata,asMetadataCache,
     setOperation,clearOperation,clearOperations,

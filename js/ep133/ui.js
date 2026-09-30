@@ -76,9 +76,6 @@ export function initEp133Browser({showError}={}){
     showError?.(humanError(message));
   };
 
-  let soundsParentId=0;
-  let soundFormats=[];
-  let soundsMetadata={};
   let synchronized=false;
   let metadataHydrating=false;
   let mutating=false;
@@ -94,8 +91,7 @@ export function initEp133Browser({showError}={}){
     {timeout:500}
   );
   const applySoundsMetadata=metadata=>{
-    soundsMetadata={...soundsMetadata,...(metadata||{})};
-    if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
+    const soundsMetadata=sampleStore.mergeSoundsMetadata(metadata||{});
     if(Array.isArray(metadata?.tabs)&&metadata.tabs.length)memory?.setTabs?.(metadata.tabs);
     renderDeviceStats(soundsMetadata,sampleStore.countOccupied());
     return soundsMetadata;
@@ -103,7 +99,7 @@ export function initEp133Browser({showError}={}){
   const syncMetadataAfterMutation=async(nodeId,eventPromise)=>{
     const event=await eventPromise;
     const metadata=event?.data?.metadata||await getFileMetadata(nodeId);
-    if(Number(nodeId)===Number(soundsParentId))return applySoundsMetadata(metadata);
+    if(Number(nodeId)===Number(sampleStore.getSoundsParentId()))return applySoundsMetadata(metadata);
     if(Number(nodeId)>=1&&Number(nodeId)<=999){
       sampleStore.setMetadata(Number(nodeId),metadata||{});
       propertiesController?.renderIfCurrent(Number(nodeId));
@@ -177,6 +173,7 @@ export function initEp133Browser({showError}={}){
     return sounds;
   };
   const readAuthoritativeFiles=async()=>{
+    const soundsParentId=sampleStore.getSoundsParentId();
     if(!soundsParentId)return[];
     return replaceSoundFiles(await listDirectory(soundsParentId,'/sounds'));
   };
@@ -272,8 +269,8 @@ export function initEp133Browser({showError}={}){
   const auditionSample=slot=>sampleReadController.audition(slot);
   const sampleDeleteController=createSampleDeleteController({
     sampleStore,
-    getSoundsParentId:()=>soundsParentId,
-    getSoundsMetadata:()=>soundsMetadata,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     isConnected,
     isSynchronized:()=>synchronized,
     hasPendingPropertyWrites:()=>propertiesController.hasPendingWrites(),
@@ -289,8 +286,8 @@ export function initEp133Browser({showError}={}){
   const fileEventController=createFileEventController({
     isConnected,
     sampleStore,
-    getSoundsParentId:()=>soundsParentId,
-    getSoundsMetadata:()=>soundsMetadata,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     getCurrentPropertySlotId:()=>propertiesController.getCurrentSlotId(),
     getFileInfo,
     getFileMetadata,
@@ -306,20 +303,22 @@ export function initEp133Browser({showError}={}){
     markUploadPending,clearUploadPending
   }=fileEventController;
   const refreshSoundsRuntimeMetadata=async()=>{
-    if(!soundsParentId)return soundsMetadata;
+    const soundsParentId=sampleStore.getSoundsParentId();
+    if(!soundsParentId)return sampleStore.getSoundsMetadata();
     const latest=await getFileMetadata(soundsParentId);
-    if(latest&&typeof latest==='object')soundsMetadata={...soundsMetadata,...latest};
-    if(Array.isArray(soundsMetadata?.formats))soundFormats=soundsMetadata.formats;
+    const soundsMetadata=latest&&typeof latest==='object'
+      ?sampleStore.mergeSoundsMetadata(latest)
+      :sampleStore.getSoundsMetadata();
     if(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length)memory?.setTabs(soundsMetadata.tabs);
     renderDeviceStats(soundsMetadata,sampleStore.countOccupied());
     return soundsMetadata;
   };
   const sampleUploadController=createSampleUploadController({
     sampleStore,getMemory:()=>memory,
-    getSoundsParentId:()=>soundsParentId,
-    getSoundFormats:()=>soundFormats,
-    getSoundsMetadata:()=>soundsMetadata,
-    setSoundsMetadata:value=>{soundsMetadata=value&&typeof value==='object'?value:{};},
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundFormats:()=>sampleStore.getSoundFormats(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
+    setSoundsMetadata:value=>sampleStore.setSoundsMetadata(value),
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,
     isSynchronized:()=>synchronized,
@@ -338,8 +337,8 @@ export function initEp133Browser({showError}={}){
   const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const sampleMoveController=createSampleMoveController({
     sampleStore,
-    getSoundsParentId:()=>soundsParentId,
-    getSoundsMetadata:()=>soundsMetadata,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     fileItemFromInfo,
     remapCurrentPropertySlot:(oldId,newId)=>propertiesController.remapCurrentSlot(oldId,newId),
     renderDeviceStats,
@@ -355,8 +354,8 @@ export function initEp133Browser({showError}={}){
 
   const sampleCopyController=createSampleCopyController({
     sampleStore,
-    getSoundsParentId:()=>soundsParentId,
-    getSoundsMetadata:()=>soundsMetadata,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,captureBatchSession,assertBatchSession,getDeviceSessionToken,
     setMutating,setGlobalProgress,hideGlobalProgress,
@@ -375,7 +374,7 @@ export function initEp133Browser({showError}={}){
 
   const transactionalTransfer=async(sources,dropSlot,{copy=false,draggedId}={})=>{
     if(!isConnected())throw new Error('EP device is disconnected.');
-    if(!synchronized||!soundsParentId)throw new Error('Sample library is still synchronizing.');
+    if(!synchronized||!sampleStore.getSoundsParentId())throw new Error('Sample library is still synchronizing.');
     if(!activeDeviceProfile.sampleTransfers)
       throw new Error('MOVE/COPY SAMPLE METADATA IS NOT VERIFIED FOR '+(activeDeviceProfile.name||'THIS EP')+'.');
     if(propertiesController.hasPendingWrites())
@@ -432,9 +431,7 @@ export function initEp133Browser({showError}={}){
     listDirectory,getFileMetadata,
     setSynchronized:value=>{synchronized=!!value;},
     setMetadataHydrating:value=>{metadataHydrating=!!value;},
-    setSoundsParentId:value=>{soundsParentId=Number(value)||0;},
-    setSoundFormats:value=>{soundFormats=Array.isArray(value)?value:[];},
-    setSoundsMetadata:value=>{soundsMetadata=value&&typeof value==='object'?value:{};},
+    setSoundsMetadata:value=>sampleStore.setSoundsMetadata(value),
     updateMutationAvailability,closeProperties,
     setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
     reportError,logTechnical
@@ -476,9 +473,6 @@ export function initEp133Browser({showError}={}){
     panel.classList.add('device-disconnected');
     setConnectionOverlay(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
     if(!everConnected)renderDeviceStats({},0);
-    soundsParentId=0;
-    soundFormats=[];
-    soundsMetadata={};
     sampleStore.clear();
     setStatus(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
