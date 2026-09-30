@@ -60,7 +60,8 @@ const rangeLabel=range=>{
 };
 
 export function capabilityEvidence(level,{
-  read=false,preserve=false,source='',reason='',firmwareRange=null
+  read=false,preserve=false,source='',reason='',firmwareRange=null,
+  evidenceId='',sourceType='',artifactId=null,recordedAt=''
 }={}){
   const normalized=String(level||'');
   if(!LEVELS.has(normalized))throw new Error('Unknown capability evidence level: '+normalized);
@@ -73,7 +74,11 @@ export function capabilityEvidence(level,{
     write:normalized===CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,
     source:String(source||''),
     reason:String(reason||''),
-    firmwareRange:range
+    firmwareRange:range,
+    evidenceId:String(evidenceId||''),
+    sourceType:String(sourceType||''),
+    artifactId:artifactId==null?null:String(artifactId),
+    recordedAt:String(recordedAt||'')
   });
 }
 
@@ -86,7 +91,11 @@ export function cloneCapabilityEvidence(evidence){
       preserve:evidence.preserve===true,
       source:evidence.source,
       reason:evidence.reason,
-      firmwareRange:evidence.firmwareRange
+      firmwareRange:evidence.firmwareRange,
+      evidenceId:evidence.evidenceId,
+      sourceType:evidence.sourceType,
+      artifactId:evidence.artifactId,
+      recordedAt:evidence.recordedAt
     }
   );
 }
