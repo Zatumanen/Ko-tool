@@ -383,3 +383,26 @@
   .waveform-readout{grid-template-columns:1fr}
   .waveform-canvas{height:150px}
 }
+
+/* Waveform chop / transient controls */
+.waveform-chop-panel{display:flex;flex-direction:column;gap:6px;padding:7px;border:2px inset var(--win-dark);background:#b7b7b7}
+.waveform-chop-head{display:flex;align-items:center;justify-content:space-between;font-size:10px}
+.waveform-chop-head span{padding:2px 5px;background:#fff;border:1px inset var(--win-dark);font-weight:bold}
+.waveform-chop-controls{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.waveform-chop-modes{display:flex}
+.waveform-chop-modes button,.waveform-chop-controls>button{
+  min-height:29px;padding:4px 7px;background:var(--win-gray);border:2px outset var(--win-gray);
+  font:700 9px "Courier New",monospace;cursor:pointer
+}
+.waveform-chop-modes button+button{margin-left:-2px}
+.waveform-chop-modes button.active{background:#ffd94a;border-style:inset}
+.waveform-chop-controls>label{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:bold}
+.waveform-chop-controls input[type="number"]{width:52px;padding:4px;border:2px inset var(--win-dark);font:10px "Courier New",monospace}
+.waveform-chop-controls button:disabled{opacity:.45;cursor:default}
+.waveform-chop-help{font-size:8px;color:#555;text-align:right}
+@media(max-width:700px){
+  .waveform-chop-controls{align-items:stretch}
+  .waveform-chop-modes{width:100%}
+  .waveform-chop-modes button{flex:1}
+  .waveform-chop-controls>button{flex:1 1 110px}
+}
