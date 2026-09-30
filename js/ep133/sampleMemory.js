@@ -301,10 +301,19 @@ export function createSampleMemory({
           nameInput.readOnly=false;
           nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
           nameInput.addEventListener('keydown',event=>{
-            if(event.key==='Enter'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:true});}
-            else if(event.key==='Escape'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:false});}
+            if(event.key==='Enter'){
+              event.preventDefault();event.stopPropagation();
+              editingValue=nameInput.value;
+              void finishRename(slot,{save:true});
+            }else if(event.key==='Escape'){
+              event.preventDefault();event.stopPropagation();
+              void finishRename(slot,{save:false});
+            }
           });
-          nameInput.addEventListener('blur',()=>{void finishRename(slot,{save:true});});
+          nameInput.addEventListener('blur',()=>{
+            editingValue=nameInput.value;
+            void finishRename(slot,{save:true});
+          });
           setTimeout(()=>{if(editingId===slot.id&&nameInput.isConnected){nameInput.focus();nameInput.select();}},0);
         }
       }
