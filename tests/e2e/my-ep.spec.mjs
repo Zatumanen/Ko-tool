@@ -63,8 +63,16 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
   await expect(page.locator('[data-slot="7"] [data-name-input]')).not.toHaveAttribute('readonly','');
   await page.locator('[data-slot="7"] [data-name-input]').fill('kick-new');
   await page.locator('[data-slot="7"] [data-name-input]').press('Enter');
+  await expect.poll(()=>page.evaluate(()=>{
+    const mutation=window.__fakeEp.requestLog.find(item=>item.command===5&&item.sub===7&&item.type===1);
+    return mutation?{sent:true,id:(mutation.raw[2]<<8)|mutation.raw[3],raw:mutation.raw}:{
+      sent:false,requests:window.__fakeEp.requestLog
+    };
+  }),{message:'Rename should send FILE METADATA SET',timeout:7000}).toMatchObject({sent:true,id:7});
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(x=>x.id===7)?.meta?.name),{
+    message:'Fake EP should commit renamed metadata after METADATA SET'
+  }).toBe('kick-new');
   await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('kick-new');
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(x=>x.id===7)?.meta?.name)).toBe('kick-new');
 
   const wav=wav16Mono();
   await page.evaluate(bytes=>{
@@ -123,6 +131,10 @@ test('strict mutation firmware debug enters the unsafe recovery state in the bro
   await input.dblclick();
   await page.locator('[data-slot="7"] [data-name-input]').fill('unsafe-test');
   await page.locator('[data-slot="7"] [data-name-input]').press('Enter');
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.requestLog.some(item=>item.command===5&&item.sub===7&&item.type===1)),{
+    message:'Unsafe scenario should reach the strict METADATA SET mutation',
+    timeout:7000
+  }).toBe(true);
 
   await expect(page.locator('#ep133-connection-overlay')).toHaveText('POWER CYCLE EP · THEN RELOAD');
   await expect(page.locator('#ep133-status')).toContainText('EP FILE SAFETY LOCK');
