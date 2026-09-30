@@ -1,12 +1,17 @@
+import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20260930-5';
+
 export function createConnectionLifecycle({
   connectEp133,
   isConnected,
   isUnsafe=()=>false,
   setConnectionOverlay=()=>{},
+  setSessionNotice=()=>{},
   showError=()=>{},
   logTechnical=()=>{},
   navigatorRef=globalThis.navigator,
   windowRef=globalThis.window,
+  BroadcastChannelRef=globalThis.BroadcastChannel,
+  sessionOwnership=null,
   setIntervalFn=globalThis.setInterval,
   clearIntervalFn=globalThis.clearInterval,
   reconnectIntervalMs=4000
@@ -17,36 +22,36 @@ export function createConnectionLifecycle({
   let connectionArmed=false;
   let midiPermissionBlocked=false;
   let instanceLockBlocked=false;
-  let resolveInstanceLock;
+  let externalToolNoticeShown=false;
   let autoConnectTimer=null;
   let started=false;
 
-  const instanceLockGate=new Promise(resolve=>{resolveInstanceLock=resolve;});
+  const ownership=sessionOwnership||createDeviceSessionOwnership({
+    navigatorRef,BroadcastChannelRef,
+    logTechnical,
+    onStateChange:state=>{
+      instanceLockBlocked=state.blocked&&!state.owned;
+      if(instanceLockBlocked)setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
+    }
+  });
 
-  const startInstanceLock=()=>{
-    if(navigatorRef?.locks?.request){
-      navigatorRef.locks.request('ep-sample-util',{ifAvailable:true},lock=>{
-        if(!lock){
-          instanceLockBlocked=true;
-          resolveInstanceLock(false);
-          setConnectionOverlay('OPEN IN ANOTHER TAB');
-          return;
-        }
-        resolveInstanceLock(true);
-        return new Promise(()=>{});
-      }).catch(error=>{
-        logTechnical('INSTANCE LOCK',error);
-        resolveInstanceLock(true);
-      });
-    }else resolveInstanceLock(true);
+  const ensureOwnership=async()=>{
+    const acquired=await ownership.acquire();
+    instanceLockBlocked=!acquired;
+    if(!acquired){
+      setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
+      return false;
+    }
+    if(!externalToolNoticeShown){
+      externalToolNoticeShown=true;
+      setSessionNotice('CLOSE OTHER EP TOOLS BEFORE FILE OPERATIONS');
+    }
+    return true;
   };
 
   const autoConnect=async()=>{
-    if(!connectionArmed||isUnsafe()||isConnected()||midiPermissionBlocked||instanceLockBlocked)return;
-    if(!await instanceLockGate){
-      setConnectionOverlay('OPEN IN ANOTHER TAB');
-      return;
-    }
+    if(!connectionArmed||isUnsafe()||isConnected()||midiPermissionBlocked)return;
+    if(!await ensureOwnership())return;
     try{
       await connectEp133();
     }catch(error){
@@ -72,12 +77,13 @@ export function createConnectionLifecycle({
       clearIntervalFn?.(autoConnectTimer);
       autoConnectTimer=null;
     }
+    ownership.dispose();
   };
 
   const start=()=>{
     if(started)return;
     started=true;
-    startInstanceLock();
+    ownership.start();
     autoConnectTimer=setIntervalFn?.(()=>{
       if(connectionArmed&&!isUnsafe()&&!isConnected())void autoConnect();
     },reconnectIntervalMs);
@@ -88,7 +94,9 @@ export function createConnectionLifecycle({
     connectionArmed,
     midiPermissionBlocked,
     instanceLockBlocked,
-    started
+    externalToolNoticeShown,
+    started,
+    ownership:ownership.getState()
   });
 
   return{start,arm,autoConnect,dispose,getState};
