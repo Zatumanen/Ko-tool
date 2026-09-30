@@ -58,7 +58,7 @@
   const input=new Input();
 
   const identityResponse=()=>{
-    const product=133,assembly=1;
+    const product=32,assembly=1;
     return Uint8Array.from([0xf0,0x7e,identityCode,0x06,0x02,...TE,product&0x7f,(product>>7)&0x7f,assembly&0x7f,(assembly>>7)&0x7f,0,0,0,0,0xf7]);
   };
   const response=(request,payload=new Uint8Array(),status=0)=>{
