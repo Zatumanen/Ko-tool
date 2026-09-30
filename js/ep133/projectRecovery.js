@@ -78,7 +78,13 @@ export function createProjectRecoveryCheckpoint({
     candidate:Object.freeze({
       size:proposed.byteLength,
       crc32:candidateCrc32
-    })
+    }),
+    transactionStatus:'pending',
+    currentPhase:null,
+    lastSuccessfulPhase:null,
+    failurePhase:null,
+    recoveryDetail:null,
+    journal:Object.freeze([])
   });
 }
 
@@ -91,7 +97,13 @@ const cloneCheckpoint=checkpoint=>checkpoint?{
     ...(checkpoint.original||{}),
     data:cloneBytes(checkpoint.original?.data)
   },
-  candidate:{...(checkpoint.candidate||{})}
+  candidate:{...(checkpoint.candidate||{})},
+  journal:Array.isArray(checkpoint.journal)
+    ?checkpoint.journal.map(event=>({
+      ...event,
+      detail:event?.detail&&typeof event.detail==='object'?JSON.parse(JSON.stringify(event.detail)):event?.detail??null
+    }))
+    :[]
 }:null;
 
 const makeUnavailableStore=()=>Object.freeze({

@@ -375,7 +375,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectRecovery.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectRecovery.js','../js/ep133/projectTransactionJournal.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -461,6 +461,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const sampleFilesystem=await read('js/ep133/sampleFilesystem.js');
   const projectFilesystem=await read('js/ep133/projectFilesystem.js');
   const projectRecovery=await read('js/ep133/projectRecovery.js');
+  const projectTransactionJournal=await read('js/ep133/projectTransactionJournal.js');
   const filesystem=await read('js/ep133/filesystem.js');
   const fileScheduler=await read('js/ep133/fileScheduler.js');
   const fileTransport=await read('js/ep133/fileTransport.js');
@@ -504,8 +505,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(index.includes("./projectReader.js?v="+token),true);
   assert.equal(index.includes("./projectRecovery.js?v="+token),true);
+  assert.equal(index.includes("./projectTransactionJournal.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectArchive.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectRecovery.js?v="+token),true);
+  assert.equal(projectFilesystem.includes("./projectTransactionJournal.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectProfile.js?v="+token),true);
   assert.equal(projectFilesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
@@ -526,6 +529,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(filesystem.includes("./projectFilesystem.js?v="+token),true);
   assert.equal(filesystem.includes("./projectRecovery.js?v="+token),true);
   assert.equal(projectRecovery.includes("indexedDB"),true);
+  assert.equal(projectTransactionJournal.includes("PRECHECK"),true);
   assert.equal(fileTransport.includes("./device.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileScheduler.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileProtocol.js?v="+token),true);
@@ -1713,8 +1717,9 @@ test('project upload can verify PUT/readback without activating or reloading the
   const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/performReload=true/);
-  assert.match(block,/profile\.projectReloadVerified&&performReload/);
-  assert.match(block,/const reload=profile\.projectReloadVerified&&performReload/);
+  assert.match(block,/let reload=null/);
+  assert.match(block,/if\(profile\.projectReloadVerified&&performReload\)/);
+  assert.match(block,/transactionJournal\.skipPhase\(recoveryCheckpoint\.id,'RELOAD'/);
 });
 
 test('semantic pattern encoder emits verified EP-133 and EP-40 dialects',()=>{
@@ -1892,12 +1897,20 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/error\.projectRollbackSucceeded=true/);
   assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)\{[\s\S]*status:'requires-recovery'[\s\S]*throw error/);
   assert.match(block,/await recoveryStore\.saveCheckpoint\(recoveryCheckpoint\)/);
+  assert.match(block,/transactionJournal\.completePhase\(recoveryCheckpoint\.id,'PRECHECK'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'CHECKPOINT'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'WRITE'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'READBACK'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'RELOAD'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'VERIFY'/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'ROLLBACK'/);
   assert.match(block,/status:'rolled-back'/);
   const backupIndex=block.indexOf('const backup=await getFile');
   const checkpointIndex=block.indexOf('await recoveryStore.saveCheckpoint');
+  const writeJournalIndex=block.indexOf("transactionJournal.beginPhase(recoveryCheckpoint.id,'WRITE'");
   const putIndex=block.indexOf('await putFile');
-  assert.ok(backupIndex>=0&&checkpointIndex>backupIndex&&putIndex>checkpointIndex);
-  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf('const reload=profile.projectReloadVerified'));
+  assert.ok(backupIndex>=0&&checkpointIndex>backupIndex&&writeJournalIndex>checkpointIndex&&putIndex>writeJournalIndex);
+  assert.ok(block.indexOf('compareProjectArchiveMembers(data,readback.data)')<block.indexOf("phase='RELOAD'"));
 });
 
 test('EP project reload cycles active project and verifies project group and pad metadata',async()=>{
@@ -1942,8 +1955,9 @@ test('EP-1320 project transport stays opaque while semantic validation and reloa
   assert.match(block,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
   assert.match(block,/sampleDependencies=profile\.projectAuthoring/);
   assert.match(block,/const activation=profile\.projectReloadVerified/);
-  assert.match(block,/const reload=profile\.projectReloadVerified/);
-  assert.match(block,/:null;/);
+  assert.match(block,/let reload=null/);
+  assert.match(block,/if\(profile\.projectReloadVerified&&performReload\)/);
+  assert.match(block,/reason:performReload\?'reload-not-hardware-verified':'reload-disabled'/);
 });
 
 test('EP project archive upload uses the TE 15s timeout through injected unlocked transport',async()=>{
