@@ -12,7 +12,7 @@
   const be32=n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];
   const zstr=(a,i)=>{let e=i;while(e<a.length&&a[e]!==0)e++;return dec.decode(a.slice(i,e));};
   const concat=(...parts)=>{
-    const arrays=parts.flat().map(x=>x instanceof Uint8Array?x:Uint8Array.from(x));
+    const arrays=parts.map(x=>x instanceof Uint8Array?x:Uint8Array.from(x||[]));
     const out=new Uint8Array(arrays.reduce((n,x)=>n+x.length,0));let p=0;
     for(const x of arrays){out.set(x,p);p+=x.length;}return out;
   };
