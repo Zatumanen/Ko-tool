@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -331,6 +331,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
   const fileProtocol=await read('js/ep133/fileProtocol.js');
+  const sampleFilesystem=await read('js/ep133/sampleFilesystem.js');
   const filesystem=await read('js/ep133/filesystem.js');
   const fileScheduler=await read('js/ep133/fileScheduler.js');
   const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
@@ -387,6 +388,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(filesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(filesystem.includes("./fileScheduler.js?v="+token),true);
   assert.equal(filesystem.includes("./fileProtocol.js?v="+token),true);
+  assert.equal(filesystem.includes("./sampleFilesystem.js?v="+token),true);
   assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
   assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
 });
@@ -692,30 +694,31 @@ test('EP metadata preserves unknown values only without an explicit device white
 test('EP slot transfer uses a temporary filesystem name and rolls back created destinations before source deletion',async()=>{
   assert.equal(createTransferFileName(7,42),'mv007_042');
   const fs=await import('node:fs/promises');
-  const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  const sampleSource=await fs.readFile(new URL('../js/ep133/sampleFilesystem.js',import.meta.url),'utf8');
   const copySource=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
-  assert.match(filesystemSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
-  assert.match(filesystemSource,/filename:wireName/);
+  assert.match(sampleSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
+  assert.match(sampleSource,/filename:wireName/);
   assert.match(copySource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
   assert.match(copySource,/if\(!created\.includes\(createdId\)\)created\.push\(createdId\)/);
   assert.match(copySource,/for\(const id of \[\.\.\.created\]\.reverse\(\)\)/);
 });
 
-test('EP uploads validate metadata before one guarded PUT metadata SET FILE_INIT transaction',async()=>{
+test('EP sample layer validates metadata before injected PUT metadata SET FILE_INIT transport',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const unlockedStart=source.indexOf('async function uploadSampleToSlotUnlocked');
-  const unlocked=source.slice(unlockedStart,source.indexOf('export async function uploadSampleToSlot',unlockedStart));
-  const validation=unlocked.indexOf('const writableMetadata=prepareSampleWritableMetadata');
-  const put=unlocked.indexOf('await putFileUnlocked(');
-  const metadata=unlocked.indexOf('await setFileMetadataUnlocked(fileId,writableMetadata)',put);
-  const init=unlocked.indexOf('await initFileSystemUnlocked()',metadata);
+  const [sample,filesystem]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/sampleFilesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+  ]);
+  const validation=sample.indexOf('const writableMetadata=prepareSampleWritableMetadata');
+  const put=sample.indexOf('const fileId=await putFile(',validation);
+  const metadata=sample.indexOf('await setFileMetadata(fileId,writableMetadata)',put);
+  const init=sample.indexOf('await initFileSystem()',metadata);
   assert.ok(validation>=0&&put>validation&&metadata>put&&init>metadata);
-  assert.doesNotMatch(unlocked,/await putFile\(/);
-  assert.doesNotMatch(unlocked,/await setFileMetadata\(/);
-  assert.doesNotMatch(unlocked,/await initFileSystem\(/);
-  assert.doesNotMatch(unlocked,/await getFileInfo\(fileId\)/);
-  const wrapper=source.slice(source.indexOf('export async function uploadSampleToSlot'),source.indexOf('export async function startPlayback'));
+  assert.doesNotMatch(sample,/requestFile|requestRead|fileScheduler|runFileOperation/);
+  const unlockedStart=filesystem.indexOf('async function uploadSampleToSlotUnlocked');
+  const unlocked=filesystem.slice(unlockedStart,filesystem.indexOf('export async function uploadSampleToSlot',unlockedStart));
+  assert.match(unlocked,/uploadSampleToSlotWithTransport\(args,\{[\s\S]*putFile:putFileUnlocked,[\s\S]*setFileMetadata:setFileMetadataUnlocked,[\s\S]*initFileSystem:initFileSystemUnlocked/);
+  const wrapper=filesystem.slice(filesystem.indexOf('export async function uploadSampleToSlot'),filesystem.indexOf('export async function startPlayback'));
   assert.match(wrapper,/runGuardedFileMutation\('sample upload transaction',[\s\S]*uploadSampleToSlotUnlocked\(args\)/);
 });
 
@@ -2642,4 +2645,50 @@ test('filesystem facade protocol exports remain byte-for-byte equivalent to dire
     assert.deepEqual([...facade[name](...args)],[...protocol[name](...args)],name);
   const move=Uint8Array.from([0,7,3,232,0,8]);
   assert.deepEqual(facade.parseFileMoveResponse(move),protocol.parseFileMoveResponse(move));
+});
+
+
+test('sample filesystem layer owns sample policy without importing device transport',async()=>{
+  const fs=await import('node:fs/promises');
+  const sample=await fs.readFile(new URL('../js/ep133/sampleFilesystem.js',import.meta.url),'utf8');
+  const filesystem=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.doesNotMatch(sample,/from ['"]\.\/device\.js/);
+  assert.doesNotMatch(sample,/requestFile|requestRead|fileScheduler|navigator\.locks/);
+  assert.match(sample,/export function prepareSampleWritableMetadata/);
+  assert.match(sample,/export function prepareSampleTransferMetadata/);
+  assert.match(sample,/export async function uploadSampleToSlotWithTransport/);
+  assert.match(filesystem,/from '\.\/sampleFilesystem\.js\?v=20260930-5'/);
+  assert.doesNotMatch(filesystem,/const SAMPLE_WRITABLE_METADATA_KEYS/);
+  assert.doesNotMatch(filesystem,/export function prepareSampleWritableMetadata/);
+});
+
+test('sample upload orchestration preserves PUT SET INIT order through injected transport',async()=>{
+  const {uploadSampleToSlotWithTransport}=await import('../js/ep133/sampleFilesystem.js');
+  const actions=[];
+  const fileId=await uploadSampleToSlotWithTransport({
+    data:Uint8Array.from([1,2,3,4]),
+    filename:'Kick.wav',
+    parentId:1000,
+    destinationId:7,
+    metadata:{
+      name:'Kick',
+      channels:1,
+      samplerate:46875,
+      format:'s16',
+      'sound.pitch':-12
+    }
+  },{
+    putFile:async options=>{
+      actions.push(['put',options.filename,options.destinationId,options.metadata.name]);
+      return 7;
+    },
+    setFileMetadata:async(id,metadata)=>actions.push(['metadata',id,metadata['sound.pitch']]),
+    initFileSystem:async()=>actions.push(['init'])
+  });
+  assert.equal(fileId,7);
+  assert.deepEqual(actions,[
+    ['put','kick',7,'kick'],
+    ['metadata',7,-12],
+    ['init']
+  ]);
 });
