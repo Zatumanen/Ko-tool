@@ -2242,6 +2242,7 @@ test('My EP exposes the sample library before prioritized metadata hydration com
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
   const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   assert.match(source,/setMetadataHydrating\(pending\.length>0\)/);
   assert.ok(source.indexOf('setSynchronized(true)')<source.indexOf('for(const slot of pending)'));
   assert.match(source,/prioritizeMetadataSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
@@ -2250,7 +2251,7 @@ test('My EP exposes the sample library before prioritized metadata hydration com
   assert.match(source,/LOADING '\+pending\.length\+' METADATA · '\+cached\+' CACHED/);
   assert.match(source,/setMetadataHydrating\(false\);[\s\S]*setGlobalProgress\('SYNC',100\)/);
   assert.match(ui,/synchronized&&!metadataHydrating&&!mutating/);
-  assert.match(ui,/!synchronized\|\|metadataHydrating\|\|mutating/);
+  assert.match(properties,/!isSynchronized\(\)\|\|isMetadataHydrating\(\)\|\|isMutating\(\)/);
 });
 
 test('My EP initial sample sync lists only root and the direct \/sounds directory',async()=>{
