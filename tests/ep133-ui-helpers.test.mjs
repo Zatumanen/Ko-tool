@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import{createFeedbackController}from '../js/ep133/ui/feedback.js';
 import{createFileEventController}from '../js/ep133/ui/fileEvents.js';
 import{createConnectionLifecycle}from '../js/ep133/ui/connectionLifecycle.js';
+import{createSampleLibrarySyncController}from '../js/ep133/ui/sampleLibrarySync.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -204,4 +205,121 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
   assert.equal(connectCalls,1);
   assert.deepEqual(errors,['MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.']);
   assert.equal(lifecycle.getState().midiPermissionBlocked,true);
+});
+
+
+test('sample library sync exposes LIST results before uncached metadata hydration completes',async()=>{
+  let synchronized=false,metadataHydrating=false,soundsParentId=0,soundFormats=[],soundsMetadata={},deviceFiles=[];
+  let resolveUncached;
+  const uncachedMetadata=new Promise(resolve=>{resolveUncached=resolve;});
+  const slots=new Map();
+  const tabs=[];
+  const memory={
+    getSelected:()=>({id:2}),
+    getActiveTab:()=>0,
+    setTabs:value=>{tabs.splice(0,tabs.length,...value);},
+    setSlots(){slots.clear();},
+    setEntries(entries){
+      for(const entry of entries){
+        const id=Number(entry.nodeId);
+        slots.set(id,{id,nodeId:id,file:{name:entry.fileName,size:entry.fileSize},meta:null});
+      }
+    },
+    countOccupied:()=>slots.size,
+    setMetadata(id,metadata){const slot=slots.get(Number(id));if(slot)slot.meta=metadata;},
+    getSlot:id=>slots.get(Number(id))
+  };
+  const cache={
+    get:slot=>slot.id===2?{name:'cached',channels:1,samplerate:46875,format:'s16'}:null,
+    set(slot,metadata){slot.meta=metadata;}
+  };
+  const listCalls=[];
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleMetadataCache:cache,
+    listDirectory:async(nodeId,path)=>{
+      listCalls.push([nodeId,path]);
+      if(nodeId===0)return[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}];
+      return[
+        {nodeId:2,fileName:'/sounds/cached',fileType:'file',fileSize:20},
+        {nodeId:5,fileName:'/sounds/live',fileType:'file',fileSize:50}
+      ];
+    },
+    getFileMetadata:async nodeId=>{
+      if(nodeId===1000)return{
+        formats:[{type:'pcm',formats:[{format:'s16',channels:[1,2]}]}],
+        tabs:[{name:'BANK',range:[1,99]}]
+      };
+      if(nodeId===5)return uncachedMetadata;
+      throw new Error('unexpected metadata node '+nodeId);
+    },
+    setSynchronized:value=>{synchronized=value;},
+    setMetadataHydrating:value=>{metadataHydrating=value;},
+    setSoundsParentId:value=>{soundsParentId=value;},
+    setSoundFormats:value=>{soundFormats=value;},
+    setSoundsMetadata:value=>{soundsMetadata=value;},
+    setDeviceFiles:value=>{deviceFiles=value;},
+    updateMutationAvailability(){},
+    closeProperties(){},
+    setGlobalProgress(){},
+    hideGlobalProgress(){},
+    renderDeviceStats(){},
+    setStatus(){},
+    reportError(message,error){throw new Error(message+' '+error.message);},
+    logTechnical(){},
+    scheduleHide:callback=>callback()
+  });
+
+  const pending=controller.readDevice();
+  await new Promise(resolve=>setImmediate(resolve));
+
+  assert.equal(synchronized,true);
+  assert.equal(metadataHydrating,true);
+  assert.equal(soundsParentId,1000);
+  assert.deepEqual(listCalls,[[0,'/'],[1000,'/sounds']]);
+  assert.equal(slots.get(2).meta.name,'cached');
+  assert.equal(slots.get(5).meta,null);
+  assert.equal(deviceFiles.length,3);
+  assert.equal(soundFormats.length,1);
+  assert.equal(soundsMetadata.tabs[0].name,'BANK');
+  assert.equal(tabs[0].name,'BANK');
+
+  resolveUncached({name:'live',channels:2,samplerate:32000,format:'s16'});
+  await pending;
+
+  assert.equal(metadataHydrating,false);
+  assert.equal(synchronized,true);
+  assert.equal(slots.get(5).meta.name,'live');
+});
+
+test('sample library sync fails closed when the /sounds node is missing',async()=>{
+  let synchronized=true,metadataHydrating=true,reported='';
+  const memory={
+    getSelected:()=>null,getActiveTab:()=>0,setTabs(){},setSlots(){},setEntries(){},
+    countOccupied:()=>0,setMetadata(){},getSlot:()=>null
+  };
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession(){},
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleMetadataCache:{get:()=>null,set(){}},
+    listDirectory:async()=>[],
+    getFileMetadata:async()=>({}),
+    setSynchronized:value=>{synchronized=value;},
+    setMetadataHydrating:value=>{metadataHydrating=value;},
+    setSoundsParentId(){},setSoundFormats(){},setSoundsMetadata(){},setDeviceFiles(){},
+    updateMutationAvailability(){},closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},
+    renderDeviceStats(){},setStatus(){},
+    reportError:message=>{reported=message;},
+    logTechnical(){},
+    scheduleHide:callback=>callback()
+  });
+  await controller.readDevice();
+  assert.equal(synchronized,false);
+  assert.equal(metadataHydrating,false);
+  assert.equal(reported,'COULD NOT READ EP SAMPLE LIBRARY.');
 });

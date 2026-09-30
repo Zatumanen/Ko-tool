@@ -19,12 +19,13 @@ import{
 }from './sampleMemory.js?v=20260930-5';
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange}from './sampleProperties.js?v=20260930-5';
-import{createSampleMetadataCache,prioritizeMetadataSlots}from './sampleMetadataCache.js?v=20260930-5';
+import{createSampleMetadataCache}from './sampleMetadataCache.js?v=20260930-5';
 import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
 import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
 import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
 import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
+import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -993,82 +994,23 @@ export function initEp133Browser({showError}={}){
     }
   }
 
-  const readDevice=async()=>{
-    const sessionToken=captureBatchSession();
-    const preferredSelectedId=memory.getSelected()?.id||null;
-    const preferredTabIndex=memory.getActiveTab();
-    synchronized=false;
-    metadataHydrating=false;
-    updateMutationAvailability();
-    closeProperties();
-    setGlobalProgress('SYNC',0);
-    try{
-      memory.setTabs(activeDeviceProfile.fallbackTabs);
-      memory.setSlots(createSampleSlots([]));
-      renderDeviceStats({},0);
-      soundsParentId=0;
-      soundFormats=[];
-      soundsMetadata={};
-      deviceFiles=[];
-      const rootEntries=await listDirectory(0,'/');
-      assertBatchSession(sessionToken);
-      const soundsRoot=rootEntries.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
-      soundsParentId=Number(soundsRoot?.nodeId)||0;
-      if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
-      setGlobalProgress('SYNC',4);
-      const soundEntries=await listDirectory(soundsParentId,'/sounds');
-      assertBatchSession(sessionToken);
-      deviceFiles=[...rootEntries,...soundEntries];
-      memory.setEntries(soundEntries);
-      renderDeviceStats(soundsMetadata,memory.countOccupied());
-      setGlobalProgress('SYNC',8);
-      soundsMetadata=await getFileMetadata(soundsParentId);
-      assertBatchSession(sessionToken);
-      soundFormats=Array.isArray(soundsMetadata?.formats)?soundsMetadata.formats:[];
-      memory.setTabs(Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs);
-      const occupied=createSampleSlots(deviceFiles).filter(slot=>slot.file);
-      renderDeviceStats(soundsMetadata,occupied.length);
-      const activeTabs=Array.isArray(soundsMetadata?.tabs)&&soundsMetadata.tabs.length?soundsMetadata.tabs:activeDeviceProfile.fallbackTabs;
-      const activeRange=activeTabs?.[preferredTabIndex]?.range||null;
-      const ordered=prioritizeMetadataSlots(occupied,{selectedId:preferredSelectedId,activeRange});
-      const pending=[];
-      let loaded=0,cached=0;
-      for(const slot of ordered){
-        const metadata=sampleMetadataCache.get(slot);
-        if(metadata){
-          memory.setMetadata(slot.id,metadata);
-          loaded+=1;cached+=1;
-        }else pending.push(slot);
-      }
-      metadataHydrating=pending.length>0;
-      synchronized=true;
-      updateMutationAvailability();
-      setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
-      if(metadataHydrating)setStatus('SYNCED · '+occupied.length+' SAMPLES · LOADING '+pending.length+' METADATA · '+cached+' CACHED');
-      for(const slot of pending){
-        assertBatchSession(sessionToken);
-        try{
-          const metadata=await getFileMetadata(slot.nodeId);
-          memory.setMetadata(slot.id,metadata);
-          sampleMetadataCache.set(memory.getSlot(slot.id),metadata);
-        }catch(error){logTechnical('METADATA SLOT '+slot.id,error);}
-        loaded+=1;
-        setGlobalProgress('SYNC',8+(loaded/Math.max(1,occupied.length))*92);
-        if(loaded%8===0)await new Promise(resolve=>setTimeout(resolve,0));
-      }
-      metadataHydrating=false;
-      updateMutationAvailability();
-      setGlobalProgress('SYNC',100);
-      setStatus('SYNCED · '+occupied.length+' SAMPLES');
-    }catch(error){
-      metadataHydrating=false;
-      synchronized=false;
-      updateMutationAvailability();
-      reportError('COULD NOT READ EP SAMPLE LIBRARY.',error);
-    }finally{
-      setTimeout(hideGlobalProgress,180);
-    }
-  };
+  const sampleLibrarySync=createSampleLibrarySyncController({
+    captureBatchSession,assertBatchSession,
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>activeDeviceProfile,
+    sampleMetadataCache,
+    listDirectory,getFileMetadata,
+    setSynchronized:value=>{synchronized=!!value;},
+    setMetadataHydrating:value=>{metadataHydrating=!!value;},
+    setSoundsParentId:value=>{soundsParentId=Number(value)||0;},
+    setSoundFormats:value=>{soundFormats=Array.isArray(value)?value:[];},
+    setSoundsMetadata:value=>{soundsMetadata=value&&typeof value==='object'?value:{};},
+    setDeviceFiles:value=>{deviceFiles=Array.isArray(value)?value:[];},
+    updateMutationAvailability,closeProperties,
+    setGlobalProgress,hideGlobalProgress,renderDeviceStats,setStatus,
+    reportError,logTechnical
+  });
+  const{readDevice}=sampleLibrarySync;
 
   onFileEvent(event=>{void fileEventController.handleFileEvent(event);});
 

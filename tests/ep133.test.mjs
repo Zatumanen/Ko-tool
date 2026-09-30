@@ -187,7 +187,7 @@ test('My EP uploads hydrate local transport metadata immediately after success',
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const uploadStart=source.indexOf('async function uploadFilesToSlot');
-  const uploadBlock=source.slice(uploadStart,source.indexOf('const readDevice=async',uploadStart));
+  const uploadBlock=source.slice(uploadStart,source.indexOf('const sampleLibrarySync=',uploadStart));
   assert.match(uploadBlock,/const localMetadata=prepareSampleLocalMetadata/);
   assert.match(uploadBlock,/memory\.setMetadata\(target\.id,localMetadata\)/);
   assert.match(uploadBlock,/sampleMetadataCache\.set\(memory\.getSlot\(target\.id\),localMetadata\)/);
@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/sampleProperties.js','../js/ep133/sampleMetadataCache.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -299,7 +299,7 @@ test('My EP normal upload commits local metadata without blocking on post-upload
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('async function uploadFilesToSlot');
-  const block=source.slice(start,source.indexOf('const readDevice=async',start));
+  const block=source.slice(start,source.indexOf('const sampleLibrarySync=',start));
   const successPath=block.slice(0,block.indexOf('}catch(error){'));
   assert.doesNotMatch(successPath,/await getFileInfo\(fileId\)/);
   assert.doesNotMatch(successPath,/await getFileMetadata\(target\.id\)/);
@@ -331,6 +331,7 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
   const filesystem=await read('js/ep133/filesystem.js');
+  const sampleLibrarySync=await read('js/ep133/ui/sampleLibrarySync.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
   assert.equal(ui.includes("./index.js?v="+token),true);
   assert.equal(ui.includes("./audio.js?v="+token),true);
@@ -343,6 +344,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
   assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
   assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
+  assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
+  assert.equal(sampleLibrarySync.includes("../sampleMemory.js?v="+token),true);
+  assert.equal(sampleLibrarySync.includes("../sampleMetadataCache.js?v="+token),true);
   assert.equal(index.includes("./filesystem.js?v="+token),true);
   assert.equal(index.includes("./device.js?v="+token),true);
   assert.equal(index.includes("./capabilityEvidence.js?v="+token),true);
@@ -366,9 +370,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
 
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  assert.match(source,/soundsMetadata=await getFileMetadata\(soundsParentId\)/);
-  assert.match(source,/memory\.setTabs\(Array\.isArray\(soundsMetadata\?\.tabs\).*activeDeviceProfile\.fallbackTabs\)/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
+  assert.match(source,/const soundsMetadata=await getFileMetadata\(soundsParentId\)/);
+  assert.match(source,/const activeTabs=Array\.isArray\(soundsMetadata\?\.tabs\)[\s\S]*activeDeviceProfile\.fallbackTabs/);
+  assert.match(source,/memory\.setTabs\(activeTabs\)/);
 });
 
 test('sample memory creates 999 slots and maps sound node id to slot',()=>{
@@ -737,7 +742,7 @@ test('My EP keeps event-first metadata sync for destructive mutations but not th
   assert.match(source,/\{timeout:500\}/);
   assert.match(source,/const metadata=event\?\.data\?\.metadata\|\|await getFileMetadata\(nodeId\)/);
   const uploadStart=source.indexOf('async function uploadFilesToSlot');
-  const uploadBlock=source.slice(uploadStart,source.indexOf('const readDevice=async',uploadStart));
+  const uploadBlock=source.slice(uploadStart,source.indexOf('const sampleLibrarySync=',uploadStart));
   const uploadSuccess=uploadBlock.slice(0,uploadBlock.indexOf('}catch(error){'));
   assert.doesNotMatch(uploadSuccess,/waitForMetadataUpdate\(soundsParentId\)/);
   assert.doesNotMatch(uploadSuccess,/syncMetadataAfterMutation\(soundsParentId/);
@@ -1819,7 +1824,7 @@ test('My EP normal upload preflights one batch instead of repeating FILE checks 
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const start=source.indexOf('async function uploadFilesToSlot');
-  const block=source.slice(start,source.indexOf('const readDevice=async',start));
+  const block=source.slice(start,source.indexOf('const sampleLibrarySync=',start));
   const successPath=block.slice(0,block.indexOf('}catch(error){'));
   assert.match(block,/await withSampleUploadBatch\(async\(\)=>\{/);
   assert.match(block,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\)\)/);
@@ -2230,31 +2235,27 @@ test('EP-ready WAV fast path preserves supported source rate and rejects a misma
 
 test('My EP exposes the sample library before prioritized metadata hydration completes',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('const readDevice=async');
-  const end=source.indexOf('const syncMovedFile=async',start);
-  const block=source.slice(start,end);
-  const ready=block.indexOf("metadataHydrating=pending.length>0;\n      synchronized=true;");
-  const loop=block.indexOf('for(const slot of pending)');
-  assert.ok(ready>=0&&loop>ready);
-  assert.match(block,/prioritizeMetadataSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
-  assert.match(block,/sampleMetadataCache\.get\(slot\)/);
-  assert.match(block,/sampleMetadataCache\.set\(memory\.getSlot\(slot\.id\),metadata\)/);
-  assert.match(block,/LOADING '\+pending\.length\+' METADATA · '\+cached\+' CACHED/);
-  assert.match(block,/metadataHydrating=false;\n      updateMutationAvailability\(\);\n      setGlobalProgress\('SYNC',100\)/);
-  assert.match(source,/synchronized&&!metadataHydrating&&!mutating/);
-  assert.match(source,/!synchronized\|\|metadataHydrating\|\|mutating/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(source,/setMetadataHydrating\(pending\.length>0\)/);
+  assert.ok(source.indexOf('setSynchronized(true)')<source.indexOf('for(const slot of pending)'));
+  assert.match(source,/prioritizeMetadataSlots\(occupied,\{selectedId:preferredSelectedId,activeRange\}\)/);
+  assert.match(source,/sampleMetadataCache\.get\(slot\)/);
+  assert.match(source,/sampleMetadataCache\.set\(memory\.getSlot\(slot\.id\),metadata\)/);
+  assert.match(source,/LOADING '\+pending\.length\+' METADATA · '\+cached\+' CACHED/);
+  assert.match(source,/setMetadataHydrating\(false\);[\s\S]*setGlobalProgress\('SYNC',100\)/);
+  assert.match(ui,/synchronized&&!metadataHydrating&&!mutating/);
+  assert.match(ui,/!synchronized\|\|metadataHydrating\|\|mutating/);
 });
 
 test('My EP initial sample sync lists only root and the direct \/sounds directory',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=source.indexOf('const readDevice=async');
-  const block=source.slice(start,source.indexOf('onFileEvent(event=>',start));
-  assert.match(block,/await listDirectory\(0,'\/'\)/);
-  assert.match(block,/await listDirectory\(soundsParentId,'\/sounds'\)/);
-  assert.doesNotMatch(block,/listDeviceFiles\(/);
-  assert.match(source,/readAuthoritativeFiles=async\(\)=>\{[\s\S]*listDirectory\(soundsParentId,'\/sounds'\)/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
+  assert.match(source,/await listDirectory\(0,'\/'\)/);
+  assert.match(source,/await listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.doesNotMatch(source,/listDeviceFiles\(/);
+  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  assert.match(ui,/readAuthoritativeFiles=async\(\)=>\{[\s\S]*listDirectory\(soundsParentId,'\/sounds'\)/);
 });
 
 test('My EP drag reorder does not require sample READ capability',async()=>{
