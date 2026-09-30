@@ -7,6 +7,7 @@ import{buildFileDeletePayload,buildFileInitPayload,buildFileListPayload,buildFil
 import{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from '../js/ep133/projectArchive.js';
 import{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported}from '../js/ep133/projectProfile.js';
 import{CAPABILITY_EVIDENCE,capabilityEvidence,compareFirmwareVersions,firmwareMatchesRange,resolveCapabilityEvidence,canReadCapability,canPreserveCapability,canWriteCapability,assertCapabilityWritable}from '../js/ep133/capabilityEvidence.js';
+import{CAPABILITY_KEYS,EVIDENCE_REGISTRY,validateEvidenceRegistry,listCapabilityEvidence,resolveRegisteredCapabilityEvidence}from '../js/ep133/evidenceRegistry.js';
 import{readProjectModel,readProjectPattern,buildProjectFromModel}from '../js/ep133/projectReader.js';
 import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
@@ -174,6 +175,92 @@ test('firmware-scoped evidence grants write only inside the verified range',()=>
   }
 });
 
+test('evidence registry is complete, uniquely scoped, and keeps provenance with explicit rights',()=>{
+  assert.equal(validateEvidenceRegistry(),true);
+  assert.equal(EVIDENCE_REGISTRY.length,27);
+  const ids=new Set(EVIDENCE_REGISTRY.map(record=>record.id));
+  assert.equal(ids.size,EVIDENCE_REGISTRY.length);
+
+  for(const sku of ['TE032AS001','TE032AS005','TE032AS006']){
+    const records=listCapabilityEvidence({sku});
+    assert.equal(records.length,9);
+    assert.deepEqual(
+      new Set(records.map(record=>record.capability)),
+      new Set(Object.values(CAPABILITY_KEYS))
+    );
+    for(const record of records){
+      assert.match(record.recordedAt,/^\d{4}-\d{2}-\d{2}$/);
+      assert.equal(typeof record.rights.read,'boolean');
+      assert.equal(typeof record.rights.write,'boolean');
+      assert.equal(typeof record.rights.preserve,'boolean');
+      assert.equal(record.rights.write,record.level===CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+    }
+  }
+
+  const verified=listCapabilityEvidence({
+    sku:'TE032AS001',
+    capability:CAPABILITY_KEYS.PROJECT_AUTHORING
+  })[0];
+  assert.equal(verified.id,'ep133-project-authoring-os-2.5.1');
+  assert.equal(verified.sourceType,'hil');
+  assert.deepEqual(verified.firmwareRange,{min:'2.5.1',max:'2.5.1'});
+  assert.equal(verified.rights.write,true);
+
+  const medieval=listCapabilityEvidence({
+    sku:'TE032AS005',
+    capability:CAPABILITY_KEYS.PROJECT_AUTHORING
+  })[0];
+  assert.equal(medieval.sourceType,'unverified');
+  assert.equal(medieval.rights.write,false);
+  assert.equal(medieval.artifactId,null);
+});
+
+test('registered evidence resolves firmware scope without losing registry provenance',()=>{
+  const verified=resolveRegisteredCapabilityEvidence(
+    'TE032AS006',CAPABILITY_KEYS.SAMPLE_TRANSFERS,'2.5.1'
+  );
+  assert.equal(verified.level,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(verified.evidenceId,'ep40-sample-transfers-os-2.5.1');
+  assert.equal(verified.sourceType,'hil');
+  assert.equal(verified.recordedAt,'2026-09-30');
+  assert.equal(canWriteCapability(verified),true);
+
+  const future=resolveRegisteredCapabilityEvidence(
+    'TE032AS006',CAPABILITY_KEYS.SAMPLE_TRANSFERS,'2.5.2'
+  );
+  assert.equal(future.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+  assert.equal(future.baseLevel,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED);
+  assert.equal(future.evidenceId,'ep40-sample-transfers-os-2.5.1');
+  assert.equal(future.firmwareMatch,false);
+  assert.equal(canReadCapability(future),true);
+  assert.equal(canPreserveCapability(future),true);
+  assert.equal(canWriteCapability(future),false);
+
+  const unknown=resolveRegisteredCapabilityEvidence(
+    'TE032AS999',CAPABILITY_KEYS.SAMPLE_METADATA,'2.5.1'
+  );
+  assert.equal(unknown.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+  assert.equal(canReadCapability(unknown),false);
+  assert.match(unknown.reason,/No evidence registry entry exists/);
+});
+
+test('profiles consume the central evidence registry instead of defining capability evidence locally',async()=>{
+  const fs=await import('node:fs/promises');
+  const [deviceProfile,projectProfile,registry]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/deviceProfile.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/projectProfile.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/evidenceRegistry.js',import.meta.url),'utf8')
+  ]);
+  assert.match(deviceProfile,/resolveRegisteredCapabilityEvidence/);
+  assert.match(projectProfile,/resolveRegisteredCapabilityEvidence/);
+  assert.doesNotMatch(deviceProfile,/capabilityEvidence\(/);
+  assert.doesNotMatch(projectProfile,/capabilityEvidence\(/);
+  assert.match(registry,/hardware-verified|HARDWARE_VERIFIED/);
+  assert.match(registry,/firmwareRange/);
+  assert.match(registry,/recordedAt/);
+  assert.match(registry,/artifactId/);
+});
+
 test('EP-series identity accepts supported TE032 SKUs',()=>{
   for(const sku of ['TE032AS001','TE032AS005','TE032AS006'])assert.equal(isSupportedEpSku(sku),true);
   assert.equal(isSupportedEpSku('TE032AS002'),false);
@@ -288,7 +375,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
