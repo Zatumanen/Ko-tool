@@ -22,12 +22,13 @@ export function createDeviceView({
   };
 
   const renderIdentity=state=>{
+    const firmware=String(state?.device?.metadata?.os_version||state?.device?.metadata?.sw_version||'');
     if(state?.connected){
-      activeProfile=getDeviceProfile(state?.device?.sku);
+      activeProfile=getDeviceProfile(state?.device?.sku,firmware);
       lastDeviceInfo={title:activeProfile.title,name:activeProfile.name};
       everConnected=true;
     }
-    const fallback=getDeviceProfile(state?.device?.sku);
+    const fallback=getDeviceProfile(state?.device?.sku,firmware);
     const info=state?.connected?lastDeviceInfo:(everConnected?lastDeviceInfo:{
       title:fallback?.title||'MY EP',
       name:fallback?.name||''

@@ -1,6 +1,7 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
+import{compareFirmwareVersions}from './capabilityEvidence.js?v=20260930-5';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
@@ -13,7 +14,6 @@ const MIN_FIRMWARE={
   TE032AS005:{beta:'0.2.13',production:'1.0.2'},
   TE032AS006:{beta:'0.4.7',production:'1.0.5'}
 };
-function compareVersion(a,b){const pa=String(a||'').split('.').map(Number),pb=String(b||'').split('.').map(Number);for(let i=0;i<3;i++){const x=Number.isFinite(pa[i])?pa[i]:0,y=Number.isFinite(pb[i])?pb[i]:0;if(x!==y)return x-y;}return 0;}
 function validateFirmware(sku,metadata){
   const version=String(metadata?.os_version||'');
   if(version.startsWith('0.1.0'))return;
@@ -21,7 +21,7 @@ function validateFirmware(sku,metadata){
   if(!minimums||!version)throw new Error('EP-series firmware version could not be verified.');
   const channel=version.startsWith('0.')?'beta':'production';
   const minimum=minimums[channel];
-  if(compareVersion(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
+  if(compareFirmwareVersions(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
 }
 
 export function parseFirmwareDebugFrame(bytes){

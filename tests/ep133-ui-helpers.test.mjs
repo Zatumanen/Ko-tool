@@ -1163,19 +1163,27 @@ test('device view owns identity memory overlay status and MIDI activity renderin
   const title={textContent:''},deviceName={textContent:''},overlay={textContent:''},status={textContent:''};
   const head={classList:makeClassList()},stats={textContent:''},meter={style:{width:''}},count={textContent:''};
   const tx={classList:makeClassList()},rx={classList:makeClassList()};
-  const timers=[];
+  const timers=[],profileCalls=[];
   const view=createDeviceView({
     title,deviceName,deviceHead:head,connectionOverlay:overlay,status,
     memoryStats:stats,memoryMeter:meter,sampleCount:count,txIndicator:tx,rxIndicator:rx,
-    getDeviceProfile:sku=>sku==='TE032AS001'
-      ?{title:'MY EP-133 K.O. II',name:'EP-133'}
-      :{title:'MY EP',name:''},
+    getDeviceProfile:(sku,firmware)=>{
+      profileCalls.push([sku,firmware]);
+      return sku==='TE032AS001'
+        ?{title:'MY EP-133 K.O. II',name:'EP-133',firmware}
+        :{title:'MY EP',name:'',firmware};
+    },
     setTimeoutFn:(callback,delay)=>{timers.push({callback,delay});return timers.length;},
     clearTimeoutFn(){}
   });
 
-  const profile=view.renderIdentity({connected:true,device:{sku:'TE032AS001'}});
+  const profile=view.renderIdentity({
+    connected:true,
+    device:{sku:'TE032AS001',metadata:{os_version:'2.5.1'}}
+  });
   assert.equal(profile.name,'EP-133');
+  assert.equal(profile.firmware,'2.5.1');
+  assert.deepEqual(profileCalls.at(-2),['TE032AS001','2.5.1']);
   assert.equal(title.textContent,'MY EP-133 K.O. II');
   assert.equal(deviceName.textContent,'EP-133');
   assert.equal(view.hasEverConnected(),true);

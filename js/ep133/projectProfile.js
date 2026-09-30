@@ -1,5 +1,5 @@
 import{
-  CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,
+  CAPABILITY_EVIDENCE,capabilityEvidence,resolveCapabilityEvidence,
   canReadCapability,canPreserveCapability,canWriteCapability,
   assertCapabilityReadable,assertCapabilityWritable
 }from './capabilityEvidence.js?v=20260930-5';
@@ -7,9 +7,14 @@ import{
 const SHARED_SETTINGS_SIZES=Object.freeze([222,224]);
 const SHARED_FX_SIZES=Object.freeze([144,152,160]);
 
-const hw=(source,extra={})=>capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{read:true,preserve:true,source,...extra});
+const VERIFIED_PROJECT_FIRMWARE='2.5.1';
+const hw=(source,extra={})=>capabilityEvidence(CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
+  read:true,preserve:true,source,firmwareRange:VERIFIED_PROJECT_FIRMWARE,...extra
+});
 const unverified=(reason,{read=false,preserve=false,source=''}={})=>capabilityEvidence(CAPABILITY_EVIDENCE.UNVERIFIED,{read,preserve,source,reason});
-const observed=(source)=>capabilityEvidence(CAPABILITY_EVIDENCE.CAPTURE_OBSERVED,{read:true,preserve:true,source});
+const observed=(source)=>capabilityEvidence(CAPABILITY_EVIDENCE.CAPTURE_OBSERVED,{
+  read:true,preserve:true,source,firmwareRange:VERIFIED_PROJECT_FIRMWARE
+});
 
 const EP133_EVIDENCE=Object.freeze({
   projectTransport:hw('whole-project FILE read/write HIL on EP-133, including OS 2.5.1'),
@@ -82,9 +87,9 @@ const GENERIC=Object.freeze({
   reason:'The connected EP project format has not been hardware-verified.'
 });
 
-const clone=profile=>{
+const clone=(profile,firmware='')=>{
   const evidence=Object.fromEntries(
-    Object.entries(profile.evidence||{}).map(([key,value])=>[key,cloneCapabilityEvidence(value)])
+    Object.entries(profile.evidence||{}).map(([key,value])=>[key,resolveCapabilityEvidence(value,firmware)])
   );
   return{
     ...profile,
@@ -104,7 +109,8 @@ const clone=profile=>{
 export function getEpProjectProfile(sku='',firmware=''){
   const key=String(sku||'').toUpperCase();
   const profile=PROFILES[key]||GENERIC;
-  return{...clone(profile),sku:key||profile.sku,firmware:String(firmware||'')};
+  const version=String(firmware||'');
+  return{...clone(profile,version),sku:key||profile.sku,firmware:version};
 }
 
 export function assertProjectTransportSupported(sku='',firmware=''){
