@@ -15,6 +15,23 @@ const wav16Mono=(sampleRate=48000,frames=48000)=>{
   return buffer;
 };
 
+
+const transientWav=(sampleRate=48000,seconds=2)=>{
+  const frames=Math.floor(sampleRate*seconds);
+  const buffer=wav16Mono(sampleRate,frames);
+  for(let index=0;index<frames;index++)buffer.writeInt16LE(0,44+index*2);
+  for(const second of [.30,.80,1.30]){
+    const start=Math.floor(second*sampleRate);
+    const length=Math.floor(.09*sampleRate);
+    for(let offset=0;offset<length&&start+offset<frames;offset++){
+      const envelope=Math.exp(-offset/(sampleRate*.018));
+      const sample=Math.max(-32767,Math.min(32767,Math.round(Math.sin(offset*.42)*26000*envelope)));
+      buffer.writeInt16LE(sample,44+(start+offset)*2);
+    }
+  }
+  return buffer;
+};
+
 test('SpeedUpperCut waveform editor crops, adjusts gain, normalizes and replaces the EP-ready result',async({page})=>{
   await page.goto('/');
   const wav=wav16Mono();
@@ -104,4 +121,66 @@ test('waveform editor Reset restores full-range selection and neutral processing
   await expect(page.locator('[data-waveform-gain]')).toHaveValue('0');
   await expect(page.locator('[data-waveform-zoom]')).toHaveValue('1');
   await expect(page.locator('[data-waveform-normalize]')).not.toBeChecked();
+});
+
+
+test('waveform chop modes detect transients, build even slices, allow manual marker edits and export ZIP',async({page})=>{
+  await page.goto('/');
+  await page.locator('#auto-trim').uncheck();
+  await page.locator('#audio-upload').setInputFiles({
+    name:'transients.wav',
+    mimeType:'audio/wav',
+    buffer:transientWav()
+  });
+  await expect(page.locator('.edit-waveform')).toBeVisible({timeout:15000});
+  await page.locator('#preview-window .preview-close').click();
+  await page.locator('.edit-waveform').click();
+
+  await page.locator('[data-chop-target]').fill('4');
+  await page.locator('[data-chop-target]').press('Tab');
+  await page.locator('[data-chop-mode="transients"]').click();
+  await expect(page.locator('[data-chop-mode="transients"]')).toHaveClass(/active/);
+  await expect.poll(async()=>{
+    const text=await page.locator('[data-chop-status]').textContent();
+    return Number(String(text).match(/\d+/)?.[0]||0);
+  }).toBeGreaterThan(1);
+
+  await page.locator('[data-chop-mode="even"]').click();
+  await expect(page.locator('[data-chop-status]')).toHaveText('4 SLICES');
+  await expect(page.locator('[data-chop-mode="even"]')).toHaveClass(/active/);
+
+  const canvas=page.locator('[data-waveform-canvas]');
+  const box=await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.dblclick(box.x+box.width*.36,box.y+box.height*.5);
+  await expect(page.locator('[data-chop-mode="manual"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-chop-status]')).toHaveText('5 SLICES');
+  await expect(page.locator('[data-chop-remove]')).toBeEnabled();
+
+  await page.locator('[data-chop-remove]').click();
+  await expect(page.locator('[data-chop-status]')).toHaveText('4 SLICES');
+
+  await page.evaluate(()=>{
+    window.__savedChopZip=null;
+    window.showSaveFilePicker=async options=>{
+      const record={name:options?.suggestedName||'',size:0,type:''};
+      window.__savedChopZip=record;
+      return{
+        async createWritable(){
+          return{
+            async write(blob){record.size=blob?.size||0;record.type=blob?.type||'';},
+            async close(){record.closed=true;}
+          };
+        }
+      };
+    };
+  });
+  await page.locator('[data-chop-export]').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedChopZip)).toMatchObject({
+    name:'transients_x2_chops.zip',
+    type:'application/zip',
+    closed:true
+  });
+  expect(await page.evaluate(()=>window.__savedChopZip.size)).toBeGreaterThan(200);
+  await expect(page.locator('#status-bar')).toContainText('Exported 4 chops');
 });

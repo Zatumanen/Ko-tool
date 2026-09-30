@@ -1,6 +1,10 @@
 import{
   clampWaveformSelection,buildWaveformPeaks,gainDbToLinear,renderWaveformEdit
 }from './audio/waveform-editor.js?v=20260930-5';
+import{
+  buildEvenChopCuts,detectTransientChopCuts,addChopCut,moveChopCut,removeChopCut,
+  getChopRanges,nearestChopCutIndex,renderChopWavs
+}from './audio/chop.js?v=20260930-5';
 
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const formatTime=value=>{
@@ -16,6 +20,7 @@ export function openWaveformEditor(item,{
   state,
   createAudioContext,
   onApply,
+  onExportChops,
   showError=()=>{}
 }={}){
   const old=document.getElementById('waveform-editor');
@@ -58,6 +63,22 @@ export function openWaveformEditor(item,{
           <label>GAIN <input data-waveform-gain type="range" min="-24" max="12" step="0.5" value="0"><b data-waveform-gain-label>0 dB</b></label>
           <label class="waveform-normalize"><input data-waveform-normalize type="checkbox"> NORMALIZE TO PEAK</label>
         </div>
+        <div class="waveform-chop-panel">
+          <div class="waveform-chop-head"><b>CHOP</b><span data-chop-status>1 SLICE</span></div>
+          <div class="waveform-chop-controls">
+            <div class="waveform-chop-modes" role="group" aria-label="Chop mode">
+              <button type="button" data-chop-mode="manual" class="active">MANUAL</button>
+              <button type="button" data-chop-mode="transients">TRANSIENTS</button>
+              <button type="button" data-chop-mode="even">EVEN</button>
+            </div>
+            <label>SLICES <input data-chop-target type="number" min="1" max="64" step="1" value="8"></label>
+            <button type="button" data-chop-add>+ MARKER</button>
+            <button type="button" data-chop-remove disabled>- MARKER</button>
+            <button type="button" data-chop-clear>CLEAR</button>
+            <button type="button" data-chop-export disabled>EXPORT CHOPS</button>
+          </div>
+          <div class="waveform-chop-help">DOUBLE-CLICK = ADD MARKER · DRAG MARKER = MOVE · DELETE = REMOVE</div>
+        </div>
         <div class="waveform-actions">
           <button type="button" data-waveform-play>▶ PLAY SELECTION</button>
           <button type="button" data-waveform-stop>■ STOP</button>
@@ -81,6 +102,11 @@ export function openWaveformEditor(item,{
   const gainLabel=editor.querySelector('[data-waveform-gain-label]');
   const normalizeInput=editor.querySelector('[data-waveform-normalize]');
   const applyButton=editor.querySelector('[data-waveform-apply]');
+  const chopStatus=editor.querySelector('[data-chop-status]');
+  const chopTargetInput=editor.querySelector('[data-chop-target]');
+  const chopRemoveButton=editor.querySelector('[data-chop-remove]');
+  const chopExportButton=editor.querySelector('[data-chop-export]');
+  const chopModeButtons=[...editor.querySelectorAll('[data-chop-mode]')];
 
   const totalDuration=sourceBuffer.duration||sourceBuffer.length/sourceBuffer.sampleRate;
   let selection={start:0,end:totalDuration,duration:totalDuration,totalDuration};
@@ -97,6 +123,11 @@ export function openWaveformEditor(item,{
   let playbackOffset=0;
   let ctx=state?.ctx||null;
   let resizeObserver=null;
+  let chopMode='manual';
+  let chopTarget=8;
+  let chopCuts=[0];
+  let focusedCutIndex=null;
+  let markerDragIndex=null;
 
   const viewRange=()=>{
     const width=Math.max(.001,totalDuration/zoom);
@@ -112,6 +143,44 @@ export function openWaveformEditor(item,{
     const view=viewRange();
     return view.start+(view.end-view.start)*ratio;
   };
+  const frameAtTime=time=>Math.max(0,Math.min(sourceBuffer.length-1,Math.round(time*sourceBuffer.sampleRate)));
+  const closestCutIndex=frame=>{
+    let best=-1,distance=Infinity;
+    for(let index=1;index<chopCuts.length;index++){
+      const next=Math.abs(chopCuts[index]-frame);
+      if(next<distance){distance=next;best=index;}
+    }
+    return best;
+  };
+  const cutIndexAtClientX=clientX=>{
+    const rect=canvas.getBoundingClientRect();
+    const view=viewRange();
+    let best=-1,distance=Infinity;
+    for(let index=1;index<chopCuts.length;index++){
+      const time=chopCuts[index]/sourceBuffer.sampleRate;
+      if(time<view.start||time>view.end)continue;
+      const x=rect.left+(time-view.start)/(view.end-view.start)*rect.width;
+      const next=Math.abs(clientX-x);
+      if(next<distance){distance=next;best=index;}
+    }
+    return distance<=8?best:-1;
+  };
+  const updateChopUi=()=>{
+    const ranges=getChopRanges(sourceBuffer,chopCuts);
+    chopStatus.textContent=ranges.length+' '+(ranges.length===1?'SLICE':'SLICES');
+    chopTargetInput.value=String(chopTarget);
+    chopModeButtons.forEach(button=>button.classList.toggle('active',button.dataset.chopMode===chopMode));
+    chopRemoveButton.disabled=!(focusedCutIndex>0&&focusedCutIndex<chopCuts.length);
+    chopExportButton.disabled=chopCuts.length<2||typeof onExportChops!=='function';
+  };
+  const setChopMode=mode=>{
+    chopMode=['manual','transients','even'].includes(mode)?mode:'manual';
+    focusedCutIndex=null;
+    if(chopMode==='transients')chopCuts=detectTransientChopCuts(sourceBuffer,{slices:chopTarget});
+    else if(chopMode==='even')chopCuts=buildEvenChopCuts(sourceBuffer,chopTarget);
+    draw();
+  };
+  const switchToManual=()=>{chopMode='manual';updateChopUi();};
   const selectedPeak=()=>{
     const first=Math.max(0,Math.floor(selection.start*sourceBuffer.sampleRate));
     const last=Math.min(sourceBuffer.length,Math.max(first+1,Math.ceil(selection.end*sourceBuffer.sampleRate)));
@@ -177,6 +246,7 @@ export function openWaveformEditor(item,{
     outputEl.textContent=formatTime(selection.duration);
     zoomLabel.textContent=zoom+'×';
     gainLabel.textContent=(gainDb>0?'+':'')+gainDb.toFixed(gainDb%1?1:0)+' dB';
+    updateChopUi();
   };
   const draw=()=>{
     syncInputs();
@@ -211,6 +281,32 @@ export function openWaveformEditor(item,{
       context.lineTo(x,height/2-peak.min*(height*.44));
     }
     context.stroke();
+
+    const ranges=getChopRanges(sourceBuffer,chopCuts);
+    const activeSlice=ranges.findIndex(range=>playhead>=range.start&&playhead<range.end);
+    for(const range of ranges){
+      const left=Math.max(0,xForTime(range.start));
+      const right=Math.min(width,xForTime(range.end));
+      if(right<=left)continue;
+      if(range.index===activeSlice){
+        context.fillStyle='rgba(255,217,74,.12)';
+        context.fillRect(left,0,right-left,height);
+      }
+      if(right-left>26){
+        context.fillStyle='#9a3b12';
+        context.font='700 9px "Courier New"';
+        context.fillText(String(range.index+1).padStart(2,'0'),left+4,12);
+      }
+    }
+    for(let index=1;index<chopCuts.length;index++){
+      const x=xForTime(chopCuts[index]/sourceBuffer.sampleRate);
+      if(x<0||x>width)continue;
+      context.strokeStyle=index===focusedCutIndex?'#9a5b00':'#e85a25';
+      context.lineWidth=index===focusedCutIndex?2:1;
+      context.beginPath();context.moveTo(x,0);context.lineTo(x,height);context.stroke();
+    }
+    context.lineWidth=1;
+
     const px=xForTime(playhead);
     if(px>=0&&px<=width){
       context.strokeStyle='#c00';
@@ -240,38 +336,80 @@ export function openWaveformEditor(item,{
     stopPlayback();
     selection=clampWaveformSelection(sourceBuffer,0,totalDuration);
     playhead=0;zoom=1;gainDb=0;normalize=false;
-    zoomInput.value='1';gainInput.value='0';normalizeInput.checked=false;
+    chopMode='manual';chopTarget=8;chopCuts=[0];focusedCutIndex=null;markerDragIndex=null;
+    zoomInput.value='1';gainInput.value='0';normalizeInput.checked=false;chopTargetInput.value='8';
     draw();
   };
   const onKey=event=>{
     if(!editor.isConnected)return;
     if(event.key==='Escape'){event.preventDefault();close();return;}
     if(event.target.matches('input,button'))return;
+    if((event.key==='Delete'||event.key==='Backspace')&&focusedCutIndex>0){
+      event.preventDefault();
+      chopCuts=removeChopCut(sourceBuffer,chopCuts,focusedCutIndex);
+      focusedCutIndex=null;
+      switchToManual();
+      draw();
+      return;
+    }
     if(event.code==='Space'){event.preventDefault();playSelection();}
   };
 
   canvas.addEventListener('pointerdown',event=>{
     stopPlayback();
+    const marker=cutIndexAtClientX(event.clientX);
+    if(marker>0){
+      markerDragIndex=marker;
+      focusedCutIndex=marker;
+      switchToManual();
+      canvas.setPointerCapture?.(event.pointerId);
+      draw();
+      return;
+    }
     dragStart=timeAtClientX(event.clientX);
     dragStartX=event.clientX;
     canvas.setPointerCapture?.(event.pointerId);
   });
   canvas.addEventListener('pointermove',event=>{
+    if(markerDragIndex>0){
+      const frame=frameAtTime(timeAtClientX(event.clientX));
+      chopCuts=moveChopCut(sourceBuffer,chopCuts,markerDragIndex,frame);
+      focusedCutIndex=nearestChopCutIndex(sourceBuffer,chopCuts,frame,{maxDistanceMs:1000});
+      markerDragIndex=focusedCutIndex;
+      draw();
+      return;
+    }
     if(dragStart==null)return;
     const current=timeAtClientX(event.clientX);
     if(Math.abs(event.clientX-dragStartX)<3)return;
     setSelection(dragStart,current);
   });
   canvas.addEventListener('pointerup',event=>{
+    if(markerDragIndex>0){
+      markerDragIndex=null;
+      draw();
+      return;
+    }
     if(dragStart==null)return;
     const current=timeAtClientX(event.clientX);
     if(Math.abs(event.clientX-dragStartX)<3){
       playhead=current;
+      const frame=frameAtTime(playhead);
+      focusedCutIndex=closestCutIndex(frame);
+      if(focusedCutIndex>0&&Math.abs(chopCuts[focusedCutIndex]-frame)>sourceBuffer.sampleRate*.08)focusedCutIndex=null;
       draw();
     }else setSelection(dragStart,current);
     dragStart=null;
   });
-  canvas.addEventListener('pointercancel',()=>{dragStart=null;});
+  canvas.addEventListener('pointercancel',()=>{dragStart=null;markerDragIndex=null;});
+  canvas.addEventListener('dblclick',event=>{
+    stopPlayback();
+    const frame=frameAtTime(timeAtClientX(event.clientX));
+    chopCuts=addChopCut(sourceBuffer,chopCuts,frame);
+    focusedCutIndex=nearestChopCutIndex(sourceBuffer,chopCuts,frame,{maxDistanceMs:1000});
+    switchToManual();
+    draw();
+  });
 
   startInput.addEventListener('change',applyInputs);
   endInput.addEventListener('change',applyInputs);
@@ -281,6 +419,52 @@ export function openWaveformEditor(item,{
   zoomInput.oninput=()=>{zoom=Math.max(1,Math.round(number(zoomInput.value)||1));draw();};
   gainInput.oninput=()=>{gainDb=number(gainInput.value);draw();};
   normalizeInput.onchange=()=>{normalize=normalizeInput.checked;draw();};
+  chopModeButtons.forEach(button=>button.onclick=()=>setChopMode(button.dataset.chopMode));
+  chopTargetInput.onchange=()=>{
+    chopTarget=Math.max(1,Math.min(64,Math.round(number(chopTargetInput.value)||8)));
+    chopTargetInput.value=String(chopTarget);
+    if(chopMode==='transients'||chopMode==='even')setChopMode(chopMode);
+    else draw();
+  };
+  editor.querySelector('[data-chop-add]').onclick=()=>{
+    const frame=frameAtTime(playhead);
+    chopCuts=addChopCut(sourceBuffer,chopCuts,frame);
+    focusedCutIndex=nearestChopCutIndex(sourceBuffer,chopCuts,frame,{maxDistanceMs:1000});
+    switchToManual();
+    draw();
+  };
+  chopRemoveButton.onclick=()=>{
+    if(!(focusedCutIndex>0))focusedCutIndex=closestCutIndex(frameAtTime(playhead));
+    if(focusedCutIndex>0)chopCuts=removeChopCut(sourceBuffer,chopCuts,focusedCutIndex);
+    focusedCutIndex=null;
+    switchToManual();
+    draw();
+  };
+  editor.querySelector('[data-chop-clear]').onclick=()=>{
+    chopCuts=[0];focusedCutIndex=null;switchToManual();draw();
+  };
+  chopExportButton.onclick=async()=>{
+    if(chopExportButton.disabled)return;
+    chopExportButton.disabled=true;
+    const previous=chopExportButton.textContent;
+    chopExportButton.textContent='EXPORTING...';
+    try{
+      const outputs=await renderChopWavs(sourceBuffer,chopCuts,{
+        gainDb,normalize,playmode:item?.playmode||'oneshot'
+      });
+      await onExportChops?.(outputs,{
+        mode:chopMode,
+        cuts:[...chopCuts],
+        gainDb,
+        normalize
+      });
+    }catch(error){
+      showError(error?.message||error);
+    }finally{
+      chopExportButton.textContent=previous;
+      updateChopUi();
+    }
+  };
   editor.querySelector('[data-waveform-play]').onclick=()=>{try{playSelection();}catch(error){showError(error?.message||error);}};
   editor.querySelector('[data-waveform-stop]').onclick=()=>{stopPlayback();draw();};
   editor.querySelector('[data-waveform-reset]').onclick=reset;
