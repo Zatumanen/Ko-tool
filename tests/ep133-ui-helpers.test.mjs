@@ -5,6 +5,7 @@ import{createFileEventController}from '../js/ep133/ui/fileEvents.js';
 import{createConnectionLifecycle}from '../js/ep133/ui/connectionLifecycle.js';
 import{createSampleLibrarySyncController}from '../js/ep133/ui/sampleLibrarySync.js';
 import{createSamplePropertiesController}from '../js/ep133/ui/samplePropertiesController.js';
+import{createSampleReadController,sampleDownloadName}from '../js/ep133/ui/sampleReadController.js';
 import{getSoundsParentId,buildFileItemFromInfo,buildProvisionalUploadedFileItem,soundSlotIds}from '../js/ep133/ui/fileModel.js';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -453,4 +454,134 @@ test('sample properties controller owns open-slot state and remaps it after nati
   controller.close();
   assert.equal(controller.getCurrentSlotId(),null);
   assert.equal(panel.hidden,true);
+});
+
+
+test('sample read controller stops the active preview before starting the next sample',async()=>{
+  const actions=[];
+  const preview=[];
+  let timerId=0;
+  const activeTimers=new Set();
+  const memory={setPreviewing:id=>preview.push(id)};
+  const controller=createSampleReadController({
+    getMemory:()=>memory,
+    isConnected:()=>true,
+    startPlayback:async(id,enabled)=>actions.push(['start',id,enabled]),
+    stopPlayback:async id=>actions.push(['stop',id]),
+    reportError:(message,error)=>{throw new Error(message+' '+error?.message);},
+    setTimeoutFn:()=>{const id=++timerId;activeTimers.add(id);return id;},
+    clearTimeoutFn:id=>{actions.push(['clear',id]);activeTimers.delete(id);}
+  });
+
+  const first={id:7,nodeId:7,file:{name:'kick'}};
+  const second={id:8,nodeId:8,file:{name:'snare'}};
+  await controller.audition(first);
+  assert.equal(controller.getPlayingNodeId(),7);
+  await controller.audition(second);
+
+  assert.deepEqual(actions,[
+    ['start',7,true],
+    ['clear',1],
+    ['stop',7],
+    ['start',8,true]
+  ]);
+  assert.deepEqual(preview,[7,null,8]);
+  assert.equal(controller.getPlayingNodeId(),8);
+});
+
+test('sample read controller downloads selections sequentially as individual WAV files under one session guard',async()=>{
+  const actions=[];
+  const downloads=[];
+  const progress=[];
+  let hidden=0;
+  const slots=[
+    {id:1,nodeId:1,file:{name:'kick.raw'},meta:{name:'Kick One.wav',channels:1,samplerate:46875,format:'s16'}},
+    {id:2,nodeId:2,file:{name:'snare.raw'},meta:null}
+  ];
+  const anchor={
+    href:'',download:'',
+    click(){downloads.push(this.download);},
+    remove(){}
+  };
+  const controller=createSampleReadController({
+    getMemory:()=>({}),
+    isConnected:()=>true,
+    getFile:async(id,onProgress)=>{
+      actions.push(['get',id]);
+      onProgress?.(2,4);
+      return{name:id===1?'wire-kick':'wire-snare',data:Uint8Array.from([id,id+1])};
+    },
+    getFileMetadata:async id=>{
+      actions.push(['meta',id]);
+      return{name:'Snare Two.wav',channels:1,samplerate:46875,format:'s16'};
+    },
+    captureBatchSession:()=>{actions.push(['capture']);return'session-a';},
+    assertBatchSession:token=>actions.push(['assert',token]),
+    setGlobalProgress:(label,value)=>progress.push([label,value]),
+    hideGlobalProgress:()=>{hidden++;},
+    createWav:async(bytes,options)=>{
+      actions.push(['wav',bytes[0],options.name]);
+      return{bytes:[...bytes],options};
+    },
+    documentRef:{
+      createElement:tag=>{assert.equal(tag,'a');return anchor;},
+      body:{appendChild(){}}
+    },
+    urlApi:{
+      createObjectURL:blob=>'blob:'+blob.bytes[0],
+      revokeObjectURL:url=>actions.push(['revoke',url])
+    },
+    windowRef:{},
+    setTimeoutFn:callback=>{callback();return 1;}
+  });
+
+  await controller.downloadMany(slots);
+
+  assert.deepEqual(actions.slice(0,8),[
+    ['capture'],
+    ['assert','session-a'],
+    ['get',1],
+    ['wav',1,'wire-kick'],
+    ['revoke','blob:1'],
+    ['assert','session-a'],
+    ['get',2],
+    ['meta',2]
+  ]);
+  assert.deepEqual(downloads,['Kick One.wav','Snare Two.wav']);
+  assert.equal(hidden,1);
+  assert.equal(progress.at(-1)[1],100);
+});
+
+test('sample read controller uses the save picker for a single download and sanitizes the filename',async()=>{
+  const writes=[];
+  let fallbackUrls=0,hidden=0;
+  const slot={id:3,nodeId:3,file:{name:'bad/name.raw'},meta:{name:'Bad/Name?.wav',channels:1,samplerate:46875,format:'s16'}};
+  assert.equal(sampleDownloadName(slot,{name:'ignored'}),'Bad_Name_.wav');
+
+  const controller=createSampleReadController({
+    getMemory:()=>({}),
+    isConnected:()=>true,
+    getFile:async()=>({name:'wire',data:Uint8Array.from([3,4])}),
+    getFileMetadata:async()=>slot.meta,
+    setGlobalProgress(){},
+    hideGlobalProgress:()=>{hidden++;},
+    createWav:async()=>({wav:true}),
+    windowRef:{
+      showSaveFilePicker:async options=>{
+        writes.push(['picker',options.suggestedName]);
+        return{createWritable:async()=>({
+          write:async blob=>writes.push(['write',blob.wav]),
+          close:async()=>writes.push(['close'])
+        })};
+      }
+    },
+    documentRef:{createElement(){throw new Error('fallback download should not run');},body:{appendChild(){}}},
+    urlApi:{createObjectURL(){fallbackUrls++;return'blob:x';},revokeObjectURL(){}}
+  });
+
+  const result=await controller.downloadOne(slot);
+  assert.equal(result.filename,'Bad_Name_.wav');
+  assert.deepEqual(writes,[['picker','Bad_Name_.wav'],['write',true],['close']]);
+  assert.equal(fallbackUrls,0);
+  assert.equal(hidden,1);
 });
