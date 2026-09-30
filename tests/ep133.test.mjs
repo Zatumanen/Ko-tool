@@ -717,11 +717,12 @@ test('EP uploads validate metadata before one guarded PUT metadata SET FILE_INIT
 test('all public mutating FILE APIs use the strict firmware debug guard',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  assert.match(source,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\)\)/);
+  assert.match(source,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\),label\)/);
   assert.match(source,/export async function putFile\(args\)\{return runGuardedFileMutation\('FILE_PUT mutation'/);
   assert.match(source,/export async function deleteFile[\s\S]*runGuardedFileMutation\('FILE_DELETE mutation'/);
   assert.match(source,/export async function moveFile[\s\S]*runGuardedFileMutation\('FILE_MOVE mutation'/);
   assert.match(source,/export async function setFileMetadata[\s\S]*runGuardedFileMutation\('METADATA_SET mutation'/);
+  assert.match(source,/export async function uploadSampleToSlot[\s\S]*runGuardedFileMutation\('sample upload transaction'/);
 });
 
 test('EP FILE init ambiguity and browser lock guards remain explicit',async()=>{
@@ -805,15 +806,14 @@ test('My EP aborts batches when the connected MIDI session changes',async()=>{
 test('EP native MOVE can verify source and destination CRC without downloading PCM',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function moveFile');
-  const end=source.indexOf('async function setFileMetadataUnlocked',start);
+  const start=source.indexOf('async function moveFileUnlocked');
+  const end=source.indexOf('export async function moveFile',start);
   const block=source.slice(start,end);
   assert.match(block,/const sourceMetadata=await getMetadataByNodeId\(fileId\)/);
   assert.match(block,/sourceCrc=normalizeCrc\(sourceMetadata\?\.crc\)/);
   assert.match(block,/metadata=await getMetadataByNodeId\(moved\.newFileId\)/);
-  assert.match(block,/destinationCrc=normalizeCrc\(metadata\?\.crc\)/);
   assert.match(block,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
-  assert.doesNotMatch(block,/getFileUnlocked/);
+  assert.doesNotMatch(block,/getFileUnlocked\(/);
 });
 
 test('EP sample reorder uses native FILE_MOVE only and resolves the authoritative destination',async()=>{
@@ -877,15 +877,15 @@ test('EP FILE_MOVE payload and response use the official three-u16 big-endian la
 test('EP native FILE_MOVE mirrors TE timeout recovery and resolves FILE_INFO after init',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('export async function moveFile');
-  const end=source.indexOf('export async function setFileMetadata',start);
+  const start=source.indexOf('async function moveFileUnlocked');
+  const end=source.indexOf('export async function moveFile',start);
   const block=source.slice(start,end);
-  assert.match(block,/\{timeout=2000,verifyCrc=false\}/);
-  assert.match(block,/if\(verifyCrc\)[\s\S]*source sample CRC is unavailable/);
+  assert.match(block,/\{timeout=2000,verifyCrc=false\}=\{\}/);
   assert.match(block,/if\(!isRequestTimeoutError\(error\)\)throw error/);
+  assert.match(block,/timedOut=true/);
   assert.match(block,/await initFileSystemUnlocked\(\)/);
   assert.match(block,/const info=await getFileInfoUnlocked\(moved\.newFileId\)/);
-  assert.ok(block.indexOf('await initFileSystemUnlocked()')<block.indexOf('getFileInfoUnlocked'));
+  assert.match(block,/return\{\.\.\.moved,info,timedOut,metadata,sourceCrc,destinationCrc,crcVerified\}/);
 });
 
 test('EP FILE_PUT init targets the requested destination slot',()=>{
