@@ -2,7 +2,7 @@ import{
   connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
-  prepareSampleTransferMetadata,prepareSampleWritableMetadata,prepareSampleCreateMetadata,prepareSampleLocalMetadata,createTransferFileName
+  prepareSampleTransferMetadata,prepareSampleLocalMetadata,createTransferFileName
 }from './index.js?v=20260930-5';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
@@ -12,15 +12,13 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{
-  createSampleMemory,planSampleTransferTargets
-}from './sampleMemory.js?v=20260930-5';
+import{createSampleMemory}from './sampleMemory.js?v=20260930-5';
 import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
 import{createSamplePropertiesController}from './ui/samplePropertiesController.js?v=20260930-5';
 import{createSampleStore}from './sampleStore.js?v=20260930-5';
 import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
 import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
-import{getSoundsParentId,buildFileItemFromInfo,soundSlotIds}from './ui/fileModel.js?v=20260930-5';
+import{getSoundsParentId,buildFileItemFromInfo}from './ui/fileModel.js?v=20260930-5';
 import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
 import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
 import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
@@ -29,6 +27,10 @@ import{createSampleDeleteController}from './ui/sampleDeleteController.js?v=20260
 import{createSampleUploadController}from './ui/sampleUploadController.js?v=20260930-5';
 import{createSampleMoveController}from './ui/sampleMoveController.js?v=20260930-5';
 import{createSampleCopyController}from './ui/sampleCopyController.js?v=20260930-5';
+import{createSampleRenameController}from './ui/sampleRenameController.js?v=20260930-5';
+import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v=20260930-5';
+import{createSampleVerificationController}from './ui/sampleVerification.js?v=20260930-5';
+import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -43,6 +45,10 @@ export function initEp133Browser({showError}={}){
   const deviceHead=document.getElementById('ep133-device-head');
   const deviceName=document.getElementById('ep133-device');
   const connectionOverlay=document.getElementById('ep133-connection-overlay');
+  const statusEl=document.getElementById('ep133-status');
+  const memoryStats=document.getElementById('ep133-memory-stats');
+  const memoryMeter=document.getElementById('ep133-memory-meter-fill');
+  const sampleCount=document.getElementById('ep133-sample-count');
   const txIndicator=document.getElementById('ep133-tx-indicator');
   const rxIndicator=document.getElementById('ep133-rx-indicator');
   const properties=document.getElementById('ep133-properties');
@@ -57,10 +63,6 @@ export function initEp133Browser({showError}={}){
   const confirmCancel=document.getElementById('ep133-confirm-cancel');
   if(!open||!panel||!close||!list||!tabs||!search)return;
 
-  const setStatus=text=>{
-    const el=document.getElementById('ep133-status');
-    if(el)el.textContent=String(text||'');
-  };
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
@@ -76,13 +78,20 @@ export function initEp133Browser({showError}={}){
     showError?.(humanError(message));
   };
 
+  const deviceView=createDeviceView({
+    title,deviceName,deviceHead,connectionOverlay,status:statusEl,
+    memoryStats,memoryMeter,sampleCount,txIndicator,rxIndicator,
+    getDeviceProfile:getEpDeviceProfile
+  });
+  const setStatus=text=>deviceView.setStatus(text);
+  const setConnectionOverlay=text=>deviceView.setConnectionOverlay(text);
+  const renderDeviceStats=(metadata,count)=>deviceView.renderStats(metadata,count);
+
   let synchronized=false;
   let metadataHydrating=false;
   let mutating=false;
   let deviceUnsafe=false;
-  let everConnected=false;
-  let activeDeviceProfile=getEpDeviceProfile();
-  let lastDeviceInfo={title:'MY EP',name:''};
+  let activeDeviceProfile=deviceView.getActiveProfile();
   let propertiesController=null;
   const sampleStore=createSampleStore();
   const{captureBatchSession,assertBatchSession}=createSessionGuard(getDeviceSessionToken);
@@ -116,116 +125,14 @@ export function initEp133Browser({showError}={}){
     updateMutationAvailability();
   };
 
-  const modelInfo=state=>{
-    const profile=getEpDeviceProfile(state?.device?.sku);
-    return{title:profile.title,name:profile.name};
-  };
-  const setTitleDevice=state=>{
-    if(state?.connected){
-      activeDeviceProfile=getEpDeviceProfile(state?.device?.sku);
-      lastDeviceInfo={title:activeDeviceProfile.title,name:activeDeviceProfile.name};
-    }
-    const info=state?.connected?lastDeviceInfo:(everConnected?lastDeviceInfo:modelInfo(state));
-    if(title)title.textContent=info.title;
-    if(deviceName)deviceName.textContent=info.name;
-  };
-  const setConnectionOverlay=text=>{
-    if(!deviceHead||!connectionOverlay)return;
-    const disconnected=!!text;
-    deviceHead.classList.toggle('disconnected',disconnected);
-    connectionOverlay.textContent=text||'';
-  };
-
-  const formatMb=value=>{
-    const mb=Number(value)/1e6;
-    if(!Number.isFinite(mb)||mb<0)return'—';
-    const fixed=mb.toFixed(1);
-    return fixed.endsWith('.0')?fixed.slice(0,-2):fixed;
-  };
-  const renderDeviceStats=(metadata={},sampleCount=0)=>{
-    const maxCapacity=Number(metadata?.max_capacity)||0;
-    const freeSpace=Number(metadata?.free_space_in_bytes);
-    const used=maxCapacity>0&&Number.isFinite(freeSpace)?Math.max(0,maxCapacity-freeSpace):NaN;
-    const stats=document.getElementById('ep133-memory-stats');
-    const meter=document.getElementById('ep133-memory-meter-fill');
-    const count=document.getElementById('ep133-sample-count');
-    if(stats)stats.textContent=maxCapacity>0&&Number.isFinite(used)
-      ?formatMb(used)+' / '+formatMb(maxCapacity)+' MB'
-      :'—';
-    if(meter){
-      const ratio=maxCapacity>0&&Number.isFinite(used)?Math.max(0,Math.min(1,used/maxCapacity)):0;
-      meter.style.width=(ratio*100).toFixed(1)+'%';
-    }
-    if(count)count.textContent=String(Math.max(0,Number(sampleCount)||0));
-  };
-
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
     globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
     confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
 
   const fileItemFromInfo=info=>buildFileItemFromInfo(info,sampleStore.getFiles());
-  const replaceSoundFiles=files=>{
-    const sounds=Array.isArray(files)?files:[];
-    sampleStore.replaceFiles([
-      ...sampleStore.getFiles().filter(item=>!/^\/sounds\/[^/]+$/.test(item?.fileName||'')),
-      ...sounds
-    ]);
-    return sounds;
-  };
-  const readAuthoritativeFiles=async(fileOps=null)=>{
-    const soundsParentId=sampleStore.getSoundsParentId();
-    if(!soundsParentId)return[];
-    const list=fileOps?.listDirectory||listDirectory;
-    return replaceSoundFiles(await list(soundsParentId,'/sounds'));
-  };
-  const assertSlotsEmpty=async(ids,fileOps=null)=>{
-    const requested=[...new Set((ids||[]).map(Number))];
-    const files=await readAuthoritativeFiles(fileOps);
-    const occupied=soundSlotIds(files);
-    const collisions=requested.filter(id=>occupied.has(id));
-    if(collisions.length)throw new Error('Target sample slot changed on the device: '+collisions.map(id=>String(id).padStart(3,'0')).join(', ')+'. Reload before retrying.');
-    return files;
-  };
-  const assertSlotsDeleted=async(ids,fileOps=null)=>{
-    const requested=[...new Set((ids||[]).map(Number))];
-    const files=await readAuthoritativeFiles(fileOps);
-    const occupied=soundSlotIds(files);
-    const remaining=requested.filter(id=>occupied.has(id));
-    if(remaining.length)throw new Error('EP-series delete was not confirmed by /sounds LIST for slot(s): '+remaining.map(id=>String(id).padStart(3,'0')).join(', '));
-    return files;
-  };
-  const verifyPcmReadback=async(fileId,expected,onProgress)=>{
-    const readback=await getFile(fileId,onProgress);
-    const actual=readback?.data instanceof Uint8Array?readback.data:new Uint8Array(readback?.data||[]);
-    if(actual.byteLength!==expected.byteLength)throw new Error('PCM readback size mismatch for slot '+String(fileId).padStart(3,'0')+'.');
-    for(let i=0;i<actual.byteLength;i++){
-      if(actual[i]!==expected[i])throw new Error('PCM readback mismatch for slot '+String(fileId).padStart(3,'0')+' at byte '+i+'.');
-    }
-    return readback;
-  };
-  const assertMetadataReadback=(slotId,expected,actual)=>{
-    const expectedCreate=prepareSampleCreateMetadata(expected);
-    const expectedWritable=prepareSampleWritableMetadata(expected,{
-      allowedPlayModes:activeDeviceProfile.playModes,
-      allowAdvancedMetadata:activeDeviceProfile.advancedSampleMetadataWrites
-    });
-    const fields={...expectedCreate,...expectedWritable};
-    for(const[key,value]of Object.entries(fields)){
-      if(key==='crc')continue;
-      const got=actual?.[key];
-      const numeric=typeof value==='number';
-      const matches=numeric?Number(got)===Number(value):String(got)===String(value);
-      if(!matches)throw new Error('Metadata readback mismatch for slot '+String(slotId).padStart(3,'0')+' field '+key+'.');
-    }
-  };
-  const assertSourceSnapshot=async(slot,snapshot)=>{
-    await verifyPcmReadback(slot.nodeId||slot.id,snapshot.bytes);
-    const currentMetadata=await getFileMetadata(slot.nodeId||slot.id);
-    if(snapshot.metadata?.crc!=null&&Number(currentMetadata?.crc)!==Number(snapshot.metadata.crc))
-      throw new Error('Source sample changed before MOVE delete: CRC mismatch in slot '+String(slot.id).padStart(3,'0')+'.');
-    assertMetadataReadback(slot.id,snapshot.metadata,currentMetadata);
-  };
+  const sampleVerification=createSampleVerificationController({sampleStore,listDirectory});
+  const{assertSlotsEmpty,assertSlotsDeleted}=sampleVerification;
   const getDroppedFiles=event=>{
     const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
     if(resultId){
@@ -256,6 +163,10 @@ export function initEp133Browser({showError}={}){
   });
   const closeProperties=()=>propertiesController.close();
   const openProperties=(slot,event)=>propertiesController.open(slot,event);
+  const sampleRenameController=createSampleRenameController({
+    sampleStore,isConnected,isSynchronized:()=>synchronized,
+    withFileTransaction,setFileMetadata,getFileMetadata,normalizeFileName
+  });
 
   let memory;
   const sampleReadController=createSampleReadController({
@@ -351,9 +262,6 @@ export function initEp133Browser({showError}={}){
     readDevice:()=>readDevice(),
     logTechnical
   });
-  const nativeMoveTransfer=(plan,sourceById)=>
-    sampleMoveController.nativeMoveTransfer(plan,sourceById);
-
   const sampleCopyController=createSampleCopyController({
     sampleStore,
     getSoundsParentId:()=>sampleStore.getSoundsParentId(),
@@ -371,27 +279,16 @@ export function initEp133Browser({showError}={}){
     readDevice:()=>readDevice(),
     logTechnical
   });
-  const copyTransfer=(plan,sourceById,sources)=>
-    sampleCopyController.copyTransfer(plan,sourceById,sources);
-
-  const transactionalTransfer=async(sources,dropSlot,{copy=false,draggedId}={})=>{
-    if(!isConnected())throw new Error('EP device is disconnected.');
-    if(!synchronized||!sampleStore.getSoundsParentId())throw new Error('Sample library is still synchronizing.');
-    if(!activeDeviceProfile.sampleTransfers)
-      throw new Error('MOVE/COPY SAMPLE METADATA IS NOT VERIFIED FOR '+(activeDeviceProfile.name||'THIS EP')+'.');
-    if(propertiesController.hasPendingWrites())
-      throw new Error('Wait for the pending sample property write to finish before moving or copying samples.');
-
-    const sourceIds=sources.map(item=>item.id);
-    const canonicalSources=sourceIds.map(id=>sampleStore.getSlot(id)).filter(slot=>slot?.file);
-    const plan=planSampleTransferTargets(sampleStore.getSlots(),sourceIds,draggedId,dropSlot.id);
-    if(plan.length!==sources.length||canonicalSources.length!==sources.length)
-      throw new Error('No valid free destination slots are available.');
-
-    const sourceById=new Map(canonicalSources.map(item=>[item.id,item]));
-    if(!copy)return nativeMoveTransfer(plan,sourceById);
-    return copyTransfer(plan,sourceById,canonicalSources);
-  };
+  const sampleTransferCoordinator=createSampleTransferCoordinator({
+    sampleStore,getActiveDeviceProfile:()=>activeDeviceProfile,
+    isConnected,isSynchronized:()=>synchronized,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    hasPendingPropertyWrites:()=>propertiesController.hasPendingWrites(),
+    moveTransfer:(plan,sourceById)=>sampleMoveController.nativeMoveTransfer(plan,sourceById),
+    copyTransfer:(plan,sourceById,sources)=>sampleCopyController.copyTransfer(plan,sourceById,sources)
+  });
+  const transactionalTransfer=(sources,dropSlot,options)=>
+    sampleTransferCoordinator.transfer(sources,dropSlot,options);
 
   memory=createSampleMemory({
     listEl:list,
@@ -404,20 +301,7 @@ export function initEp133Browser({showError}={}){
     },
     onPlay:auditionSample,
     onDelete:deleteSamples,
-    onRename:async(slot,value)=>{
-      if(!isConnected()||!synchronized)throw new Error('Sample library is not ready.');
-      const canonical=sampleStore.getSlot(slot?.id);
-      if(!canonical?.file)throw new Error('This sample is no longer available.');
-      if(canonical.node?.isWritable!==true)throw new Error('This sample is not writable.');
-      const name=normalizeFileName(value);
-      if(!name)return null;
-      const readback=await withFileTransaction('sample rename transaction',async fileOps=>{
-        await fileOps.setFileMetadata(canonical.nodeId||canonical.id,{name});
-        return fileOps.getFileMetadata(canonical.nodeId||canonical.id);
-      },{strict:true});
-      sampleStore.setMetadata(canonical.id,readback,{verification:'verified'});
-      return String(readback?.name||name);
-    },
+    onRename:(slot,value)=>sampleRenameController.rename(slot,value),
     onDownload:slot=>sampleReadController.downloadOne(slot),
     onDownloadMany:selectedSlots=>sampleReadController.downloadMany(selectedSlots),
     onTransfer:transactionalTransfer,
@@ -449,7 +333,7 @@ export function initEp133Browser({showError}={}){
 
   const renderConnection=state=>{
     deviceUnsafe=!!state?.unsafe;
-    setTitleDevice(state);
+    activeDeviceProfile=deviceView.renderIdentity(state);
     if(deviceUnsafe){
       metadataHydrating=false;
       synchronized=false;
@@ -464,7 +348,6 @@ export function initEp133Browser({showError}={}){
       return;
     }
     if(state.connected){
-      everConnected=true;
       panel.classList.remove('device-disconnected');
       setConnectionOverlay('');
       setStatus('CONNECTED');
@@ -477,20 +360,14 @@ export function initEp133Browser({showError}={}){
     closeProperties();
     hideGlobalProgress();
     panel.classList.add('device-disconnected');
-    setConnectionOverlay(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
-    if(!everConnected)renderDeviceStats({},0);
+    const hadConnection=deviceView.hasEverConnected();
+    setConnectionOverlay(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
+    if(!hadConnection)renderDeviceStats({},0);
     sampleStore.clear();
-    setStatus(everConnected?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
+    setStatus(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 
-  const activityTimers={tx:null,rx:null};
-  onMidiActivity(({direction})=>{
-    const element=direction==='tx'?txIndicator:direction==='rx'?rxIndicator:null;
-    if(!element)return;
-    element.classList.add('active');
-    clearTimeout(activityTimers[direction]);
-    activityTimers[direction]=setTimeout(()=>element.classList.remove('active'),direction==='rx'?275:250);
-  });
+  onMidiActivity(({direction})=>deviceView.pulseMidiActivity(direction));
 
   const connectionLifecycle=createConnectionLifecycle({
     connectEp133,

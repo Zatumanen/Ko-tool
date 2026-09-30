@@ -248,7 +248,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -752,24 +752,22 @@ test('EP FILE init ambiguity and browser lock guards remain explicit',async()=>{
 
 test('My EP native MOVE never falls back to copy-delete or PCM readback',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
-  const start=ui.indexOf('const transactionalTransfer=async');
-  const block=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
-  assert.match(block,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
-  assert.match(block,/return copyTransfer\(plan,sourceById,canonicalSources\)/);
-  assert.doesNotMatch(block,/getFile\(/);
-  assert.doesNotMatch(block,/deleteFile\(/);
+  assert.match(transfer,/if\(copy\)return copyTransfer\(plan,sourceById,canonicalSources\)/);
+  assert.match(transfer,/return moveTransfer\(plan,sourceById\)/);
+  assert.doesNotMatch(transfer,/getFile\(/);
+  assert.doesNotMatch(transfer,/deleteFile\(/);
   assert.doesNotMatch(move,/getFile\(/);
   assert.doesNotMatch(move,/deleteFile\(/);
 });
 
 test('My EP confirms destructive deletes through authoritative /sounds LIST',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const verification=await fs.readFile(new URL('../js/ep133/ui/sampleVerification.js',import.meta.url),'utf8');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
-  assert.match(ui,/const assertSlotsDeleted=async\(ids,fileOps=null\)=>/);
-  assert.match(ui,/const files=await readAuthoritativeFiles\(fileOps\)/);
+  assert.match(verification,/const assertSlotsDeleted=async\(ids,fileOps=null\)=>/);
+  assert.match(verification,/const files=await readAuthoritativeFiles\(fileOps\)/);
   assert.match(source,/await assertDeleteTargetUnchanged\(slot,fileOps\)/);
   assert.match(source,/await assertSlotsDeleted\(canonicalTargets\.map\(slot=>slot\.id\),fileOps\)/);
 });
@@ -838,7 +836,7 @@ test('EP sample reorder uses one native FILE_MOVE transaction and resolves the a
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
   assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
   assert.match(move,/completed\.push\(\{[\s\S]*sourceId:source\.id,[\s\S]*targetId:target\.id,[\s\S]*crc:moved\.sourceCrc/);
   assert.match(move,/if\(moved\.crcVerified!==true\)/);
@@ -846,10 +844,8 @@ test('EP sample reorder uses one native FILE_MOVE transaction and resolves the a
   assert.match(move,/const item=fileItemFromInfo\(moved\.info\)/);
   assert.doesNotMatch(move,/getFile\(/);
   assert.doesNotMatch(move,/getFileMetadata\(/);
-  const start=ui.indexOf('const transactionalTransfer=async');
-  const transferBlock=ui.slice(start,ui.indexOf('memory=createSampleMemory',start));
-  assert.match(transferBlock,/if\(!copy\)return nativeMoveTransfer\(plan,sourceById\)/);
-  assert.doesNotMatch(transferBlock,/NATIVE FILE_MOVE FAILED/);
+  assert.match(transfer,/return moveTransfer\(plan,sourceById\)/);
+  assert.doesNotMatch(transfer,/NATIVE FILE_MOVE FAILED/);
 });
 
 test('My EP suppresses its own FILE_MOVED event and reconciles external moves in one read lease',async()=>{
@@ -2055,13 +2051,14 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
 
 test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
   const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
+  const copies=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
   assert.match(properties,/!profile\.advancedSampleMetadataWrites/);
   assert.match(properties,/SAMPLE PROPERTIES ARE NOT VERIFIED FOR/);
-  assert.match(ui,/!activeDeviceProfile\.sampleTransfers/);
-  assert.match(ui,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
-  assert.match(ui,/allowAdvancedMetadata:activeDeviceProfile\.advancedSampleMetadataWrites/);
+  assert.match(transfer,/!profile\.sampleTransfers/);
+  assert.match(transfer,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
+  assert.match(copies,/allowAdvancedMetadata:profile\.advancedSampleMetadataWrites/);
 });
 
 
@@ -2102,16 +2099,14 @@ test('My EP search highlights matches without filtering the current folder rows'
 
 test('EP sample rename uses one strict METADATA SET/readback transaction',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
-  const start=ui.indexOf('onRename:async(slot,value)=>');
-  const block=ui.slice(start,ui.indexOf('onDownload:',start));
-  assert.match(block,/const canonical=sampleStore\.getSlot\(slot\?\.id\)/);
-  assert.match(block,/withFileTransaction\('sample rename transaction',[\s\S]*\{strict:true\}\)/);
-  assert.match(block,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
-  assert.match(block,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
-  assert.match(block,/sampleStore\.setMetadata\(canonical\.id,readback,\{verification:'verified'\}\)/);
-  assert.doesNotMatch(block,/await setFileMetadata\(/);
-  assert.doesNotMatch(block,/await getFileMetadata\(/);
+  const source=await fs.readFile(new URL('../js/ep133/ui/sampleRenameController.js',import.meta.url),'utf8');
+  assert.match(source,/const canonical=sampleStore\?\.getSlot\?\.\(slot\?\.id\)/);
+  assert.match(source,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
+  assert.match(source,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+  assert.match(source,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
+  assert.match(source,/sampleStore\.setMetadata\(canonical\.id,readback\|\|\{name\},\{verification:'verified'\}\)/);
+  assert.doesNotMatch(source,/await setFileMetadata\(/);
+  assert.doesNotMatch(source,/await getFileMetadata\(/);
 });
 
 test('EP sample filename normalization matches the device naming rules',async()=>{
@@ -2408,7 +2403,10 @@ test('SampleStore is the only sample-state mutation owner outside the sampleMemo
     '../js/ep133/ui/sampleDeleteController.js',
     '../js/ep133/ui/sampleUploadController.js',
     '../js/ep133/ui/sampleMoveController.js',
-    '../js/ep133/ui/sampleCopyController.js'
+    '../js/ep133/ui/sampleCopyController.js',
+    '../js/ep133/ui/sampleRenameController.js',
+    '../js/ep133/ui/sampleTransferCoordinator.js',
+    '../js/ep133/ui/sampleVerification.js'
   ];
   const sources=await Promise.all(paths.map(path=>fs.readFile(new URL(path,import.meta.url),'utf8')));
   for(const source of sources){
@@ -2422,9 +2420,10 @@ test('SampleStore is the only sample-state mutation owner outside the sampleMemo
     assert.doesNotMatch(source,/memory\.clearSlot\(/);
   }
   const ui=sources[0];
+  const transfer=sources.at(-2);
   assert.match(ui,/const sampleStore=createSampleStore\(\)/);
   assert.match(ui,/sampleStore\.bindMemory\(memory\)/);
-  assert.match(ui,/planSampleTransferTargets\(sampleStore\.getSlots\(\)/);
+  assert.match(transfer,/planTransfers\(sampleStore\?\.getSlots\?\.\(\)\|\|\[],sourceIds,draggedId,dropSlot\?\.id\)/);
 });
 
 test('EP filesystem keeps chunk size scoped to the active device key',async()=>{
@@ -2482,15 +2481,15 @@ test('sampleMemory exposes sample-state mutation only through the SampleStore pr
 test('My EP read and rename paths re-resolve canonical SampleStore state before device I/O',async()=>{
   const fs=await import('node:fs/promises');
   const read=await fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const rename=await fs.readFile(new URL('../js/ep133/ui/sampleRenameController.js',import.meta.url),'utf8');
   assert.match(read,/const canonicalSlot=slot=>/);
   assert.match(read,/sampleStore\?\.getSlot\?\.\(id\)/);
   assert.match(read,/const audition=async inputSlot=>\{[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
   assert.match(read,/const performDownload=async\(inputSlot,[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
-  assert.match(ui,/const canonical=sampleStore\.getSlot\(slot\?\.id\)/);
-  assert.match(ui,/withFileTransaction\('sample rename transaction'/);
-  assert.match(ui,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
-  assert.match(ui,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
+  assert.match(rename,/const canonical=sampleStore\?\.getSlot\?\.\(slot\?\.id\)/);
+  assert.match(rename,/withFileTransaction\('sample rename transaction'/);
+  assert.match(rename,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+  assert.match(rename,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
 });
 
 test('My EP runtime cannot mutate sample projection state outside SampleStore',async()=>{
@@ -2504,7 +2503,10 @@ test('My EP runtime cannot mutate sample projection state outside SampleStore',a
     '../js/ep133/ui/sampleDeleteController.js',
     '../js/ep133/ui/sampleUploadController.js',
     '../js/ep133/ui/sampleMoveController.js',
-    '../js/ep133/ui/sampleCopyController.js'
+    '../js/ep133/ui/sampleCopyController.js',
+    '../js/ep133/ui/sampleRenameController.js',
+    '../js/ep133/ui/sampleTransferCoordinator.js',
+    '../js/ep133/ui/sampleVerification.js'
   ];
   const forbidden=/\bmemory\??\.(?:setSlots|setSlot|setEntries|setMetadata|mergeMetadata|clearSlot|setOperation|clearOperation|clearOperations)\s*\(/;
   for(const path of runtimePaths){
@@ -2586,20 +2588,20 @@ test('sample MOVE and COPY resync only after their FILE transaction lease exits'
 
 test('remaining compound sample reads and verification windows use FILE transaction leases',async()=>{
   const fs=await import('node:fs/promises');
-  const [library,properties,reads,uploads,events,ui]=await Promise.all([
+  const [library,properties,reads,uploads,events,rename]=await Promise.all([
     fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/sampleReadController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+    fs.readFile(new URL('../js/ep133/ui/sampleRenameController.js',import.meta.url),'utf8')
   ]);
   assert.match(library,/withFileTransaction\('sample library bootstrap',operation\)/);
   assert.match(properties,/withFileTransaction\('sample property write',operation,\{strict:true\}\)/);
   assert.match(reads,/withFileTransaction\('sample download read',operation\)/);
   assert.match(uploads,/withFileTransaction\('sample upload hydration',operation\)/);
   assert.match(events,/withFileTransaction\('FILE event reconciliation',operation\)/);
-  assert.match(ui,/withFileTransaction\('sample rename transaction',[\s\S]*\{strict:true\}\)/);
+  assert.match(rename,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
 });
 
 test('project layer occupies one scheduler task while filesystem injects transport internals',async()=>{
