@@ -262,6 +262,23 @@ export function initEp133Browser({showError}={}){
     readDevice:()=>readDevice(),
     logTechnical
   });
+  const sampleCopyController=createSampleCopyController({
+    sampleStore,
+    getSoundsParentId:()=>sampleStore.getSoundsParentId(),
+    getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
+    getActiveDeviceProfile:()=>activeDeviceProfile,
+    isConnected,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
+    setMutating,setGlobalProgress,hideGlobalProgress,
+    assertSlotsEmpty,refreshSoundsRuntimeMetadata,
+    getFile,getFileMetadata,
+    prepareSampleTransferMetadata,createTransferFileName,
+    uploadSampleToSlot,waitForMetadataUpdate,syncMetadataAfterMutation,
+    getFileInfo,fileItemFromInfo,
+    prepareSampleLocalMetadata,renderDeviceStats,
+    deleteFile,
+    readDevice:()=>readDevice(),
+    logTechnical
+  });
   const sampleTransferCoordinator=createSampleTransferCoordinator({
     sampleStore,getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,isSynchronized:()=>synchronized,
