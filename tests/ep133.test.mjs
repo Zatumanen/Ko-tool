@@ -507,9 +507,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(projectFilesystem.includes("./projectRuntime.js?v="+token),true);
   assert.equal(index.includes("./projectSequencer.js?v="+token),true);
   assert.equal(index.includes("./projectHil.js?v="+token),true);
-  const [reader,sequencer,hil,deviceProfile,projectProfile]=await Promise.all([
+  const [reader,sequencer,hil,deviceProfile,projectProfile,evidenceRegistry]=await Promise.all([
     read('js/ep133/projectReader.js'),read('js/ep133/projectSequencer.js'),read('js/ep133/projectHil.js'),
-    read('js/ep133/deviceProfile.js'),read('js/ep133/projectProfile.js')
+    read('js/ep133/deviceProfile.js'),read('js/ep133/projectProfile.js'),read('js/ep133/evidenceRegistry.js')
   ]);
   assert.equal(reader.includes("./projectArchive.js?v="+token),true);
   assert.equal(sequencer.includes("./projectArchive.js?v="+token),true);
@@ -524,8 +524,10 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(fileTransport.includes("./device.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileScheduler.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileProtocol.js?v="+token),true);
-  assert.equal(deviceProfile.includes("./capabilityEvidence.js?v="+token),true);
-  assert.equal(projectProfile.includes("./capabilityEvidence.js?v="+token),true);
+  assert.equal(index.includes("./evidenceRegistry.js?v="+token),true);
+  assert.equal(deviceProfile.includes("./evidenceRegistry.js?v="+token),true);
+  assert.equal(projectProfile.includes("./evidenceRegistry.js?v="+token),true);
+  assert.equal(evidenceRegistry.includes("./capabilityEvidence.js?v="+token),true);
 });
 
 test('My EP loads sample-bank tabs from /sounds metadata like the reference tool',async()=>{
