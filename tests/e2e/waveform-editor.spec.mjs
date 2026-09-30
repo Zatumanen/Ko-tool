@@ -160,9 +160,27 @@ test('waveform chop modes detect transients, build even slices, allow manual mar
   await page.locator('[data-chop-remove]').click();
   await expect(page.locator('[data-chop-status]')).toHaveText('4 SLICES');
 
-  const downloadPromise=page.waitForEvent('download');
+  await page.evaluate(()=>{
+    window.__savedChopZip=null;
+    window.showSaveFilePicker=async options=>{
+      const record={name:options?.suggestedName||'',size:0,type:''};
+      window.__savedChopZip=record;
+      return{
+        async createWritable(){
+          return{
+            async write(blob){record.size=blob?.size||0;record.type=blob?.type||'';},
+            async close(){record.closed=true;}
+          };
+        }
+      };
+    };
+  });
   await page.locator('[data-chop-export]').click();
-  const download=await downloadPromise;
-  expect(download.suggestedFilename()).toBe('transients_x2_chops.zip');
-  await download.cancel();
+  await expect.poll(()=>page.evaluate(()=>window.__savedChopZip)).toMatchObject({
+    name:'transients_x2_chops.zip',
+    type:'application/zip',
+    closed:true
+  });
+  expect(await page.evaluate(()=>window.__savedChopZip.size)).toBeGreaterThan(200);
+  await expect(page.locator('#status-bar')).toContainText('Exported 4 chops');
 });
