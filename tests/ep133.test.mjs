@@ -2051,13 +2051,14 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
 
 test('My EP blocks unverified Medieval Properties and MOVE/COPY at the UI boundary',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
   const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
+  const copies=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
   assert.match(properties,/!profile\.advancedSampleMetadataWrites/);
   assert.match(properties,/SAMPLE PROPERTIES ARE NOT VERIFIED FOR/);
-  assert.match(ui,/!activeDeviceProfile\.sampleTransfers/);
-  assert.match(ui,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
-  assert.match(ui,/allowAdvancedMetadata:activeDeviceProfile\.advancedSampleMetadataWrites/);
+  assert.match(transfer,/!profile\.sampleTransfers/);
+  assert.match(transfer,/MOVE\/COPY SAMPLE METADATA IS NOT VERIFIED FOR/);
+  assert.match(copies,/allowAdvancedMetadata:profile\.advancedSampleMetadataWrites/);
 });
 
 
