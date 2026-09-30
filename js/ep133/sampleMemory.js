@@ -289,13 +289,12 @@ export function createSampleMemory({
         const beginRename=event=>{
           if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return false;
           event.preventDefault();event.stopPropagation();
+          if(selectedId!==slot.id||selectedIds.size!==1)
+            setSelection([slot.id],slot.id,{preview:false});
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
           return true;
         };
-        nameInput.addEventListener('click',event=>{
-          if(editingId===slot.id){event.stopPropagation();return;}
-          if(event.detail>=2)beginRename(event);
-        });
+        nameInput.addEventListener('click',event=>{event.stopPropagation();});
         nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
           nameInput.readOnly=false;
