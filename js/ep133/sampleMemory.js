@@ -286,20 +286,33 @@ export function createSampleMemory({
       const slot=slots[Number(row.dataset.slot)-1];
       const nameInput=row.querySelector('[data-name-input]');
       if(nameInput){
-        nameInput.addEventListener('click',event=>{if(editingId===slot.id)event.stopPropagation();});
-        nameInput.addEventListener('dblclick',event=>{
-          if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return;
+        const beginRename=event=>{
+          if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return false;
           event.preventDefault();event.stopPropagation();
+          if(selectedId!==slot.id||selectedIds.size!==1)
+            setSelection([slot.id],slot.id,{preview:false});
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
-        });
+          return true;
+        };
+        nameInput.addEventListener('click',event=>{event.stopPropagation();});
+        nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
           nameInput.readOnly=false;
           nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
           nameInput.addEventListener('keydown',event=>{
-            if(event.key==='Enter'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:true});}
-            else if(event.key==='Escape'){event.preventDefault();event.stopPropagation();void finishRename(slot,{save:false});}
+            if(event.key==='Enter'){
+              event.preventDefault();event.stopPropagation();
+              editingValue=nameInput.value;
+              void finishRename(slot,{save:true});
+            }else if(event.key==='Escape'){
+              event.preventDefault();event.stopPropagation();
+              void finishRename(slot,{save:false});
+            }
           });
-          nameInput.addEventListener('blur',()=>{void finishRename(slot,{save:true});});
+          nameInput.addEventListener('blur',()=>{
+            editingValue=nameInput.value;
+            void finishRename(slot,{save:true});
+          });
           setTimeout(()=>{if(editingId===slot.id&&nameInput.isConnected){nameInput.focus();nameInput.select();}},0);
         }
       }
