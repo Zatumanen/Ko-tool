@@ -2469,9 +2469,10 @@ test('My EP read and rename paths re-resolve canonical SampleStore state before 
   assert.match(read,/const audition=async inputSlot=>\{[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
   assert.match(read,/const performDownload=async\(inputSlot,[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
   assert.match(ui,/const canonical=sampleStore\.getSlot\(slot\?\.id\)/);
-  assert.match(ui,/await setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+  assert.match(ui,/withFileTransaction\('sample rename transaction'/);
+  assert.match(ui,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
+  assert.match(ui,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
 });
-
 
 test('My EP runtime cannot mutate sample projection state outside SampleStore',async()=>{
   const fs=await import('node:fs/promises');
