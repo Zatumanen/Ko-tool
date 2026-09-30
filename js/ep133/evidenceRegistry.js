@@ -28,6 +28,7 @@ const entry=(id,sku,capability,level,{
   capability:String(capability||''),
   level,
   read:read===true,
+  write:level===CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,
   preserve:preserve===true,
   source:String(source||''),
   reason:String(reason||''),
@@ -173,6 +174,8 @@ export function validateEvidenceRegistry(registry=EVIDENCE_REGISTRY){
     if(!SOURCE_TYPES.has(record.sourceType))throw new Error('Unknown evidence source type: '+record.sourceType);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(record.recordedAt))throw new Error('Evidence registry entry '+record.id+' requires YYYY-MM-DD recordedAt.');
     const evidence=toEvidence(record);
+    if(record.write!==canWriteCapabilityForRegistry(evidence))
+      throw new Error('Evidence registry write right is inconsistent for '+record.id+'.');
     if(evidence.level===CAPABILITY_EVIDENCE.HARDWARE_VERIFIED){
       if(!evidence.source)throw new Error('Hardware-verified evidence '+record.id+' requires a source description.');
       if(!evidence.firmwareRange)throw new Error('Hardware-verified evidence '+record.id+' requires a firmware range.');
@@ -186,6 +189,9 @@ export function validateEvidenceRegistry(registry=EVIDENCE_REGISTRY){
   return true;
 }
 
+const canWriteCapabilityForRegistry=evidence=>
+  evidence.level===CAPABILITY_EVIDENCE.HARDWARE_VERIFIED&&evidence.write===true;
+
 validateEvidenceRegistry();
 
 const byCapability=(sku,capability)=>EVIDENCE_REGISTRY.filter(record=>
@@ -196,7 +202,14 @@ export function listCapabilityEvidence({sku='',capability=''}={}){
   return EVIDENCE_REGISTRY.filter(record=>
     (!sku||record.sku===String(sku).toUpperCase())&&
     (!capability||record.capability===String(capability))
-  ).map(record=>({...record,firmwareRange:record.firmwareRange&&{...record.firmwareRange}}));
+  ).map(record=>{
+    const evidence=toEvidence(record);
+    return{
+      ...record,
+      firmwareRange:evidence.firmwareRange&&{...evidence.firmwareRange},
+      rights:Object.freeze({read:evidence.read,write:evidence.write,preserve:evidence.preserve})
+    };
+  });
 }
 
 export function resolveRegisteredCapabilityEvidence(sku,capability,firmware=''){
