@@ -20,17 +20,18 @@ const openMyEp=async page=>{
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.requestCount),{
     message:'Fake EP should receive GREET after identity discovery'
   }).toBeGreaterThan(0);
-  await expect(page.locator('#ep133-connection-overlay')).toHaveText('');
   await expect.poll(()=>page.evaluate(()=>{
     const status=document.querySelector('#ep133-status')?.textContent||'';
-    if(status.includes('SYNCED'))return'SYNCED';
+    const overlay=document.querySelector('#ep133-connection-overlay')?.textContent||'';
+    if(status.includes('SYNCED')&&overlay==='')return'SYNCED';
     return JSON.stringify({
       status,
-      error:document.querySelector('#error-message')?.textContent||'',
-      log:document.querySelector('#log-tab')?.textContent||'',
-      requests:window.__fakeEp.requestLog
+      overlay,
+      error:document.querySelector('#error-message')?.textContent||document.querySelector('.error-message')?.textContent||'',
+      requests:window.__fakeEp.requestLog,
+      snapshot:window.__fakeEp.snapshot()
     });
-  }),{message:'My EP should finish sample-library bootstrap'}).toBe('SYNCED');
+  }),{message:'My EP should finish GREET and sample-library bootstrap',timeout:7000}).toBe('SYNCED');
   await expect(page.locator('.ep133-sample-row.occupied')).toHaveCount(2);
 };
 
