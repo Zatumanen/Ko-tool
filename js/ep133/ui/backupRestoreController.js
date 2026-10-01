@@ -427,10 +427,6 @@ export function createBackupRestoreController({
             performReload:true
           });
         }catch(error){
-          if(addedSamples.length&&!globalThis.confirm?.('Project restore failed. Remove samples added by this restore?')){
-            error.addedSampleSlots=[...addedSamples];
-            throw error;
-          }
           await cleanupRestoredSamples(addedSamples);
           throw error;
         }
