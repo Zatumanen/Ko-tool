@@ -1186,6 +1186,7 @@
   padding:16px;background:rgba(0,0,0,.5)
 }
 .ep-project-editor-dialog[hidden]{display:none!important}
+.ep-project-editor-dialog.confirming{pointer-events:none}
 .ep-project-editor-window{
   width:min(920px,96vw);max-height:94vh;overflow:auto;background:var(--win-gray);
   border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);
