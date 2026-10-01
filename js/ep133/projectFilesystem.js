@@ -7,7 +7,7 @@ import{
 }from './projectProfile.js?v=20260930-5';
 import{readProjectModel}from './projectReader.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
-import{createProjectRecoveryCheckpoint}from './projectRecovery.js?v=20260930-5';
+import{createProjectRecoveryCheckpoint,crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20260930-5';
 import{createProjectTransactionJournal}from './projectTransactionJournal.js?v=20260930-5';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -456,6 +456,36 @@ export function createProjectFilesystem({
   const deleteProjectRecoveryCheckpoint=id=>recoveryStore.deleteCheckpoint(id);
   const getProjectTransactionJournal=id=>transactionJournal.getJournal(id);
 
+  const restoreProjectRecoveryCheckpoint=async(id,options={})=>{
+    const checkpoint=await recoveryStore.getCheckpoint(id);
+    if(!checkpoint)throw new Error('Project recovery checkpoint was not found: '+String(id||''));
+    const status=String(checkpoint.status||'');
+    if(!['requires-recovery','rollback-failed','verified','rolled-back','candidate-written'].includes(status))
+      throw new Error('Project recovery checkpoint cannot be restored from status '+status+'.');
+    const info=getConnectedDeviceInfo();
+    if(!info)throw new Error('EP-series device is not connected.');
+    const identityHash=hashDeviceIdentity(info);
+    if(String(checkpoint.device?.identityHash||'')!==identityHash)
+      throw new Error('Recovery checkpoint belongs to a different EP device.');
+    const original=checkpoint.original?.data instanceof Uint8Array
+      ?checkpoint.original.data.slice()
+      :new Uint8Array(checkpoint.original?.data||[]);
+    if(!original.byteLength)throw new Error('Recovery checkpoint original archive is missing.');
+    if(crc32Hex(original)!==String(checkpoint.original?.crc32||''))
+      throw new Error('Recovery checkpoint original archive checksum mismatch.');
+    const name=String(checkpoint.original?.name||('P'+checkpoint.project?.number+'.tar'));
+    const file={
+      name,
+      size:original.byteLength,
+      type:'application/x-tar',
+      async arrayBuffer(){return original.buffer.slice(original.byteOffset,original.byteOffset+original.byteLength);}
+    };
+    return uploadProjectArchive(file,{
+      ...options,
+      recoverySourceCheckpointId:checkpoint.id
+    });
+  };
+
   const downloadProjectArchive=async(path,onProgress)=>
     runFileOperation(async()=>{
       await initRead();
@@ -477,6 +507,7 @@ export function createProjectFilesystem({
     getProjectRecoveryCheckpoint,
     listProjectRecoveryCheckpoints,
     deleteProjectRecoveryCheckpoint,
-    getProjectTransactionJournal
+    getProjectTransactionJournal,
+    restoreProjectRecoveryCheckpoint
   };
 }
