@@ -85,9 +85,15 @@
     {path:'patterns/c01',data:projectPattern()},{path:'patterns/d01',data:projectPattern()},
     {path:'scenes',data:projectScenes()},{path:'settings',data:projectSettings()},{path:'fx_settings',data:projectFx()}
   ]);
+  const projectTarComplete=makeProjectTar([
+    {path:'pads/a/p01',data:projectPad(7)},{path:'pads/b/p01',data:projectPad(8)},
+    {path:'patterns/a01',data:projectPattern()},{path:'patterns/b01',data:projectPattern()},
+    {path:'patterns/c01',data:projectPattern()},{path:'patterns/d01',data:projectPattern()},
+    {path:'scenes',data:projectScenes()},{path:'settings',data:projectSettings()},{path:'fx_settings',data:projectFx()}
+  ]);
   const projects=new Map([
     [3001,{id:3001,parent:2000,name:'01',data:projectTar}],
-    [3002,{id:3002,parent:2000,name:'02',data:projectTar}]
+    [3002,{id:3002,parent:2000,name:'02',data:projectTarComplete}]
   ]);
 
   const samples=new Map([
@@ -255,6 +261,11 @@
         emitLater(response(request));return;
       }
       const data=concat(...currentPut.pages.filter(Boolean)).slice(0,currentPut.size);
+      if(currentPut.parent===2000&&projects.has(currentPut.id)){
+        const project=projects.get(currentPut.id);
+        project.data=data;project.name=currentPut.name;currentPut=null;
+        emitLater(response(request));return;
+      }
       const sample={
         id:currentPut.id,name:currentPut.name,data,
         meta:{name:currentPut.name,channels:1,samplerate:46875,format:'s16',crc:currentPut.id*1001,'sound.playmode':'oneshot','envelope.release':255}
@@ -293,6 +304,8 @@
     get requestCount(){return requestCount;},
     get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
+    removeSample:id=>samples.delete(Number(id)),
+    projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
     emitDebug:text=>emitLater(debugFrame(text||'err e2e'),0),
