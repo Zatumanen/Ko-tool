@@ -1,6 +1,7 @@
 import{
   connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
+  listProjectArchivesReadOnly,readProjectArchiveReadOnly,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleLocalMetadata,createTransferFileName
 }from './index.js?v=20260930-5';
@@ -31,6 +32,7 @@ import{createSampleRenameController}from './ui/sampleRenameController.js?v=20260
 import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v=20260930-5';
 import{createSampleVerificationController}from './ui/sampleVerification.js?v=20260930-5';
 import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
+import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -62,7 +64,14 @@ export function initEp133Browser({showError}={}){
   const confirmMessage=document.getElementById('ep133-confirm-message');
   const confirmOk=document.getElementById('ep133-confirm-ok');
   const confirmCancel=document.getElementById('ep133-confirm-cancel');
-  if(!open||!panel||!close||!list||!tabs||!search)return;
+  const samplesPanel=document.getElementById('ep133-samples-panel');
+  const projectsPanel=document.getElementById('ep133-projects-panel');
+  const samplesViewButton=document.getElementById('ep133-view-samples');
+  const projectsViewButton=document.getElementById('ep133-view-projects');
+  const projectList=document.getElementById('ep133-project-list');
+  const projectInspector=document.getElementById('ep133-project-inspector');
+  const projectRefresh=document.getElementById('ep133-project-refresh');
+  if(!open||!panel||!close||!list||!tabs||!search||!samplesPanel||!projectsPanel)return;
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -129,6 +138,14 @@ export function initEp133Browser({showError}={}){
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
     globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
     confirmDialog,confirmMessage,confirmOk,confirmCancel
+  });
+
+  const projectReadOnlyController=createProjectReadOnlyController({
+    samplesPanel,projectsPanel,
+    samplesButton:samplesViewButton,projectsButton:projectsViewButton,
+    projectList,projectInspector,refreshButton:projectRefresh,
+    listProjectArchivesReadOnly,readProjectArchiveReadOnly,
+    isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError
   });
 
   const fileItemFromInfo=info=>buildFileItemFromInfo(info,sampleStore.getFiles());
@@ -367,6 +384,7 @@ export function initEp133Browser({showError}={}){
     setConnectionOverlay(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
     if(!hadConnection)renderDeviceStats({},0);
     sampleStore.clear();
+    projectReadOnlyController.reset();
     setStatus(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 
@@ -444,7 +462,10 @@ export function initEp133Browser({showError}={}){
 
   onConnectionChange(state=>{
     renderConnection(state);
-    if(state.connected&&!state.unsafe)void readDevice();
+    if(state.connected&&!state.unsafe){
+      void readDevice();
+      if(projectReadOnlyController.getState().mode==='projects')void projectReadOnlyController.refresh();
+    }
   });
   window.addEventListener('paste',event=>{
     if(panel.style.display==='none'||!synchronized||mutating)return;
