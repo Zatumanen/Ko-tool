@@ -307,8 +307,8 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   const mutationLog=await page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
     item.command===5&&(item.sub===2||item.sub===6||(item.sub===7&&item.type===1))
   ));
-  expect(mutationLog.some(item=>item.sub===2&&((item.raw[5]<<8)|item.raw[6])===8)).toBe(true);
-  expect(mutationLog.some(item=>item.sub===2&&((item.raw[5]<<8)|item.raw[6])===3002)).toBe(true);
+  expect(mutationLog.some(item=>item.sub===2&&item.type===0&&((item.raw[3]<<8)|item.raw[4])===8)).toBe(true);
+  expect(mutationLog.some(item=>item.sub===2&&item.type===0&&((item.raw[3]<<8)|item.raw[4])===3002)).toBe(true);
 
   await page.locator('#ep133-backup-close').click();
   await page.locator('#ep133-project-recovery').click();
