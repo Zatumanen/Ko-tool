@@ -422,7 +422,7 @@ export function createBackupRestoreController({
         try{
           await uploadProjectArchive(makeProjectFile(project,target.data),{
             requireInactive:true,
-            performReload:true
+            performReload:false
           });
         }catch(error){
           await cleanupRestoredSamples(addedSamples);
@@ -430,7 +430,7 @@ export function createBackupRestoreController({
         }
       }else{
         setGlobalProgress('RESTORE PROJECT P'+project,40);
-        await uploadProjectArchive(restorePlan.file,{requireInactive:true,performReload:true});
+        await uploadProjectArchive(restorePlan.file,{requireInactive:true,performReload:false});
       }
       setGlobalProgress('VERIFYING RESTORE',96);
       await readDevice();
@@ -512,7 +512,7 @@ export function createBackupRestoreController({
     setBusy(true);setGlobalProgress('RECOVERY RESTORE',15);
     try{
       await restoreProjectRecoveryCheckpoint(selectedRecoveryId,{
-        requireInactive:true,performReload:true
+        requireInactive:true,performReload:false
       });
       await readDevice();await refreshProjects();await refreshRecovery();
       setStatus('RECOVERY P'+record.project?.number+' VERIFIED');
