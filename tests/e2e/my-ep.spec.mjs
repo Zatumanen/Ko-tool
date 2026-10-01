@@ -494,6 +494,13 @@ test('Project Sequencer edits native patterns/scenes on inactive P02 and saves t
 
   await page.locator('#ep133-project-sequencer').click();
   await expect(page.locator('#ep133-seq-pattern')).toContainText('A02');
+  await expect(page.locator('#ep133-seq-scene-index')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-scene-a')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-scene-b')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-scene-c')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-scene-d')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-current-scene')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-song')).toHaveValue('1,2');
   await page.locator('#ep133-seq-pattern').selectOption('A01');
   await expect(page.locator('[data-step="1"][data-pad="2"]')).toHaveClass(/active/);
   await expect(page.locator('#ep133-seq-automation')).toContainText('1234');
