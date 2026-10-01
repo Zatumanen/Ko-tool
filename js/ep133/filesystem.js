@@ -1,16 +1,16 @@
-import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20260930-5';
+import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20261001-1';
 import{
   withFileTransportTransaction,getFileOperationCoordinatorState,resetFileTransportState,fileTransportInternals,
   initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
-}from './fileTransport.js?v=20260930-5';
+}from './fileTransport.js?v=20261001-1';
 import{
   normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,
   prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,
   uploadSampleToSlotWithTransport
-}from './sampleFilesystem.js?v=20260930-5';
-import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20260930-5';
-import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20260930-5';
+}from './sampleFilesystem.js?v=20261001-1';
+import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20261001-1';
+import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 
 export{
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -18,7 +18,7 @@ export{
   buildFileDeletePayload,buildFileMovePayload,parseFileMoveResponse,buildFilePutInitPayload,
   validateFilePutPage,buildFilePutDataPayload,buildMetadataSetPayload,buildMetadataPagedInitPayload,
   buildMetadataPagedDataPayload,validateFileGetChunk,buildFileGetInitPayload,buildFileGetDataPayload
-}from './fileProtocol.js?v=20260930-5';
+}from './fileProtocol.js?v=20261001-1';
 
 export{
   normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,

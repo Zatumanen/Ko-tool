@@ -1,7 +1,7 @@
 import{
   SEQUENCER_GRID_TICKS,SEQUENCER_GRID_STEPS,
   getProjectSequencerAvailability,createProjectSequencerSession,summarizeSequencerPattern
-}from '../projectSequencerUi.js?v=20260930-5';
+}from '../projectSequencerUi.js?v=20261001-1';
 
 const GROUPS=['A','B','C','D'];
 const FADER_PARAMS=['LVL','PTC','TIM','LPF','HPF','FX','ATK','REL','PAN','TUNE','VEL','MOD'];

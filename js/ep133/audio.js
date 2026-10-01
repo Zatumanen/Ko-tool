@@ -1,4 +1,4 @@
-import{getLibSampleRateModule}from './resampler.js?v=20260930-5';
+import{getReferenceAudioModule,resampleReferenceAudioData,createReferenceWav}from '../audio/audioEngine.js?v=20261001-1';
 
 const DEFAULT_SAMPLE_RATE=46875;
 const DEVICE_AUDIO_FORMAT='s16';
@@ -42,7 +42,9 @@ function parseKo2Metadata(bytes){
     if(id==='LIST'&&size>=12&&text(offset+8,4)==='INFO'&&text(offset+12,4)==='TNGE'){
       const jsonLength=view.getUint32(offset+16,true);
       if(jsonLength>0&&offset+20+jsonLength<=view.byteLength){
-        const json=new TextDecoder().decode(bytes.slice(offset+20,offset+20+jsonLength));
+        const jsonBytes=bytes.slice(offset+20,offset+20+jsonLength);
+        const terminator=jsonBytes.indexOf(0);
+        const json=new TextDecoder().decode(terminator>=0?jsonBytes.slice(0,terminator):jsonBytes).trim();
         try{
           const metadata=JSON.parse(json);
           return metadata&&typeof metadata==='object'?metadata:null;
@@ -167,7 +169,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
     const{audioMeta,...prepared}=ready;
     return prepared;
   }
-  const resampler=await getLibSampleRateModule();
+  const resampler=await getReferenceAudioModule();
   let audioMeta;
   try{audioMeta=resampler.getAudioMeta(name,bytes);}catch{throw new Error('Could not read audio metadata.');}
   if(!audioMeta?.channels||!audioMeta?.sample_rate)throw new Error('Could not read audio metadata.');
@@ -185,7 +187,7 @@ export async function prepareEp133Sample(file,{formats=[],targetSampleRate=null,
     channels=flattened.channels;
   }
   onProgress?.(35,{status:'resampling'});
-  const output=await resampler.resampleAudioData(inputData,audioMeta.sample_rate,target,inputFormat,'pcm',16,channels);
+  const output=await resampleReferenceAudioData(inputData,{sourceSampleRate:audioMeta.sample_rate,targetSampleRate:target,inputFormat,outputFormat:'pcm',bitDepth:16,channels,module:resampler});
   const data=output instanceof Uint8Array?output:new Uint8Array(output.buffer||output);
   onProgress?.(80,{status:'encoding'});
   onProgress?.(100,{status:'ready'});
@@ -232,10 +234,9 @@ export function buildEp133DownloadAudioMeta(metadata={}){
 export async function createEp133Wav(data,{name='sample',metadata={}}={}){
   const pcm=data instanceof Uint8Array?data:new Uint8Array(data||[]);
   const audioMeta=buildEp133DownloadAudioMeta(metadata);
-  const resampler=await getLibSampleRateModule();
+  const resampler=await getReferenceAudioModule();
   if(typeof resampler?.createWav!=='function')throw new Error('EP-series reference WAV encoder is unavailable.');
-  const result=resampler.createWav(String(name||'sample'),audioMeta,pcm);
-  const bytes=result instanceof Uint8Array?result:new Uint8Array(result?.buffer||result||[]);
+  const bytes=await createReferenceWav(String(name||'sample'),audioMeta,pcm,{module:resampler});
   if(bytes.byteLength<12)throw new Error('EP-series reference WAV encoder returned invalid data.');
   return new Blob([bytes],{type:'audio/wav'});
 }

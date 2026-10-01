@@ -1,4 +1,4 @@
-import{planSampleTransferTargets}from '../sampleMemory.js?v=20260930-5';
+import{planSampleTransferTargets}from '../sampleMemory.js?v=20261001-1';
 
 export function createSampleTransferCoordinator({
   sampleStore,getActiveDeviceProfile,

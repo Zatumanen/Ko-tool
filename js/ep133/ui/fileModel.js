@@ -2,7 +2,7 @@ import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
   TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE
-}from '../constants.js?v=20260930-5';
+}from '../constants.js?v=20261001-1';
 
 export const getSoundsParentId=files=>
   (files||[]).find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;

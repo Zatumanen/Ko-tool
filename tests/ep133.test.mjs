@@ -369,7 +369,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
   ]);
   assert.doesNotMatch(base,/\.ep133-/);
   assert.match(myEp,/\.ep133-browser/);
-  assert.match(html,/css\/my-ep\.css\?v=20260930-5/);
+  assert.match(html,/css\/my-ep\.css\?v=20261001-1/);
 });
 
 test('My EP browser modules pass a real Node syntax check',async()=>{
@@ -394,7 +394,7 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/^import\{initEp133Browser\}from/m);
-  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20260930-5'\)/);
+  assert.match(source,/import\('\.\/ep133\/ui\.js\?v=20261001-1'\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('click',[\s\S]*\{once:true\}\)/);
   assert.match(source,/myEpIcon\?\.addEventListener\('keydown',lazyMyEpKeydown\)/);
   assert.match(source,/removeEventListener\('keydown',lazyMyEpKeydown\)/);
@@ -2296,12 +2296,30 @@ test('EP audio pipeline checks the local s16 WAV fast path before loading the WA
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   const ready=source.indexOf('const ready=inspectEpReadyWav(bytes,{formats,targetSampleRate})');
-  const wasm=source.indexOf('const resampler=await getLibSampleRateModule()');
+  const wasm=source.indexOf('const resampler=await getReferenceAudioModule()');
   assert.ok(ready>=0&&wasm>ready);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
   assert.match(source,/Maximum EP-series sample length is 40 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
+test('EP WAV metadata parser ignores null terminator and padding inside TNGE payload',()=>{
+  const json=JSON.stringify({'sound.playmode':'loop','sound.pitch':-12});
+  const payload=new TextEncoder().encode(json);
+  const listPayloadSize=12+payload.length+4;
+  const bytes=new Uint8Array(12+8+listPayloadSize+(listPayloadSize&1));
+  const view=new DataView(bytes.buffer);
+  const put=(offset,text)=>new TextEncoder().encodeInto(text,bytes.subarray(offset,offset+text.length));
+  put(0,'RIFF');view.setUint32(4,bytes.length-8,true);put(8,'WAVE');
+  put(12,'LIST');view.setUint32(16,listPayloadSize,true);put(20,'INFO');put(24,'TNGE');
+  view.setUint32(28,payload.length+4,true);
+  bytes.set(payload,32);
+  bytes[32+payload.length]=0;
+  bytes[33+payload.length]=0x7f;
+  bytes[34+payload.length]=0x01;
+  bytes[35+payload.length]=0x02;
+  assert.deepEqual(parseKo2Metadata(bytes),{'sound.playmode':'loop','sound.pitch':-12});
+});
+
 test('EP target sample rate follows pbarilla format metadata',()=>{
   const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
   assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);
@@ -2460,7 +2478,7 @@ test('EP download WAV metadata matches the reference createWav contract',()=>{
 test('EP download WAV uses the reference WASM createWav encoder',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
-  assert.match(source,/resampler\.createWav\(String\(name\|\|'sample'\),audioMeta,pcm\)/);
+  assert.match(source,/createReferenceWav\(String\(name\|\|'sample'\),audioMeta,pcm,\{module:resampler\}\)/);
   assert.doesNotMatch(source,/44\+pcm\.byteLength/);
 });
 
@@ -2809,7 +2827,7 @@ test('FILE protocol builders and parsers live in a device-independent pure modul
   const filesystemSource=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   assert.doesNotMatch(protocolSource,/\.\/device\.js/);
   assert.doesNotMatch(protocolSource,/requestFile|requestRead|fileScheduler|navigator\.locks/);
-  assert.match(filesystemSource,/from '\.\/fileProtocol\.js\?v=20260930-5'/);
+  assert.match(filesystemSource,/from '\.\/fileProtocol\.js\?v=20261001-1'/);
   assert.match(filesystemSource,/export\{\s*calculateMaxPayloadLength,buildFileInitPayload/);
   assert.doesNotMatch(filesystemSource,/export function buildFileInitPayload/);
   assert.doesNotMatch(filesystemSource,/export function buildFileMovePayload/);
@@ -2845,7 +2863,7 @@ test('sample filesystem layer owns sample policy without importing device transp
   assert.match(sample,/export function prepareSampleWritableMetadata/);
   assert.match(sample,/export function prepareSampleTransferMetadata/);
   assert.match(sample,/export async function uploadSampleToSlotWithTransport/);
-  assert.match(filesystem,/from '\.\/sampleFilesystem\.js\?v=20260930-5'/);
+  assert.match(filesystem,/from '\.\/sampleFilesystem\.js\?v=20261001-1'/);
   assert.doesNotMatch(filesystem,/const SAMPLE_WRITABLE_METADATA_KEYS/);
   assert.doesNotMatch(filesystem,/export function prepareSampleWritableMetadata/);
 });
@@ -2892,7 +2910,7 @@ test('project filesystem layer owns project orchestration without importing devi
   assert.doesNotMatch(project,/requestFile|requestRead|fileScheduler|navigator\.locks/);
   assert.match(project,/export function createProjectFilesystem/);
   assert.match(project,/export function assertProjectWriteActiveGuard/);
-  assert.match(filesystem,/from '\.\/projectFilesystem\.js\?v=20260930-5'/);
+  assert.match(filesystem,/from '\.\/projectFilesystem\.js\?v=20261001-1'/);
   assert.doesNotMatch(filesystem,/function connectedProjectProfile/);
   assert.doesNotMatch(filesystem,/async function reloadProjectUnlocked/);
   assert.doesNotMatch(filesystem,/parseProjectArchive\(/);
@@ -2913,10 +2931,10 @@ test('filesystem is a thin composition facade over protocol transport sample and
     fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8')
   ]);
   assert.ok(facade.split('\n').length<=120);
-  assert.match(facade,/from '\.\/fileTransport\.js\?v=20260930-5'/);
-  assert.match(facade,/from '\.\/sampleFilesystem\.js\?v=20260930-5'/);
-  assert.match(facade,/from '\.\/projectFilesystem\.js\?v=20260930-5'/);
-  assert.match(facade,/from '\.\/fileProtocol\.js\?v=20260930-5'/);
+  assert.match(facade,/from '\.\/fileTransport\.js\?v=20261001-1'/);
+  assert.match(facade,/from '\.\/sampleFilesystem\.js\?v=20261001-1'/);
+  assert.match(facade,/from '\.\/projectFilesystem\.js\?v=20261001-1'/);
+  assert.match(facade,/from '\.\/fileProtocol\.js\?v=20261001-1'/);
   assert.doesNotMatch(facade,/requestFile\(|requestRead\(|buildFilePutDataPayload\(/);
   assert.doesNotMatch(transport,/sampleFilesystem|projectFilesystem|uploadSampleToSlotWithTransport/);
   assert.doesNotMatch(transport,/parseProjectArchive|validateProjectArchive/);

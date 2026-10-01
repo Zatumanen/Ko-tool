@@ -1,4 +1,4 @@
-import{createProjectSequencer}from './projectSequencer.js?v=20260930-5';
+import{createProjectSequencer}from './projectSequencer.js?v=20261001-1';
 
 export const SEQUENCER_GRID_TICKS=24;
 export const SEQUENCER_GRID_STEPS=16;

@@ -1,6 +1,6 @@
 import{
   normalizeSampleSearchQuery,matchesSampleSearch,filterSampleSearchResults,formatSampleSearchCount
-}from './ui/globalSearchController.js?v=20260930-5';
+}from './ui/globalSearchController.js?v=20261001-1';
 
 export const EP_SAMPLE_SLOT_COUNT=999;
 export const EP_SAMPLE_PAGE_SIZE=29;

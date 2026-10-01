@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import{referenceModuleProvider}from './helpers/reference-audio-module.mjs';
 
 class TestAudioBuffer{
   constructor({length,sampleRate,numberOfChannels}){
@@ -77,7 +78,7 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
   const buffer=new TestAudioBuffer({length:100,sampleRate:100,numberOfChannels:1});
   for(let index=0;index<100;index++)buffer.getChannelData(0)[index]=Math.sin(index*.1)*.25;
   const edited=await renderWaveformEdit(buffer,{
-    start:.25,end:.75,gainDb:6,normalize:true,playmode:'loop'
+    start:.25,end:.75,gainDb:6,normalize:true,playmode:'loop',referenceModuleProvider
   });
   assert.equal(edited.buffer.length,50);
   assert.equal(edited.epStorage.frames,50);
@@ -100,7 +101,7 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
 test('waveform editor browser modules pass Node syntax checks',async()=>{
   const{execFileSync}=await import('node:child_process');
   const{fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/waveform-editor.js','../js/audio/waveform-editor.js','../js/audio/chop.js','../js/app.js']){
+  for(const relative of ['../js/waveform-editor.js','../js/audio/audioEngine.js','../js/audio/waveform-editor.js','../js/audio/chop.js','../js/app.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -109,7 +110,7 @@ test('waveform editor browser modules pass Node syntax checks',async()=>{
 test('waveform UI composes chop core without duplicating transient analysis',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/waveform-editor.js',import.meta.url),'utf8');
-  assert.match(source,/from '.\/audio\/chop\.js\?v=20260930-5'/);
+  assert.match(source,/from '.\/audio\/chop\.js\?v=20261001-1'/);
   assert.match(source,/detectTransientChopCuts\(sourceBuffer,\{slices:chopTarget\}\)/);
   assert.match(source,/buildEvenChopCuts\(sourceBuffer,chopTarget\)/);
   assert.match(source,/renderChopWavs\(sourceBuffer,chopCuts/);

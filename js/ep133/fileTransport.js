@@ -4,10 +4,10 @@ import{
 }from './constants.js';
 import{
   requestRead,requestFile,onConnectionChange,onUnexpectedFileTraffic,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
-}from './device.js?v=20260930-5';
+}from './device.js?v=20261001-1';
 import{parseNullTerminatedString}from './packing.js';
-import{createFileScheduler}from './fileScheduler.js?v=20260930-5';
-import{createDeviceOperationCoordinator}from './deviceOperationCoordinator.js?v=20260930-5';
+import{createFileScheduler}from './fileScheduler.js?v=20261001-1';
+import{createDeviceOperationCoordinator}from './deviceOperationCoordinator.js?v=20261001-1';
 import{
   readU16 as u16,readU32 as u32,
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -15,7 +15,7 @@ import{
   buildFileDeletePayload,buildFileMovePayload,parseFileMoveResponse,buildFilePutInitPayload,
   buildFilePutDataPayload,buildMetadataSetPayload,buildMetadataPagedInitPayload,
   buildMetadataPagedDataPayload,validateFileGetChunk,buildFileGetInitPayload,buildFileGetDataPayload
-}from './fileProtocol.js?v=20260930-5';
+}from './fileProtocol.js?v=20261001-1';
 
 const deviceChunkSizes=new Map();
 const deviceOperationCoordinator=createDeviceOperationCoordinator({markUnsafe:markDeviceUnsafe,isUnsafe:isDeviceUnsafe});
