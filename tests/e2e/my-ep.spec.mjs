@@ -261,6 +261,7 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
 
   await page.locator('#ep133-view-projects').click();
   await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01');
   await page.locator('[data-project="02"]').click();
   await expect(page.locator('[data-project="02"]')).toHaveClass(/selected/);
   await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
