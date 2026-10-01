@@ -546,7 +546,12 @@ export function createBackupRestoreController({
     if(!record?.original?.data)return;
     const data=bytes(record.original.data);
     if(crc32Hex(data)!==String(record.original.crc32||''))throw new Error('Recovery original checksum mismatch.');
-    await saveBlob(new Blob([data],{type:'application/x-tar'}),record.original.name||('P'+record.project?.number+'.tar'));
+    const storedName=String(record.original.name||'');
+    const projectName='P'+String(record.project?.number||'').padStart(2,'0')+'.tar';
+    await saveBlob(
+      new Blob([data],{type:'application/x-tar'}),
+      /P\d{2}\.tar$/i.test(storedName)?storedName:projectName
+    );
   };
   const deleteRecovery=async()=>{
     if(!selectedRecoveryId)return;
