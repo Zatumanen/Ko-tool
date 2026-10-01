@@ -1,4 +1,4 @@
-import{EP_OUTPUT_BIT_DEPTH,encodeWav,measureEpStorage,quantizeBuffer}from './processor.js?v=20260930-5';
+import{EP_OUTPUT_BIT_DEPTH,encodeEpReadyWav,measureEpStorage,quantizeBuffer}from './processor.js?v=20261001-1';
 
 const finite=value=>Number.isFinite(Number(value))?Number(value):0;
 const makeBuffer=(length,sampleRate,channels)=>{
@@ -104,13 +104,14 @@ export async function renderWaveformEdit(buffer,{
   end=null,
   gainDb=0,
   normalize=false,
-  playmode='oneshot'
+  playmode='oneshot',
+  referenceModuleProvider=null
 }={}){
   let edited=cropAudioBuffer(buffer,start,end);
   if(finite(gainDb)!==0)edited=applyGainToAudioBuffer(edited,gainDb);
   if(normalize)edited=normalizeAudioBufferPeak(edited,1);
   edited=await quantizeBuffer(edited,EP_OUTPUT_BIT_DEPTH);
-  const blob=await encodeWav(edited,EP_OUTPUT_BIT_DEPTH,{},playmode);
+  const blob=await encodeEpReadyWav(edited,{referenceModuleProvider},playmode);
   return{
     buffer:edited,
     blob,

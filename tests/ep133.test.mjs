@@ -2296,7 +2296,7 @@ test('EP audio pipeline checks the local s16 WAV fast path before loading the WA
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
   const ready=source.indexOf('const ready=inspectEpReadyWav(bytes,{formats,targetSampleRate})');
-  const wasm=source.indexOf('const resampler=await getLibSampleRateModule()');
+  const wasm=source.indexOf('const resampler=await getReferenceAudioModule()');
   assert.ok(ready>=0&&wasm>ready);
   assert.match(source,/resampler\.getAudioMeta\(name,bytes\)/);
   assert.match(source,/Maximum EP-series sample length is 40 seconds/);
@@ -2460,7 +2460,7 @@ test('EP download WAV metadata matches the reference createWav contract',()=>{
 test('EP download WAV uses the reference WASM createWav encoder',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/audio.js',import.meta.url),'utf8');
-  assert.match(source,/resampler\.createWav\(String\(name\|\|'sample'\),audioMeta,pcm\)/);
+  assert.match(source,/createReferenceWav\(String\(name\|\|'sample'\),audioMeta,pcm,\{module:resampler\}\)/);
   assert.doesNotMatch(source,/44\+pcm\.byteLength/);
 });
 

@@ -1,4 +1,4 @@
-import{createEp133Wav}from '../audio.js?v=20260930-5';
+import{createEp133Wav}from '../audio.js?v=20261001-1';
 
 export function sampleDownloadName(slot,result){
   const raw=String(slot?.meta?.name||slot?.file?.name||result?.name||'sample')

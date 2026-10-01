@@ -1,4 +1,4 @@
-import{renderWaveformEdit}from './waveform-editor.js?v=20260930-5';
+import{renderWaveformEdit}from './waveform-editor.js?v=20261001-1';
 
 const finite=value=>Number.isFinite(Number(value))?Number(value):0;
 const integer=(value,fallback=0)=>Number.isFinite(Number(value))?Math.floor(Number(value)):fallback;
@@ -190,7 +190,8 @@ export function nearestChopCutIndex(buffer,cuts,frame,{maxDistanceMs=12}={}){
 export async function renderChopWavs(buffer,cuts,{
   gainDb=0,
   normalize=false,
-  playmode='oneshot'
+  playmode='oneshot',
+  referenceModuleProvider=null
 }={}){
   const ranges=getChopRanges(buffer,cuts);
   const outputs=[];
@@ -200,7 +201,8 @@ export async function renderChopWavs(buffer,cuts,{
       end:range.end,
       gainDb,
       normalize,
-      playmode
+      playmode,
+      referenceModuleProvider
     });
     outputs.push(Object.freeze({
       ...range,

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import{referenceModuleProvider}from './helpers/reference-audio-module.mjs';
 
 class TestAudioBuffer{
   constructor({length,sampleRate,numberOfChannels}){
@@ -89,7 +90,8 @@ test('renderChopWavs emits one independent 16-bit WAV per chop range',async()=>{
   const outputs=await renderChopWavs(buffer,[0,250,700],{
     gainDb:-3,
     normalize:true,
-    playmode:'loop'
+    playmode:'loop',
+    referenceModuleProvider
   });
   assert.equal(outputs.length,3);
   assert.deepEqual(outputs.map(output=>output.frames),[250,450,300]);

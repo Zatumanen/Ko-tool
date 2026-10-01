@@ -1,10 +1,10 @@
 import{
   clampWaveformSelection,buildWaveformPeaks,gainDbToLinear,renderWaveformEdit
-}from './audio/waveform-editor.js?v=20260930-5';
+}from './audio/waveform-editor.js?v=20261001-1';
 import{
   buildEvenChopCuts,detectTransientChopCuts,addChopCut,moveChopCut,removeChopCut,
   getChopRanges,nearestChopCutIndex,renderChopWavs
-}from './audio/chop.js?v=20260930-5';
+}from './audio/chop.js?v=20261001-1';
 
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const formatTime=value=>{

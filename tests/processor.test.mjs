@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import{referenceModuleProvider}from './helpers/reference-audio-module.mjs';
 
 class TestAudioBuffer{
   constructor({length,sampleRate,numberOfChannels}){
@@ -78,11 +79,13 @@ test('processAudio ignores legacy speed overrides and emits MID as 32 kHz 16-bit
     playmode:'loop',
     autoTrim:false,
     speed:4
-  });
+  },{referenceModuleProvider});
   assert.equal(result.sampleRate,32000);
   assert.equal(result.bitDepth,16);
   assert.equal(result.repitchFactor,2);
   assert.equal(result.pitchCompensation,-12);
+  assert.equal(result.metadata['sound.playmode'],'loop');
+  assert.equal(result.metadata['sound.pitch'],-12);
   assert.equal(result.buffer.length,40);
   assert.equal(result.sourceEpStorage.sampleRate,46875);
   assert.equal(result.sourceEpStorage.bytes,234);
@@ -116,7 +119,7 @@ test('SpeedUpperCut HI MID LO WAVs enter My EP through the byte-exact s16 fast p
       channels:'mono',
       playmode:'loop',
       autoTrim:false
-    });
+    },{referenceModuleProvider});
     const wavBytes=new Uint8Array(await result.blob.arrayBuffer());
     const wav=parseWavAudioMeta(wavBytes);
     assert.ok(wav);
@@ -164,7 +167,7 @@ test('stereo conversion duplicates mono',async()=>{
 
 test('2x resampling produces half the duration',async()=>{
   const b=buffer(100,1,1000);
-  const out=await speedAndResample(b,2,1000);
+  const out=await speedAndResample(b,2,1000,{referenceModuleProvider});
   assert.equal(out.length,50);
   assert.equal(out.sampleRate,1000);
 });
@@ -221,3 +224,6 @@ test('normalize reaches digital full scale without changing silence',async()=>{
   const silent=await normalizeBuffer(z);
   assert.deepEqual([...silent.getChannelData(0)],[0,0]);
 });
+
+
+test('SpeedUpperCut production resampling delegates to the shared reference AudioEngine',async()=>{const fs=await import('node:fs/promises');const source=await fs.readFile(new URL('../js/audio/processor.js',import.meta.url),'utf8');assert.match(source,/resampleAudioBufferReference/);assert.match(source,/encodeReferenceEpWav/);assert.doesNotMatch(source,/const pos=i\*srcRate\*speed\/targetSampleRate/);assert.doesNotMatch(source,/mode==='linear'/);});
