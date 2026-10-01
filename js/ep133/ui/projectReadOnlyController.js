@@ -206,59 +206,61 @@ export function createProjectReadOnlyController({
   const refresh=async()=>{
     if(loading||!isConnected())return;
     loading=true;
+    let initialProject=null;
     setGlobalProgress('READING PROJECT LIST',20);
     try{
       listing=await listProjectArchivesReadOnly();
       selectedProject=listing.projects.find(project=>project.active)?.project||listing.projects[0]?.project||null;
+      initialProject=selectedProject;
       renderList();
       if(listing.profile?.id!=='ep133'&&listing.profile?.id!=='ep40'){
         renderEmpty('PROJECT SEMANTIC READER IS NOT VERIFIED FOR '+String(listing.profile?.id||'THIS DEVICE').toUpperCase()+'.');
         setStatus('PROJECTS · READ ONLY · SEMANTIC READER UNAVAILABLE');
-        return;
+        initialProject=null;
+      }else if(!selectedProject){
+        renderEmpty('NO PROJECTS FOUND.');
       }
-      if(selectedProject)await selectProject(selectedProject,{skipListRender:true});
-      else renderEmpty('NO PROJECTS FOUND.');
     }catch(error){
-      listing=null;selectedProject=null;renderList();
+      listing=null;selectedProject=null;initialProject=null;renderList();
       renderEmpty('COULD NOT READ PROJECTS.');
       reportError('COULD NOT READ PROJECTS.',error);
     }finally{
       loading=false;
       hideGlobalProgress();
-      const queued=pendingProject;
-      if(queued&&queued!==id&&isConnected()){
-        pendingProject=null;
-        void selectProject(queued);
-      }
     }
+    if(initialProject&&isConnected())await selectProject(initialProject,{skipListRender:true});
   };
 
   async function selectProject(project,{skipListRender=false}={}){
     if(!isConnected())return;
     const id=String(project||'').padStart(2,'0');
-    if(loading&&!skipListRender){
-      selectedProject=id;
+    selectedProject=id;
+    if(!skipListRender)renderList();
+    if(loading){
       pendingProject=id;
-      renderList();
       return;
     }
-    selectedProject=id;
     pendingProject=null;
-    if(!skipListRender)renderList();
     loading=true;
     setGlobalProgress('READING PROJECT P'+id,45);
     renderEmpty('READING PROJECT P'+id+'...');
     try{
       const result=await readProjectArchiveReadOnly(id);
-      if(selectedProject!==id)return;
-      renderInspector(summarizeProjectReadOnly(result,{getSampleSlot}));
-      setStatus('PROJECT P'+id+' · READ ONLY');
+      if(selectedProject===id){
+        renderInspector(summarizeProjectReadOnly(result,{getSampleSlot}));
+        setStatus('PROJECT P'+id+' · READ ONLY');
+      }
     }catch(error){
-      renderEmpty('COULD NOT READ PROJECT P'+id+'.');
-      reportError('COULD NOT READ PROJECT P'+id+'.',error);
+      if(selectedProject===id){
+        renderEmpty('COULD NOT READ PROJECT P'+id+'.');
+        reportError('COULD NOT READ PROJECT P'+id+'.',error);
+      }
     }finally{
       loading=false;
       hideGlobalProgress();
+      const queued=pendingProject;
+      pendingProject=null;
+      if(queued&&queued!==id&&isConnected())void selectProject(queued);
     }
   }
 
