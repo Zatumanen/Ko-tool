@@ -236,7 +236,7 @@ test('My EP Projects view lists and inspects projects without sending any mutati
 
 test('My EP backup restore and recovery UI safely restores inactive P02 plus an empty sample dependency',async({page})=>{
   await installFake(page);
-  await page.goto('/');
+  await openMyEp(page);
   await page.evaluate(()=>{
     window.__savedBackupFiles=[];
     window.showSaveFilePicker=async options=>{
@@ -257,7 +257,6 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
       };
     };
   });
-  await openMyEp(page);
 
   await page.locator('#ep133-view-projects').click();
   await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
