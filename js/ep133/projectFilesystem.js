@@ -476,7 +476,9 @@ export function createProjectFilesystem({
     if(!original.byteLength)throw new Error('Recovery checkpoint original archive is missing.');
     if(crc32Hex(original)!==String(checkpoint.original?.crc32||''))
       throw new Error('Recovery checkpoint original archive checksum mismatch.');
-    const name=String(checkpoint.original?.name||('P'+checkpoint.project?.number+'.tar'));
+    const projectNumber=String(checkpoint.project?.number||'').padStart(2,'0');
+    const storedName=String(checkpoint.original?.name||'');
+    const name=/P\d{2}\.tar$/i.test(storedName)?storedName:('P'+projectNumber+'.tar');
     const file={
       name,
       size:original.byteLength,
