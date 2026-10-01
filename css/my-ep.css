@@ -1175,3 +1175,7 @@
   .ep-recovery-layout{grid-template-columns:1fr}
   .ep-recovery-list{border-right:0;border-bottom:1px solid #999;max-height:150px}
 }
+
+.ep-backup-dialog[data-mode="recovery"] [data-backup-panel],
+.ep-backup-dialog[data-mode="recovery"] [data-restore-panel]{display:none}
+.ep-backup-dialog[data-mode="backup"] [data-recovery-panel]{display:none}
