@@ -83,6 +83,11 @@ export function createBackupRestoreController({
   let selectedRecoveryId=null;
   let busy=false;
 
+  const setBaseDisabled=(button,value)=>{
+    if(!button)return;
+    button.dataset.baseDisabled=String(!!value);
+    button.disabled=busy||!!value;
+  };
   const setBusy=value=>{
     busy=!!value;
     for(const button of [
@@ -239,7 +244,7 @@ export function createBackupRestoreController({
     if(!restoreSummary)return;
     if(!plan){
       restoreSummary.innerHTML='<div class="ep-backup-empty">SELECT A .TAR OR SPEEDUPPERCUT BACKUP .ZIP</div>';
-      restoreButton.disabled=true;
+      setBaseDisabled(restoreButton,true);
       return;
     }
     if(plan.kind==='tar'){
@@ -251,7 +256,7 @@ export function createBackupRestoreController({
         missing.length?'<div class="ep-backup-warning">MISSING: '+missing.map(pad).join(', ')+'</div>':'',
         '<div class="ep-backup-note">RESTORE WRITES PROJECT ONLY. TARGET PROJECT MUST BE INACTIVE.</div>'
       ].join('');
-      restoreButton.disabled=missing.length>0;
+      setBaseDisabled(restoreButton,missing.length>0);
       return;
     }
     const p=plan.plan;
@@ -272,7 +277,7 @@ export function createBackupRestoreController({
         ?'<div class="ep-backup-note">SAFE RESTORE: ONLY EMPTY SAMPLE SLOTS ARE FILLED. OCCUPIED MISMATCHES ARE NEVER OVERWRITTEN.</div>'
         :'<div class="ep-backup-warning">RESTORE BLOCKED UNTIL CONFLICTS / MISSING DEPENDENCIES ARE RESOLVED.</div>'
     ].join('');
-    restoreButton.disabled=!p.canRestore;
+    setBaseDisabled(restoreButton,!p.canRestore);
   };
 
   const prepareTarRestore=async file=>{
@@ -468,7 +473,7 @@ export function createBackupRestoreController({
     if(!recoveryDetail)return;
     if(!record){
       recoveryDetail.innerHTML='<div class="ep-backup-empty">SELECT A CHECKPOINT</div>';
-      recoveryRestoreButton.disabled=true;recoveryDownloadButton.disabled=true;recoveryDeleteButton.disabled=true;
+      setBaseDisabled(recoveryRestoreButton,true);setBaseDisabled(recoveryDownloadButton,true);setBaseDisabled(recoveryDeleteButton,true);
       return;
     }
     const journal=Array.isArray(record.journal)?record.journal:[];
@@ -486,12 +491,9 @@ export function createBackupRestoreController({
     ].join('');
     const restorable=['requires-recovery','rollback-failed','verified','rolled-back','candidate-written'].includes(String(record.status||''));
     const deletable=['verified','rolled-back','aborted'].includes(String(record.status||''));
-    recoveryRestoreButton.disabled=busy||!restorable;
-    recoveryDownloadButton.disabled=busy||!record.original?.data;
-    recoveryDeleteButton.disabled=busy||!deletable;
-    recoveryRestoreButton.dataset.baseDisabled=String(!restorable);
-    recoveryDownloadButton.dataset.baseDisabled=String(!record.original?.data);
-    recoveryDeleteButton.dataset.baseDisabled=String(!deletable);
+    setBaseDisabled(recoveryRestoreButton,!restorable);
+    setBaseDisabled(recoveryDownloadButton,!record.original?.data);
+    setBaseDisabled(recoveryDeleteButton,!deletable);
   };
 
   const refreshRecovery=async()=>{
