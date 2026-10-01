@@ -24,7 +24,8 @@ test('project dependency report keeps device preflight authoritative and enriche
   assert.deepEqual(report.missingSlots,[9]);
   assert.equal(report.entries[0].name,'kick808');
   assert.equal(report.entries[1].name,'snare');
-  assert.equal(report.entries[2].name,'stale-local');
+  assert.equal(report.entries[2].name,'');
+  assert.equal(report.entries[2].size,0);
   assert.equal(report.entries[2].status,'missing');
   assert.equal(report.entries[2].available,false);
 });
