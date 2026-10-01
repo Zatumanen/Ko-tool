@@ -64,6 +64,11 @@
           <div id="ep133-connection-overlay" class="ep133-connection-overlay">CONNECT EP SERIES</div>
         </div>
 
+        <div class="ep133-view-tabs" role="tablist" aria-label="My EP views">
+          <button id="ep133-view-samples" type="button" class="selected" role="tab" aria-selected="true">SAMPLES</button>
+          <button id="ep133-view-projects" type="button" role="tab" aria-selected="false">PROJECTS <span>READ ONLY</span></button>
+        </div>
+
         <div id="ep133-global-progress" class="ep133-global-progress" hidden>
           <span id="ep133-global-progress-label">WORKING</span>
           <div class="ep133-global-progress-track"><span id="ep133-global-progress-fill"></span></div>
@@ -86,6 +91,23 @@
             </div>
             <div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots">
               <div class="ep133-empty">Connect an EP-series device to read its sample memory.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="ep133-projects-panel" class="ep133-view-panel ep133-projects-panel" hidden>
+          <div class="ep-project-browser">
+            <aside class="ep-project-sidebar">
+              <div class="ep-project-toolbar">
+                <strong>PROJECTS</strong>
+                <button id="ep133-project-refresh" type="button">REFRESH</button>
+              </div>
+              <div id="ep133-project-list" class="ep-project-list" aria-label="Device projects">
+                <div class="ep-project-empty">CONNECT EP SERIES</div>
+              </div>
+            </aside>
+            <div id="ep133-project-inspector" class="ep-project-inspector" aria-live="polite">
+              <div class="ep-project-empty">SELECT PROJECT TO INSPECT.</div>
             </div>
           </div>
         </section>
