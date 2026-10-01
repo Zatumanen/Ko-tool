@@ -172,3 +172,14 @@ test('sequencer pattern summary reports notes, automation, unknown records and r
   assert.equal(summary.maxTick,400);
   assert.equal(summary.pages,2);
 });
+
+
+test('Sequencer UI writes only through checkpointed project upload and does not import FILE mutation primitives',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui/projectSequencerController.js',import.meta.url),'utf8');
+  assert.match(source,/uploadProjectArchive/);
+  assert.match(source,/requireInactive:true/);
+  assert.match(source,/performReload:false/);
+  assert.match(source,/createProjectSequencerSession/);
+  assert.doesNotMatch(source,/putFile|setFileMetadata|deleteFile|moveFile|uploadSampleToSlot/);
+});
