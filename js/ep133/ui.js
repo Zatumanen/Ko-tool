@@ -35,6 +35,7 @@ import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v
 import{createSampleVerificationController}from './ui/sampleVerification.js?v=20260930-5';
 import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
 import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20260930-5';
+import{createVerifiedProjectEditorController}from './ui/projectEditorController.js?v=20260930-5';
 import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
@@ -74,6 +75,13 @@ export function initEp133Browser({showError}={}){
   const projectList=document.getElementById('ep133-project-list');
   const projectInspector=document.getElementById('ep133-project-inspector');
   const projectRefresh=document.getElementById('ep133-project-refresh');
+  const projectEdit=document.getElementById('ep133-project-edit');
+  const projectEditorDialog=document.getElementById('ep133-project-editor-dialog');
+  const projectEditorClose=document.getElementById('ep133-project-editor-close');
+  const projectEditorForm=document.getElementById('ep133-project-editor-form');
+  const projectEditorSummary=document.getElementById('ep133-project-editor-summary');
+  const projectEditorSave=document.getElementById('ep133-project-editor-save');
+  const projectEditorCancel=document.getElementById('ep133-project-editor-cancel');
   const projectBackup=document.getElementById('ep133-project-backup');
   const projectRecovery=document.getElementById('ep133-project-recovery');
   const backupDialog=document.getElementById('ep133-backup-dialog');
@@ -159,13 +167,25 @@ export function initEp133Browser({showError}={}){
     confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
 
+  let projectEditorController=null;
   const projectReadOnlyController=createProjectReadOnlyController({
     samplesPanel,projectsPanel,
     samplesButton:samplesViewButton,projectsButton:projectsViewButton,
     projectList,projectInspector,refreshButton:projectRefresh,
     listProjectArchivesReadOnly,readProjectArchiveReadOnly,
     getSampleSlot:slot=>sampleStore.getSlot(slot),
+    onProjectLoaded:result=>projectEditorController?.setProject(result),
+    onProjectCleared:()=>projectEditorController?.setProject(null),
     isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError
+  });
+
+  projectEditorController=createVerifiedProjectEditorController({
+    dialog:projectEditorDialog,openButton:projectEdit,closeButton:projectEditorClose,
+    form:projectEditorForm,summaryEl:projectEditorSummary,
+    saveButton:projectEditorSave,cancelButton:projectEditorCancel,
+    uploadProjectArchive,confirmAction,setStatus,setGlobalProgress,hideGlobalProgress,
+    refreshProjects:()=>projectReadOnlyController.refresh(),
+    reportError
   });
 
   const fileItemFromInfo=info=>buildFileItemFromInfo(info,sampleStore.getFiles());
@@ -424,6 +444,7 @@ export function initEp133Browser({showError}={}){
     if(!hadConnection)renderDeviceStats({},0);
     sampleStore.clear();
     projectReadOnlyController.reset();
+    projectEditorController.close();
     backupRestoreController.close();
     setStatus(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
@@ -520,6 +541,7 @@ export function initEp133Browser({showError}={}){
   document.addEventListener('keydown',event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;
     if(confirmDialog&&!confirmDialog.hidden){event.preventDefault();resolveConfirm(false);return;}
+    if(projectEditorDialog&&!projectEditorDialog.hidden){event.preventDefault();projectEditorController.close();return;}
     if(backupDialog&&!backupDialog.hidden){event.preventDefault();backupRestoreController.close();return;}
     if(properties&&!properties.hidden){event.preventDefault();closeProperties();return;}
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}

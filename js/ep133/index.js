@@ -9,6 +9,7 @@ export{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthorin
 export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from './projectArchive.js?v=20260930-5';
 
 export{readProjectPad,readProjectPattern,readProjectScenes,readProjectSettings,readProjectFxSettings,readProjectLive,readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260930-5';
+export{PROJECT_EDITOR_FADER_PARAMS,PROJECT_EDITOR_FX_TYPES,createVerifiedProjectEditorDraft,buildVerifiedProjectEditorPatch,buildVerifiedProjectEditorCandidate,summarizeVerifiedProjectChanges}from './projectEditor.js?v=20260930-5';
 export{buildProjectDependencyReport,assertProjectDependenciesAvailable}from './projectDependencies.js?v=20260930-5';
 export{EP_BACKUP_SCHEMA,EP_BACKUP_SCOPES,normalizeBackupScope,createEpBackupBundle,parseStoredZip,parseEpBackupBundle,readEpBackupBundleFile,buildBundleProjectRestorePlan}from './backupBundle.js?v=20260930-5';
 

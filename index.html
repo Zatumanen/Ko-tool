@@ -101,6 +101,7 @@
               <div class="ep-project-toolbar">
                 <strong>PROJECTS</strong>
                 <div class="ep-project-toolbar-actions">
+                  <button id="ep133-project-edit" type="button" disabled>EDIT VERIFIED</button>
                   <button id="ep133-project-backup" type="button">BACKUP / RESTORE</button>
                   <button id="ep133-project-recovery" type="button">RECOVERY</button>
                   <button id="ep133-project-refresh" type="button">REFRESH</button>
@@ -121,6 +122,27 @@
 
       <div id="ep133-properties" class="ep133-properties" role="dialog" aria-label="Sample properties" hidden>
         <div id="ep133-properties-grid" class="ep133-properties-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ep133-project-editor-dialog" class="ep-project-editor-dialog" role="dialog" aria-modal="true" aria-label="Verified Project Editor" hidden>
+  <div class="ep-project-editor-window">
+    <div class="title-bar ep-project-editor-title">
+      <span>VERIFIED PROJECT EDITOR · <b data-editor-project>P??</b></span>
+      <button id="ep133-project-editor-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="ep-project-editor-body">
+      <div class="ep-project-editor-evidence" data-editor-evidence></div>
+      <div class="ep-project-editor-warning">
+        VERIFIED FIELDS ONLY · INACTIVE PROJECTS ONLY · PATTERNS / SCENES / SAMPLE ASSIGNMENTS ARE PRESERVED
+      </div>
+      <form id="ep133-project-editor-form" class="ep-project-editor-form"></form>
+      <div id="ep133-project-editor-summary" class="ep-project-editor-summary"></div>
+      <div class="ep-project-editor-actions">
+        <button id="ep133-project-editor-cancel" type="button">CANCEL</button>
+        <button id="ep133-project-editor-save" type="button" disabled>SAVE VERIFIED CHANGES</button>
       </div>
     </div>
   </div>

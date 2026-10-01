@@ -762,7 +762,7 @@
 .ep133-confirm-dialog{
   position:fixed;
   inset:0;
-  z-index:10030;
+  z-index:10060;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1179,3 +1179,79 @@
 .ep-backup-dialog[data-mode="recovery"] [data-backup-panel],
 .ep-backup-dialog[data-mode="recovery"] [data-restore-panel]{display:none}
 .ep-backup-dialog[data-mode="backup"] [data-recovery-panel]{display:none}
+
+/* Verified Project Editor */
+.ep-project-editor-dialog{
+  position:fixed;inset:0;z-index:10035;display:flex;align-items:center;justify-content:center;
+  padding:16px;background:rgba(0,0,0,.5)
+}
+.ep-project-editor-dialog[hidden]{display:none!important}
+.ep-project-editor-window{
+  width:min(920px,96vw);max-height:94vh;overflow:auto;background:var(--win-gray);
+  border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);
+  border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);
+  box-shadow:8px 8px 22px rgba(0,0,0,.68)
+}
+.ep-project-editor-title button{width:22px;height:22px;min-height:22px;padding:0}
+.ep-project-editor-body{padding:9px;display:flex;flex-direction:column;gap:7px}
+.ep-project-editor-evidence{
+  padding:5px 7px;border:2px inset var(--win-dark);background:#eef7ee;
+  color:#244f24;font:700 9px "Courier New",monospace
+}
+.ep-project-editor-warning{
+  padding:5px 7px;border:1px solid #9f7f20;background:#fff4bf;color:#5f4a00;
+  font:700 8px "Courier New",monospace
+}
+.ep-project-editor-form{display:flex;flex-direction:column;gap:7px}
+.ep-project-editor-section{border:2px inset var(--win-dark);background:#fff}
+.ep-project-editor-section h3{
+  margin:0;padding:5px 7px;border-bottom:1px solid #999;background:#dedede;
+  font:700 9px "Courier New",monospace
+}
+.ep-editor-field-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px;padding:7px
+}
+.ep-editor-field-grid label,.ep-editor-pad-select{
+  display:flex;flex-direction:column;gap:3px;font:700 8px "Courier New",monospace
+}
+.ep-editor-field-grid input,.ep-editor-field-grid select,.ep-editor-pad-select select,
+.ep-editor-fader-row input,.ep-editor-fader-row select{
+  width:100%;min-width:0;padding:5px;border:2px inset var(--win-dark);background:#fff;
+  font:10px "Courier New",monospace
+}
+.ep-editor-faders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:7px}
+.ep-editor-fader-row{
+  display:grid;grid-template-columns:24px minmax(120px,1fr) minmax(105px,.7fr);
+  gap:5px;align-items:end
+}
+.ep-editor-fader-row>strong{align-self:center;text-align:center}
+.ep-editor-fader-row label{display:flex;flex-direction:column;gap:3px;font:700 8px "Courier New",monospace}
+.ep-editor-pad-select{padding:7px 7px 0}
+.ep-editor-pad-head{
+  display:flex;justify-content:space-between;align-items:center;margin:7px 7px 0;
+  padding:5px 6px;border:1px solid #aaa;background:#f2f2f2;font:9px "Courier New",monospace
+}
+.ep-editor-pad-head strong{font-size:13px}
+.ep-project-editor-note{padding:0 7px 7px;color:#666;font:8px "Courier New",monospace}
+.ep-project-editor-empty{padding:12px;text-align:center;color:#666;font:700 9px "Courier New",monospace}
+.ep-project-editor-summary{
+  min-height:46px;display:flex;flex-direction:column;gap:3px;padding:7px;
+  border:2px inset var(--win-dark);background:#f7f7f7;font:8px "Courier New",monospace
+}
+.ep-project-editor-summary.changed{background:#edf6ff}
+.ep-project-editor-summary.error{background:#ffe4df;color:#7b1e13}
+.ep-project-editor-summary strong{font-size:10px}
+.ep-project-editor-summary em{font-style:normal;color:#555}
+.ep-project-editor-actions{display:flex;justify-content:flex-end;gap:6px}
+.ep-project-editor-actions button{
+  min-height:31px;padding:5px 9px;border:2px outset var(--win-gray);background:var(--win-gray);
+  font:700 9px "Courier New",monospace;cursor:pointer
+}
+.ep-project-editor-actions button:disabled,#ep133-project-edit:disabled{opacity:.42;cursor:default}
+#ep133-project-editor-save:not(:disabled){background:#fff;font-weight:bold}
+@media(max-width:700px){
+  .ep-editor-faders{grid-template-columns:1fr}
+  .ep-editor-fader-row{grid-template-columns:24px minmax(0,1fr)}
+  .ep-editor-fader-row label{grid-column:2}
+  .ep-project-editor-actions{flex-direction:column}
+}
