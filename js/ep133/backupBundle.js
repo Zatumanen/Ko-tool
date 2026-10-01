@@ -1,5 +1,5 @@
-import{createZip}from '../zip.js?v=20260930-5';
-import{crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20260930-5';
+import{createZip}from '../zip.js?v=20261001-1';
+import{crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
 
 export const EP_BACKUP_SCHEMA='speeduppercut.ep-backup/v1';
 export const EP_BACKUP_SCOPES=Object.freeze(['project','project+samples','device']);

@@ -1,14 +1,14 @@
 import{TE_SYSEX_FILE_CAPABILITY_READ}from './constants.js';
 import{
   parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies
-}from './projectArchive.js?v=20260930-5';
+}from './projectArchive.js?v=20261001-1';
 import{
   assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported
-}from './projectProfile.js?v=20260930-5';
-import{readProjectModel}from './projectReader.js?v=20260930-5';
-import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
-import{createProjectRecoveryCheckpoint,crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20260930-5';
-import{createProjectTransactionJournal}from './projectTransactionJournal.js?v=20260930-5';
+}from './projectProfile.js?v=20261001-1';
+import{readProjectModel}from './projectReader.js?v=20261001-1';
+import{createProjectRuntimeGate}from './projectRuntime.js?v=20261001-1';
+import{createProjectRecoveryCheckpoint,crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
+import{createProjectTransactionJournal}from './projectTransactionJournal.js?v=20261001-1';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const positiveActive=value=>{

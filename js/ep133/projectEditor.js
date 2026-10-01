@@ -1,5 +1,5 @@
-import{buildProjectFromModel,readProjectModel}from './projectReader.js?v=20260930-5';
-import{validateProjectArchive}from './projectArchive.js?v=20260930-5';
+import{buildProjectFromModel,readProjectModel}from './projectReader.js?v=20261001-1';
+import{validateProjectArchive}from './projectArchive.js?v=20261001-1';
 
 export const PROJECT_EDITOR_FADER_PARAMS=Object.freeze([
   'LVL','PTC','TIM','LPF','HPF','FX','ATK','REL','PAN','TUNE','VEL','MOD'
