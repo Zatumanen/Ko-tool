@@ -168,3 +168,13 @@ test('verified project editor refuses active, unverified and missing-dependency 
   draft.bpm=130;
   assert.throws(()=>buildVerifiedProjectEditorCandidate(active,draft),/inactive project/i);
 });
+
+
+test('Verified Project Editor UI uses the checkpointed project API and does not import sequencer or FILE mutation primitives',async()=>{
+  const fs=await import('node:fs/promises');
+  const source=await fs.readFile(new URL('../js/ep133/ui/projectEditorController.js',import.meta.url),'utf8');
+  assert.match(source,/uploadProjectArchive/);
+  assert.match(source,/requireInactive:true/);
+  assert.match(source,/performReload:false/);
+  assert.doesNotMatch(source,/putFile|setFileMetadata|deleteFile|moveFile|createProjectSequencer|projectSequencer/);
+});
