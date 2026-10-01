@@ -5,6 +5,7 @@ import{
 import{
   assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported
 }from './projectProfile.js?v=20260930-5';
+import{readProjectModel}from './projectReader.js?v=20260930-5';
 import{createProjectRuntimeGate}from './projectRuntime.js?v=20260930-5';
 import{createProjectRecoveryCheckpoint}from './projectRecovery.js?v=20260930-5';
 import{createProjectTransactionJournal}from './projectTransactionJournal.js?v=20260930-5';
@@ -75,6 +76,67 @@ export function createProjectFilesystem({
   const getProjectRuntimeSettleState=()=>projectRuntimeGate.getState();
   const assertProjectRuntimeSettled=(label='project operation')=>projectRuntimeGate.assertSettled(label);
   const resetProjectRuntime=()=>projectRuntimeGate.reset();
+
+  const resolveProjectsDirectory=async()=>{
+    await initRead();
+    const root=await listDirectory(0,'/');
+    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    if(!parent)throw new Error('EP-series /projects node is not available.');
+    return parent;
+  };
+
+  const listProjectArchivesReadOnly=async()=>runFileOperation(async()=>{
+    assertProjectRuntimeSettled('project read');
+    const profile=connectedProjectProfile('transport');
+    const parent=await resolveProjectsDirectory();
+    const activeProjectFid=await getActiveNode(parent.nodeId);
+    const projects=await listDirectory(parent.nodeId,'/projects');
+    return{
+      profile:{
+        id:profile.id,sku:profile.sku,firmware:profile.firmware,
+        projectTransport:profile.projectTransport,
+        evidence:profile.evidence?.projectTransport||null
+      },
+      parentFid:parent.nodeId,
+      activeProjectFid,
+      projects:projects
+        .filter(item=>item.fileType==='folder'&&/^\/projects\/\d{2}$/.test(item.fileName))
+        .map(item=>({
+          project:item.fileName.slice(-2),
+          nodeId:item.nodeId,
+          fileName:item.fileName,
+          size:Number(item.fileSize)||0,
+          active:Number(item.nodeId)===Number(activeProjectFid)
+        }))
+        .sort((a,b)=>a.project.localeCompare(b.project))
+    };
+  });
+
+  const readProjectArchiveReadOnly=async(projectNumber,{onProgress}={})=>runFileOperation(async()=>{
+    assertProjectRuntimeSettled('project read');
+    const profile=connectedProjectProfile('transport');
+    if(profile.id!=='ep133'&&profile.id!=='ep40')
+      throw new Error('Project semantic reader is enabled only for EP-133 and EP-40.');
+    const project=String(projectNumber).padStart(2,'0');
+    if(!/^\d{2}$/.test(project))throw new Error('Project number must be 00..99.');
+    const parent=await resolveProjectsDirectory();
+    const projects=await listDirectory(parent.nodeId,'/projects');
+    const node=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!node)throw new Error(`EP-series project ${project} is not available.`);
+    const archive=await getFile(node.nodeId,onProgress);
+    const model=readProjectModel(archive.data,{profile});
+    return{
+      project,nodeId:node.nodeId,name:archive.name||`P${project}.tar`,
+      size:Number(archive.size)||archive.data.byteLength,
+      active:Number(node.nodeId)===Number(await getActiveNode(parent.nodeId)),
+      profile:{
+        id:profile.id,sku:profile.sku,firmware:profile.firmware,
+        projectTransport:profile.projectTransport,
+        evidence:profile.evidence?.projectTransport||null
+      },
+      model
+    };
+  });
 
   const getActiveNode=async nodeId=>{
     const metadata=await getFileMetadata(nodeId,'active');
@@ -396,6 +458,8 @@ export function createProjectFilesystem({
     resetProjectRuntime,
     getProjectRuntimeSettleState,
     assertProjectRuntimeSettled,
+    listProjectArchivesReadOnly,
+    readProjectArchiveReadOnly,
     reloadProjectArchive,
     uploadProjectArchive,
     downloadProjectArchive,
