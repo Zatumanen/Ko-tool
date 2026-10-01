@@ -87,6 +87,9 @@ export function assertProjectRuntimeSettled(label='project operation'){
   return projectFilesystem.assertProjectRuntimeSettled(label);
 }
 
+export const listProjectArchivesReadOnly=()=>projectFilesystem.listProjectArchivesReadOnly();
+export const readProjectArchiveReadOnly=(projectNumber,options={})=>projectFilesystem.readProjectArchiveReadOnly(projectNumber,options);
+
 export function reloadProjectArchive(projectNumber,options={}){
   return projectFilesystem.reloadProjectArchive(projectNumber,options);
 }
