@@ -232,3 +232,115 @@ test('My EP Projects view lists and inspects projects without sending any mutati
   await expect(page.locator('#ep133-samples-panel')).toBeVisible();
   await expect(page.locator('#ep133-projects-panel')).toBeHidden();
 });
+
+
+test('My EP backup restore and recovery UI safely restores inactive P02 plus an empty sample dependency',async({page})=>{
+  await installFake(page);
+  await openMyEp(page);
+  await page.evaluate(()=>{
+    window.__savedBackupFiles=[];
+    window.showSaveFilePicker=async options=>{
+      const record={name:options?.suggestedName||'',type:'',size:0,bytes:[],closed:false};
+      window.__savedBackupFiles.push(record);
+      return{
+        async createWritable(){
+          return{
+            async write(blob){
+              const data=new Uint8Array(await blob.arrayBuffer());
+              record.type=blob.type||'';
+              record.size=data.byteLength;
+              record.bytes=[...data];
+            },
+            async close(){record.closed=true;}
+          };
+        }
+      };
+    };
+  });
+
+  await page.locator('#ep133-view-projects').click();
+  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01');
+  await page.locator('[data-project="02"]').click();
+  await expect(page.locator('[data-project="02"]')).toHaveClass(/selected/);
+  await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
+
+  await page.locator('#ep133-project-backup').click();
+  await expect(page.locator('#ep133-backup-dialog')).toBeVisible();
+  await expect(page.locator('[data-backup-panel]')).toBeVisible();
+  await expect(page.locator('[data-recovery-panel]')).toBeHidden();
+
+  await page.locator('#ep133-backup-project').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(1);
+  const rawProject=await page.evaluate(()=>window.__savedBackupFiles[0]);
+  expect(rawProject.name).toBe('P02.tar');
+  expect(rawProject.type).toBe('application/x-tar');
+  expect(rawProject.size).toBeGreaterThan(1024);
+
+  await page.locator('#ep133-backup-project-samples').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(2);
+  const saved=await page.evaluate(()=>window.__savedBackupFiles[1]);
+  expect(saved.name).toContain('P02_samples');
+  expect(saved.type).toBe('application/zip');
+  expect(saved.size).toBeGreaterThan(500);
+  expect(saved.closed).toBe(true);
+
+  await page.locator('#ep133-backup-device').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(3);
+  const deviceBackup=await page.evaluate(()=>window.__savedBackupFiles[2]);
+  expect(deviceBackup.name).toContain('device');
+  expect(deviceBackup.size).toBeGreaterThan(saved.size);
+
+  const backupMutationLog=await page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ));
+  expect(backupMutationLog).toEqual([]);
+
+  await page.evaluate(()=>window.__fakeEp.removeSample(8));
+  await page.locator('#ep133-restore-file').setInputFiles({
+    name:saved.name,
+    mimeType:'application/zip',
+    buffer:Buffer.from(saved.bytes)
+  });
+  await expect(page.locator('#ep133-restore-summary')).toContainText('P02');
+  await expect(page.locator('#ep133-restore-summary')).toContainText('RESTORE SAMPLES');
+  await expect(page.locator('#ep133-restore-summary')).toContainText('1');
+  await expect(page.locator('#ep133-restore-summary')).toContainText('ALREADY MATCH');
+  await expect(page.locator('#ep133-restore-summary')).toContainText('0');
+  await expect(page.locator('#ep133-restore-run')).toBeEnabled();
+
+  await page.locator('#ep133-restore-run').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeVisible();
+  await page.locator('#ep133-confirm-ok').click();
+
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(item=>item.id===8)),{timeout:15000}).toBe(true);
+  await expect(page.locator('#ep133-status')).toContainText('RESTORE P02 VERIFIED',{timeout:15000});
+
+  const mutationLog=await page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||(item.sub===7&&item.type===1))
+  ));
+  expect(mutationLog.some(item=>item.sub===2&&item.type===0&&((item.raw[3]<<8)|item.raw[4])===8)).toBe(true);
+  expect(mutationLog.some(item=>item.sub===2&&item.type===0&&((item.raw[3]<<8)|item.raw[4])===3002)).toBe(true);
+
+  await page.locator('#ep133-backup-close').click();
+  await page.locator('#ep133-project-recovery').click();
+  await expect(page.locator('#ep133-backup-dialog')).toBeVisible();
+  await expect(page.locator('[data-recovery-panel]')).toBeVisible();
+  await expect(page.locator('[data-backup-panel]')).toBeHidden();
+  await expect(page.locator('.ep-recovery-row')).toHaveCount(1,{timeout:10000});
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('VERIFIED');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('WRITE');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('VERIFY');
+
+  await page.locator('#ep133-recovery-download').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length)).toBe(4);
+  const recoveryFile=await page.evaluate(()=>window.__savedBackupFiles[3]);
+  expect(recoveryFile.name).toBe('P02.tar');
+  expect(recoveryFile.size).toBeGreaterThan(1024);
+
+  await page.locator('#ep133-recovery-restore').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeVisible();
+  await page.locator('#ep133-confirm-ok').click();
+  await expect(page.locator('#ep133-status')).toContainText('RECOVERY P02 VERIFIED',{timeout:15000});
+  await expect(page.locator('.ep-recovery-row')).toHaveCount(2,{timeout:10000});
+});

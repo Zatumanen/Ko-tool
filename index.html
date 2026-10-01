@@ -100,7 +100,11 @@
             <aside class="ep-project-sidebar">
               <div class="ep-project-toolbar">
                 <strong>PROJECTS</strong>
-                <button id="ep133-project-refresh" type="button">REFRESH</button>
+                <div class="ep-project-toolbar-actions">
+                  <button id="ep133-project-backup" type="button">BACKUP / RESTORE</button>
+                  <button id="ep133-project-recovery" type="button">RECOVERY</button>
+                  <button id="ep133-project-refresh" type="button">REFRESH</button>
+                </div>
               </div>
               <div id="ep133-project-list" class="ep-project-list" aria-label="Device projects">
                 <div class="ep-project-empty">CONNECT EP SERIES</div>
@@ -118,6 +122,53 @@
       <div id="ep133-properties" class="ep133-properties" role="dialog" aria-label="Sample properties" hidden>
         <div id="ep133-properties-grid" class="ep133-properties-grid"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="ep133-backup-dialog" class="ep-backup-dialog" role="dialog" aria-modal="true" aria-label="Backup and restore" hidden>
+  <div class="ep-backup-window">
+    <div class="title-bar ep-backup-title">
+      <span>MY EP · BACKUP / RESTORE</span>
+      <button id="ep133-backup-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="ep-backup-body">
+      <section class="ep-backup-section" data-backup-panel>
+        <h3>BACKUP</h3>
+        <div class="ep-backup-actions">
+          <button id="ep133-backup-project" type="button">PROJECT .TAR</button>
+          <button id="ep133-backup-project-samples" type="button">PROJECT + SAMPLES .ZIP</button>
+          <button id="ep133-backup-device" type="button">WHOLE DEVICE .ZIP</button>
+        </div>
+        <p>Backups are read-only operations. Whole-device backup includes all visible project archives and sample files.</p>
+      </section>
+
+      <section class="ep-backup-section" data-restore-panel>
+        <h3>RESTORE</h3>
+        <div class="ep-backup-file-row">
+          <input id="ep133-restore-file" type="file" accept=".tar,.zip,application/x-tar,application/zip">
+          <select id="ep133-restore-project-select" hidden aria-label="Project from backup"></select>
+        </div>
+        <div id="ep133-restore-summary" class="ep-backup-summary"></div>
+        <div class="ep-backup-footer">
+          <button id="ep133-restore-run" type="button" disabled>RUN SAFE RESTORE</button>
+        </div>
+      </section>
+
+      <section class="ep-backup-section ep-recovery-section" data-recovery-panel>
+        <h3>RECOVERY CHECKPOINTS</h3>
+        <div class="ep-recovery-layout">
+          <div id="ep133-recovery-list" class="ep-recovery-list"></div>
+          <div class="ep-recovery-inspector">
+            <div id="ep133-recovery-detail" class="ep-recovery-detail"></div>
+            <div class="ep-recovery-actions">
+              <button id="ep133-recovery-restore" type="button" disabled>RESTORE ORIGINAL</button>
+              <button id="ep133-recovery-download" type="button" disabled>DOWNLOAD ORIGINAL</button>
+              <button id="ep133-recovery-delete" type="button" disabled>DELETE CHECKPOINT</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>

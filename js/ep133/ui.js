@@ -1,7 +1,9 @@
 import{
-  connectEp133,isConnected,isDeviceUnsafe,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
+  connectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
-  listProjectArchivesReadOnly,readProjectArchiveReadOnly,
+  listProjectArchivesReadOnly,readProjectArchiveReadOnly,uploadProjectArchive,
+  getProjectRecoveryCheckpoint,listProjectRecoveryCheckpoints,deleteProjectRecoveryCheckpoint,
+  restoreProjectRecoveryCheckpoint,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleLocalMetadata,createTransferFileName
 }from './index.js?v=20260930-5';
@@ -33,6 +35,7 @@ import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v
 import{createSampleVerificationController}from './ui/sampleVerification.js?v=20260930-5';
 import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
 import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20260930-5';
+import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
@@ -71,6 +74,22 @@ export function initEp133Browser({showError}={}){
   const projectList=document.getElementById('ep133-project-list');
   const projectInspector=document.getElementById('ep133-project-inspector');
   const projectRefresh=document.getElementById('ep133-project-refresh');
+  const projectBackup=document.getElementById('ep133-project-backup');
+  const projectRecovery=document.getElementById('ep133-project-recovery');
+  const backupDialog=document.getElementById('ep133-backup-dialog');
+  const backupClose=document.getElementById('ep133-backup-close');
+  const backupProject=document.getElementById('ep133-backup-project');
+  const backupProjectSamples=document.getElementById('ep133-backup-project-samples');
+  const backupDevice=document.getElementById('ep133-backup-device');
+  const restoreFile=document.getElementById('ep133-restore-file');
+  const restoreSummary=document.getElementById('ep133-restore-summary');
+  const restoreProjectSelect=document.getElementById('ep133-restore-project-select');
+  const restoreRun=document.getElementById('ep133-restore-run');
+  const recoveryList=document.getElementById('ep133-recovery-list');
+  const recoveryDetail=document.getElementById('ep133-recovery-detail');
+  const recoveryRestore=document.getElementById('ep133-recovery-restore');
+  const recoveryDownload=document.getElementById('ep133-recovery-download');
+  const recoveryDelete=document.getElementById('ep133-recovery-delete');
   if(!open||!panel||!close||!list||!tabs||!search||!samplesPanel||!projectsPanel)return;
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
@@ -349,6 +368,25 @@ export function initEp133Browser({showError}={}){
   });
   const{readDevice}=sampleLibrarySync;
 
+  const backupRestoreController=createBackupRestoreController({
+    dialog:backupDialog,openButton:projectBackup,recoveryButton:projectRecovery,closeButton:backupClose,
+    backupProjectButton:backupProject,backupProjectSamplesButton:backupProjectSamples,backupDeviceButton:backupDevice,
+    restoreInput:restoreFile,restoreSummary,restoreProjectSelect,restoreButton:restoreRun,
+    recoveryList,recoveryDetail,recoveryRestoreButton:recoveryRestore,
+    recoveryDownloadButton:recoveryDownload,recoveryDeleteButton:recoveryDelete,
+    getSelectedProject:()=>projectReadOnlyController.getState().selectedProject,
+    getConnectedDeviceInfo,
+    getActiveDeviceProfile:()=>activeDeviceProfile,
+    sampleStore,
+    withFileTransaction,uploadProjectArchive,restoreProjectRecoveryCheckpoint,
+    listProjectRecoveryCheckpoints,getProjectRecoveryCheckpoint,deleteProjectRecoveryCheckpoint,
+    prepareSampleTransferMetadata,
+    readDevice:()=>readDevice(),
+    refreshProjects:()=>projectReadOnlyController.refresh(),
+    markDeviceUnsafe,
+    confirmAction,setStatus,setGlobalProgress,hideGlobalProgress,reportError
+  });
+
   onFileEvent(event=>{void fileEventController.handleFileEvent(event);});
 
 
@@ -386,6 +424,7 @@ export function initEp133Browser({showError}={}){
     if(!hadConnection)renderDeviceStats({},0);
     sampleStore.clear();
     projectReadOnlyController.reset();
+    backupRestoreController.close();
     setStatus(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
 
@@ -481,6 +520,7 @@ export function initEp133Browser({showError}={}){
   document.addEventListener('keydown',event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;
     if(confirmDialog&&!confirmDialog.hidden){event.preventDefault();resolveConfirm(false);return;}
+    if(backupDialog&&!backupDialog.hidden){event.preventDefault();backupRestoreController.close();return;}
     if(properties&&!properties.hidden){event.preventDefault();closeProperties();return;}
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   });

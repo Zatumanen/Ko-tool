@@ -106,6 +106,7 @@ export const getProjectRecoveryCheckpoint=id=>projectFilesystem.getProjectRecove
 export const listProjectRecoveryCheckpoints=()=>projectFilesystem.listProjectRecoveryCheckpoints();
 export const deleteProjectRecoveryCheckpoint=id=>projectFilesystem.deleteProjectRecoveryCheckpoint(id);
 export const getProjectTransactionJournal=id=>projectFilesystem.getProjectTransactionJournal(id);
+export const restoreProjectRecoveryCheckpoint=(id,options={})=>projectFilesystem.restoreProjectRecoveryCheckpoint(id,options);
 
 onConnectionChange(({connected})=>{
   if(!connected)projectFilesystem.resetProjectRuntime();

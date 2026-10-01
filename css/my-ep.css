@@ -1092,3 +1092,90 @@
   .ep-project-dependency{grid-template-columns:36px minmax(0,1fr) 62px}
   .ep-project-dependency-meta{display:none}
 }
+
+/* Backup / restore + recovery */
+.ep-project-toolbar-actions{display:flex;gap:3px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.ep-backup-dialog{
+  position:fixed;inset:0;z-index:10030;display:flex;align-items:center;justify-content:center;
+  padding:16px;background:rgba(0,0,0,.48)
+}
+.ep-backup-dialog[hidden]{display:none!important}
+.ep-backup-window{
+  width:min(900px,96vw);max-height:94vh;overflow:auto;background:var(--win-gray);
+  border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);
+  border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);
+  box-shadow:7px 7px 20px rgba(0,0,0,.65)
+}
+.ep-backup-title button{width:22px;height:22px;min-height:22px;padding:0}
+.ep-backup-body{padding:9px;display:flex;flex-direction:column;gap:8px}
+.ep-backup-section{border:2px inset var(--win-dark);background:#fff}
+.ep-backup-section h3{
+  margin:0;padding:5px 7px;border-bottom:1px solid #999;background:#dedede;
+  font:700 10px "Courier New",monospace
+}
+.ep-backup-section>p{margin:0;padding:6px 8px;font:9px "Courier New",monospace;color:#555}
+.ep-backup-actions{display:flex;gap:5px;padding:7px;flex-wrap:wrap}
+.ep-backup-actions button,.ep-backup-footer button,.ep-recovery-actions button{
+  min-height:30px;padding:5px 8px;border:2px outset var(--win-gray);background:var(--win-gray);
+  font:700 9px "Courier New",monospace;cursor:pointer
+}
+.ep-backup-actions button:disabled,.ep-backup-footer button:disabled,.ep-recovery-actions button:disabled{
+  opacity:.4;cursor:default
+}
+.ep-backup-file-row{display:flex;gap:6px;align-items:center;padding:7px}
+.ep-backup-file-row input[type="file"]{min-width:0;flex:1;font:9px "Courier New",monospace}
+.ep-backup-file-row select{
+  min-width:160px;padding:4px;border:2px inset var(--win-dark);font:9px "Courier New",monospace
+}
+.ep-backup-summary{min-height:70px;margin:0 7px 7px;border:1px solid #aaa;background:#fafafa}
+.ep-backup-empty{padding:12px;text-align:center;color:#666;font:700 9px "Courier New",monospace}
+.ep-backup-plan-head{
+  display:flex;justify-content:space-between;align-items:center;padding:6px 7px;
+  border-bottom:1px solid #bbb;background:#f0f0f0;font:9px "Courier New",monospace
+}
+.ep-backup-plan-head strong{font-size:15px}
+.ep-backup-plan-row{
+  display:flex;justify-content:space-between;gap:10px;padding:4px 7px;border-bottom:1px solid #ddd;
+  font:9px "Courier New",monospace
+}
+.ep-backup-warning{padding:6px 7px;background:#ffe2de;color:#7b2015;font:700 9px "Courier New",monospace}
+.ep-backup-note{padding:6px 7px;background:#edf5ff;color:#23415d;font:8px "Courier New",monospace}
+.ep-backup-dependencies{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:2px;padding:4px}
+.ep-backup-dependency{
+  display:flex;justify-content:space-between;gap:5px;padding:4px 5px;border:1px solid #bbb;
+  font:8px "Courier New",monospace;background:#fff
+}
+.ep-backup-dependency.restore{background:#eef9ee}
+.ep-backup-dependency.already-matches{background:#f2f2f2}
+.ep-backup-dependency.conflict,.ep-backup-dependency.missing{background:#fff0ee}
+.ep-backup-footer{display:flex;justify-content:flex-end;padding:0 7px 7px}
+.ep-recovery-layout{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:260px}
+.ep-recovery-list{border-right:1px solid #999;overflow:auto;max-height:340px}
+.ep-recovery-row{
+  width:100%;display:grid;grid-template-columns:42px minmax(0,1fr);gap:2px 6px;
+  padding:6px;border:0;border-bottom:1px solid #ddd;background:#fff;text-align:left;
+  font:8px "Courier New",monospace;cursor:pointer
+}
+.ep-recovery-row small{grid-column:1/-1;color:#666}
+.ep-recovery-row.selected{background:var(--primary-blue);color:#fff}
+.ep-recovery-row.selected small{color:#e8e8ff}
+.ep-recovery-inspector{min-width:0;display:flex;flex-direction:column}
+.ep-recovery-detail{min-height:210px;overflow:auto;padding:6px}
+.ep-recovery-head{display:flex;justify-content:space-between;align-items:center;padding:5px 6px;background:#eee;border:1px solid #aaa}
+.ep-recovery-head strong{font-size:16px}
+.ep-recovery-journal{margin-top:6px;border:1px solid #aaa}
+.ep-recovery-journal>div{display:grid;grid-template-columns:30px minmax(0,1fr) 80px;gap:5px;padding:3px 5px;border-bottom:1px solid #ddd;font:8px "Courier New",monospace}
+.ep-recovery-journal>div:last-child{border-bottom:0}
+.ep-recovery-journal em{text-align:right}
+.ep-recovery-actions{display:flex;gap:5px;flex-wrap:wrap;padding:6px;border-top:1px solid #aaa}
+.ep-recovery-actions button{flex:1 1 130px}
+@media(max-width:760px){
+  .ep-project-toolbar{align-items:flex-start;flex-direction:column}
+  .ep-project-toolbar-actions{justify-content:flex-start}
+  .ep-recovery-layout{grid-template-columns:1fr}
+  .ep-recovery-list{border-right:0;border-bottom:1px solid #999;max-height:150px}
+}
+
+.ep-backup-dialog[data-mode="recovery"] [data-backup-panel],
+.ep-backup-dialog[data-mode="recovery"] [data-restore-panel]{display:none}
+.ep-backup-dialog[data-mode="backup"] [data-recovery-panel]{display:none}
