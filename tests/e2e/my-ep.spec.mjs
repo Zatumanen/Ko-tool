@@ -344,3 +344,78 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   await expect(page.locator('#ep133-status')).toContainText('RECOVERY P02 VERIFIED',{timeout:15000});
   await expect(page.locator('.ep-recovery-row')).toHaveCount(2,{timeout:10000});
 });
+
+
+test('Verified Project Editor writes only hardware-verified fields to inactive P02 with checkpointed readback',async({page})=>{
+  await installFake(page);
+  await openMyEp(page);
+
+  await page.locator('#ep133-view-projects').click();
+  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01',{timeout:10000});
+  await expect(page.locator('#ep133-project-edit')).toBeDisabled();
+  await expect(page.locator('#ep133-project-edit')).toHaveAttribute('title',/ACTIVE PROJECT/);
+
+  await page.locator('[data-project="02"]').click();
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P02',{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
+  await expect(page.locator('#ep133-project-edit')).toBeEnabled();
+  await expect(page.locator('#ep133-project-edit')).toHaveAttribute('title','HARDWARE-VERIFIED AUTHORING');
+
+  await page.locator('#ep133-project-edit').click();
+  await expect(page.locator('#ep133-project-editor-dialog')).toBeVisible();
+  await expect(page.locator('[data-editor-project]')).toHaveText('P02');
+  await expect(page.locator('[data-editor-evidence]')).toContainText('EP133 2.5.1');
+  await expect(page.locator('[data-editor-evidence]')).toContainText('HARDWARE VERIFIED');
+  await expect(page.locator('[data-editor-bpm]')).toHaveValue('123.5');
+  await expect(page.locator('[data-editor-pad-select]')).toContainText('A01 · SLOT 007');
+
+  await page.locator('[data-editor-bpm]').fill('132');
+  await page.locator('[data-editor-fx-type]').selectOption('3');
+  await page.locator('[data-editor-fx-p1]').fill('0.2');
+  await page.locator('[data-editor-fx-p2]').fill('0.8');
+  await page.locator('[data-pad-field="amplitude"]').fill('111');
+  await page.locator('[data-pad-field="pitch"]').fill('-3');
+  await page.locator('[data-pad-field="pan"]').fill('4');
+
+  await expect(page.locator('#ep133-project-editor-summary')).toContainText('VERIFIED CHANGES');
+  await expect(page.locator('#ep133-project-editor-summary')).toContainText('SETTINGS');
+  await expect(page.locator('#ep133-project-editor-summary')).toContainText('FX');
+  await expect(page.locator('#ep133-project-editor-summary')).toContainText('PAD');
+  await expect(page.locator('#ep133-project-editor-save')).toBeEnabled();
+
+  const beforeMutations=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-project-editor-save').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeVisible();
+  await page.locator('#ep133-confirm-ok').click();
+
+  await expect(page.locator('#ep133-project-editor-dialog')).toBeHidden({timeout:15000});
+  await expect(page.locator('#ep133-status')).toContainText('PROJECT P02 · VERIFIED EDIT SAVED',{timeout:15000});
+  await expect(page.locator('[data-project="02"]')).toHaveClass(/selected/);
+  await expect(page.locator('#ep133-project-inspector')).toContainText('132');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('DISTORTION');
+
+  const newMutations=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ),beforeMutations);
+  const puts=newMutations.filter(item=>item.sub===2&&item.type===0);
+  expect(puts.length).toBe(1);
+  expect((puts[0].raw[3]<<8)|puts[0].raw[4]).toBe(3002);
+  expect(newMutations.some(item=>item.sub===2&&item.type===0&&(((item.raw[3]<<8)|item.raw[4])>=1)&&(((item.raw[3]<<8)|item.raw[4])<=999))).toBe(false);
+
+  await page.locator('#ep133-project-edit').click();
+  await expect(page.locator('[data-editor-bpm]')).toHaveValue('132');
+  await expect(page.locator('[data-editor-fx-type]')).toHaveValue('3');
+  await expect(page.locator('[data-pad-field="amplitude"]')).toHaveValue('111');
+  await expect(page.locator('[data-pad-field="pitch"]')).toHaveValue('-3');
+  await expect(page.locator('[data-pad-field="pan"]')).toHaveValue('4');
+  await expect(page.locator('#ep133-project-editor-save')).toBeDisabled();
+  await page.locator('#ep133-project-editor-cancel').click();
+
+  await page.locator('#ep133-project-recovery').click();
+  await expect(page.locator('.ep-recovery-row')).toHaveCount(1,{timeout:10000});
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('VERIFIED');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('WRITE');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('READBACK');
+  await page.locator('#ep133-backup-close').click();
+});
