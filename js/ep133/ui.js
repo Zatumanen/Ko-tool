@@ -36,6 +36,7 @@ import{createSampleVerificationController}from './ui/sampleVerification.js?v=202
 import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
 import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20260930-5';
 import{createVerifiedProjectEditorController}from './ui/projectEditorController.js?v=20260930-5';
+import{createProjectSequencerController}from './ui/projectSequencerController.js?v=20260930-5';
 import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20260930-5';
 import{outputFileName}from '../output-name.js';
 
@@ -82,6 +83,36 @@ export function initEp133Browser({showError}={}){
   const projectEditorSummary=document.getElementById('ep133-project-editor-summary');
   const projectEditorSave=document.getElementById('ep133-project-editor-save');
   const projectEditorCancel=document.getElementById('ep133-project-editor-cancel');
+  const projectSequencer=document.getElementById('ep133-project-sequencer');
+  const sequencerDialog=document.getElementById('ep133-sequencer-dialog');
+  const sequencerClose=document.getElementById('ep133-sequencer-close');
+  const sequencerPattern=document.getElementById('ep133-seq-pattern');
+  const sequencerBars=document.getElementById('ep133-seq-bars');
+  const sequencerPageLabel=document.getElementById('ep133-seq-page-label');
+  const sequencerPrevPage=document.getElementById('ep133-seq-prev-page');
+  const sequencerNextPage=document.getElementById('ep133-seq-next-page');
+  const sequencerGrid=document.getElementById('ep133-seq-grid');
+  const sequencerNotes=document.getElementById('ep133-seq-notes');
+  const sequencerAutomation=document.getElementById('ep133-seq-automation');
+  const sequencerPatternSummary=document.getElementById('ep133-seq-pattern-summary');
+  const sequencerSave=document.getElementById('ep133-seq-save');
+  const sequencerCancel=document.getElementById('ep133-seq-cancel');
+  const sequencerNewPattern=document.getElementById('ep133-seq-new-pattern');
+  const sequencerNewPatternBars=document.getElementById('ep133-seq-new-pattern-bars');
+  const sequencerCreatePattern=document.getElementById('ep133-seq-create-pattern');
+  const sequencerDefaultVelocity=document.getElementById('ep133-seq-default-velocity');
+  const sequencerDefaultDuration=document.getElementById('ep133-seq-default-duration');
+  const sequencerSceneIndex=document.getElementById('ep133-seq-scene-index');
+  const sequencerSceneA=document.getElementById('ep133-seq-scene-a');
+  const sequencerSceneB=document.getElementById('ep133-seq-scene-b');
+  const sequencerSceneC=document.getElementById('ep133-seq-scene-c');
+  const sequencerSceneD=document.getElementById('ep133-seq-scene-d');
+  const sequencerSceneNum=document.getElementById('ep133-seq-scene-num');
+  const sequencerSceneDen=document.getElementById('ep133-seq-scene-den');
+  const sequencerApplyScene=document.getElementById('ep133-seq-apply-scene');
+  const sequencerCurrentScene=document.getElementById('ep133-seq-current-scene');
+  const sequencerSong=document.getElementById('ep133-seq-song');
+  const sequencerApplySong=document.getElementById('ep133-seq-apply-song');
   const projectBackup=document.getElementById('ep133-project-backup');
   const projectRecovery=document.getElementById('ep133-project-recovery');
   const backupDialog=document.getElementById('ep133-backup-dialog');
@@ -168,14 +199,21 @@ export function initEp133Browser({showError}={}){
   });
 
   let projectEditorController=null;
+  let projectSequencerController=null;
   const projectReadOnlyController=createProjectReadOnlyController({
     samplesPanel,projectsPanel,
     samplesButton:samplesViewButton,projectsButton:projectsViewButton,
     projectList,projectInspector,refreshButton:projectRefresh,
     listProjectArchivesReadOnly,readProjectArchiveReadOnly,
     getSampleSlot:slot=>sampleStore.getSlot(slot),
-    onProjectLoaded:result=>projectEditorController?.setProject(result),
-    onProjectCleared:()=>projectEditorController?.setProject(null),
+    onProjectLoaded:result=>{
+      projectEditorController?.setProject(result);
+      projectSequencerController?.setProject(result);
+    },
+    onProjectCleared:()=>{
+      projectEditorController?.setProject(null);
+      projectSequencerController?.setProject(null);
+    },
     isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError
   });
 
@@ -183,6 +221,23 @@ export function initEp133Browser({showError}={}){
     dialog:projectEditorDialog,openButton:projectEdit,closeButton:projectEditorClose,
     form:projectEditorForm,summaryEl:projectEditorSummary,
     saveButton:projectEditorSave,cancelButton:projectEditorCancel,
+    uploadProjectArchive,confirmAction,setStatus,setGlobalProgress,hideGlobalProgress,
+    refreshProjects:()=>projectReadOnlyController.refresh(),
+    reportError
+  });
+
+  projectSequencerController=createProjectSequencerController({
+    dialog:sequencerDialog,openButton:projectSequencer,closeButton:sequencerClose,
+    patternSelect:sequencerPattern,barsInput:sequencerBars,pageLabel:sequencerPageLabel,
+    prevPageButton:sequencerPrevPage,nextPageButton:sequencerNextPage,
+    grid:sequencerGrid,rawEvents:sequencerNotes,automationPanel:sequencerAutomation,
+    patternSummary:sequencerPatternSummary,saveButton:sequencerSave,cancelButton:sequencerCancel,
+    newPatternInput:sequencerNewPattern,newPatternBars:sequencerNewPatternBars,newPatternButton:sequencerCreatePattern,
+    defaultVelocity:sequencerDefaultVelocity,defaultDuration:sequencerDefaultDuration,
+    sceneIndexInput:sequencerSceneIndex,sceneA:sequencerSceneA,sceneB:sequencerSceneB,
+    sceneC:sequencerSceneC,sceneD:sequencerSceneD,
+    sceneNumerator:sequencerSceneNum,sceneDenominator:sequencerSceneDen,sceneApplyButton:sequencerApplyScene,
+    currentSceneInput:sequencerCurrentScene,songInput:sequencerSong,songApplyButton:sequencerApplySong,
     uploadProjectArchive,confirmAction,setStatus,setGlobalProgress,hideGlobalProgress,
     refreshProjects:()=>projectReadOnlyController.refresh(),
     reportError
@@ -445,6 +500,7 @@ export function initEp133Browser({showError}={}){
     sampleStore.clear();
     projectReadOnlyController.reset();
     projectEditorController.close();
+    projectSequencerController.close();
     backupRestoreController.close();
     setStatus(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
   };
@@ -542,6 +598,7 @@ export function initEp133Browser({showError}={}){
     if(event.key!=='Escape'||event.defaultPrevented)return;
     if(confirmDialog&&!confirmDialog.hidden){event.preventDefault();resolveConfirm(false);return;}
     if(projectEditorDialog&&!projectEditorDialog.hidden){event.preventDefault();projectEditorController.close();return;}
+    if(sequencerDialog&&!sequencerDialog.hidden){event.preventDefault();projectSequencerController.close();return;}
     if(backupDialog&&!backupDialog.hidden){event.preventDefault();backupRestoreController.close();return;}
     if(properties&&!properties.hidden){event.preventDefault();closeProperties();return;}
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
