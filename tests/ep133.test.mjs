@@ -884,7 +884,7 @@ test('all public mutating FILE APIs use the strict firmware debug guard',async()
     fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
   ]);
-  assert.match(transport,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\),label\)/);
+  assert.match(transport,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\),label,\{mode:'mutation'\}\)/);
   assert.match(transport,/export async function putFile\(args\)\{return runGuardedFileMutation\('FILE_PUT mutation'/);
   assert.match(transport,/export async function deleteFile[\s\S]*runGuardedFileMutation\('FILE_DELETE mutation'/);
   assert.match(transport,/export async function moveFile[\s\S]*runGuardedFileMutation\('FILE_MOVE mutation'/);
