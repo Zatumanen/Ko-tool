@@ -35,6 +35,59 @@
     return packed.slice(0,wi);
   };
   const same=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+  const writeTarText=(bytes,offset,length,text)=>{
+    for(let index=0;index<length;index++)bytes[offset+index]=0;
+    for(let index=0;index<text.length&&index<length;index++)bytes[offset+index]=text.charCodeAt(index);
+  };
+  const makeTarMember=(path,data=new Uint8Array())=>{
+    const header=new Uint8Array(512);
+    writeTarText(header,0,100,path);writeTarText(header,100,8,'0000644\0');
+    if(data.length)writeTarText(header,124,12,data.length.toString(8)+'\0');
+    header[156]='0'.charCodeAt(0);header.fill(0x20,148,156);
+    let checksum=0;for(const byte of header)checksum+=byte;
+    const text=checksum.toString(8)+'\0';writeTarText(header,148,8,text);
+    for(let index=148+text.length;index<156;index++)header[index]=0x20;
+    const padded=new Uint8Array(Math.ceil(data.length/512)*512);padded.set(data);
+    return[header,padded];
+  };
+  const makeProjectTar=members=>{
+    const chunks=[];let size=1024;
+    for(const member of members){
+      const pair=makeTarMember(member.path,member.data);
+      chunks.push(...pair);size+=pair[0].length+pair[1].length;
+    }
+    const out=new Uint8Array(size);let offset=0;
+    for(const chunk of chunks){out.set(chunk,offset);offset+=chunk.length;}
+    return out;
+  };
+  const projectPad=slot=>{
+    const data=new Uint8Array(26);
+    data[1]=slot&255;data[2]=(slot>>8)&255;data[16]=100;data[20]=255;data[24]=60;
+    return data;
+  };
+  const projectPattern=()=>Uint8Array.from([0,2,1,0,0,0,0,60,100,24,0,0]);
+  const projectScenes=()=>{
+    const data=new Uint8Array(712);data.set([0,0,0,0,0,4,4],0);
+    for(let scene=0;scene<99;scene++){const offset=7+scene*6;data[offset+4]=4;data[offset+5]=4;}
+    data.set([1,1,1,1],7);data[7+99*6+3]=1;return data;
+  };
+  const projectSettings=()=>{
+    const data=new Uint8Array(222);new DataView(data.buffer).setFloat32(4,123.5,true);return data;
+  };
+  const projectFx=()=>{
+    const data=new Uint8Array(144),view=new DataView(data.buffer);
+    data[4]=2;view.setFloat32(16,.25,true);view.setFloat32(80,.75,true);return data;
+  };
+  const projectTar=makeProjectTar([
+    {path:'pads/a/p01',data:projectPad(7)},{path:'pads/b/p01',data:projectPad(8)},
+    {path:'patterns/a01',data:projectPattern()},{path:'patterns/b01',data:projectPattern()},
+    {path:'patterns/c01',data:projectPattern()},{path:'patterns/d01',data:projectPattern()},
+    {path:'scenes',data:projectScenes()},{path:'settings',data:projectSettings()},{path:'fx_settings',data:projectFx()}
+  ]);
+  const projects=new Map([
+    [3001,{id:3001,parent:2000,name:'01',data:projectTar}],
+    [3002,{id:3002,parent:2000,name:'02',data:projectTar}]
+  ]);
 
   const samples=new Map([
     [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
@@ -137,13 +190,17 @@
       const page=u16(raw,1),node=u16(raw,3);
       if(page>0){emitLater(response(request,Uint8Array.from(be16(page))));return;}
       let body=[];
-      if(node===0)body=[listEntry(1000,CAP.DIR|CAP.READ|CAP.WRITE,0,'sounds')];
+      if(node===0)body=[
+        listEntry(1000,CAP.DIR|CAP.READ|CAP.WRITE,0,'sounds'),
+        listEntry(2000,CAP.DIR|CAP.READ,0,'projects')
+      ];
       else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.data.length,s.name));
+      else if(node===2000)body=[...projects.values()].map(project=>listEntry(project.id,CAP.DIR|CAP.READ,project.data.length,project.name));
       emitLater(response(request,concat(be16(page),...body)));return;
     }
     if(sub===F.METADATA&&raw[1]===2){
       const id=u16(raw,2),page=u16(raw,4);
-      const meta=id===1000?soundsMeta():samples.get(id)?.meta||{};
+      const meta=id===1000?soundsMeta():id===2000?{active:3001,name:'projects'}:samples.get(id)?.meta||{};
       if(page>0){emitLater(response(request,Uint8Array.from(be16(page))));return;}
       emitLater(response(request,concat(be16(0),enc.encode(JSON.stringify(meta)),[0])));return;
     }
@@ -172,15 +229,16 @@
       emitLater(response(request,Uint8Array.from([...be16(oldId),...be16(parent),...be16(newId)])));emitMoved(oldId,newId);return;
     }
     if(sub===F.GET&&raw[1]===0){
-      const id=u16(raw,2),sample=samples.get(id);
-      if(!sample){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
-      currentGet={sample,pageSize:96};
-      emitLater(response(request,concat(be16(id),[flagsFile],be32(sample.data.length),enc.encode(sample.name),[0])));return;
+      const id=u16(raw,2),file=samples.get(id)||projects.get(id);
+      if(!file){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
+      currentGet={file,pageSize:96};
+      const flags=projects.has(id)?CAP.DIR|CAP.READ:flagsFile;
+      emitLater(response(request,concat(be16(id),[flags],be32(file.data.length),enc.encode(file.name),[0])));return;
     }
     if(sub===F.GET&&raw[1]===1){
-      const page=u16(raw,2),sample=currentGet?.sample;
-      if(!sample){emitLater(response(request,enc.encode('no get\0'),3));return;}
-      const chunk=sample.data.slice(page*currentGet.pageSize,(page+1)*currentGet.pageSize);
+      const page=u16(raw,2),file=currentGet?.file;
+      if(!file){emitLater(response(request,enc.encode('no get\0'),3));return;}
+      const chunk=file.data.slice(page*currentGet.pageSize,(page+1)*currentGet.pageSize);
       emitLater(response(request,concat(be16(page),chunk)));return;
     }
     if(sub===F.PUT&&raw[1]===0){
