@@ -284,6 +284,11 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   expect(deviceBackup.name).toContain('device');
   expect(deviceBackup.size).toBeGreaterThan(saved.size);
 
+  const backupMutationLog=await page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ));
+  expect(backupMutationLog).toEqual([]);
+
   await page.evaluate(()=>window.__fakeEp.removeSample(8));
   await page.locator('#ep133-restore-file').setInputFiles({
     name:saved.name,
