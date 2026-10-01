@@ -9,6 +9,7 @@ export{getEpProjectProfile,assertProjectTransportSupported,assertProjectAuthorin
 export{parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,patchProjectArchiveMembers,patchPadRecord,patchProjectPad,encodePatternMember,patchScenesMember,patchSettingsMember,patchFxSettingsMember,buildProjectFromNative,getProjectReferencedSampleSlots,preflightProjectSampleDependencies}from './projectArchive.js?v=20260930-5';
 
 export{readProjectPad,readProjectPattern,readProjectScenes,readProjectSettings,readProjectFxSettings,readProjectLive,readProjectModel,buildProjectFromModel}from './projectReader.js?v=20260930-5';
+export{buildProjectDependencyReport,assertProjectDependenciesAvailable}from './projectDependencies.js?v=20260930-5';
 
 export{createProjectSequencer}from './projectSequencer.js?v=20260930-5';
 

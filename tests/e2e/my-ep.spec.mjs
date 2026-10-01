@@ -203,6 +203,13 @@ test('My EP Projects view lists and inspects projects without sending any mutati
   await expect(page.locator('#ep133-project-inspector')).toContainText('REVERB');
   await expect(page.locator('#ep133-project-inspector')).toContainText('007');
   await expect(page.locator('#ep133-project-inspector')).toContainText('008');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('009');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('2/3 AVAILABLE');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('1 MISSING');
+  await expect(page.locator('[data-dependency-slot="007"]')).toContainText('kick808');
+  await expect(page.locator('[data-dependency-slot="007"]')).toContainText('AVAILABLE');
+  await expect(page.locator('[data-dependency-slot="008"]')).toContainText('snare');
+  await expect(page.locator('[data-dependency-slot="009"]')).toContainText('MISSING');
   await expect(page.locator('#ep133-project-inspector')).toContainText('A01');
   await expect(page.locator('#ep133-project-inspector')).toContainText('D01');
 

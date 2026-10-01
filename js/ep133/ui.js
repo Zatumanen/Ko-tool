@@ -145,6 +145,7 @@ export function initEp133Browser({showError}={}){
     samplesButton:samplesViewButton,projectsButton:projectsViewButton,
     projectList,projectInspector,refreshButton:projectRefresh,
     listProjectArchivesReadOnly,readProjectArchiveReadOnly,
+    getSampleSlot:slot=>sampleStore.getSlot(slot),
     isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError
   });
 

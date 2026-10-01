@@ -125,6 +125,16 @@ export function createProjectFilesystem({
     if(!node)throw new Error(`EP-series project ${project} is not available.`);
     const archive=await getFile(node.nodeId,onProgress);
     const model=readProjectModel(archive.data,{profile});
+    const root=await listDirectory(0,'/');
+    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+    const occupiedSampleSlots=sounds
+      ?(await listDirectory(sounds.nodeId,'/sounds'))
+        .map(item=>Number(item.nodeId))
+        .filter(slot=>Number.isInteger(slot)&&slot>=1&&slot<=999)
+      :[];
+    const dependencies=preflightProjectSampleDependencies(
+      archive.data,occupiedSampleSlots,{profile,strict:false}
+    );
     return{
       project,nodeId:node.nodeId,name:archive.name||`P${project}.tar`,
       size:Number(archive.size)||archive.data.byteLength,
@@ -134,6 +144,7 @@ export function createProjectFilesystem({
         projectTransport:profile.projectTransport,
         evidence:profile.evidence?.projectTransport||null
       },
+      dependencies,
       model
     };
   });
