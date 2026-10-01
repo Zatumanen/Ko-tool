@@ -184,3 +184,44 @@ test('strict mutation firmware debug enters the unsafe recovery state in the bro
   await expect(page.locator('#ep133-status')).toContainText('EP FILE SAFETY LOCK');
   await expect(page.locator('#ep133-browser')).toHaveClass(/device-disconnected/);
 });
+
+
+test('My EP Projects view lists and inspects projects without sending any mutation command',async({page})=>{
+  await installFake(page);
+  await openMyEp(page);
+
+  await page.locator('#ep133-view-projects').click();
+  await expect(page.locator('#ep133-projects-panel')).toBeVisible();
+  await expect(page.locator('#ep133-samples-panel')).toBeHidden();
+
+  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+  await expect(page.locator('[data-project="01"]')).toHaveClass(/selected/);
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('READ ONLY');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('ACTIVE');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('123.5');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('REVERB');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('007');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('008');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('A01');
+  await expect(page.locator('#ep133-project-inspector')).toContainText('D01');
+
+  const mutationRequests=await page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
+    item.command===5&&(
+      item.sub===2||
+      item.sub===6||
+      item.sub===12||
+      (item.sub===7&&item.type===1)
+    )
+  ));
+  expect(mutationRequests).toEqual([]);
+
+  await page.locator('[data-project="02"]').click();
+  await expect(page.locator('[data-project="02"]')).toHaveClass(/selected/);
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P02');
+  await expect(page.locator('#ep133-project-inspector .ep-project-inspector-head b')).toHaveCount(0);
+
+  await page.locator('#ep133-view-samples').click();
+  await expect(page.locator('#ep133-samples-panel')).toBeVisible();
+  await expect(page.locator('#ep133-projects-panel')).toBeHidden();
+});
