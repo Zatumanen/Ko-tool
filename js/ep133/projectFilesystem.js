@@ -221,7 +221,7 @@ export function createProjectFilesystem({
       return reloadProject(destination.nodeId,parent.nodeId,{
         cycle,activeGroup:state.activeGroup,activePad:state.activePad
       });
-    },'project reload'));
+    },'project reload'),'project reload',{mode:'mutation'});
 
   const uploadProjectArchive=async(file,{
     onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,
@@ -449,7 +449,7 @@ export function createProjectFilesystem({
       }
       throw error;
     }
-  },'project write transaction'));
+  },'project write transaction'),'project write transaction',{mode:'mutation'});
 
   const getProjectRecoveryCheckpoint=id=>recoveryStore.getCheckpoint(id);
   const listProjectRecoveryCheckpoints=()=>recoveryStore.listCheckpoints();

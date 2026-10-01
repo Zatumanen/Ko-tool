@@ -1,6 +1,6 @@
 import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20260930-5';
 import{
-  withFileTransportTransaction,resetFileTransportState,fileTransportInternals,
+  withFileTransportTransaction,getFileOperationCoordinatorState,resetFileTransportState,fileTransportInternals,
   initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
 }from './fileTransport.js?v=20260930-5';
@@ -24,6 +24,7 @@ export{
   normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,
   prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,
   assertProjectWriteActiveGuard,
+  getFileOperationCoordinatorState,
   initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
 };
