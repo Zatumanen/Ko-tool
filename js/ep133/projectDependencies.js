@@ -20,10 +20,10 @@ export function buildProjectDependencyReport(preflight,{getSampleSlot}={}){
       slot,
       status:missing?'missing':'available',
       available:!missing,
-      name:String(meta?.name||file?.name||file?.fileName||''),
-      size:Number(file?.size??file?.fileSize)||0,
-      channels:Number(meta?.channels)||null,
-      sampleRate:Number(meta?.samplerate)||null,
+      name:missing?'':String(meta?.name||file?.name||file?.fileName||''),
+      size:missing?0:(Number(file?.size??file?.fileSize)||0),
+      channels:missing?null:(Number(meta?.channels)||null),
+      sampleRate:missing?null:(Number(meta?.samplerate)||null),
       verification:{
         file:String(local?.verification?.file||'unknown'),
         metadata:String(local?.verification?.metadata||'unknown')
