@@ -2306,7 +2306,7 @@ test('EP WAV metadata parser ignores null terminator and padding inside TNGE pay
   const json=JSON.stringify({'sound.playmode':'loop','sound.pitch':-12});
   const payload=new TextEncoder().encode(json);
   const listPayloadSize=12+payload.length+4;
-  const bytes=new Uint8Array(12+8+listPayloadSize);
+  const bytes=new Uint8Array(12+8+listPayloadSize+(listPayloadSize&1));
   const view=new DataView(bytes.buffer);
   const put=(offset,text)=>new TextEncoder().encodeInto(text,bytes.subarray(offset,offset+text.length));
   put(0,'RIFF');view.setUint32(4,bytes.length-8,true);put(8,'WAVE');
