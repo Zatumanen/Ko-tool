@@ -203,7 +203,7 @@ export function createProjectReadOnlyController({
   };
 
   async function selectProject(project,{skipListRender=false}={}){
-    if(loading||!isConnected())return;
+    if((loading&&!skipListRender)||!isConnected())return;
     const id=String(project||'').padStart(2,'0');
     selectedProject=id;
     if(!skipListRender)renderList();
