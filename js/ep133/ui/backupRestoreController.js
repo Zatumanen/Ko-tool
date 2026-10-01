@@ -371,10 +371,13 @@ export function createBackupRestoreController({
             allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
             allowedBarValues:profile.sampleBars?.writeValues,
             barWriteMode:profile.sampleBars?.authoring?'verified':'omit',
-            onCreated:id=>{createdId=Number(id)||item.slot;}
+            onCreated:id=>{
+              createdId=Number(id)||item.slot;
+              if(!created.includes(createdId))created.push(createdId);
+            }
           });
           if(Number(fileId)!==item.slot)throw new Error('Sample restore wrote an unexpected slot.');
-          created.push(createdId||item.slot);
+          if(!created.includes(createdId||item.slot))created.push(createdId||item.slot);
           const readback=await fileOps.getFile(item.slot);
           if(crc32Hex(readback.data)!==String(sample.crc32))
             throw new Error('Sample restore readback checksum mismatch for '+pad(item.slot)+'.');
