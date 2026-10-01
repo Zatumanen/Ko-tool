@@ -1,3 +1,5 @@
+import{buildProjectDependencyReport}from '../projectDependencies.js?v=20260930-5';
+
 const GROUPS=['a','b','c','d'];
 const safeNumber=value=>Number.isFinite(Number(value))?Number(value):null;
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({
@@ -14,7 +16,7 @@ const displayNumber=value=>Number.isFinite(Number(value))
   :'—';
 const slotLabel=slot=>String(slot).padStart(3,'0');
 
-export function summarizeProjectReadOnly(result){
+export function summarizeProjectReadOnly(result,{getSampleSlot}={}){
   const model=result?.model||{};
   const pads=GROUPS.flatMap(group=>Array.isArray(model?.pads?.[group])?model.pads[group]:[]);
   const assignedPads=pads.filter(pad=>pad?.sampleSlot||pad?.supertone);
@@ -37,6 +39,13 @@ export function summarizeProjectReadOnly(result){
   const automationCount=patterns.reduce((sum,pattern)=>sum+(pattern.automation?.length||0),0);
   const bpm=safeNumber(model.settings?.bpm);
   const fx=model.fxSettings||null;
+  const dependencies=buildProjectDependencyReport(
+    result?.dependencies||{
+      referencedSampleSlots:sampleSlots,
+      missingSampleSlots:[]
+    },
+    {getSampleSlot}
+  );
   return Object.freeze({
     project:String(result?.project??'').padStart(2,'0'),
     nodeId:result?.nodeId??null,
@@ -78,6 +87,7 @@ export function summarizeProjectReadOnly(result){
       synth:synthPads,
       sampleSlots
     },
+    dependencies,
     fx:fx?{
       type:fx.effectType,
       name:fx.effectName||'unknown',
@@ -96,6 +106,7 @@ export function createProjectReadOnlyController({
   samplesPanel,projectsPanel,samplesButton,projectsButton,
   projectList,projectInspector,refreshButton,
   listProjectArchivesReadOnly,readProjectArchiveReadOnly,
+  getSampleSlot=()=>null,
   isConnected=()=>false,
   setStatus=()=>{},
   setGlobalProgress=()=>{},
@@ -145,9 +156,18 @@ export function createProjectReadOnlyController({
       '<td>'+escapeHtml(pattern.id)+'</td><td>'+pattern.bars+'</td>'+
       '<td>'+pattern.notes+'</td><td>'+pattern.automation+'</td></tr>'
     ).join('');
-    const slots=summary.pads.sampleSlots.length
-      ?summary.pads.sampleSlots.map(slot=>'<span>'+slotLabel(slot)+'</span>').join('')
-      :'<em>NONE</em>';
+    const dependencyRows=summary.dependencies.entries.length
+      ?summary.dependencies.entries.map(entry=>
+        '<div class="ep-project-dependency '+entry.status+'" data-dependency-slot="'+slotLabel(entry.slot)+'">'+
+        '<span class="ep-project-dependency-slot">'+slotLabel(entry.slot)+'</span>'+
+        '<span class="ep-project-dependency-name">'+escapeHtml(entry.name||('SLOT '+slotLabel(entry.slot)))+'</span>'+
+        '<span class="ep-project-dependency-meta">'+
+          (entry.channels?entry.channels+'CH ':'')+
+          (entry.sampleRate?entry.sampleRate+'HZ':'')+
+        '</span>'+
+        '<b>'+entry.status.toUpperCase()+'</b></div>'
+      ).join('')
+      :'<div class="ep-project-empty">NO SAMPLE DEPENDENCIES</div>';
     projectInspector.innerHTML=[
       '<div class="ep-project-inspector-head"><div><strong>P',escapeHtml(summary.project),'</strong>',
       summary.active?'<b>ACTIVE</b>':'',
@@ -162,9 +182,15 @@ export function createProjectReadOnlyController({
       '<span>TYPE ',summary.fx?.type??0,'</span>',
       '<span>P1 ',displayNumber(summary.fx?.parameter1),'</span>',
       '<span>P2 ',displayNumber(summary.fx?.parameter2),'</span></div></section>',
-      '<section class="ep-project-section"><h3>USED SAMPLE SLOTS · ',summary.pads.sampleSlots.length,'</h3>',
-      '<div class="ep-project-slot-chips">',slots,'</div>',
-      summary.pads.synth?'<div class="ep-project-note">'+summary.pads.synth+' SYNTH/SUPERTONE PAD(S)</div>':'',
+      '<section class="ep-project-section ep-project-dependencies"><h3>SAMPLE DEPENDENCIES · ',
+      summary.dependencies.available,'/',summary.dependencies.referenced,' AVAILABLE',
+      summary.dependencies.missing?' · '+summary.dependencies.missing+' MISSING':' · COMPLETE',
+      '</h3><div class="ep-project-dependency-summary">',
+      '<strong class="',summary.dependencies.allAvailable?'complete':'missing','">',
+      summary.dependencies.allAvailable?'ALL AVAILABLE':'MISSING SAMPLES',
+      '</strong><span>',summary.dependencies.referenced,' REFERENCED</span></div>',
+      '<div class="ep-project-dependency-list">',dependencyRows,'</div>',
+      summary.pads.synth?'<div class="ep-project-note">'+summary.pads.synth+' SYNTH/SUPERTONE PAD(S) · NOT SAMPLE DEPENDENCIES</div>':'',
       '</section>',
       '<section class="ep-project-section"><h3>SCENES · ',summary.scenes.used,' USED · CURRENT ',summary.scenes.current||'—','</h3>',
       '<div class="ep-project-table-wrap"><table><thead><tr><th>#</th><th>A/B/C/D</th><th>SIG</th></tr></thead><tbody>',
@@ -213,7 +239,7 @@ export function createProjectReadOnlyController({
     try{
       const result=await readProjectArchiveReadOnly(id);
       if(selectedProject!==id)return;
-      renderInspector(summarizeProjectReadOnly(result));
+      renderInspector(summarizeProjectReadOnly(result,{getSampleSlot}));
       setStatus('PROJECT P'+id+' · READ ONLY');
     }catch(error){
       renderEmpty('COULD NOT READ PROJECT P'+id+'.');
