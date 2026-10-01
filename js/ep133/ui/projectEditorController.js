@@ -191,7 +191,7 @@ export function createVerifiedProjectEditorController({
     if(!availability.enabled)throw new Error(availability.reason+'.');
     draft=createVerifiedProjectEditorDraft(result);
     candidate=null;selectedPadIndex=0;
-    dialog.dataset.project=draft.project;
+    dialog.dataset.editorProjectNumber=draft.project;
     dialog.querySelector('[data-editor-project]').textContent='P'+draft.project;
     dialog.querySelector('[data-editor-evidence]').textContent=
       String(result.model.profile.id||'EP').toUpperCase()+' '+String(result.model.profile.firmware||'')+' · HARDWARE VERIFIED';
