@@ -211,8 +211,13 @@ export function createProjectReadOnlyController({
     let initialProject=null;
     setGlobalProgress('READING PROJECT LIST',20);
     try{
+      const preferredProject=selectedProject;
       listing=await listProjectArchivesReadOnly();
-      selectedProject=listing.projects.find(project=>project.active)?.project||listing.projects[0]?.project||null;
+      selectedProject=
+        listing.projects.find(project=>project.project===preferredProject)?.project||
+        listing.projects.find(project=>project.active)?.project||
+        listing.projects[0]?.project||
+        null;
       initialProject=selectedProject;
       renderList();
       if(listing.profile?.id!=='ep133'&&listing.profile?.id!=='ep40'){
