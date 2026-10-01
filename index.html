@@ -102,6 +102,7 @@
                 <strong>PROJECTS</strong>
                 <div class="ep-project-toolbar-actions">
                   <button id="ep133-project-edit" type="button" disabled>EDIT VERIFIED</button>
+                  <button id="ep133-project-sequencer" type="button" disabled>SEQUENCER</button>
                   <button id="ep133-project-backup" type="button">BACKUP / RESTORE</button>
                   <button id="ep133-project-recovery" type="button">RECOVERY</button>
                   <button id="ep133-project-refresh" type="button">REFRESH</button>
@@ -143,6 +144,116 @@
       <div class="ep-project-editor-actions">
         <button id="ep133-project-editor-cancel" type="button">CANCEL</button>
         <button id="ep133-project-editor-save" type="button" disabled>SAVE VERIFIED CHANGES</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ep133-sequencer-dialog" class="ep-sequencer-dialog" role="dialog" aria-modal="true" aria-label="Project Sequencer" hidden>
+  <div class="ep-sequencer-window">
+    <div class="title-bar ep-sequencer-title">
+      <span>PROJECT SEQUENCER · <b data-seq-project>P??</b></span>
+      <button id="ep133-sequencer-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="ep-sequencer-body">
+      <div class="ep-sequencer-evidence" data-seq-evidence></div>
+      <div class="ep-sequencer-warning">
+        VERIFIED NATIVE PATTERN EDITOR · INACTIVE PROJECTS ONLY · RAW TICKS ARE PRESERVED
+      </div>
+
+      <div class="ep-sequencer-topbar">
+        <label>PATTERN
+          <select id="ep133-seq-pattern" aria-label="Pattern"></select>
+        </label>
+        <label>BARS
+          <input id="ep133-seq-bars" type="number" min="1" max="99" step="1" value="1">
+        </label>
+        <button id="ep133-seq-prev-page" type="button">◀</button>
+        <strong id="ep133-seq-page-label">PAGE 1</strong>
+        <button id="ep133-seq-next-page" type="button">▶</button>
+        <label>DEFAULT VEL
+          <input id="ep133-seq-default-velocity" type="number" min="1" max="127" step="1" value="100">
+        </label>
+        <label>DEFAULT DUR
+          <input id="ep133-seq-default-duration" type="number" min="1" max="65535" step="1" value="24">
+        </label>
+      </div>
+
+      <div id="ep133-seq-pattern-summary" class="ep-sequencer-pattern-summary"></div>
+      <div id="ep133-seq-grid" class="ep-sequencer-grid" aria-label="24 tick note grid"></div>
+
+      <div class="ep-sequencer-split">
+        <section class="ep-sequencer-section">
+          <h3>RAW NOTE EVENTS</h3>
+          <div class="ep-sequencer-add-row">
+            <label>TICK<input data-seq-note-tick type="number" min="0" max="65535" value="0"></label>
+            <label>PAD<input data-seq-note-pad type="number" min="1" max="12" value="1"></label>
+            <label>PITCH<input data-seq-note-pitch type="number" min="0" max="127" value="60"></label>
+            <label>VEL<input data-seq-note-velocity type="number" min="1" max="127" value="100"></label>
+            <label>DUR<input data-seq-note-duration type="number" min="1" max="65535" value="24"></label>
+            <button type="button" data-seq-add-note>ADD NOTE</button>
+          </div>
+          <div id="ep133-seq-notes" class="ep-sequencer-events"></div>
+        </section>
+
+        <section class="ep-sequencer-section">
+          <h3>AUTOMATION</h3>
+          <div class="ep-sequencer-add-row">
+            <label>TICK<input data-seq-auto-tick type="number" min="0" max="65535" value="0"></label>
+            <label>PARAM
+              <select data-seq-auto-param>
+                <option value="0">0 LVL</option><option value="1">1 PTC</option>
+                <option value="2">2 TIM</option><option value="3">3 LPF</option>
+                <option value="4">4 HPF</option><option value="5">5 FX</option>
+                <option value="6">6 ATK</option><option value="7">7 REL</option>
+                <option value="8">8 PAN</option><option value="9">9 TUNE</option>
+                <option value="10">10 VEL</option><option value="11">11 MOD</option>
+              </select>
+            </label>
+            <label>VALUE<input data-seq-auto-value type="number" min="0" max="32767" value="16384"></label>
+            <button type="button" data-seq-add-auto>ADD AUTO</button>
+          </div>
+          <div id="ep133-seq-automation" class="ep-sequencer-events"></div>
+        </section>
+      </div>
+
+      <div class="ep-sequencer-split">
+        <section class="ep-sequencer-section">
+          <h3>CREATE PATTERN</h3>
+          <div class="ep-sequencer-add-row">
+            <label>ID<input id="ep133-seq-new-pattern" type="text" maxlength="3" placeholder="A02"></label>
+            <label>BARS<input id="ep133-seq-new-pattern-bars" type="number" min="1" max="99" value="1"></label>
+            <button id="ep133-seq-create-pattern" type="button">CREATE</button>
+          </div>
+        </section>
+
+        <section class="ep-sequencer-section">
+          <h3>SCENE</h3>
+          <div class="ep-sequencer-scene-grid">
+            <label>SCENE<input id="ep133-seq-scene-index" type="number" min="1" max="99" value="1"></label>
+            <label>A<input id="ep133-seq-scene-a" type="number" min="0" max="99" value="1"></label>
+            <label>B<input id="ep133-seq-scene-b" type="number" min="0" max="99" value="1"></label>
+            <label>C<input id="ep133-seq-scene-c" type="number" min="0" max="99" value="1"></label>
+            <label>D<input id="ep133-seq-scene-d" type="number" min="0" max="99" value="1"></label>
+            <label>NUM<input id="ep133-seq-scene-num" type="number" min="1" max="255" value="4"></label>
+            <label>DEN<input id="ep133-seq-scene-den" type="number" min="1" max="255" value="4"></label>
+            <button id="ep133-seq-apply-scene" type="button">STAGE SCENE</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="ep-sequencer-section">
+        <h3>SONG</h3>
+        <div class="ep-sequencer-song-row">
+          <label>CURRENT SCENE<input id="ep133-seq-current-scene" type="number" min="1" max="99" value="1"></label>
+          <label>SONG SCENES<input id="ep133-seq-song" type="text" placeholder="1,2,3,1"></label>
+          <button id="ep133-seq-apply-song" type="button">STAGE SONG</button>
+        </div>
+      </section>
+
+      <div class="ep-sequencer-actions">
+        <button id="ep133-seq-cancel" type="button">CANCEL</button>
+        <button id="ep133-seq-save" type="button" disabled>SAVE SEQUENCER</button>
       </div>
     </div>
   </div>

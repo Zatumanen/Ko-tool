@@ -419,3 +419,100 @@ test('Verified Project Editor writes only hardware-verified fields to inactive P
   await expect(page.locator('#ep133-recovery-detail')).toContainText('READBACK');
   await page.locator('#ep133-backup-close').click();
 });
+
+
+test('Project Sequencer edits native patterns/scenes on inactive P02 and saves through checkpointed project PUT',async({page})=>{
+  await installFake(page);
+  await openMyEp(page);
+
+  await page.locator('#ep133-view-projects').click();
+  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01',{timeout:10000});
+  await expect(page.locator('#ep133-project-sequencer')).toBeDisabled();
+  await expect(page.locator('#ep133-project-sequencer')).toHaveAttribute('title',/ACTIVE PROJECT/);
+
+  await page.locator('[data-project="02"]').click();
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P02',{timeout:10000});
+  await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
+  await expect(page.locator('#ep133-project-sequencer')).toBeEnabled();
+  await expect(page.locator('#ep133-project-sequencer')).toHaveAttribute('title','HARDWARE-VERIFIED SEQUENCER');
+
+  await page.locator('#ep133-project-sequencer').click();
+  await expect(page.locator('#ep133-sequencer-dialog')).toBeVisible();
+  await expect(page.locator('[data-seq-project]')).toHaveText('P02');
+  await expect(page.locator('[data-seq-evidence]')).toContainText('EP133 2.5.1');
+  await expect(page.locator('#ep133-seq-pattern')).toHaveValue('A01');
+  await expect(page.locator('#ep133-seq-pattern-summary')).toContainText('RAW TICK MAX');
+  await expect(page.locator('[data-step="0"][data-pad="1"]')).toHaveClass(/active/);
+
+  await page.locator('[data-step="1"][data-pad="2"]').click();
+  await expect(page.locator('[data-step="1"][data-pad="2"]')).toHaveClass(/active/);
+  await expect(page.locator('#ep133-seq-save')).toBeEnabled();
+
+  await page.locator('[data-seq-auto-tick]').fill('24');
+  await page.locator('[data-seq-auto-param]').selectOption('5');
+  await page.locator('[data-seq-auto-value]').fill('1234');
+  await page.locator('[data-seq-add-auto]').click();
+  await expect(page.locator('#ep133-seq-automation [data-auto-field="value"]').last()).toHaveValue('1234');
+
+  await page.locator('#ep133-seq-new-pattern').fill('A02');
+  await page.locator('#ep133-seq-new-pattern-bars').fill('2');
+  await page.locator('#ep133-seq-create-pattern').click();
+  await expect(page.locator('#ep133-seq-pattern')).toHaveValue('A02');
+  await expect(page.locator('#ep133-seq-bars')).toHaveValue('2');
+  await page.locator('[data-step="0"][data-pad="3"]').click();
+  await expect(page.locator('[data-step="0"][data-pad="3"]')).toHaveClass(/active/);
+
+  await page.locator('#ep133-seq-scene-index').fill('2');
+  await page.locator('#ep133-seq-scene-index').press('Tab');
+  await page.locator('#ep133-seq-scene-a').fill('2');
+  await page.locator('#ep133-seq-scene-b').fill('1');
+  await page.locator('#ep133-seq-scene-c').fill('1');
+  await page.locator('#ep133-seq-scene-d').fill('1');
+  await page.locator('#ep133-seq-apply-scene').click();
+  await page.locator('#ep133-seq-current-scene').fill('2');
+  await page.locator('#ep133-seq-song').fill('1,2');
+  await page.locator('#ep133-seq-apply-song').click();
+
+  const beforeMutations=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-seq-save').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeVisible();
+  await page.locator('#ep133-confirm-ok').click();
+
+  await expect(page.locator('#ep133-sequencer-dialog')).toBeHidden({timeout:15000});
+  await expect(page.locator('#ep133-status')).toContainText('PROJECT P02 · SEQUENCER VERIFIED',{timeout:15000});
+  await expect(page.locator('[data-project="02"]')).toHaveClass(/selected/);
+  await expect(page.locator('#ep133-project-inspector')).toContainText('A02');
+
+  const newMutations=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ),beforeMutations);
+  const puts=newMutations.filter(item=>item.sub===2&&item.type===0);
+  expect(puts.length).toBe(1);
+  expect((puts[0].raw[3]<<8)|puts[0].raw[4]).toBe(3002);
+  expect(newMutations.some(item=>item.sub===2&&item.type===0&&(((item.raw[3]<<8)|item.raw[4])>=1)&&(((item.raw[3]<<8)|item.raw[4])<=999))).toBe(false);
+
+  await page.locator('#ep133-project-sequencer').click();
+  await expect(page.locator('#ep133-seq-pattern')).toContainText('A02');
+  await expect(page.locator('#ep133-seq-scene-index')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-scene-a')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-scene-b')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-scene-c')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-scene-d')).toHaveValue('1');
+  await expect(page.locator('#ep133-seq-current-scene')).toHaveValue('2');
+  await expect(page.locator('#ep133-seq-song')).toHaveValue('1,2');
+  await page.locator('#ep133-seq-pattern').selectOption('A01');
+  await expect(page.locator('[data-step="1"][data-pad="2"]')).toHaveClass(/active/);
+  await expect(page.locator('#ep133-seq-automation [data-auto-field="value"]').last()).toHaveValue('1234');
+  await page.locator('#ep133-seq-pattern').selectOption('A02');
+  await expect(page.locator('[data-step="0"][data-pad="3"]')).toHaveClass(/active/);
+  await expect(page.locator('#ep133-seq-save')).toBeDisabled();
+  await page.locator('#ep133-seq-cancel').click();
+
+  await page.locator('#ep133-project-recovery').click();
+  await expect(page.locator('.ep-recovery-row')).toHaveCount(1,{timeout:10000});
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('VERIFIED');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('WRITE');
+  await expect(page.locator('#ep133-recovery-detail')).toContainText('READBACK');
+  await page.locator('#ep133-backup-close').click();
+});
