@@ -2,7 +2,7 @@ import{
   TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
-}from '../constants.js?v=20260930-5';
+}from '../constants.js?v=20261001-1';
 
 export function createFileEventController({
   isConnected,

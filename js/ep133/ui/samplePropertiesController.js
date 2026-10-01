@@ -1,6 +1,6 @@
 import{
   PROPERTY_DEBOUNCE_MS,renderSampleProperties,getSamplePropertyChange
-}from '../sampleProperties.js?v=20260930-5';
+}from '../sampleProperties.js?v=20261001-1';
 
 export function createSamplePropertiesController({
   properties,propertiesGrid,

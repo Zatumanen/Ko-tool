@@ -1,4 +1,4 @@
-import{prioritizeSampleSlots}from '../sampleStore.js?v=20260930-5';
+import{prioritizeSampleSlots}from '../sampleStore.js?v=20261001-1';
 
 export function createSampleLibrarySyncController({
   captureBatchSession,assertBatchSession,

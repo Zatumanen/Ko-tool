@@ -1,5 +1,5 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
-import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20260930-5';
+import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20261001-1';
 
 export function createSampleUploadController({
   sampleStore,getMemory,

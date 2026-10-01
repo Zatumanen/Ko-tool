@@ -1,4 +1,4 @@
-import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20260930-5';
+import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20261001-1';
 
 export function createConnectionLifecycle({
   connectEp133,
