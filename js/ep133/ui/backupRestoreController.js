@@ -154,10 +154,8 @@ export function createBackupRestoreController({
       for(let index=0;index<sampleNodes.length;index++){
         const node=sampleNodes[index];
         setGlobalProgress('BACKUP SAMPLES',35+((index+1)/Math.max(1,sampleNodes.length))*60);
-        const [file,metadata]=await Promise.all([
-          fileOps.getFile(node.nodeId),
-          fileOps.getFileMetadata(node.nodeId)
-        ]);
+        const file=await fileOps.getFile(node.nodeId);
+        const metadata=await fileOps.getFileMetadata(node.nodeId);
         samples.push({
           slot:Number(node.nodeId),
           name:String(metadata?.name||file.name||node.fileName||('sample-'+pad(node.nodeId))),
