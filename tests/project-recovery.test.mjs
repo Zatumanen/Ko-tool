@@ -224,3 +224,66 @@ test('unsafe/disconnect after candidate write retains a requires-recovery checkp
   );
   assert.equal(harness.actions.filter(action=>action==='put').length,1);
 });
+
+
+test('recovery checkpoint restore verifies device identity and creates a fresh checkpoint before rewriting',async()=>{
+  const harness=makeHarness();
+  await harness.filesystem.uploadProjectArchive(projectFile(harness.candidate),{performReload:false});
+  const first=(await harness.filesystem.listProjectRecoveryCheckpoints())[0];
+  const putsBefore=harness.actions.filter(action=>action==='put').length;
+
+  const result=await harness.filesystem.restoreProjectRecoveryCheckpoint(first.id,{
+    performReload:false,
+    requireInactive:false
+  });
+  assert.equal(result.project,'01');
+  assert.ok(harness.actions.filter(action=>action==='put').length>putsBefore);
+
+  const records=await harness.filesystem.listProjectRecoveryCheckpoints();
+  assert.equal(records.length,2);
+  assert.ok(records.some(record=>record.id===first.id));
+  assert.ok(records.some(record=>record.id!==first.id&&record.status==='verified'));
+});
+
+test('recovery checkpoint restore refuses checkpoints from a different physical device before mutation',async()=>{
+  const store=createMemoryProjectRecoveryStore();
+  const original=emptyTar();
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device:{sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'OTHER-DEVICE'}},
+    projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P01.tar',data:original},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+  const harness=makeHarness({recoveryStore:store});
+
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+    /different EP device/i
+  );
+  assert.equal(harness.actions.includes('put'),false);
+});
+
+test('recovery checkpoint restore rejects a corrupted original archive before mutation',async()=>{
+  const store=createMemoryProjectRecoveryStore();
+  const device={sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'SERIAL-SHOULD-NOT-BE-STORED'}};
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device,projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P01.tar',data:emptyTar()},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  const saved=await store.getCheckpoint(checkpoint.id);
+  const corrupt=saved.original.data.slice();
+  corrupt[0]=1;
+  await store.updateCheckpoint(checkpoint.id,{
+    status:'verified',
+    original:{...saved.original,data:corrupt}
+  });
+  const harness=makeHarness({recoveryStore:store});
+
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+    /checksum mismatch/i
+  );
+  assert.equal(harness.actions.includes('put'),false);
+});
