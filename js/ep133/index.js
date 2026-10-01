@@ -14,5 +14,6 @@ export{buildProjectDependencyReport,assertProjectDependenciesAvailable}from './p
 export{EP_BACKUP_SCHEMA,EP_BACKUP_SCOPES,normalizeBackupScope,createEpBackupBundle,parseStoredZip,parseEpBackupBundle,readEpBackupBundleFile,buildBundleProjectRestorePlan}from './backupBundle.js?v=20260930-5';
 
 export{createProjectSequencer}from './projectSequencer.js?v=20260930-5';
+export{SEQUENCER_GRID_TICKS,SEQUENCER_GRID_STEPS,getProjectSequencerAvailability,createProjectSequencerSession,summarizeSequencerPattern}from './projectSequencerUi.js?v=20260930-5';
 
 export{auditProjectArchiveBytes,auditConnectedEpProjects,findProjectNoopHilCandidates,runProjectNoopWriteHil}from './projectHil.js?v=20260930-5';
