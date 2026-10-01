@@ -44,7 +44,16 @@ export function createProjectSequencerController({
 
   const setBusy=value=>{
     busy=!!value;
-    for(const control of dialog.querySelectorAll('button,input,select'))control.disabled=busy;
+    for(const control of dialog.querySelectorAll('button,input,select')){
+      if(busy){
+        if(!control.hasAttribute('data-seq-was-disabled'))
+          control.dataset.seqWasDisabled=String(!!control.disabled);
+        control.disabled=true;
+      }else{
+        control.disabled=control.dataset.seqWasDisabled==='true';
+        delete control.dataset.seqWasDisabled;
+      }
+    }
     updateAvailability();
     updateSaveState();
   };
@@ -228,8 +237,9 @@ export function createProjectSequencerController({
     pageLabel.textContent='PAGE '+(page+1)+' · TICKS '+
       (page*SEQUENCER_GRID_STEPS*SEQUENCER_GRID_TICKS)+'–'+
       ((page+1)*SEQUENCER_GRID_STEPS*SEQUENCER_GRID_TICKS-1);
+    const maxPage=Math.floor(65535/(SEQUENCER_GRID_TICKS*SEQUENCER_GRID_STEPS));
     prevPageButton.disabled=busy||page<=0;
-    nextPageButton.disabled=busy;
+    nextPageButton.disabled=busy||page>=maxPage;
   };
 
   const renderSceneInputs=()=>{
@@ -294,7 +304,10 @@ export function createProjectSequencerController({
     catch(error){reportError('PATTERN BAR EDIT FAILED.',error);renderAll();}
   });
   prevPageButton.addEventListener('click',()=>{if(page>0){page--;renderAll();}});
-  nextPageButton.addEventListener('click',()=>{page++;renderAll();});
+  nextPageButton.addEventListener('click',()=>{
+    const maxPage=Math.floor(65535/(SEQUENCER_GRID_TICKS*SEQUENCER_GRID_STEPS));
+    if(page<maxPage){page++;renderAll();}
+  });
 
   newPatternButton.addEventListener('click',()=>{
     try{
