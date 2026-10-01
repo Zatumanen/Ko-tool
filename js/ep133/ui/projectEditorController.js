@@ -243,8 +243,10 @@ export function createVerifiedProjectEditorController({
         performReload:false
       });
       setGlobalProgress('PROJECT EDIT VERIFY',94);
-      setStatus('PROJECT P'+draft.project+' · VERIFIED EDIT SAVED');
-      close();
+      const savedProject=draft.project;
+      setStatus('PROJECT P'+savedProject+' · VERIFIED EDIT SAVED');
+      dialog.hidden=true;
+      draft=null;candidate=null;
       await refreshProjects();
       return saved;
     }catch(error){
