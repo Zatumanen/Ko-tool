@@ -8,7 +8,9 @@ let deviceUnsafe=false,deviceUnsafeReason='';
 let strictFirmwareDebugDepth=0,strictFirmwareDebugLabel='guarded FILE transaction';
 let firmwareDebugSequence=0,lastFirmwareDebugText='',lastFirmwareDebugAt=0;
 const FIRMWARE_DEBUG_PREFLIGHT_MS=1200,FIRMWARE_DEBUG_GRACE_MS=2500;
-const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set();
+const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set(),unexpectedFileTrafficListeners=new Set();
+const recentlyExpiredRequestIds=new Map();
+const LATE_RESPONSE_TTL_MS=5000;
 const MIN_FIRMWARE={
   TE032AS001:{beta:'0.100.38',production:'2.0.5'},
   TE032AS005:{beta:'0.2.13',production:'1.0.2'},
@@ -66,6 +68,21 @@ function notifyConnection(){
 function notifyMidiActivity(direction,detail={}){
   for(const listener of midiActivityListeners){try{listener({direction,...detail});}catch(error){console.warn('EP MIDI activity listener failed',error)}}
 }
+function rememberExpiredRequest(requestId){
+  const now=Date.now();
+  for(const[id,expiresAt]of recentlyExpiredRequestIds)if(expiresAt<=now)recentlyExpiredRequestIds.delete(id);
+  recentlyExpiredRequestIds.set(Number(requestId)||0,now+LATE_RESPONSE_TTL_MS);
+}
+function consumeExpiredRequest(requestId){
+  const id=Number(requestId)||0,expiresAt=recentlyExpiredRequestIds.get(id)||0;
+  if(!expiresAt)return false;
+  recentlyExpiredRequestIds.delete(id);
+  return expiresAt>Date.now();
+}
+function notifyUnexpectedFileTraffic(detail={}){
+  const event={...detail,at:Date.now()};
+  for(const listener of unexpectedFileTrafficListeners){try{listener(event);}catch(error){console.warn('EP unexpected FILE traffic listener failed',error)}}
+}
 
 function handleMidiStateChange(){
   if(initialized){
@@ -112,6 +129,9 @@ function onMessage(inputPort,event){
     if(p.inputPort&&p.inputPort!==inputPort)return;
     pending.delete(msg.requestId);
     p.resolve(msg);
+  }else if(msg.command===TE_SYSEX_FILE&&!msg.isRequest){
+    if(consumeExpiredRequest(msg.requestId))return;
+    notifyUnexpectedFileTraffic({requestId:msg.requestId,status:msg.status,rawData:msg.rawData.slice(),inputPort});
   }
 }
 
@@ -157,6 +177,7 @@ function enterUnsafeState(reason){
     try{p.reject?.(unsafeError());}catch{}
   }
   pending.clear();
+  recentlyExpiredRequestIds.clear();
   notifyConnection();
 }
 
@@ -231,6 +252,7 @@ async function sendRequest(command,payload=new Uint8Array(),timeout=2000){
         const error=new Error(`EP-series request timeout (command ${command})`);
         error.name='EPSeriesTimeoutError';
         error.code='EP_SERIES_TIMEOUT';
+        rememberExpiredRequest(frame.id);
         if(strictFirmwareDebugDepth>0){
           pending.delete(frame.id);
           const sequence=firmwareDebugSequence;
@@ -325,6 +347,7 @@ export function disconnectEp133(){
   stopListeners();
   for(const p of pending.values())p.reject?.(new Error('Disconnected'));
   pending.clear();
+  recentlyExpiredRequestIds.clear();
   input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;
   notifyConnection();
 }
@@ -396,6 +419,11 @@ export function onMidiActivity(listener){
   if(typeof listener!=='function')return()=>{};
   midiActivityListeners.add(listener);
   return()=>midiActivityListeners.delete(listener);
+}
+export function onUnexpectedFileTraffic(listener){
+  if(typeof listener!=='function')return()=>{};
+  unexpectedFileTrafficListeners.add(listener);
+  return()=>unexpectedFileTrafficListeners.delete(listener);
 }
 
 export function onConnectionChange(listener){

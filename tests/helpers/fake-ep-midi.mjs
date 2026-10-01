@@ -3,7 +3,7 @@ import{packedLength,packToBuffer}from '../../js/ep133/packing.js';
 import{parseTeSysex}from '../../js/ep133/sysex.js';
 import{
   MIDI_SYSEX_START,MIDI_SYSEX_END,TE_MIDI_ID,MIDI_SYSEX_TE,
-  IDENTITY_SYSEX,TE_SYSEX_GREET,BIT_REQUEST_ID_AVAILABLE
+  IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,BIT_REQUEST_ID_AVAILABLE
 }from '../../js/ep133/constants.js';
 
 const bytes=value=>value instanceof Uint8Array?value:new Uint8Array(value||[]);
@@ -105,6 +105,13 @@ export function createFakeEpMidi({
     if(delay>0)setTimeout(()=>input.emit(data),delay);
     else queueMicrotask(()=>input.emit(data));
   };
+  const emitResponse=({requestId=0x7fe,command=TE_SYSEX_FILE,status=0,payload=new Uint8Array(),delay=0}={})=>{
+    let id=Number(requestId)&0xfff;
+    if(!id)id=1;
+    emitLater(responseFrame({requestId:id,command:Number(command)&0x7f},{
+      identityCode:resolvedIdentityCode,status,payload
+    }),Math.max(0,Number(delay)||0));
+  };
 
   const handleRequest=async request=>{
     if(request.command===TE_SYSEX_GREET){
@@ -189,7 +196,7 @@ export function createFakeEpMidi({
 
   return{
     input,output,access,requests,midiAccessRequests,
-    install,restore,disconnect,reconnect
+    install,restore,disconnect,reconnect,emitResponse
   };
 }
 

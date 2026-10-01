@@ -29,6 +29,7 @@ test('device transport executes real queue, timeout, disconnect and debug safety
       }
 
       if(mode==='timeout'&&subcommand===TE_SYSEX_FILE_LIST)return{drop:true};
+      if(mode==='late'&&subcommand===TE_SYSEX_FILE_INFO)return{delay:40};
 
       if(mode==='hold')return new Promise(()=>{});
 
@@ -41,6 +42,8 @@ test('device transport executes real queue, timeout, disconnect and debug safety
   });
   fake.install();
   const device=await import('../js/ep133/device.js?behavior-device=20260929');
+  const unexpectedTraffic=[];
+  const stopUnexpectedTraffic=device.onUnexpectedFileTraffic(event=>unexpectedTraffic.push(event));
 
   await t.test('connects through fake Web MIDI using the real identity and GREET path',async()=>{
     const connected=await device.connectEp133();
@@ -118,6 +121,31 @@ test('device transport executes real queue, timeout, disconnect and debug safety
     );
   });
 
+  await t.test('late response to our own timed-out request is not reported as external FILE traffic',async()=>{
+    const before=unexpectedTraffic.length;
+    mode='late';
+    await assert.rejects(
+      device.requestRead(
+        TE_SYSEX_FILE,
+        Uint8Array.from([TE_SYSEX_FILE_INFO,0,7]),
+        10
+      ),
+      error=>error?.name==='EPSeriesTimeoutError'
+    );
+    await new Promise(resolve=>setTimeout(resolve,70));
+    assert.equal(unexpectedTraffic.length,before);
+    assert.equal(device.isDeviceUnsafe(),false);
+    mode='normal';
+  });
+
+  await t.test('unmatched FILE response is surfaced as possible external-tool traffic',async()=>{
+    const before=unexpectedTraffic.length;
+    fake.emitResponse({requestId:0x6aa,command:TE_SYSEX_FILE,payload:new Uint8Array()});
+    await waitFor(()=>unexpectedTraffic.length===before+1);
+    assert.equal(unexpectedTraffic.at(-1)?.requestId,0x6aa);
+    assert.equal(device.isDeviceUnsafe(),false);
+  });
+
   await t.test('disconnect invalidates the in-flight request and prevents the queued request from being sent',async()=>{
     mode='hold';
     const before=fake.requests.filter(request=>request.command===TE_SYSEX_FILE).length;
@@ -192,6 +220,7 @@ test('device transport executes real queue, timeout, disconnect and debug safety
     );
   });
 
+  stopUnexpectedTraffic();
   device.disconnectEp133();
   fake.restore();
 });

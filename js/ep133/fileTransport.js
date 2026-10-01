@@ -3,10 +3,11 @@ import{
   TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP
 }from './constants.js';
 import{
-  requestRead,requestFile,onConnectionChange,markDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
+  requestRead,requestFile,onConnectionChange,onUnexpectedFileTraffic,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
 }from './device.js?v=20260930-5';
 import{parseNullTerminatedString}from './packing.js';
 import{createFileScheduler}from './fileScheduler.js?v=20260930-5';
+import{createDeviceOperationCoordinator}from './deviceOperationCoordinator.js?v=20260930-5';
 import{
   readU16 as u16,readU32 as u32,
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -17,6 +18,8 @@ import{
 }from './fileProtocol.js?v=20260930-5';
 
 const deviceChunkSizes=new Map();
+const deviceOperationCoordinator=createDeviceOperationCoordinator({markUnsafe:markDeviceUnsafe,isUnsafe:isDeviceUnsafe});
+onUnexpectedFileTraffic(detail=>deviceOperationCoordinator.observeUnexpectedFileTraffic(detail));
 async function withBrowserFileLock(operation){
   const locks=globalThis.navigator?.locks;
   if(!locks?.request)return operation();
@@ -24,11 +27,11 @@ async function withBrowserFileLock(operation){
   return locks.request('ko-tool-ep-file:'+key,{mode:'exclusive'},operation);
 }
 const fileScheduler=createFileScheduler({withLock:withBrowserFileLock});
-function runFileOperation(operation,label='FILE operation'){
-  return fileScheduler.run(label,operation);
+function runFileOperation(operation,label='FILE operation',options={}){
+  return fileScheduler.run(label,()=>deviceOperationCoordinator.run(label,operation,options));
 }
 function runGuardedFileMutation(label,operation){
-  return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label),label);
+  return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label),label,{mode:'mutation'});
 }
 
 function createFileTransactionLease(){
@@ -78,15 +81,19 @@ export function withFileTransportTransaction(label,operation,{strict=false}={}){
     }finally{
       await context.close();
     }
-  },transactionLabel);
+  },transactionLabel,{mode:strict?'mutation':'read'});
 }
 
-export function resetFileTransportState(){deviceChunkSizes.clear();fileScheduler.reset();}
+export function getFileOperationCoordinatorState(){return deviceOperationCoordinator.getState();}
+export function resetFileTransportState(){deviceChunkSizes.clear();fileScheduler.reset();deviceOperationCoordinator.reset();}
 const getDeviceKey=device=>device?.metadata?.serialNumber||device?.metadata?.serial||device?.deviceKey||null;
 let activeDeviceKey=null;
-onConnectionChange(({connected,device})=>{
+onConnectionChange(({connected,unsafe,device})=>{
   activeDeviceKey=connected?getDeviceKey(device):null;
-  if(!connected){deviceChunkSizes.clear();}
+  if(!connected){
+    deviceChunkSizes.clear();
+    if(!unsafe)deviceOperationCoordinator.reset();
+  }
 });
 function getCachedChunkSize(){return activeDeviceKey?deviceChunkSizes.get(activeDeviceKey)||0:0;}
 async function ensureFileSystemInitializedUnlocked(){if(!getCachedChunkSize())await initFileSystemUnlocked();}
@@ -262,8 +269,8 @@ async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
 }
 export async function setFileMetadata(fileId,metadata,options={}){return runGuardedFileMutation('METADATA_SET mutation',()=>setFileMetadataUnlocked(fileId,metadata,options));}
 
-export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);});}
-export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);});}
+export async function startPlayback(nodeId,preview=true){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_START;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,preview?1000:0);await requestFile(TE_SYSEX_FILE,p,2000);},'FILE_PLAYBACK start',{mode:'mutation'});}
+export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);},'FILE_PLAYBACK stop',{mode:'mutation'});}
 
 
 async function getFileUnlocked(nodeId,onProgress){

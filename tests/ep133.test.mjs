@@ -375,7 +375,7 @@ test('My EP styles are isolated from the SpeedUpperCut base stylesheet',async()=
 test('My EP browser modules pass a real Node syntax check',async()=>{
   const {execFileSync}=await import('node:child_process');
   const {fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/ui/deviceSessionOwnership.js','../js/ep133/ui/globalSearchController.js','../js/ep133/ui/projectReadOnlyController.js','../js/ep133/ui/projectEditorController.js','../js/ep133/ui/projectSequencerController.js','../js/ep133/ui/backupRestoreController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectDependencies.js','../js/ep133/projectEditor.js','../js/ep133/projectSequencerUi.js','../js/ep133/backupBundle.js','../js/ep133/projectRecovery.js','../js/ep133/projectTransactionJournal.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
+  for(const relative of ['../js/ep133/ui.js','../js/ep133/ui/sampleLibrarySync.js','../js/ep133/ui/samplePropertiesController.js','../js/ep133/ui/sampleReadController.js','../js/ep133/ui/sampleDeleteController.js','../js/ep133/ui/sampleUploadController.js','../js/ep133/ui/sampleMoveController.js','../js/ep133/ui/sampleCopyController.js','../js/ep133/ui/sampleRenameController.js','../js/ep133/ui/sampleTransferCoordinator.js','../js/ep133/ui/sampleVerification.js','../js/ep133/ui/deviceView.js','../js/ep133/ui/deviceSessionOwnership.js','../js/ep133/ui/globalSearchController.js','../js/ep133/ui/projectReadOnlyController.js','../js/ep133/ui/projectEditorController.js','../js/ep133/ui/projectSequencerController.js','../js/ep133/ui/backupRestoreController.js','../js/ep133/sampleProperties.js','../js/ep133/sampleStore.js','../js/ep133/sampleMemory.js','../js/ep133/capabilityEvidence.js','../js/ep133/evidenceRegistry.js','../js/ep133/deviceProfile.js','../js/ep133/projectProfile.js','../js/ep133/projectRuntime.js','../js/ep133/projectDependencies.js','../js/ep133/projectEditor.js','../js/ep133/projectSequencerUi.js','../js/ep133/backupBundle.js','../js/ep133/projectRecovery.js','../js/ep133/projectTransactionJournal.js','../js/ep133/projectFilesystem.js','../js/ep133/projectArchive.js','../js/ep133/projectReader.js','../js/ep133/projectSequencer.js','../js/ep133/projectHil.js','../js/ep133/deviceOperationCoordinator.js','../js/ep133/device.js','../js/ep133/fileProtocol.js','../js/ep133/sampleFilesystem.js','../js/ep133/fileScheduler.js','../js/ep133/fileTransport.js','../js/ep133/filesystem.js','../js/ep133/audio.js']){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
@@ -884,7 +884,7 @@ test('all public mutating FILE APIs use the strict firmware debug guard',async()
     fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
   ]);
-  assert.match(transport,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\),label\)/);
+  assert.match(transport,/function runGuardedFileMutation\(label,operation\)\{[\s\S]*runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(operation,label\),label,\{mode:'mutation'\}\)/);
   assert.match(transport,/export async function putFile\(args\)\{return runGuardedFileMutation\('FILE_PUT mutation'/);
   assert.match(transport,/export async function deleteFile[\s\S]*runGuardedFileMutation\('FILE_DELETE mutation'/);
   assert.match(transport,/export async function moveFile[\s\S]*runGuardedFileMutation\('FILE_MOVE mutation'/);
@@ -2920,4 +2920,24 @@ test('filesystem is a thin composition facade over protocol transport sample and
   assert.doesNotMatch(facade,/requestFile\(|requestRead\(|buildFilePutDataPayload\(/);
   assert.doesNotMatch(transport,/sampleFilesystem|projectFilesystem|uploadSampleToSlotWithTransport/);
   assert.doesNotMatch(transport,/parseProjectArchive|validateProjectArchive/);
+});
+
+
+test('FILE transport coordinates device operations and external FILE interference centrally',async()=>{
+  const fs=await import('node:fs/promises');
+  const [transport,filesystem,project,device]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8')
+  ]);
+  assert.match(transport,/createDeviceOperationCoordinator/);
+  assert.match(transport,/onUnexpectedFileTraffic\(detail=>deviceOperationCoordinator\.observeUnexpectedFileTraffic\(detail\)\)/);
+  assert.match(transport,/runFileOperation\(operation,label='FILE operation',options=\{\}\)/);
+  assert.match(transport,/mode:'mutation'/);
+  assert.match(filesystem,/getFileOperationCoordinatorState/);
+  assert.match(project,/'project reload'\),'project reload',\{mode:'mutation'\}/);
+  assert.match(project,/'project write transaction'\),'project write transaction',\{mode:'mutation'\}/);
+  assert.match(device,/export function onUnexpectedFileTraffic/);
+  assert.match(device,/rememberExpiredRequest\(frame\.id\)/);
 });
