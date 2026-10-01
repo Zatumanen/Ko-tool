@@ -467,6 +467,9 @@ export function createProjectFilesystem({
     const identityHash=hashDeviceIdentity(info);
     if(String(checkpoint.device?.identityHash||'')!==identityHash)
       throw new Error('Recovery checkpoint belongs to a different EP device.');
+    const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+    if(String(checkpoint.device?.firmware||'')!==firmware)
+      throw new Error('Recovery checkpoint firmware does not match the connected EP firmware.');
     const original=checkpoint.original?.data instanceof Uint8Array
       ?checkpoint.original.data.slice()
       :new Uint8Array(checkpoint.original?.data||[]);
