@@ -1255,3 +1255,106 @@
   .ep-editor-fader-row label{grid-column:2}
   .ep-project-editor-actions{flex-direction:column}
 }
+
+/* Project Sequencer */
+.ep-sequencer-dialog{
+  position:fixed;inset:0;z-index:10036;display:flex;align-items:center;justify-content:center;
+  padding:12px;background:rgba(0,0,0,.52)
+}
+.ep-sequencer-dialog[hidden]{display:none!important}
+.ep-sequencer-window{
+  width:min(1120px,98vw);max-height:96vh;overflow:auto;background:var(--win-gray);
+  border:2px solid;border-top-color:var(--win-light);border-left-color:var(--win-light);
+  border-right-color:var(--win-dark);border-bottom-color:var(--win-dark);
+  box-shadow:9px 9px 24px rgba(0,0,0,.72)
+}
+.ep-sequencer-title button{width:22px;height:22px;min-height:22px;padding:0}
+.ep-sequencer-body{padding:8px;display:flex;flex-direction:column;gap:7px}
+.ep-sequencer-evidence{
+  padding:5px 7px;border:2px inset var(--win-dark);background:#edf7ed;color:#244f24;
+  font:700 9px "Courier New",monospace
+}
+.ep-sequencer-warning{
+  padding:5px 7px;border:1px solid #9f7f20;background:#fff4bf;color:#5f4a00;
+  font:700 8px "Courier New",monospace
+}
+.ep-sequencer-topbar{
+  display:flex;align-items:end;gap:5px;flex-wrap:wrap;padding:6px;border:2px inset var(--win-dark);background:#fff
+}
+.ep-sequencer-topbar label,.ep-sequencer-add-row label,.ep-sequencer-scene-grid label,.ep-sequencer-song-row label{
+  display:flex;flex-direction:column;gap:2px;font:700 8px "Courier New",monospace
+}
+.ep-sequencer-topbar input,.ep-sequencer-topbar select,
+.ep-sequencer-add-row input,.ep-sequencer-add-row select,
+.ep-sequencer-scene-grid input,.ep-sequencer-song-row input{
+  min-width:0;padding:4px;border:2px inset var(--win-dark);background:#fff;font:9px "Courier New",monospace
+}
+.ep-sequencer-topbar button,.ep-sequencer-add-row button,.ep-sequencer-scene-grid button,
+.ep-sequencer-song-row button,.ep-sequencer-actions button,.ep-seq-event-row button{
+  min-height:28px;padding:4px 7px;border:2px outset var(--win-gray);background:var(--win-gray);
+  font:700 8px "Courier New",monospace;cursor:pointer
+}
+.ep-sequencer-topbar button:disabled,.ep-sequencer-add-row button:disabled,.ep-sequencer-scene-grid button:disabled,
+.ep-sequencer-song-row button:disabled,.ep-sequencer-actions button:disabled,.ep-seq-event-row button:disabled,
+#ep133-project-sequencer:disabled{opacity:.42;cursor:default}
+.ep-sequencer-pattern-summary{
+  padding:5px 7px;border:1px solid #aaa;background:#f5f5f5;font:8px "Courier New",monospace
+}
+.ep-sequencer-grid{
+  overflow:auto;padding:4px;border:2px inset var(--win-dark);background:#fff
+}
+.ep-seq-grid-row{
+  min-width:860px;display:grid;grid-template-columns:70px repeat(16,minmax(34px,1fr));gap:2px;align-items:center;margin-bottom:2px
+}
+.ep-seq-grid-header{position:sticky;top:0;z-index:2;background:#fff}
+.ep-seq-grid-header span,.ep-seq-grid-header b{
+  padding:3px;text-align:center;font:700 8px "Courier New",monospace
+}
+.ep-seq-pad-label{
+  display:flex;align-items:center;justify-content:space-between;gap:4px;padding:3px 5px;
+  border:1px solid #aaa;background:#eee;font:700 8px "Courier New",monospace
+}
+.ep-seq-pad-label small{font-size:7px;color:#666}
+.ep-seq-step{
+  min-height:27px;padding:0;border:1px outset #bbb;background:#eee;color:#777;
+  font:700 10px "Courier New",monospace;cursor:pointer
+}
+.ep-seq-step.active{background:#ffd94a;color:#111;border-style:inset}
+.ep-seq-step:disabled{opacity:.55;cursor:default}
+.ep-seq-structural-warning{
+  min-width:860px;margin-top:4px;padding:5px 7px;background:#ffe4df;color:#7d2417;border:1px solid #a54b3e;
+  font:700 8px "Courier New",monospace
+}
+.ep-sequencer-split{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.ep-sequencer-section{min-width:0;border:2px inset var(--win-dark);background:#fff}
+.ep-sequencer-section h3{
+  margin:0;padding:5px 7px;border-bottom:1px solid #999;background:#ddd;font:700 9px "Courier New",monospace
+}
+.ep-sequencer-add-row{display:flex;align-items:end;gap:5px;flex-wrap:wrap;padding:6px;border-bottom:1px solid #ccc}
+.ep-sequencer-add-row label{min-width:70px;flex:1 1 70px}
+.ep-sequencer-events{max-height:220px;overflow:auto}
+.ep-seq-event-row{
+  display:grid;grid-template-columns:45px repeat(5,minmax(68px,1fr)) auto auto;gap:4px;align-items:end;
+  padding:5px;border-bottom:1px solid #ddd;font:8px "Courier New",monospace
+}
+.ep-seq-auto-row{grid-template-columns:45px minmax(72px,1fr) minmax(110px,1.2fr) minmax(90px,1fr) auto auto}
+.ep-seq-event-row>span{align-self:center;font-weight:700}
+.ep-seq-event-row label{display:flex;flex-direction:column;gap:2px;font-weight:700}
+.ep-seq-event-row input,.ep-seq-event-row select{
+  min-width:0;width:100%;padding:3px;border:2px inset var(--win-dark);font:9px "Courier New",monospace
+}
+.ep-seq-empty{padding:10px;text-align:center;color:#666;font:700 8px "Courier New",monospace}
+.ep-sequencer-scene-grid{
+  display:grid;grid-template-columns:repeat(7,minmax(55px,1fr)) auto;gap:5px;align-items:end;padding:6px
+}
+.ep-sequencer-song-row{display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:6px;align-items:end;padding:6px}
+.ep-sequencer-actions{display:flex;justify-content:flex-end;gap:6px}
+.ep-sequencer-actions button{min-width:150px}
+#ep133-seq-save:not(:disabled){background:#fff}
+@media(max-width:850px){
+  .ep-sequencer-split{grid-template-columns:1fr}
+  .ep-seq-event-row,.ep-seq-auto-row{grid-template-columns:1fr 1fr}
+  .ep-seq-event-row>span{grid-column:1/-1}
+  .ep-sequencer-scene-grid{grid-template-columns:repeat(4,minmax(55px,1fr))}
+  .ep-sequencer-song-row{grid-template-columns:1fr}
+}
