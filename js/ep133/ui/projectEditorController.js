@@ -228,10 +228,16 @@ export function createVerifiedProjectEditorController({
     updateSummary();
     if(!candidate?.changed)return;
     const summary=summarizeVerifiedProjectChanges(candidate.changes);
-    const ok=await confirmAction(
-      'Write '+summary.total+' verified change'+(summary.total===1?'':'s')+
-      ' to inactive project P'+draft.project+'? A recovery checkpoint will be created first.'
-    );
+    dialog.classList.add('confirming');
+    let ok=false;
+    try{
+      ok=await confirmAction(
+        'Write '+summary.total+' verified change'+(summary.total===1?'':'s')+
+        ' to inactive project P'+draft.project+'? A recovery checkpoint will be created first.'
+      );
+    }finally{
+      dialog.classList.remove('confirming');
+    }
     if(!ok)return;
     setBusy(true);setGlobalProgress('PROJECT EDIT PRECHECK',10);
     try{
