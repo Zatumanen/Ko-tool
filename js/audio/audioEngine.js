@@ -1,4 +1,4 @@
-import{getLibSampleRateModule}from '../ep133/resampler.js?v=20260930-5';
+import{getLibSampleRateModule}from '../ep133/resampler.js?v=20261001-1';
 
 const asUint8=value=>value instanceof Uint8Array?value:new Uint8Array(value?.buffer||value||[]);
 const finitePositive=(value,label)=>{

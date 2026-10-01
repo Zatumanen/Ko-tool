@@ -6,7 +6,7 @@ import{
   restoreProjectRecoveryCheckpoint,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleLocalMetadata,createTransferFileName
-}from './index.js?v=20260930-5';
+}from './index.js?v=20261001-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -15,29 +15,29 @@ import{
   TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,
   TE_SYSEX_FILE_EVENT_FILE_MOVED
 }from './constants.js';
-import{createSampleMemory}from './sampleMemory.js?v=20260930-5';
-import{getEpDeviceProfile}from './deviceProfile.js?v=20260930-5';
-import{createSamplePropertiesController}from './ui/samplePropertiesController.js?v=20260930-5';
-import{createSampleStore}from './sampleStore.js?v=20260930-5';
-import{createSessionGuard}from './ui/sessionGuard.js?v=20260930-5';
-import{createFeedbackController}from './ui/feedback.js?v=20260930-5';
-import{getSoundsParentId,buildFileItemFromInfo}from './ui/fileModel.js?v=20260930-5';
-import{createFileEventController}from './ui/fileEvents.js?v=20260930-5';
-import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20260930-5';
-import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20260930-5';
-import{createSampleReadController}from './ui/sampleReadController.js?v=20260930-5';
-import{createSampleDeleteController}from './ui/sampleDeleteController.js?v=20260930-5';
-import{createSampleUploadController}from './ui/sampleUploadController.js?v=20260930-5';
-import{createSampleMoveController}from './ui/sampleMoveController.js?v=20260930-5';
-import{createSampleCopyController}from './ui/sampleCopyController.js?v=20260930-5';
-import{createSampleRenameController}from './ui/sampleRenameController.js?v=20260930-5';
-import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v=20260930-5';
-import{createSampleVerificationController}from './ui/sampleVerification.js?v=20260930-5';
-import{createDeviceView}from './ui/deviceView.js?v=20260930-5';
-import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20260930-5';
-import{createVerifiedProjectEditorController}from './ui/projectEditorController.js?v=20260930-5';
-import{createProjectSequencerController}from './ui/projectSequencerController.js?v=20260930-5';
-import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20260930-5';
+import{createSampleMemory}from './sampleMemory.js?v=20261001-1';
+import{getEpDeviceProfile}from './deviceProfile.js?v=20261001-1';
+import{createSamplePropertiesController}from './ui/samplePropertiesController.js?v=20261001-1';
+import{createSampleStore}from './sampleStore.js?v=20261001-1';
+import{createSessionGuard}from './ui/sessionGuard.js?v=20261001-1';
+import{createFeedbackController}from './ui/feedback.js?v=20261001-1';
+import{getSoundsParentId,buildFileItemFromInfo}from './ui/fileModel.js?v=20261001-1';
+import{createFileEventController}from './ui/fileEvents.js?v=20261001-1';
+import{createConnectionLifecycle}from './ui/connectionLifecycle.js?v=20261001-1';
+import{createSampleLibrarySyncController}from './ui/sampleLibrarySync.js?v=20261001-1';
+import{createSampleReadController}from './ui/sampleReadController.js?v=20261001-1';
+import{createSampleDeleteController}from './ui/sampleDeleteController.js?v=20261001-1';
+import{createSampleUploadController}from './ui/sampleUploadController.js?v=20261001-1';
+import{createSampleMoveController}from './ui/sampleMoveController.js?v=20261001-1';
+import{createSampleCopyController}from './ui/sampleCopyController.js?v=20261001-1';
+import{createSampleRenameController}from './ui/sampleRenameController.js?v=20261001-1';
+import{createSampleTransferCoordinator}from './ui/sampleTransferCoordinator.js?v=20261001-1';
+import{createSampleVerificationController}from './ui/sampleVerification.js?v=20261001-1';
+import{createDeviceView}from './ui/deviceView.js?v=20261001-1';
+import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v=20261001-1';
+import{createVerifiedProjectEditorController}from './ui/projectEditorController.js?v=20261001-1';
+import{createProjectSequencerController}from './ui/projectSequencerController.js?v=20261001-1';
+import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20261001-1';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
