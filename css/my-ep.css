@@ -762,7 +762,7 @@
 .ep133-confirm-dialog{
   position:fixed;
   inset:0;
-  z-index:10030;
+  z-index:10060;
   display:flex;
   align-items:center;
   justify-content:center;
