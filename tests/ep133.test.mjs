@@ -2302,6 +2302,24 @@ test('EP audio pipeline checks the local s16 WAV fast path before loading the WA
   assert.match(source,/Maximum EP-series sample length is 40 seconds/);
   assert.doesNotMatch(source,/decodeMetaFallback/);
 });
+test('EP WAV metadata parser ignores null terminator and padding inside TNGE payload',()=>{
+  const json=JSON.stringify({'sound.playmode':'loop','sound.pitch':-12});
+  const payload=new TextEncoder().encode(json);
+  const listPayloadSize=12+payload.length+4;
+  const bytes=new Uint8Array(12+8+listPayloadSize);
+  const view=new DataView(bytes.buffer);
+  const put=(offset,text)=>new TextEncoder().encodeInto(text,bytes.subarray(offset,offset+text.length));
+  put(0,'RIFF');view.setUint32(4,bytes.length-8,true);put(8,'WAVE');
+  put(12,'LIST');view.setUint32(16,listPayloadSize,true);put(20,'INFO');put(24,'TNGE');
+  view.setUint32(28,payload.length+4,true);
+  bytes.set(payload,32);
+  bytes[32+payload.length]=0;
+  bytes[33+payload.length]=0x7f;
+  bytes[34+payload.length]=0x01;
+  bytes[35+payload.length]=0x02;
+  assert.deepEqual(parseKo2Metadata(bytes),{'sound.playmode':'loop','sound.pitch':-12});
+});
+
 test('EP target sample rate follows pbarilla format metadata',()=>{
   const formats=[{type:'pcm',formats:[{format:'s16',channels:[1,2],'samplerate.range':[3000,46875]}]}];
   assert.equal(getTargetSampleRate({sample_rate:44000,channels:1},formats),44000);

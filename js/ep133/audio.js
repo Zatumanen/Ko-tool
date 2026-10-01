@@ -42,7 +42,9 @@ function parseKo2Metadata(bytes){
     if(id==='LIST'&&size>=12&&text(offset+8,4)==='INFO'&&text(offset+12,4)==='TNGE'){
       const jsonLength=view.getUint32(offset+16,true);
       if(jsonLength>0&&offset+20+jsonLength<=view.byteLength){
-        const json=new TextDecoder().decode(bytes.slice(offset+20,offset+20+jsonLength));
+        const jsonBytes=bytes.slice(offset+20,offset+20+jsonLength);
+        const terminator=jsonBytes.indexOf(0);
+        const json=new TextDecoder().decode(terminator>=0?jsonBytes.slice(0,terminator):jsonBytes).trim();
         try{
           const metadata=JSON.parse(json);
           return metadata&&typeof metadata==='object'?metadata:null;
