@@ -453,7 +453,7 @@ test('Project Sequencer edits native patterns/scenes on inactive P02 and saves t
   await page.locator('[data-seq-auto-param]').selectOption('5');
   await page.locator('[data-seq-auto-value]').fill('1234');
   await page.locator('[data-seq-add-auto]').click();
-  await expect(page.locator('#ep133-seq-automation')).toContainText('1234');
+  await expect(page.locator('#ep133-seq-automation [data-auto-field="value"]').last()).toHaveValue('1234');
 
   await page.locator('#ep133-seq-new-pattern').fill('A02');
   await page.locator('#ep133-seq-new-pattern-bars').fill('2');
