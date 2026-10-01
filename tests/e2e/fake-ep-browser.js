@@ -80,6 +80,7 @@
   };
   const projectTar=makeProjectTar([
     {path:'pads/a/p01',data:projectPad(7)},{path:'pads/b/p01',data:projectPad(8)},
+    {path:'pads/c/p01',data:projectPad(9)},
     {path:'patterns/a01',data:projectPattern()},{path:'patterns/b01',data:projectPattern()},
     {path:'patterns/c01',data:projectPattern()},{path:'patterns/d01',data:projectPattern()},
     {path:'scenes',data:projectScenes()},{path:'settings',data:projectSettings()},{path:'fx_settings',data:projectFx()}
