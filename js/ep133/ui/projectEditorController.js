@@ -244,10 +244,10 @@ export function createVerifiedProjectEditorController({
       });
       setGlobalProgress('PROJECT EDIT VERIFY',94);
       const savedProject=draft.project;
-      setStatus('PROJECT P'+savedProject+' · VERIFIED EDIT SAVED');
       dialog.hidden=true;
       draft=null;candidate=null;
       await refreshProjects();
+      setStatus('PROJECT P'+savedProject+' · VERIFIED EDIT SAVED');
       return saved;
     }catch(error){
       reportError('PROJECT EDIT FAILED.',error);
