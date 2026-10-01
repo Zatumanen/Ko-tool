@@ -107,6 +107,8 @@ export function createProjectReadOnlyController({
   projectList,projectInspector,refreshButton,
   listProjectArchivesReadOnly,readProjectArchiveReadOnly,
   getSampleSlot=()=>null,
+  onProjectLoaded=()=>{},
+  onProjectCleared=()=>{},
   isConnected=()=>false,
   setStatus=()=>{},
   setGlobalProgress=()=>{},
@@ -115,7 +117,7 @@ export function createProjectReadOnlyController({
 }={}){
   if(typeof listProjectArchivesReadOnly!=='function'||typeof readProjectArchiveReadOnly!=='function')
     throw new TypeError('Project read-only controller requires project read APIs.');
-  let mode='samples',listing=null,selectedProject=null,loading=false,pendingProject=null;
+  let mode='samples',listing=null,selectedProject=null,loading=false,pendingProject=null,currentResult=null;
 
   const renderEmpty=message=>{
     if(projectInspector)projectInspector.innerHTML='<div class="ep-project-empty">'+escapeHtml(message)+'</div>';
@@ -247,11 +249,15 @@ export function createProjectReadOnlyController({
     try{
       const result=await readProjectArchiveReadOnly(id);
       if(selectedProject===id){
+        currentResult=result;
         renderInspector(summarizeProjectReadOnly(result,{getSampleSlot}));
+        onProjectLoaded(result);
         setStatus('PROJECT P'+id+' · READ ONLY');
       }
     }catch(error){
       if(selectedProject===id){
+        currentResult=null;
+        onProjectCleared();
         renderEmpty('COULD NOT READ PROJECT P'+id+'.');
         reportError('COULD NOT READ PROJECT P'+id+'.',error);
       }
@@ -283,7 +289,8 @@ export function createProjectReadOnlyController({
   refreshButton?.addEventListener('click',()=>{if(isConnected())void refresh();});
 
   const reset=()=>{
-    listing=null;selectedProject=null;loading=false;pendingProject=null;
+    listing=null;selectedProject=null;loading=false;pendingProject=null;currentResult=null;
+    onProjectCleared();
     if(projectList)projectList.innerHTML='<div class="ep-project-empty">CONNECT EP SERIES</div>';
     renderEmpty('SELECT PROJECT TO INSPECT.');
   };
@@ -292,9 +299,11 @@ export function createProjectReadOnlyController({
   setMode('samples');
   return Object.freeze({
     setMode,refresh,selectProject,reset,
+    getCurrentResult:()=>currentResult,
     getState:()=>Object.freeze({
       mode,selectedProject,loading,
-      projectCount:listing?.projects?.length||0
+      projectCount:listing?.projects?.length||0,
+      hasCurrentResult:!!currentResult
     })
   });
 }
