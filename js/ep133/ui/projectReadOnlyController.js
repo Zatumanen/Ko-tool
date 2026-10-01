@@ -115,7 +115,7 @@ export function createProjectReadOnlyController({
 }={}){
   if(typeof listProjectArchivesReadOnly!=='function'||typeof readProjectArchiveReadOnly!=='function')
     throw new TypeError('Project read-only controller requires project read APIs.');
-  let mode='samples',listing=null,selectedProject=null,loading=false;
+  let mode='samples',listing=null,selectedProject=null,loading=false,pendingProject=null;
 
   const renderEmpty=message=>{
     if(projectInspector)projectInspector.innerHTML='<div class="ep-project-empty">'+escapeHtml(message)+'</div>';
@@ -225,13 +225,25 @@ export function createProjectReadOnlyController({
     }finally{
       loading=false;
       hideGlobalProgress();
+      const queued=pendingProject;
+      if(queued&&queued!==id&&isConnected()){
+        pendingProject=null;
+        void selectProject(queued);
+      }
     }
   };
 
   async function selectProject(project,{skipListRender=false}={}){
-    if((loading&&!skipListRender)||!isConnected())return;
+    if(!isConnected())return;
     const id=String(project||'').padStart(2,'0');
+    if(loading&&!skipListRender){
+      selectedProject=id;
+      pendingProject=id;
+      renderList();
+      return;
+    }
     selectedProject=id;
+    pendingProject=null;
     if(!skipListRender)renderList();
     loading=true;
     setGlobalProgress('READING PROJECT P'+id,45);
@@ -269,7 +281,7 @@ export function createProjectReadOnlyController({
   refreshButton?.addEventListener('click',()=>{if(isConnected())void refresh();});
 
   const reset=()=>{
-    listing=null;selectedProject=null;loading=false;
+    listing=null;selectedProject=null;loading=false;pendingProject=null;
     if(projectList)projectList.innerHTML='<div class="ep-project-empty">CONNECT EP SERIES</div>';
     renderEmpty('SELECT PROJECT TO INSPECT.');
   };
