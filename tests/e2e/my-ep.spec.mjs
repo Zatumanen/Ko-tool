@@ -270,17 +270,24 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   await expect(page.locator('[data-backup-panel]')).toBeVisible();
   await expect(page.locator('[data-recovery-panel]')).toBeHidden();
 
-  await page.locator('#ep133-backup-project-samples').click();
+  await page.locator('#ep133-backup-project').click();
   await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(1);
-  const saved=await page.evaluate(()=>window.__savedBackupFiles[0]);
+  const rawProject=await page.evaluate(()=>window.__savedBackupFiles[0]);
+  expect(rawProject.name).toBe('P02.tar');
+  expect(rawProject.type).toBe('application/x-tar');
+  expect(rawProject.size).toBeGreaterThan(1024);
+
+  await page.locator('#ep133-backup-project-samples').click();
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(2);
+  const saved=await page.evaluate(()=>window.__savedBackupFiles[1]);
   expect(saved.name).toContain('P02_samples');
   expect(saved.type).toBe('application/zip');
   expect(saved.size).toBeGreaterThan(500);
   expect(saved.closed).toBe(true);
 
   await page.locator('#ep133-backup-device').click();
-  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(2);
-  const deviceBackup=await page.evaluate(()=>window.__savedBackupFiles[1]);
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length),{timeout:15000}).toBe(3);
+  const deviceBackup=await page.evaluate(()=>window.__savedBackupFiles[2]);
   expect(deviceBackup.name).toContain('device');
   expect(deviceBackup.size).toBeGreaterThan(saved.size);
 
@@ -326,8 +333,8 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   await expect(page.locator('#ep133-recovery-detail')).toContainText('VERIFY');
 
   await page.locator('#ep133-recovery-download').click();
-  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length)).toBe(3);
-  const recoveryFile=await page.evaluate(()=>window.__savedBackupFiles[2]);
+  await expect.poll(()=>page.evaluate(()=>window.__savedBackupFiles.length)).toBe(4);
+  const recoveryFile=await page.evaluate(()=>window.__savedBackupFiles[3]);
   expect(recoveryFile.name).toBe('P02.tar');
   expect(recoveryFile.size).toBeGreaterThan(1024);
 
