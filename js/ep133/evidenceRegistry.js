@@ -1,6 +1,6 @@
 import{
   CAPABILITY_EVIDENCE,capabilityEvidence,firmwareMatchesRange,resolveCapabilityEvidence
-}from './capabilityEvidence.js?v=20260930-5';
+}from './capabilityEvidence.js?v=20261001-1';
 
 export const CAPABILITY_KEYS=Object.freeze({
   SAMPLE_METADATA:'sample.metadata',

@@ -1,6 +1,6 @@
 import{
   createSampleSlots,findNextFreeSampleSlot,EP_SAMPLE_SLOT_COUNT
-}from './sampleMemory.js?v=20260930-5';
+}from './sampleMemory.js?v=20261001-1';
 
 const cloneObject=value=>value&&typeof value==='object'?{...value}:null;
 const cloneOperation=operation=>operation&&typeof operation==='object'?{...operation}:null;

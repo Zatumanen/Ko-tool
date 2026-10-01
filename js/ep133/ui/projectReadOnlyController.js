@@ -1,4 +1,4 @@
-import{buildProjectDependencyReport}from '../projectDependencies.js?v=20260930-5';
+import{buildProjectDependencyReport}from '../projectDependencies.js?v=20261001-1';
 
 const GROUPS=['a','b','c','d'];
 const safeNumber=value=>Number.isFinite(Number(value))?Number(value):null;

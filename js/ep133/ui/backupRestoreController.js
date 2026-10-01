@@ -1,9 +1,9 @@
 import{
   createEpBackupBundle,readEpBackupBundleFile,buildBundleProjectRestorePlan
-}from '../backupBundle.js?v=20260930-5';
-import{getEpProjectProfile}from '../projectProfile.js?v=20260930-5';
-import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20260930-5';
-import{crc32Hex}from '../projectRecovery.js?v=20260930-5';
+}from '../backupBundle.js?v=20261001-1';
+import{getEpProjectProfile}from '../projectProfile.js?v=20261001-1';
+import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
+import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
 
 const bytes=value=>value instanceof Uint8Array?value:new Uint8Array(value||[]);
 const safeProject=value=>{

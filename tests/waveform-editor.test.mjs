@@ -110,7 +110,7 @@ test('waveform editor browser modules pass Node syntax checks',async()=>{
 test('waveform UI composes chop core without duplicating transient analysis',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/waveform-editor.js',import.meta.url),'utf8');
-  assert.match(source,/from '.\/audio\/chop\.js\?v=20260930-5'/);
+  assert.match(source,/from '.\/audio\/chop\.js\?v=20261001-1'/);
   assert.match(source,/detectTransientChopCuts\(sourceBuffer,\{slices:chopTarget\}\)/);
   assert.match(source,/buildEvenChopCuts\(sourceBuffer,chopTarget\)/);
   assert.match(source,/renderChopWavs\(sourceBuffer,chopCuts/);

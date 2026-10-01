@@ -2,7 +2,7 @@ import{
   PROJECT_EDITOR_FADER_PARAMS,PROJECT_EDITOR_FX_TYPES,
   createVerifiedProjectEditorDraft,buildVerifiedProjectEditorCandidate,
   summarizeVerifiedProjectChanges
-}from '../projectEditor.js?v=20260930-5';
+}from '../projectEditor.js?v=20261001-1';
 
 const GROUPS=['a','b','c','d'];
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({

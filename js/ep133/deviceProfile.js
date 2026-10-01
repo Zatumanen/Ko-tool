@@ -1,7 +1,7 @@
-import{canWriteCapability}from './capabilityEvidence.js?v=20260930-5';
+import{canWriteCapability}from './capabilityEvidence.js?v=20261001-1';
 import{
   CAPABILITY_KEYS,resolveRegisteredCapabilityEvidence
-}from './evidenceRegistry.js?v=20260930-5';
+}from './evidenceRegistry.js?v=20261001-1';
 
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
 
