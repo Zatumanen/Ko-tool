@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{getEpProjectProfile}from '../js/ep133/projectProfile.js';
-import{parseProjectArchive,readProjectModel}from '../js/ep133/projectReader.js';
+import{readProjectModel}from '../js/ep133/projectReader.js';
 import{
   createVerifiedProjectEditorDraft,buildVerifiedProjectEditorPatch,
   buildVerifiedProjectEditorCandidate,summarizeVerifiedProjectChanges
