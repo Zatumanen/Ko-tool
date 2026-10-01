@@ -306,3 +306,23 @@ test('recovery checkpoint restore refuses firmware drift before mutation',async(
   );
   assert.equal(harness.actions.includes('put'),false);
 });
+
+
+test('recovery checkpoint restore normalizes bare FILE names to Pxx.tar',async()=>{
+  const store=createMemoryProjectRecoveryStore();
+  const original=emptyTar();
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device:{sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'SERIAL-SHOULD-NOT-BE-STORED'}},
+    projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'01',data:original},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+  const harness=makeHarness({recoveryStore:store});
+
+  const result=await harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{
+    performReload:false,requireInactive:false
+  });
+  assert.equal(result.project,'01');
+  assert.equal(harness.actions.includes('put'),true);
+});
