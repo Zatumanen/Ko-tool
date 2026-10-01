@@ -287,3 +287,22 @@ test('recovery checkpoint restore rejects a corrupted original archive before mu
   );
   assert.equal(harness.actions.includes('put'),false);
 });
+
+
+test('recovery checkpoint restore refuses firmware drift before mutation',async()=>{
+  const store=createMemoryProjectRecoveryStore();
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device:{sku:'TE032AS001',metadata:{os_version:'2.4.0',serial:'SERIAL-SHOULD-NOT-BE-STORED'}},
+    projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P01.tar',data:emptyTar()},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+  const harness=makeHarness({recoveryStore:store});
+
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+    /firmware does not match/i
+  );
+  assert.equal(harness.actions.includes('put'),false);
+});
