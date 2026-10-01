@@ -214,6 +214,10 @@ export function createBackupRestoreController({
     if(!info)throw new Error('Connect an EP-series device first.');
     if(bundle.manifest.device?.sku&&String(bundle.manifest.device.sku)!==String(info.sku||'').toUpperCase())
       throw new Error('Backup SKU does not match the connected EP device.');
+    const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+    const profile=getEpProjectProfile(info.sku,firmware);
+    if(!profile.projectAuthoring)
+      throw new Error('Project restore is not hardware-verified for the connected firmware.');
     return withFileTransaction('backup restore preflight',async fileOps=>{
       const root=await fileOps.listDirectory(0,'/');
       const soundsRoot=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
@@ -289,6 +293,8 @@ export function createBackupRestoreController({
     if(!info)throw new Error('Connect an EP-series device first.');
     const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
     const profile=getEpProjectProfile(info.sku,firmware);
+    if(!profile.projectAuthoring)
+      throw new Error('Project restore is not hardware-verified for the connected firmware.');
     const preflight=await withFileTransaction('project restore preflight',async fileOps=>{
       const root=await fileOps.listDirectory(0,'/');
       const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
@@ -403,9 +409,20 @@ export function createBackupRestoreController({
 
   const cleanupRestoredSamples=async slots=>{
     if(!slots.length)return;
-    await withFileTransaction('backup restore cleanup',async fileOps=>{
-      for(const slot of [...slots].reverse())await fileOps.deleteFile(slot);
-    },{strict:true});
+    try{
+      await withFileTransaction('backup restore cleanup',async fileOps=>{
+        for(const slot of [...slots].reverse())await fileOps.deleteFile(slot);
+        const root=await fileOps.listDirectory(0,'/');
+        const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+        const remaining=sounds?await fileOps.listDirectory(sounds.nodeId,'/sounds'):[];
+        const occupied=new Set(remaining.map(item=>Number(item.nodeId)));
+        const failed=slots.filter(slot=>occupied.has(Number(slot)));
+        if(failed.length)throw new Error('Restore cleanup left sample slot(s): '+failed.map(pad).join(', '));
+      },{strict:true});
+    }catch(error){
+      markDeviceUnsafe('Backup restore cleanup failed: '+String(error?.message||error));
+      throw error;
+    }
   };
 
   const executeRestore=async()=>{
@@ -541,7 +558,7 @@ export function createBackupRestoreController({
   };
 
   openButton?.addEventListener('click',()=>{void open('backup');});
-  recoveryButton?.addEventListener('click',()=>{void open('recovery');});
+  recoveryButton?.addEventListener('click',()=>{void open('recovery').catch(error=>reportError('COULD NOT READ RECOVERY CHECKPOINTS.',error));});
   closeButton?.addEventListener('click',close);
   backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportError('PROJECT BACKUP FAILED.',error)));
   backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportError('PROJECT + SAMPLES BACKUP FAILED.',error)));
