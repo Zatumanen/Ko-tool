@@ -158,7 +158,7 @@ export async function renderWaveformEdit(buffer,{
     sourceMetadata,buffer,selection,edited.length,{playmode:playmode||sourceMetadata['sound.playmode']||'oneshot'}
   );
   const blob=await encodeReferenceEpWav(edited,{
-    name:'waveform-edit.wav',metadata:resolvedMetadata,referenceModuleProvider
+    name:'waveform-edit.wav',metadata:resolvedMetadata,moduleProvider:referenceModuleProvider
   });
   return{
     buffer:edited,blob,metadata:Object.freeze({...resolvedMetadata}),epStorage:measureEpStorage(edited),
