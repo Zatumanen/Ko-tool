@@ -38,10 +38,12 @@ test('sample recovery verifies authoritative device state and only clears warnin
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('DELETE-NOT-VISIBLE');
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('007');
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('PRESENT');
-  const before=await page.evaluate(()=>window.__fakeEp?.commands?.length||0);
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
   await page.locator('#ep133-sample-recovery-ack').click();
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('ACKNOWLEDGED');
   await expect(page.locator('[data-workspace-recovery]'),{timeout:6000}).toHaveText('RECOVERY · NONE');
-  const mutations=await page.evaluate(start=>(window.__fakeEp?.commands||[]).slice(start).filter(item=>['FILE_PUT','FILE_DELETE','FILE_MOVE','METADATA_SET'].includes(item?.name)),before);
+  const mutations=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ),before);
   expect(mutations).toEqual([]);
 });
