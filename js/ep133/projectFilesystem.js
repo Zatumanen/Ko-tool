@@ -315,11 +315,40 @@ export function createProjectFilesystem({
   }={})=>runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     assertProjectRuntimeSettled('project write');
     const prepared=await readProjectWriteCandidate(file);
-    const{project,data,deviceInfo,profile}=prepared;
-    const preflight=await resolveProjectWritePreflight({
-      project,data,profile,requireInactive,expectedActiveProjectFid
-    });
-    const{parent,destination,backup,sampleDependencies,activeProjectBeforeWrite}=preflight;
+    const{project,data,deviceInfo}=prepared;
+    const profile=connectedProjectProfile('transport');
+    if(profile.projectAuthoring)validateProjectArchive(data,{profile});
+    else parseProjectArchive(data);
+
+    await initRead();
+    const root=await listDirectory(0,'/');
+    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    if(!parent)throw new Error('EP-series /projects node is not available.');
+    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+    const occupiedSampleSlots=sounds
+      ?(await listDirectory(sounds.nodeId,'/sounds'))
+        .map(item=>Number(item.nodeId))
+        .filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
+      :[];
+    const sampleDependencies=profile.projectAuthoring
+      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
+      :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
+    const projects=await listDirectory(parent.nodeId,'/projects');
+    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
+    const backup=await getFile(destination.nodeId);
+    if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
+    else parseProjectArchive(backup.data);
+    let activeProjectBeforeWrite=null;
+    if(requireInactive||expectedActiveProjectFid!=null){
+      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
+        destinationFid:destination.nodeId,
+        activeProjectFid:await getActiveNode(parent.nodeId),
+        requireInactive,
+        expectedActiveProjectFid
+      });
+    }
+
     const candidateCrc32=crc32Hex(data);
     const originalCrc32=crc32Hex(backup.data);
     if(expectedCandidateCrc32!=null&&!crcEqual(candidateCrc32,expectedCandidateCrc32))
