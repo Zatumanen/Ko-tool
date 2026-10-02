@@ -13,6 +13,7 @@ import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFile
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
+import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
 export{
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -51,13 +52,21 @@ const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(a
   putFile:fileOps.putFile,setFileMetadata:fileOps.setFileMetadata,initFileSystem:fileOps.initFileSystem
 });
 const sampleFileOps=fileOps=>Object.freeze({...fileOps,uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)});
+const structuredFileError=(error,label)=>toStructuredEpError(error,{
+  code:isDeviceUnsafe()?EP_ERROR_CODE.FILE_SAFETY_LOCK:EP_ERROR_CODE.FILE_OPERATION_FAILED,
+  category:isDeviceUnsafe()?EP_ERROR_CATEGORY.SAFETY:EP_ERROR_CATEGORY.TRANSPORT,
+  recovery:isDeviceUnsafe()?'Power-cycle the device, then reload before sending more FILE traffic.':null,
+  details:{operation:String(label||'FILE transaction')}
+});
 
 export function withFileTransaction(label,operation,{strict=false}={}){
   if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
   return withFileTransportTransaction(label,async fileOps=>{
-    if(strict)await sampleDependencyGuard.assertOperationSafe(fileOps,operation);
-    const ops=sampleFileOps(fileOps);
-    return strict?sampleTransactionRuntime.run({label,operation,fileOps:ops}):operation(ops);
+    try{
+      if(strict)await sampleDependencyGuard.assertOperationSafe(fileOps,operation);
+      const ops=sampleFileOps(fileOps);
+      return strict?sampleTransactionRuntime.run({label,operation,fileOps:ops}):operation(ops);
+    }catch(error){throw structuredFileError(error,label);}
   },{strict});
 }
 
@@ -67,11 +76,12 @@ export function withSampleUploadBatch(operation){
 }
 
 export function uploadSampleToSlot(args){
-  return withFileTransportTransaction('sample upload transaction',fileOps=>
-    sampleTransactionRuntime.run({
-      label:'sample upload transaction',fileOps:sampleFileOps(fileOps),
-      operation:ops=>ops.uploadSampleToSlot(args)
-    }),{strict:true});
+  const label='sample upload transaction';
+  return withFileTransportTransaction(label,async fileOps=>{
+    try{return await sampleTransactionRuntime.run({
+      label,fileOps:sampleFileOps(fileOps),operation:ops=>ops.uploadSampleToSlot(args)
+    });}catch(error){throw structuredFileError(error,label);}
+  },{strict:true});
 }
 
 export function resetFileSystemState(){projectFilesystem.resetProjectRuntime();resetFileTransportState();}
