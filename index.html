@@ -5,7 +5,7 @@
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="css/base.css">
-<link rel="stylesheet" href="css/my-ep.css">
+<link rel="stylesheet" href="css/my-ep.css?v=20261001-1">
 <link rel="stylesheet" href="css/my-ep-projects.css">
 </head>
 <body>
@@ -50,275 +50,26 @@
           <div class="ep133-device-name"><strong id="ep133-device">MY EP</strong></div>
           <div class="ep133-device-stats" aria-label="Device memory, sample count, and MIDI activity">
             <div class="ep133-device-metrics">
-              <div class="ep133-memory-stat">
-                <span>MEMORY</span>
-                <strong id="ep133-memory-stats">—</strong>
-                <div class="ep133-memory-meter" aria-hidden="true"><span id="ep133-memory-meter-fill"></span></div>
-              </div>
+              <div class="ep133-memory-stat"><span>MEMORY</span><strong id="ep133-memory-stats">—</strong><div class="ep133-memory-meter" aria-hidden="true"><span id="ep133-memory-meter-fill"></span></div></div>
               <div class="ep133-sample-stat"><span>SAMPLES</span><strong id="ep133-sample-count">0</strong></div>
             </div>
-            <div class="ep133-midi-activity" aria-label="MIDI activity">
-              <div><span>TX</span><i id="ep133-tx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div>
-              <div><span>RX</span><i id="ep133-rx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div>
-            </div>
+            <div class="ep133-midi-activity" aria-label="MIDI activity"><div><span>TX</span><i id="ep133-tx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div><div><span>RX</span><i id="ep133-rx-indicator" class="ep133-midi-led" aria-hidden="true"></i></div></div>
           </div>
           <div id="ep133-connection-overlay" class="ep133-connection-overlay">CONNECT EP SERIES</div>
         </div>
-
-        <div class="ep133-view-tabs" role="tablist" aria-label="My EP views">
-          <button id="ep133-view-samples" type="button" class="selected" role="tab" aria-selected="true">SAMPLES</button>
-          <button id="ep133-view-projects" type="button" role="tab" aria-selected="false">PROJECTS <span>READ ONLY</span></button>
-        </div>
-
-        <div id="ep133-global-progress" class="ep133-global-progress" hidden>
-          <span id="ep133-global-progress-label">WORKING</span>
-          <div class="ep133-global-progress-track"><span id="ep133-global-progress-fill"></span></div>
-          <strong id="ep133-global-progress-text">0%</strong>
-        </div>
-
-        <section id="ep133-samples-panel" class="ep133-view-panel">
-          <div class="ep133-sample-memory">
-            <div class="ep133-sample-nav">
-              <div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div>
-              <div class="ep133-search-box">
-                <i class="fas fa-search" aria-hidden="true"></i>
-                <input id="ep133-sample-search" type="text" autocomplete="off" aria-label="Search all 999 sample slots">
-                <span id="ep133-search-count" class="ep133-search-count" aria-live="polite" hidden></span>
-                <button id="ep133-search-clear" type="button" title="Clear search" aria-label="Clear search">×</button>
-              </div>
-            </div>
-            <div class="ep133-sample-columns" aria-hidden="true">
-              <span>SLOT</span><span>NAME</span><span>SIZE</span><span>CH</span><span>RATE</span>
-            </div>
-            <div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots">
-              <div class="ep133-empty">Connect an EP-series device to read its sample memory.</div>
-            </div>
-          </div>
-        </section>
-
-        <section id="ep133-projects-panel" class="ep133-view-panel ep133-projects-panel" hidden>
-          <div class="ep-project-browser">
-            <aside class="ep-project-sidebar">
-              <div class="ep-project-toolbar">
-                <strong>PROJECTS</strong>
-                <div class="ep-project-toolbar-actions">
-                  <button id="ep133-project-edit" type="button" disabled>EDIT VERIFIED</button>
-                  <button id="ep133-project-sequencer" type="button" disabled>SEQUENCER</button>
-                  <button id="ep133-project-backup" type="button">BACKUP / RESTORE</button>
-                  <button id="ep133-project-recovery" type="button">RECOVERY</button>
-                  <button id="ep133-project-refresh" type="button">REFRESH</button>
-                </div>
-              </div>
-              <div id="ep133-project-list" class="ep-project-list" aria-label="Device projects">
-                <div class="ep-project-empty">CONNECT EP SERIES</div>
-              </div>
-            </aside>
-            <div id="ep133-project-inspector" class="ep-project-inspector" aria-live="polite">
-              <div class="ep-project-empty">SELECT PROJECT TO INSPECT.</div>
-            </div>
-          </div>
-        </section>
-
+        <div class="ep133-view-tabs" role="tablist" aria-label="My EP views"><button id="ep133-view-samples" type="button" class="selected" role="tab" aria-selected="true">SAMPLES</button><button id="ep133-view-projects" type="button" role="tab" aria-selected="false">PROJECTS <span>READ ONLY</span></button></div>
+        <div id="ep133-global-progress" class="ep133-global-progress" hidden><span id="ep133-global-progress-label">WORKING</span><div class="ep133-global-progress-track"><span id="ep133-global-progress-fill"></span></div><strong id="ep133-global-progress-text">0%</strong></div>
+        <section id="ep133-samples-panel" class="ep133-view-panel"><div class="ep133-sample-memory"><div class="ep133-sample-nav"><div id="ep133-sample-tabs" class="ep133-sample-tabs" aria-label="Sample groups"></div><div class="ep133-search-box"><i class="fas fa-search" aria-hidden="true"></i><input id="ep133-sample-search" type="text" autocomplete="off" aria-label="Search all 999 sample slots"><span id="ep133-search-count" class="ep133-search-count" aria-live="polite" hidden></span><button id="ep133-search-clear" type="button" title="Clear search" aria-label="Clear search">×</button></div></div><div class="ep133-sample-columns" aria-hidden="true"><span>SLOT</span><span>NAME</span><span>SIZE</span><span>CH</span><span>RATE</span></div><div class="ep133-sample-list" id="ep133-sample-list" role="listbox" aria-label="Device sample slots"><div class="ep133-empty">Connect an EP-series device to read its sample memory.</div></div></div></section>
+        <section id="ep133-projects-panel" class="ep133-view-panel ep133-projects-panel" hidden><div class="ep-project-browser"><aside class="ep-project-sidebar"><div class="ep-project-toolbar"><strong>PROJECTS</strong><div class="ep-project-toolbar-actions"><button id="ep133-project-edit" type="button" disabled>EDIT VERIFIED</button><button id="ep133-project-sequencer" type="button" disabled>SEQUENCER</button><button id="ep133-project-backup" type="button">BACKUP / RESTORE</button><button id="ep133-project-recovery" type="button">RECOVERY</button><button id="ep133-project-refresh" type="button">REFRESH</button></div></div><div id="ep133-project-list" class="ep-project-list" aria-label="Device projects"><div class="ep-project-empty">CONNECT EP SERIES</div></div></aside><div id="ep133-project-inspector" class="ep-project-inspector" aria-live="polite"><div class="ep-project-empty">SELECT PROJECT TO INSPECT.</div></div></div></section>
         <div id="ep133-status" class="ep133-visually-hidden" aria-live="polite"></div>
       </div>
-
-      <div id="ep133-properties" class="ep133-properties" role="dialog" aria-label="Sample properties" hidden>
-        <div id="ep133-properties-grid" class="ep133-properties-grid"></div>
-      </div>
+      <div id="ep133-properties" class="ep133-properties" role="dialog" aria-label="Sample properties" hidden><div id="ep133-properties-grid" class="ep133-properties-grid"></div></div>
     </div>
   </div>
 </div>
-
-<div id="ep133-project-editor-dialog" class="ep-project-editor-dialog" role="dialog" aria-modal="true" aria-label="Verified Project Editor" hidden>
-  <div class="ep-project-editor-window">
-    <div class="title-bar ep-project-editor-title">
-      <span>VERIFIED PROJECT EDITOR · <b data-editor-project>P??</b></span>
-      <button id="ep133-project-editor-close" type="button" aria-label="Close">×</button>
-    </div>
-    <div class="ep-project-editor-body">
-      <div class="ep-project-editor-evidence" data-editor-evidence></div>
-      <div class="ep-project-editor-warning">
-        VERIFIED FIELDS ONLY · INACTIVE PROJECTS ONLY · PATTERNS / SCENES / SAMPLE ASSIGNMENTS ARE PRESERVED
-      </div>
-      <form id="ep133-project-editor-form" class="ep-project-editor-form"></form>
-      <div id="ep133-project-editor-summary" class="ep-project-editor-summary"></div>
-      <div class="ep-project-editor-actions">
-        <button id="ep133-project-editor-cancel" type="button">CANCEL</button>
-        <button id="ep133-project-editor-save" type="button" disabled>SAVE VERIFIED CHANGES</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="ep133-sequencer-dialog" class="ep-sequencer-dialog" role="dialog" aria-modal="true" aria-label="Project Sequencer" hidden>
-  <div class="ep-sequencer-window">
-    <div class="title-bar ep-sequencer-title">
-      <span>PROJECT SEQUENCER · <b data-seq-project>P??</b></span>
-      <button id="ep133-sequencer-close" type="button" aria-label="Close">×</button>
-    </div>
-    <div class="ep-sequencer-body">
-      <div class="ep-sequencer-evidence" data-seq-evidence></div>
-      <div class="ep-sequencer-warning">
-        VERIFIED NATIVE PATTERN EDITOR · INACTIVE PROJECTS ONLY · RAW TICKS ARE PRESERVED
-      </div>
-
-      <div class="ep-sequencer-topbar">
-        <label>PATTERN
-          <select id="ep133-seq-pattern" aria-label="Pattern"></select>
-        </label>
-        <label>BARS
-          <input id="ep133-seq-bars" type="number" min="1" max="99" step="1" value="1">
-        </label>
-        <button id="ep133-seq-prev-page" type="button">◀</button>
-        <strong id="ep133-seq-page-label">PAGE 1</strong>
-        <button id="ep133-seq-next-page" type="button">▶</button>
-        <label>DEFAULT VEL
-          <input id="ep133-seq-default-velocity" type="number" min="1" max="127" step="1" value="100">
-        </label>
-        <label>DEFAULT DUR
-          <input id="ep133-seq-default-duration" type="number" min="1" max="65535" step="1" value="24">
-        </label>
-      </div>
-
-      <div id="ep133-seq-pattern-summary" class="ep-sequencer-pattern-summary"></div>
-      <div id="ep133-seq-grid" class="ep-sequencer-grid" aria-label="24 tick note grid"></div>
-
-      <div class="ep-sequencer-split">
-        <section class="ep-sequencer-section">
-          <h3>RAW NOTE EVENTS</h3>
-          <div class="ep-sequencer-add-row">
-            <label>TICK<input data-seq-note-tick type="number" min="0" max="65535" value="0"></label>
-            <label>PAD<input data-seq-note-pad type="number" min="1" max="12" value="1"></label>
-            <label>PITCH<input data-seq-note-pitch type="number" min="0" max="127" value="60"></label>
-            <label>VEL<input data-seq-note-velocity type="number" min="1" max="127" value="100"></label>
-            <label>DUR<input data-seq-note-duration type="number" min="1" max="65535" value="24"></label>
-            <button type="button" data-seq-add-note>ADD NOTE</button>
-          </div>
-          <div id="ep133-seq-notes" class="ep-sequencer-events"></div>
-        </section>
-
-        <section class="ep-sequencer-section">
-          <h3>AUTOMATION</h3>
-          <div class="ep-sequencer-add-row">
-            <label>TICK<input data-seq-auto-tick type="number" min="0" max="65535" value="0"></label>
-            <label>PARAM
-              <select data-seq-auto-param>
-                <option value="0">0 LVL</option><option value="1">1 PTC</option>
-                <option value="2">2 TIM</option><option value="3">3 LPF</option>
-                <option value="4">4 HPF</option><option value="5">5 FX</option>
-                <option value="6">6 ATK</option><option value="7">7 REL</option>
-                <option value="8">8 PAN</option><option value="9">9 TUNE</option>
-                <option value="10">10 VEL</option><option value="11">11 MOD</option>
-              </select>
-            </label>
-            <label>VALUE<input data-seq-auto-value type="number" min="0" max="32767" value="16384"></label>
-            <button type="button" data-seq-add-auto>ADD AUTO</button>
-          </div>
-          <div id="ep133-seq-automation" class="ep-sequencer-events"></div>
-        </section>
-      </div>
-
-      <div class="ep-sequencer-split">
-        <section class="ep-sequencer-section">
-          <h3>CREATE PATTERN</h3>
-          <div class="ep-sequencer-add-row">
-            <label>ID<input id="ep133-seq-new-pattern" type="text" maxlength="3" placeholder="A02"></label>
-            <label>BARS<input id="ep133-seq-new-pattern-bars" type="number" min="1" max="99" value="1"></label>
-            <button id="ep133-seq-create-pattern" type="button">CREATE</button>
-          </div>
-        </section>
-
-        <section class="ep-sequencer-section">
-          <h3>SCENE</h3>
-          <div class="ep-sequencer-scene-grid">
-            <label>SCENE<input id="ep133-seq-scene-index" type="number" min="1" max="99" value="1"></label>
-            <label>A<input id="ep133-seq-scene-a" type="number" min="0" max="99" value="1"></label>
-            <label>B<input id="ep133-seq-scene-b" type="number" min="0" max="99" value="1"></label>
-            <label>C<input id="ep133-seq-scene-c" type="number" min="0" max="99" value="1"></label>
-            <label>D<input id="ep133-seq-scene-d" type="number" min="0" max="99" value="1"></label>
-            <label>NUM<input id="ep133-seq-scene-num" type="number" min="1" max="255" value="4"></label>
-            <label>DEN<input id="ep133-seq-scene-den" type="number" min="1" max="255" value="4"></label>
-            <button id="ep133-seq-apply-scene" type="button">STAGE SCENE</button>
-          </div>
-        </section>
-      </div>
-
-      <section class="ep-sequencer-section">
-        <h3>SONG</h3>
-        <div class="ep-sequencer-song-row">
-          <label>CURRENT SCENE<input id="ep133-seq-current-scene" type="number" min="1" max="99" value="1"></label>
-          <label>SONG SCENES<input id="ep133-seq-song" type="text" placeholder="1,2,3,1"></label>
-          <button id="ep133-seq-apply-song" type="button">STAGE SONG</button>
-        </div>
-      </section>
-
-      <div class="ep-sequencer-actions">
-        <button id="ep133-seq-cancel" type="button">CANCEL</button>
-        <button id="ep133-seq-save" type="button" disabled>SAVE SEQUENCER</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="ep133-backup-dialog" class="ep-backup-dialog" role="dialog" aria-modal="true" aria-label="Backup and restore" hidden>
-  <div class="ep-backup-window">
-    <div class="title-bar ep-backup-title">
-      <span>MY EP · BACKUP / RESTORE</span>
-      <button id="ep133-backup-close" type="button" aria-label="Close">×</button>
-    </div>
-    <div class="ep-backup-body">
-      <section class="ep-backup-section" data-backup-panel>
-        <h3>BACKUP</h3>
-        <div class="ep-backup-actions">
-          <button id="ep133-backup-project" type="button">PROJECT .TAR</button>
-          <button id="ep133-backup-project-samples" type="button">PROJECT + SAMPLES .ZIP</button>
-          <button id="ep133-backup-device" type="button">WHOLE DEVICE .ZIP</button>
-        </div>
-        <p>Backups are read-only operations. Whole-device backup includes all visible project archives and sample files.</p>
-      </section>
-
-      <section class="ep-backup-section" data-restore-panel>
-        <h3>RESTORE</h3>
-        <div class="ep-backup-file-row">
-          <input id="ep133-restore-file" type="file" accept=".tar,.zip,application/x-tar,application/zip">
-          <select id="ep133-restore-project-select" hidden aria-label="Project from backup"></select>
-        </div>
-        <div id="ep133-restore-summary" class="ep-backup-summary"></div>
-        <div class="ep-backup-footer">
-          <button id="ep133-restore-run" type="button" disabled>RUN SAFE RESTORE</button>
-        </div>
-      </section>
-
-      <section class="ep-backup-section ep-recovery-section" data-recovery-panel>
-        <h3>RECOVERY CHECKPOINTS</h3>
-        <div class="ep-recovery-layout">
-          <div id="ep133-recovery-list" class="ep-recovery-list"></div>
-          <div class="ep-recovery-inspector">
-            <div id="ep133-recovery-detail" class="ep-recovery-detail"></div>
-            <div class="ep-recovery-actions">
-              <button id="ep133-recovery-restore" type="button" disabled>RESTORE ORIGINAL</button>
-              <button id="ep133-recovery-download" type="button" disabled>DOWNLOAD ORIGINAL</button>
-              <button id="ep133-recovery-delete" type="button" disabled>DELETE CHECKPOINT</button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  </div>
-</div>
-
-<div id="ep133-confirm-dialog" class="ep133-confirm-dialog" role="alertdialog" aria-modal="true" hidden>
-  <div class="ep133-confirm-window">
-    <div class="title-bar"><span>MY EP</span></div>
-    <div class="ep133-confirm-body">
-      <div class="ep133-confirm-message"><span class="error-icon">!</span><span id="ep133-confirm-message"></span></div>
-      <div class="ep133-confirm-actions">
-        <button id="ep133-confirm-ok" type="button">OK</button>
-        <button id="ep133-confirm-cancel" type="button">CANCEL</button>
-      </div>
-    </div>
-  </div>
-</div>
+<div id="ep133-project-editor-dialog" class="ep-project-editor-dialog" role="dialog" aria-modal="true" aria-label="Verified Project Editor" hidden><div class="ep-project-editor-window"><div class="title-bar ep-project-editor-title"><span>VERIFIED PROJECT EDITOR · <b data-editor-project>P??</b></span><button id="ep133-project-editor-close" type="button" aria-label="Close">×</button></div><div class="ep-project-editor-body"><div class="ep-project-editor-evidence" data-editor-evidence></div><div class="ep-project-editor-warning">VERIFIED FIELDS ONLY · INACTIVE PROJECTS ONLY · PATTERNS / SCENES / SAMPLE ASSIGNMENTS ARE PRESERVED</div><form id="ep133-project-editor-form" class="ep-project-editor-form"></form><div id="ep133-project-editor-summary" class="ep-project-editor-summary"></div><div class="ep-project-editor-actions"><button id="ep133-project-editor-cancel" type="button">CANCEL</button><button id="ep133-project-editor-save" type="button" disabled>SAVE VERIFIED CHANGES</button></div></div></div></div>
+<div id="ep133-sequencer-dialog" class="ep-sequencer-dialog" role="dialog" aria-modal="true" aria-label="Project Sequencer" hidden><div class="ep-sequencer-window"><div class="title-bar ep-sequencer-title"><span>PROJECT SEQUENCER · <b data-seq-project>P??</b></span><button id="ep133-sequencer-close" type="button" aria-label="Close">×</button></div><div class="ep-sequencer-body"><div class="ep-sequencer-evidence" data-seq-evidence></div><div class="ep-sequencer-warning">VERIFIED NATIVE PATTERN EDITOR · INACTIVE PROJECTS ONLY · RAW TICKS ARE PRESERVED</div><div class="ep-sequencer-topbar"><label>PATTERN<select id="ep133-seq-pattern" aria-label="Pattern"></select></label><label>BARS<input id="ep133-seq-bars" type="number" min="1" max="99" step="1" value="1"></label><button id="ep133-seq-prev-page" type="button">◀</button><strong id="ep133-seq-page-label">PAGE 1</strong><button id="ep133-seq-next-page" type="button">▶</button><label>DEFAULT VEL<input id="ep133-seq-default-velocity" type="number" min="1" max="127" step="1" value="100"></label><label>DEFAULT DUR<input id="ep133-seq-default-duration" type="number" min="1" max="65535" step="1" value="24"></label></div><div id="ep133-seq-pattern-summary" class="ep-sequencer-pattern-summary"></div><div id="ep133-seq-grid" class="ep-sequencer-grid" aria-label="24 tick note grid"></div><div class="ep-sequencer-split"><section class="ep-sequencer-section"><h3>RAW NOTE EVENTS</h3><div class="ep-sequencer-add-row"><label>TICK<input data-seq-note-tick type="number" min="0" max="65535" value="0"></label><label>PAD<input data-seq-note-pad type="number" min="1" max="12" value="1"></label><label>PITCH<input data-seq-note-pitch type="number" min="0" max="127" value="60"></label><label>VEL<input data-seq-note-velocity type="number" min="1" max="127" value="100"></label><label>DUR<input data-seq-note-duration type="number" min="1" max="65535" value="24"></label><button type="button" data-seq-add-note>ADD NOTE</button></div><div id="ep133-seq-notes" class="ep-sequencer-events"></div></section><section class="ep-sequencer-section"><h3>AUTOMATION</h3><div class="ep-sequencer-add-row"><label>TICK<input data-seq-auto-tick type="number" min="0" max="65535" value="0"></label><label>PARAM<select data-seq-auto-param><option value="0">0 LVL</option><option value="1">1 PTC</option><option value="2">2 TIM</option><option value="3">3 LPF</option><option value="4">4 HPF</option><option value="5">5 FX</option><option value="6">6 ATK</option><option value="7">7 REL</option><option value="8">8 PAN</option><option value="9">9 TUNE</option><option value="10">10 VEL</option><option value="11">11 MOD</option></select></label><label>VALUE<input data-seq-auto-value type="number" min="0" max="32767" value="16384"></label><button type="button" data-seq-add-auto>ADD AUTO</button></div><div id="ep133-seq-automation" class="ep-sequencer-events"></div></section></div><div class="ep-sequencer-split"><section class="ep-sequencer-section"><h3>CREATE PATTERN</h3><div class="ep-sequencer-add-row"><label>ID<input id="ep133-seq-new-pattern" type="text" maxlength="3" placeholder="A02"></label><label>BARS<input id="ep133-seq-new-pattern-bars" type="number" min="1" max="99" value="1"></label><button id="ep133-seq-create-pattern" type="button">CREATE</button></div></section><section class="ep-sequencer-section"><h3>SCENE</h3><div class="ep-sequencer-scene-grid"><label>SCENE<input id="ep133-seq-scene-index" type="number" min="1" max="99" value="1"></label><label>A<input id="ep133-seq-scene-a" type="number" min="0" max="99" value="1"></label><label>B<input id="ep133-seq-scene-b" type="number" min="0" max="99" value="1"></label><label>C<input id="ep133-seq-scene-c" type="number" min="0" max="99" value="1"></label><label>D<input id="ep133-seq-scene-d" type="number" min="0" max="99" value="1"></label><label>NUM<input id="ep133-seq-scene-num" type="number" min="1" max="255" value="4"></label><label>DEN<input id="ep133-seq-scene-den" type="number" min="1" max="255" value="4"></label><button id="ep133-seq-apply-scene" type="button">STAGE SCENE</button></div></section></div><section class="ep-sequencer-section"><h3>SONG</h3><div class="ep-sequencer-song-row"><label>CURRENT SCENE<input id="ep133-seq-current-scene" type="number" min="1" max="99" value="1"></label><label>SONG SCENES<input id="ep133-seq-song" type="text" placeholder="1,2,3,1"></label><button id="ep133-seq-apply-song" type="button">STAGE SONG</button></div></section><div class="ep-sequencer-actions"><button id="ep133-seq-cancel" type="button">CANCEL</button><button id="ep133-seq-save" type="button" disabled>SAVE SEQUENCER</button></div></div></div></div>
+<div id="ep133-backup-dialog" class="ep-backup-dialog" role="dialog" aria-modal="true" aria-label="Backup and restore" hidden><div class="ep-backup-window"><div class="title-bar ep-backup-title"><span>MY EP · BACKUP / RESTORE</span><button id="ep133-backup-close" type="button" aria-label="Close">×</button></div><div class="ep-backup-body"><section class="ep-backup-section" data-backup-panel><h3>BACKUP</h3><div class="ep-backup-actions"><button id="ep133-backup-project" type="button">PROJECT .TAR</button><button id="ep133-backup-project-samples" type="button">PROJECT + SAMPLES .ZIP</button><button id="ep133-backup-device" type="button">WHOLE DEVICE .ZIP</button></div><p>Backups are read-only operations. Whole-device backup includes all visible project archives and sample files.</p></section><section class="ep-backup-section" data-restore-panel><h3>RESTORE</h3><div class="ep-backup-file-row"><input id="ep133-restore-file" type="file" accept=".tar,.zip,application/x-tar,application/zip"><select id="ep133-restore-project-select" hidden aria-label="Project from backup"></select></div><div id="ep133-restore-summary" class="ep-backup-summary"></div><div class="ep-backup-footer"><button id="ep133-restore-run" type="button" disabled>RUN SAFE RESTORE</button></div></section><section class="ep-backup-section ep-recovery-section" data-recovery-panel><h3>RECOVERY CHECKPOINTS</h3><div class="ep-recovery-layout"><div id="ep133-recovery-list" class="ep-recovery-list"></div><div class="ep-recovery-inspector"><div id="ep133-recovery-detail" class="ep-recovery-detail"></div><div class="ep-recovery-actions"><button id="ep133-recovery-restore" type="button" disabled>RESTORE ORIGINAL</button><button id="ep133-recovery-download" type="button" disabled>DOWNLOAD ORIGINAL</button><button id="ep133-recovery-delete" type="button" disabled>DELETE CHECKPOINT</button></div></div></div></section></div></div></div>
+<div id="ep133-confirm-dialog" class="ep133-confirm-dialog" role="alertdialog" aria-modal="true" hidden><div class="ep133-confirm-window"><div class="title-bar"><span>MY EP</span></div><div class="ep133-confirm-body"><div class="ep133-confirm-message"><span class="error-icon">!</span><span id="ep133-confirm-message"></span></div><div class="ep133-confirm-actions"><button id="ep133-confirm-ok" type="button">OK</button><button id="ep133-confirm-cancel" type="button">CANCEL</button></div></div></div></div>
 <script type="module" src="js/app.js?v=20261001-1"></script>
-
 </body></html>
