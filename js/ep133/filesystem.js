@@ -12,6 +12,7 @@ import{
 import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20261001-1';
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
+import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
 
 export{
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -31,6 +32,7 @@ export{
 
 const projectRecoveryStore=createBrowserProjectRecoveryStore();
 const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
+const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
@@ -48,15 +50,14 @@ const projectFilesystem=createProjectFilesystem({
 const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(args,{
   putFile:fileOps.putFile,setFileMetadata:fileOps.setFileMetadata,initFileSystem:fileOps.initFileSystem
 });
+const sampleFileOps=fileOps=>Object.freeze({...fileOps,uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)});
 
 export function withFileTransaction(label,operation,{strict=false}={}){
   if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
   return withFileTransportTransaction(label,async fileOps=>{
     if(strict)await sampleDependencyGuard.assertOperationSafe(fileOps,operation);
-    return operation(Object.freeze({
-      ...fileOps,
-      uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)
-    }));
+    const ops=sampleFileOps(fileOps);
+    return strict?sampleTransactionRuntime.run({label,operation,fileOps:ops}):operation(ops);
   },{strict});
 }
 
@@ -66,7 +67,11 @@ export function withSampleUploadBatch(operation){
 }
 
 export function uploadSampleToSlot(args){
-  return withFileTransportTransaction('sample upload transaction',fileOps=>sampleUploadForTransport(args,fileOps),{strict:true});
+  return withFileTransportTransaction('sample upload transaction',fileOps=>
+    sampleTransactionRuntime.run({
+      label:'sample upload transaction',fileOps:sampleFileOps(fileOps),
+      operation:ops=>ops.uploadSampleToSlot(args)
+    }),{strict:true});
 }
 
 export function resetFileSystemState(){projectFilesystem.resetProjectRuntime();resetFileTransportState();}
@@ -84,5 +89,8 @@ export const listProjectRecoveryCheckpoints=()=>projectFilesystem.listProjectRec
 export const deleteProjectRecoveryCheckpoint=id=>projectFilesystem.deleteProjectRecoveryCheckpoint(id);
 export const getProjectTransactionJournal=id=>projectFilesystem.getProjectTransactionJournal(id);
 export const restoreProjectRecoveryCheckpoint=(id,options={})=>projectFilesystem.restoreProjectRecoveryCheckpoint(id,options);
+export const getSampleRecoveryTransaction=id=>sampleTransactionRuntime.getTransaction(id);
+export const listSampleRecoveryTransactions=()=>sampleTransactionRuntime.listTransactions();
+export const deleteSampleRecoveryTransaction=id=>sampleTransactionRuntime.deleteTransaction(id);
 
 onConnectionChange(({connected})=>{if(!connected)projectFilesystem.resetProjectRuntime();});
