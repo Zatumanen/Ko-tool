@@ -57,6 +57,10 @@ const normalizedCode=value=>{
   const code=String(value||EP_ERROR_CODE.UNKNOWN).trim().toUpperCase();
   return /^EP_[A-Z0-9_]+$/.test(code)?code:EP_ERROR_CODE.UNKNOWN;
 };
+const inheritedCode=(error,fallback)=>{
+  const code=normalizedCode(error?.code);
+  return code!==EP_ERROR_CODE.UNKNOWN?code:normalizedCode(fallback);
+};
 
 export class EPStructuredError extends Error{
   constructor(message,{
@@ -100,13 +104,15 @@ export function toStructuredEpError(error,{
 }={}){
   if(isStructuredEpError(error))return error;
   const message=String(error?.message||error||'EP-series operation failed.');
-  return new EPStructuredError(message,{code,category,retryable,recovery,details,cause:error,name});
+  return new EPStructuredError(message,{
+    code:inheritedCode(error,code),category,retryable,recovery,details,cause:error,name
+  });
 }
 
-export function serializeEpError(error,{includeStack=false}={}){
+export function serializeEpError(error,{includeStack=false,category=EP_ERROR_CATEGORY.INTERNAL}={}){
   const structured=isStructuredEpError(error)
     ?error
-    :toStructuredEpError(error);
+    :toStructuredEpError(error,{code:inheritedCode(error,EP_ERROR_CODE.UNKNOWN),category});
   const record={
     name:String(structured.name||'EPStructuredError'),
     code:normalizedCode(structured.code),
