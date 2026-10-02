@@ -10,6 +10,9 @@ import{
   uploadSampleToSlotWithTransport
 }from './sampleFilesystem.js?v=20261001-1';
 import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20261001-1';
+import{assertProjectTransportSupported}from './projectProfile.js?v=20261001-1';
+import{readProjectModel}from './projectReader.js?v=20261001-1';
+import{buildSampleDependencyIndex,assertSampleSlotsUnreferenced}from './projectDependencies.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 
 export{
@@ -54,12 +57,58 @@ const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(a
   initFileSystem:fileOps.initFileSystem
 });
 
-export function withFileTransaction(label,operation,{strict=false}={}){
+const normalizeDependencySlots=values=>[...new Set(
+  Array.from(values||[],Number).filter(value=>Number.isInteger(value)&&value>=1&&value<=999)
+)].sort((a,b)=>a-b);
+
+const connectedDependencyProfile=()=>{
+  const info=getConnectedDeviceInfo();
+  if(!info)throw new Error('EP-series device is not connected.');
+  const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+  const profile=assertProjectTransportSupported(info.sku,firmware);
+  if(profile.id!=='ep133'&&profile.id!=='ep40')
+    throw new Error('Sample dependency indexing is enabled only for EP-133 and EP-40.');
+  return profile;
+};
+
+const buildDeviceSampleDependencyIndex=async fileOps=>{
+  const profile=connectedDependencyProfile();
+  const root=await fileOps.listDirectory(0,'/');
+  const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+  if(!parent)throw new Error('EP-series /projects node is not available for sample dependency preflight.');
+  const projects=(await fileOps.listDirectory(parent.nodeId,'/projects'))
+    .filter(item=>item.fileType==='folder'&&/^\/projects\/\d{2}$/.test(item.fileName))
+    .sort((a,b)=>a.fileName.localeCompare(b.fileName));
+  const results=[];
+  for(const node of projects){
+    const archive=await fileOps.getFile(node.nodeId);
+    results.push({
+      project:node.fileName.slice(-2),
+      nodeId:node.nodeId,
+      active:false,
+      model:readProjectModel(archive.data,{profile})
+    });
+  }
+  return buildSampleDependencyIndex(results);
+};
+
+export function withFileTransaction(label,operation,{
+  strict=false,
+  sampleDependencySlots=null,
+  sampleDependencyOperation='modify'
+}={}){
   if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
-  return withFileTransportTransaction(label,fileOps=>operation(Object.freeze({
-    ...fileOps,
-    uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)
-  })),{strict});
+  const dependencySlots=normalizeDependencySlots(sampleDependencySlots);
+  return withFileTransportTransaction(label,async fileOps=>{
+    if(strict&&dependencySlots.length){
+      const dependencyIndex=await buildDeviceSampleDependencyIndex(fileOps);
+      assertSampleSlotsUnreferenced(dependencyIndex,dependencySlots,{operation:sampleDependencyOperation});
+    }
+    return operation(Object.freeze({
+      ...fileOps,
+      uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)
+    }));
+  },{strict});
 }
 
 export function withSampleUploadBatch(operation){

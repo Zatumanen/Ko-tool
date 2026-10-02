@@ -9,8 +9,12 @@ export function createSampleDeleteController({
   assertSlotsDeleted,renderDeviceStats,
   readDevice,logTechnical
 }={}){
-  const runDeleteTransaction=operation=>typeof withFileTransaction==='function'
-    ?withFileTransaction('sample delete transaction',operation,{strict:true})
+  const runDeleteTransaction=(operation,slots=[])=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample delete transaction',operation,{
+      strict:true,
+      sampleDependencySlots:slots,
+      sampleDependencyOperation:'delete'
+    })
     :operation({getFileInfo,getFileMetadata,deleteFile});
   const assertDeleteTargetUnchanged=async(slot,fileOps=null)=>{
     const soundsParentId=Number(getSoundsParentId())||0;
@@ -73,7 +77,7 @@ export function createSampleDeleteController({
       await assertSlotsDeleted(canonicalTargets.map(slot=>slot.id),fileOps);
       renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
       return true;
-      });
+      },canonicalTargets.map(slot=>slot.id));
     }catch(error){
       if(isConnected()&&getDeviceSessionToken()===sessionToken){
         try{

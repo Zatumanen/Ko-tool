@@ -26,8 +26,12 @@ export function createSampleMoveController({
     renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
   };
 
-  const runMoveTransaction=operation=>typeof withFileTransaction==='function'
-    ?withFileTransaction('sample move transaction',operation,{strict:true})
+  const runMoveTransaction=(operation,slots=[])=>typeof withFileTransaction==='function'
+    ?withFileTransaction('sample move transaction',operation,{
+      strict:true,
+      sampleDependencySlots:slots,
+      sampleDependencyOperation:'move'
+    })
     :operation({moveFile});
   const nativeMoveTransfer=async(plan,sourceById)=>{
     const completed=[];
@@ -114,7 +118,7 @@ export function createSampleMoveController({
       sampleStore.clearOperations();
       throw error;
         }
-      });
+      },plan.map(pair=>pair.sourceId));
     }catch(error){
       if(needsResync&&isConnected()&&getDeviceSessionToken()===sessionToken){
         try{await readDevice();}
