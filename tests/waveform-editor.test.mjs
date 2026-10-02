@@ -16,7 +16,8 @@ globalThis.AudioBuffer=TestAudioBuffer;
 
 const{
   clampWaveformSelection,cropAudioBuffer,audioBufferPeak,gainDbToLinear,
-  applyGainToAudioBuffer,normalizeAudioBufferPeak,buildWaveformPeaks,renderWaveformEdit
+  applyGainToAudioBuffer,normalizeAudioBufferPeak,buildWaveformPeaks,
+  prepareWaveformEditMetadata,renderWaveformEdit
 }=await import('../js/audio/waveform-editor.js');
 
 const make=(length=100,channels=1,sampleRate=100)=>{
@@ -87,6 +88,8 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
   assert.equal(edited.edit.end,.75);
   assert.equal(edited.edit.gainDb,6);
   assert.equal(edited.edit.normalize,true);
+  assert.equal(edited.metadata['sound.playmode'],'loop');
+  assert.equal(edited.metadata['sound.pitch'],-12);
   assert.ok(audioBufferPeak(edited.buffer)<=1);
 
   const bytes=new Uint8Array(await edited.blob.arrayBuffer());
@@ -97,22 +100,65 @@ test('waveform edit renders cropped 16-bit EP-ready WAV with gain/normalize meta
   assert.equal(view.getUint32(bytes.findIndex((_,i)=>String.fromCharCode(...bytes.slice(i,i+4))==='data')+4,true),100);
 });
 
+test('waveform crop preserves EP metadata while rebasing loop, sample and region positions',()=>{
+  const buffer=make(100,1,100);
+  const selection=clampWaveformSelection(buffer,.25,.75);
+  const metadata=prepareWaveformEditMetadata({
+    'sound.playmode':'loop','sound.pitch':2,'sound.rootnote':64,
+    'sound.loopstart':20,'sound.loopend':80,
+    'sample.start':10,'sample.end':90,'sample.mode':'multi',
+    regions:[
+      {'sample.start':30,'sample.end':70,label:'inside'},
+      {'sample.start':0,'sample.end':20,label:'outside'}
+    ]
+  },buffer,selection,50);
+  assert.equal(metadata['sound.playmode'],'loop');
+  assert.equal(metadata['sound.pitch'],2);
+  assert.equal(metadata['sound.rootnote'],64);
+  assert.equal(metadata['sound.loopstart'],0);
+  assert.equal(metadata['sound.loopend'],50);
+  assert.equal(metadata['sample.start'],0);
+  assert.equal(metadata['sample.end'],50);
+  assert.equal(metadata['sample.mode'],'multi');
+  assert.deepEqual(metadata.regions,[{'sample.start':5,'sample.end':45,label:'inside'}]);
+});
+
+test('waveform edit preserves source EP playmode and pitch when metadata is supplied',async()=>{
+  const buffer=make(100,1,100);
+  const edited=await renderWaveformEdit(buffer,{
+    start:.1,end:.9,metadata:{'sound.playmode':'loop','sound.pitch':5,'time.mode':'free'},referenceModuleProvider
+  });
+  assert.equal(edited.metadata['sound.playmode'],'loop');
+  assert.equal(edited.metadata['sound.pitch'],5);
+  assert.equal(edited.metadata['time.mode'],'free');
+});
 
 test('waveform editor browser modules pass Node syntax checks',async()=>{
   const{execFileSync}=await import('node:child_process');
   const{fileURLToPath}=await import('node:url');
-  for(const relative of ['../js/waveform-editor.js','../js/audio/audioEngine.js','../js/audio/waveform-editor.js','../js/audio/chop.js','../js/app.js']){
+  for(const relative of [
+    '../js/waveform-editor.js','../js/shared-waveform-editor.js','../js/audio/audioEngine.js',
+    '../js/audio/waveform-editor.js','../js/audio/waveformModel.js','../js/audio/chopEngine.js',
+    '../js/audio/chop.js','../js/ep133/ui/sampleWaveformController.js','../js/ep133/sampleWaveformBootstrap.js','../js/app.js'
+  ]){
     execFileSync(process.execPath,['--check',fileURLToPath(new URL(relative,import.meta.url))],{stdio:'pipe'});
   }
 });
 
-
-test('waveform UI composes chop core without duplicating transient analysis',async()=>{
+test('SpeedUpperCut and My EP compose one shared waveform/chop editor without duplicating transient analysis',async()=>{
   const fs=await import('node:fs/promises');
-  const source=await fs.readFile(new URL('../js/waveform-editor.js',import.meta.url),'utf8');
-  assert.match(source,/from '.\/audio\/chop\.js\?v=20261001-1'/);
-  assert.match(source,/detectTransientChopCuts\(sourceBuffer,\{slices:chopTarget\}\)/);
-  assert.match(source,/buildEvenChopCuts\(sourceBuffer,chopTarget\)/);
-  assert.match(source,/renderChopWavs\(sourceBuffer,chopCuts/);
-  assert.doesNotMatch(source,/rmsWindowMs|baselineMs|attackBacktrackRatio/);
+  const [wrapper,shared,model,chop,controller]=await Promise.all([
+    fs.readFile(new URL('../js/waveform-editor.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/shared-waveform-editor.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/audio/waveformModel.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/audio/chopEngine.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/ui/sampleWaveformController.js',import.meta.url),'utf8')
+  ]);
+  assert.match(wrapper,/openSharedWaveformEditor/);
+  assert.match(shared,/createWaveformModel/);
+  assert.match(shared,/renderChopWavs/);
+  assert.match(model,/detectTransientChopCuts/);
+  assert.match(controller,/openSharedWaveformEditor/);
+  assert.doesNotMatch(shared,/rmsWindowMs|baselineMs|attackBacktrackRatio/);
+  assert.match(chop,/rmsWindowMs:20/);
 });
