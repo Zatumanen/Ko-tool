@@ -2,6 +2,7 @@ import{
   SEQUENCER_GRID_TICKS,SEQUENCER_GRID_STEPS,
   getProjectSequencerAvailability,createProjectSequencerSession,summarizeSequencerPattern
 }from '../projectSequencerUi.js?v=20261001-1';
+import{formatProjectWriteDiffPreview}from '../projectWriteDiff.js?v=20261001-1';
 
 const GROUPS=['A','B','C','D'];
 const FADER_PARAMS=['LVL','PTC','TIM','LPF','HPF','FX','ATK','REL','PAN','TUNE','VEL','MOD'];
@@ -372,17 +373,24 @@ export function createProjectSequencerController({
     let built;
     try{built=session.build();}catch(error){reportError('SEQUENCER BUILD FAILED.',error);return;}
     if(!built.changed)return;
-    const ok=await confirmAction(
-      'Write sequencer changes to inactive project P'+result.project+
-      '? A recovery checkpoint will be created and the archive will be read back for verification.'
-    );
-    if(!ok)return;
-    setBusy(true);setGlobalProgress('SEQUENCER PRECHECK',10);
+    setBusy(true);setGlobalProgress('SEQUENCER PREVIEW',10);
     try{
+      if(typeof uploadProjectArchive.preview!=='function')
+        throw new Error('Project write diff preview is unavailable.');
+      const file=projectFile(result.project,built.archive);
+      const preview=await uploadProjectArchive.preview(file,{requireInactive:true});
+      setGlobalProgress('SEQUENCER DIFF',24);
+      const ok=await confirmAction(
+        formatProjectWriteDiffPreview(preview,{label:'SEQUENCER'})+
+        ' · CONTINUE? A RECOVERY CHECKPOINT WILL BE CREATED BEFORE FILE PUT AND THE ARCHIVE WILL BE READ BACK.'
+      );
+      if(!ok){setStatus('PROJECT P'+result.project+' · SEQUENCER CANCELLED');return;}
       setGlobalProgress('SEQUENCER WRITE',42);
-      await uploadProjectArchive(projectFile(result.project,built.archive),{
+      await uploadProjectArchive(file,{
         requireInactive:true,
-        performReload:false
+        performReload:false,
+        expectedOriginalCrc32:preview.original.crc32,
+        expectedCandidateCrc32:preview.candidate.crc32
       });
       dialog.hidden=true;session=null;selectedPattern=null;page=0;
       setGlobalProgress('SEQUENCER VERIFY',94);

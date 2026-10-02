@@ -2,6 +2,7 @@ import{TE_SYSEX_FILE_CAPABILITY_READ}from './constants.js';
 import{
   parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies
 }from './projectArchive.js?v=20261001-1';
+import{buildProjectWriteDiff}from './projectWriteDiff.js?v=20261001-1';
 import{
   assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported
 }from './projectProfile.js?v=20261001-1';
@@ -15,6 +16,7 @@ const positiveActive=value=>{
   const number=Number(value);
   return Number.isInteger(number)&&number>0?number:null;
 };
+const crcEqual=(actual,expected)=>String(actual||'').toLowerCase()===String(expected||'').toLowerCase();
 
 export function assertProjectWriteActiveGuard({
   destinationFid,activeProjectFid,requireInactive=false,expectedActiveProjectFid=null
@@ -154,6 +156,54 @@ export function createProjectFilesystem({
     return positiveActive(metadata?.active);
   };
 
+  const readProjectWriteCandidate=async file=>{
+    const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
+    if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
+    const project=match[1];
+    const data=new Uint8Array(await file.arrayBuffer());
+    if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
+    const deviceInfo=getConnectedDeviceInfo();
+    if(!deviceInfo)throw new Error('EP-series device is not connected.');
+    const profile=connectedProjectProfile('transport');
+    if(profile.projectAuthoring)validateProjectArchive(data,{profile});
+    else parseProjectArchive(data);
+    return{project,data,deviceInfo,profile};
+  };
+
+  const resolveProjectWritePreflight=async({
+    project,data,profile,requireInactive=false,expectedActiveProjectFid=null
+  }={})=>{
+    await initRead();
+    const root=await listDirectory(0,'/');
+    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
+    if(!parent)throw new Error('EP-series /projects node is not available.');
+    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
+    const occupiedSampleSlots=sounds
+      ?(await listDirectory(sounds.nodeId,'/sounds'))
+        .map(item=>Number(item.nodeId))
+        .filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
+      :[];
+    const sampleDependencies=profile.projectAuthoring
+      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
+      :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
+    const projects=await listDirectory(parent.nodeId,'/projects');
+    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
+    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
+    const backup=await getFile(destination.nodeId);
+    if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
+    else parseProjectArchive(backup.data);
+    let activeProjectBeforeWrite=null;
+    if(requireInactive||expectedActiveProjectFid!=null){
+      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
+        destinationFid:destination.nodeId,
+        activeProjectFid:await getActiveNode(parent.nodeId),
+        requireInactive,
+        expectedActiveProjectFid
+      });
+    }
+    return{parent,destination,backup,sampleDependencies,activeProjectBeforeWrite};
+  };
+
   const captureProjectActivation=async(projectId,projectsNodeId)=>{
     const groupRootId=projectId+100;
     const activeProject=await getActiveNode(projectsNodeId);
@@ -223,18 +273,49 @@ export function createProjectFilesystem({
       });
     },'project reload'),'project reload',{mode:'mutation'});
 
+  const previewProjectArchiveWrite=async(file,{
+    requireInactive=false,expectedActiveProjectFid=null
+  }={})=>runFileOperation(async()=>{
+    assertProjectRuntimeSettled('project write preview');
+    const prepared=await readProjectWriteCandidate(file);
+    const preflight=await resolveProjectWritePreflight({
+      project:prepared.project,data:prepared.data,profile:prepared.profile,
+      requireInactive,expectedActiveProjectFid
+    });
+    const originalCrc32=crc32Hex(preflight.backup.data);
+    const candidateCrc32=crc32Hex(prepared.data);
+    return Object.freeze({
+      project:prepared.project,
+      fileId:preflight.destination.nodeId,
+      parentFid:preflight.parent.nodeId,
+      profile:Object.freeze({
+        id:prepared.profile.id,sku:prepared.profile.sku,firmware:prepared.profile.firmware,
+        projectAuthoring:prepared.profile.projectAuthoring
+      }),
+      original:Object.freeze({
+        name:preflight.backup.name||prepared.project,
+        size:Number(preflight.backup.size)||preflight.backup.data.byteLength,
+        crc32:originalCrc32
+      }),
+      candidate:Object.freeze({
+        name:String(file?.name||('P'+prepared.project+'.tar')),
+        size:prepared.data.byteLength,
+        crc32:candidateCrc32
+      }),
+      activeProjectBeforeWrite:preflight.activeProjectBeforeWrite,
+      sampleDependencies:preflight.sampleDependencies,
+      diff:buildProjectWriteDiff(preflight.backup.data,prepared.data)
+    });
+  });
+
   const uploadProjectArchive=async(file,{
     onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,
-    requireInactive=false,expectedActiveProjectFid=null
+    requireInactive=false,expectedActiveProjectFid=null,
+    expectedOriginalCrc32=null,expectedCandidateCrc32=null
   }={})=>runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     assertProjectRuntimeSettled('project write');
-    const match=String(file?.name||'').match(/\w*P(\d{2})\.tar$/);
-    if(!match?.[1])throw new Error(`${file?.name||'file'} is not a valid project archive`);
-    const project=match[1];
-    const data=new Uint8Array(await file.arrayBuffer());
-    if(data.byteLength===0)throw new Error('Cannot upload an empty project archive.');
-    const deviceInfo=getConnectedDeviceInfo();
-    if(!deviceInfo)throw new Error('EP-series device is not connected.');
+    const prepared=await readProjectWriteCandidate(file);
+    const{project,data,deviceInfo}=prepared;
     const profile=connectedProjectProfile('transport');
     if(profile.projectAuthoring)validateProjectArchive(data,{profile});
     else parseProjectArchive(data);
@@ -252,17 +333,12 @@ export function createProjectFilesystem({
     const sampleDependencies=profile.projectAuthoring
       ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
       :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
-
     const projects=await listDirectory(parent.nodeId,'/projects');
     const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
     if(!destination)throw new Error(`EP-series project ${project} is not available.`);
-
     const backup=await getFile(destination.nodeId);
     if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
     else parseProjectArchive(backup.data);
-    const activation=profile.projectReloadVerified&&performReload
-      ?await captureProjectActivation(destination.nodeId,parent.nodeId)
-      :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
     let activeProjectBeforeWrite=null;
     if(requireInactive||expectedActiveProjectFid!=null){
       activeProjectBeforeWrite=assertProjectWriteActiveGuard({
@@ -272,6 +348,17 @@ export function createProjectFilesystem({
         expectedActiveProjectFid
       });
     }
+
+    const candidateCrc32=crc32Hex(data);
+    const originalCrc32=crc32Hex(backup.data);
+    if(expectedCandidateCrc32!=null&&!crcEqual(candidateCrc32,expectedCandidateCrc32))
+      throw new Error('Refusing project write: candidate changed after diff preview.');
+    if(expectedOriginalCrc32!=null&&!crcEqual(originalCrc32,expectedOriginalCrc32))
+      throw new Error('Refusing project write: project changed on device after diff preview. Re-run preview.');
+
+    const activation=profile.projectReloadVerified&&performReload
+      ?await captureProjectActivation(destination.nodeId,parent.nodeId)
+      :{activeProject:null,activeGroup:null,activePad:null,groupRootId:null};
 
     const recoveryCheckpoint=createProjectRecoveryCheckpoint({
       device:deviceInfo,
@@ -292,7 +379,8 @@ export function createProjectFilesystem({
         referenced:sampleDependencies.referencedSampleSlots?.length??null,
         missing:sampleDependencies.missingSampleSlots?.length??null
       },
-      activeProjectBeforeWrite
+      activeProjectBeforeWrite,
+      previewCrcVerified:expectedOriginalCrc32!=null||expectedCandidateCrc32!=null
     });
     await transactionJournal.beginPhase(recoveryCheckpoint.id,'CHECKPOINT',{
       originalCrc32:recoveryCheckpoint.original.crc32,
@@ -507,6 +595,7 @@ export function createProjectFilesystem({
     listProjectArchivesReadOnly,
     readProjectArchiveReadOnly,
     reloadProjectArchive,
+    previewProjectArchiveWrite,
     uploadProjectArchive,
     downloadProjectArchive,
     getProjectRecoveryCheckpoint,

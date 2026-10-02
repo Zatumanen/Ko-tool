@@ -3,6 +3,7 @@ import{
   createVerifiedProjectEditorDraft,buildVerifiedProjectEditorCandidate,
   summarizeVerifiedProjectChanges
 }from '../projectEditor.js?v=20261001-1';
+import{formatProjectWriteDiffPreview}from '../projectWriteDiff.js?v=20261001-1';
 
 const GROUPS=['a','b','c','d'];
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({
@@ -168,7 +169,7 @@ export function createVerifiedProjectEditorController({
       summaryEl.innerHTML=candidate.changed
         ?'<strong>'+summary.total+' VERIFIED CHANGE'+(summary.total===1?'':'S')+'</strong>'+
           '<span>SETTINGS '+summary.settings+' · FX '+summary.fx+' · PAD '+summary.pads+'</span>'+
-          '<em>WRITE WILL CREATE A RECOVERY CHECKPOINT AND REQUIRE READBACK VERIFICATION.</em>'
+          '<em>SAVE WILL READ THE LIVE PROJECT AND SHOW AN EXACT TAR DIFF BEFORE WRITE.</em>'
         :'<strong>NO CHANGES</strong><span>NATIVE PROJECT BYTES ARE UNCHANGED.</span>';
       saveButton.disabled=busy||!candidate.changed;
     }catch(error){
@@ -227,20 +228,28 @@ export function createVerifiedProjectEditorController({
     if(busy)return;
     updateSummary();
     if(!candidate?.changed)return;
-    const summary=summarizeVerifiedProjectChanges(candidate.changes);
-    const ok=await confirmAction(
-      'Write '+summary.total+' verified change'+(summary.total===1?'':'s')+
-      ' to inactive project P'+draft.project+'? A recovery checkpoint will be created first.'
-    );
-    if(!ok)return;
-    setBusy(true);setGlobalProgress('PROJECT EDIT PRECHECK',10);
+    setBusy(true);setGlobalProgress('PROJECT EDIT PREVIEW',10);
     try{
       const latest=buildVerifiedProjectEditorCandidate(result,draft);
       if(!latest.changed)throw new Error('Project editor has no changes to write.');
+      if(typeof uploadProjectArchive.preview!=='function')
+        throw new Error('Project write diff preview is unavailable.');
+      const file=makeProjectFile(draft.project,latest.archive);
+      const preview=await uploadProjectArchive.preview(file,{requireInactive:true});
+      const summary=summarizeVerifiedProjectChanges(latest.changes);
+      setGlobalProgress('PROJECT EDIT DIFF',24);
+      const ok=await confirmAction(
+        formatProjectWriteDiffPreview(preview,{label:'VERIFIED EDIT'})+
+        ' · VERIFIED FIELDS '+summary.total+' (SETTINGS '+summary.settings+' / FX '+summary.fx+' / PAD '+summary.pads+')'+
+        ' · CONTINUE? A RECOVERY CHECKPOINT WILL BE CREATED BEFORE FILE PUT.'
+      );
+      if(!ok){setStatus('PROJECT P'+draft.project+' · EDIT CANCELLED');return;}
       setGlobalProgress('PROJECT EDIT WRITE',40);
-      const saved=await uploadProjectArchive(makeProjectFile(draft.project,latest.archive),{
+      const saved=await uploadProjectArchive(file,{
         requireInactive:true,
-        performReload:false
+        performReload:false,
+        expectedOriginalCrc32:preview.original.crc32,
+        expectedCandidateCrc32:preview.candidate.crc32
       });
       setGlobalProgress('PROJECT EDIT VERIFY',94);
       const savedProject=draft.project;
