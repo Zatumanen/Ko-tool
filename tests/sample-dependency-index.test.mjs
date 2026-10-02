@@ -33,17 +33,17 @@ test('dependency blocker lookup filters requested slots and mutation assertion f
   assert.deepEqual(getSampleDependencyBlockers(index,[8]),[]);
   assert.equal(getSampleDependencyBlockers(index,[7,8]).length,1);
   assert.equal(assertSampleSlotsUnreferenced(index,[8],{operation:'delete'}),index);
-  assert.throws(()=>assertSampleSlotsUnreferenced(index,[7,9],{operation:'move'}),/slot 007 is used by P03 A01, P12 C04; slot 009 is used by P12 D02\. MOVE would break project pad references/i);
+  assert.throws(()=>assertSampleSlotsUnreferenced(index,[7,9],{operation:'delete'}),/slot 007 is used by P03 A01, P12 C04; slot 009 is used by P12 D02\. DELETE would break project pad references/i);
 });
 
 test('dependency request metadata normalizes the complete source slot set without changing FILE transaction options',()=>{
   const operation=()=>{};
-  Object.defineProperty(operation,'sampleDependencyGuard',{value:{slots:[9,7,9],operation:'move'}});
-  assert.deepEqual(readSampleDependencyRequest(operation),{slots:[7,9],operation:'move'});
+  Object.defineProperty(operation,'sampleDependencyGuard',{value:{slots:[9,7,9],operation:'delete'}});
+  assert.deepEqual(readSampleDependencyRequest(operation),{slots:[7,9],operation:'delete'});
   assert.equal(readSampleDependencyRequest(()=>{}),null);
 });
 
-test('sample delete and move tag the complete source slot set before entering the unchanged strict FILE lease API',async()=>{
+test('sample delete tags the complete target set before entering the unchanged strict FILE lease API',async()=>{
   const fs=await import('node:fs/promises');
   const [filesystem,guard,del,move]=await Promise.all([
     fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8'),
@@ -57,6 +57,6 @@ test('sample delete and move tag the complete source slot set before entering th
   assert.match(guard,/assertSampleSlotsUnreferenced\(index,request\.slots/);
   assert.match(del,/tagDependencyGuard\(operation,canonicalTargets\.map\(slot=>slot\.id\),'delete'\)/);
   assert.match(del,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
-  assert.match(move,/tagDependencyGuard\(operation,plan\.map\(pair=>pair\.sourceId\),'move'\)/);
+  assert.doesNotMatch(move,/sampleDependencyGuard/);
   assert.match(move,/withFileTransaction\('sample move transaction',operation,\{strict:true\}\)/);
 });
