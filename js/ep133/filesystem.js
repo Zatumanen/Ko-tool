@@ -75,7 +75,9 @@ export function assertProjectRuntimeSettled(label='project operation'){return pr
 export const listProjectArchivesReadOnly=()=>projectFilesystem.listProjectArchivesReadOnly();
 export const readProjectArchiveReadOnly=(projectNumber,options={})=>projectFilesystem.readProjectArchiveReadOnly(projectNumber,options);
 export const reloadProjectArchive=(projectNumber,options={})=>projectFilesystem.reloadProjectArchive(projectNumber,options);
+export const previewProjectArchiveWrite=(file,options={})=>projectFilesystem.previewProjectArchiveWrite(file,options);
 export const uploadProjectArchive=(file,options={})=>projectFilesystem.uploadProjectArchive(file,options);
+Object.defineProperty(uploadProjectArchive,'preview',{value:previewProjectArchiveWrite});
 export const downloadProjectArchive=(path,onProgress)=>projectFilesystem.downloadProjectArchive(path,onProgress);
 export const getProjectRecoveryCheckpoint=id=>projectFilesystem.getProjectRecoveryCheckpoint(id);
 export const listProjectRecoveryCheckpoints=()=>projectFilesystem.listProjectRecoveryCheckpoints();
