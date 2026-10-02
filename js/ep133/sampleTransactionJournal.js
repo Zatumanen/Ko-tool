@@ -1,4 +1,5 @@
 import{createSampleRecoveryTransaction}from './sampleRecovery.js?v=20261001-1';
+import{serializeEpError}from './errors.js?v=20261001-1';
 
 export const SAMPLE_TRANSACTION_PHASES=Object.freeze(['PRECHECK','MUTATE','RECOVERY','FINALIZE']);
 export const SAMPLE_TRANSACTION_EVENT_STATUS=Object.freeze(['started','completed','failed']);
@@ -133,7 +134,8 @@ export function createSampleTransactionJournal({
       status:normalizedStatus,
       at:timestamp(now()),
       detail:detail==null?null:sanitizeValue(detail),
-      error:error==null?null:safeError(error)
+      error:error==null?null:safeError(error),
+      errorInfo:error==null?null:serializeEpError(error)
     };
     journal.push(event);
     const patch={journal,currentPhase:normalizedPhase,transactionStatus:'running'};
@@ -173,7 +175,7 @@ export function createSampleTransactionJournal({
       return recoveryStore.updateTransaction(id,{
         status:assessment.status,
         transactionStatus:assessment.status,
-        recoveryDetail:sanitizeValue({...assessment,error:safeError(error)})
+        recoveryDetail:sanitizeValue({...assessment,error:safeError(error),errorInfo:serializeEpError(error)})
       });
     },
     getTransaction:id=>recoveryStore.getTransaction(id),
