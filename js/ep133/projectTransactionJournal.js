@@ -1,3 +1,5 @@
+import{serializeEpError}from './errors.js?v=20261001-1';
+
 export const PROJECT_TRANSACTION_PHASES=Object.freeze([
   'PRECHECK','CHECKPOINT','WRITE','READBACK','RELOAD','VERIFY','ROLLBACK'
 ]);
@@ -39,7 +41,7 @@ export function journalFromCheckpoint(checkpoint){
     lastSuccessfulPhase:checkpoint.lastSuccessfulPhase||null,
     failurePhase:checkpoint.failurePhase||null,
     events:Array.isArray(checkpoint.journal)
-      ?checkpoint.journal.map(event=>({...event,detail:event.detail?sanitizeValue(event.detail):null}))
+      ?checkpoint.journal.map(event=>({...event,detail:event.detail?sanitizeValue(event.detail):null,errorInfo:event.errorInfo?sanitizeValue(event.errorInfo):null}))
       :[]
   };
 }
@@ -68,7 +70,8 @@ export function createProjectTransactionJournal({
       status:normalizedStatus,
       at:timestamp(now()),
       detail:detail==null?null:sanitizeValue(detail),
-      error:error==null?null:safeError(error)
+      error:error==null?null:safeError(error),
+      errorInfo:error==null?null:serializeEpError(error)
     });
     journal.push(event);
 
