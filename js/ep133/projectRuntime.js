@@ -1,3 +1,5 @@
+import{createEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
+
 export const PROJECT_RUNTIME_SETTLE_MS=6000;
 
 export function createProjectRuntimeGate({settleMs=PROJECT_RUNTIME_SETTLE_MS,now=()=>Date.now()}={}){
@@ -28,11 +30,16 @@ export function createProjectRuntimeGate({settleMs=PROJECT_RUNTIME_SETTLE_MS,now
     const state=getState();
     if(!state.settling)return state;
     const seconds=Math.max(1,Math.ceil(state.remainingMs/1000));
-    const error=new Error('EP project runtime is still settling after reload; '+String(label||'project operation')+' is blocked for about '+seconds+' more second'+(seconds===1?'':'s')+'.');
-    error.code='EP_PROJECT_RUNTIME_SETTLING';
-    error.remainingMs=state.remainingMs;
-    error.settlingUntil=state.settlingUntil;
-    throw error;
+    throw createEpError(
+      EP_ERROR_CODE.PROJECT_RUNTIME_SETTLING,
+      'EP project runtime is still settling after reload; '+String(label||'project operation')+' is blocked for about '+seconds+' more second'+(seconds===1?'':'s')+'.',
+      {
+        category:EP_ERROR_CATEGORY.RUNTIME,
+        retryable:true,
+        details:{label:String(label||'project operation'),remainingMs:state.remainingMs,settlingUntil:state.settlingUntil},
+        name:'EPProjectRuntimeError'
+      }
+    );
   };
 
   return{markReload,reset,getState,assertSettled};
