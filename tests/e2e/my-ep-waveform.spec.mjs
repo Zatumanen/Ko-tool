@@ -24,7 +24,8 @@ const mutationRequests=entries=>entries.filter(entry=>
 
 test('My EP opens the same waveform/chop editor read-only and downloads a local candidate',async({page})=>{
   await openMyEp(page);
-  await page.locator('[data-slot="7"]').click();
+  await page.locator('[data-slot="7"] .ep133-sample-number').click();
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
   const button=page.locator('#ep133-sample-waveform');
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
