@@ -38,98 +38,30 @@ import{createProjectReadOnlyController}from './ui/projectReadOnlyController.js?v
 import{createVerifiedProjectEditorController}from './ui/projectEditorController.js?v=20261001-1';
 import{createProjectSequencerController}from './ui/projectSequencerController.js?v=20261001-1';
 import{createBackupRestoreController}from './ui/backupRestoreController.js?v=20261001-1';
+import{getEpBrowserDom,hasRequiredEpBrowserDom}from './ui/domRegistry.js';
+import{isMobileUserAgent,makeDraggableWindow}from './ui/windowShell.js';
 import{outputFileName}from '../output-name.js';
 
 export function initEp133Browser({showError}={}){
-  const open=document.getElementById('my-ep-icon');
-  const panel=document.getElementById('ep133-browser');
-  const close=document.getElementById('ep133-close');
-  const title=document.getElementById('ep133-browser-title');
-  const list=document.getElementById('ep133-sample-list');
-  const tabs=document.getElementById('ep133-sample-tabs');
-  const search=document.getElementById('ep133-sample-search');
-  const searchClear=document.getElementById('ep133-search-clear');
-  const searchCount=document.getElementById('ep133-search-count');
-  const deviceHead=document.getElementById('ep133-device-head');
-  const deviceName=document.getElementById('ep133-device');
-  const connectionOverlay=document.getElementById('ep133-connection-overlay');
-  const statusEl=document.getElementById('ep133-status');
-  const memoryStats=document.getElementById('ep133-memory-stats');
-  const memoryMeter=document.getElementById('ep133-memory-meter-fill');
-  const sampleCount=document.getElementById('ep133-sample-count');
-  const txIndicator=document.getElementById('ep133-tx-indicator');
-  const rxIndicator=document.getElementById('ep133-rx-indicator');
-  const properties=document.getElementById('ep133-properties');
-  const propertiesGrid=document.getElementById('ep133-properties-grid');
-  const globalProgress=document.getElementById('ep133-global-progress');
-  const globalProgressLabel=document.getElementById('ep133-global-progress-label');
-  const globalProgressFill=document.getElementById('ep133-global-progress-fill');
-  const globalProgressText=document.getElementById('ep133-global-progress-text');
-  const confirmDialog=document.getElementById('ep133-confirm-dialog');
-  const confirmMessage=document.getElementById('ep133-confirm-message');
-  const confirmOk=document.getElementById('ep133-confirm-ok');
-  const confirmCancel=document.getElementById('ep133-confirm-cancel');
-  const samplesPanel=document.getElementById('ep133-samples-panel');
-  const projectsPanel=document.getElementById('ep133-projects-panel');
-  const samplesViewButton=document.getElementById('ep133-view-samples');
-  const projectsViewButton=document.getElementById('ep133-view-projects');
-  const projectList=document.getElementById('ep133-project-list');
-  const projectInspector=document.getElementById('ep133-project-inspector');
-  const projectRefresh=document.getElementById('ep133-project-refresh');
-  const projectEdit=document.getElementById('ep133-project-edit');
-  const projectEditorDialog=document.getElementById('ep133-project-editor-dialog');
-  const projectEditorClose=document.getElementById('ep133-project-editor-close');
-  const projectEditorForm=document.getElementById('ep133-project-editor-form');
-  const projectEditorSummary=document.getElementById('ep133-project-editor-summary');
-  const projectEditorSave=document.getElementById('ep133-project-editor-save');
-  const projectEditorCancel=document.getElementById('ep133-project-editor-cancel');
-  const projectSequencer=document.getElementById('ep133-project-sequencer');
-  const sequencerDialog=document.getElementById('ep133-sequencer-dialog');
-  const sequencerClose=document.getElementById('ep133-sequencer-close');
-  const sequencerPattern=document.getElementById('ep133-seq-pattern');
-  const sequencerBars=document.getElementById('ep133-seq-bars');
-  const sequencerPageLabel=document.getElementById('ep133-seq-page-label');
-  const sequencerPrevPage=document.getElementById('ep133-seq-prev-page');
-  const sequencerNextPage=document.getElementById('ep133-seq-next-page');
-  const sequencerGrid=document.getElementById('ep133-seq-grid');
-  const sequencerNotes=document.getElementById('ep133-seq-notes');
-  const sequencerAutomation=document.getElementById('ep133-seq-automation');
-  const sequencerPatternSummary=document.getElementById('ep133-seq-pattern-summary');
-  const sequencerSave=document.getElementById('ep133-seq-save');
-  const sequencerCancel=document.getElementById('ep133-seq-cancel');
-  const sequencerNewPattern=document.getElementById('ep133-seq-new-pattern');
-  const sequencerNewPatternBars=document.getElementById('ep133-seq-new-pattern-bars');
-  const sequencerCreatePattern=document.getElementById('ep133-seq-create-pattern');
-  const sequencerDefaultVelocity=document.getElementById('ep133-seq-default-velocity');
-  const sequencerDefaultDuration=document.getElementById('ep133-seq-default-duration');
-  const sequencerSceneIndex=document.getElementById('ep133-seq-scene-index');
-  const sequencerSceneA=document.getElementById('ep133-seq-scene-a');
-  const sequencerSceneB=document.getElementById('ep133-seq-scene-b');
-  const sequencerSceneC=document.getElementById('ep133-seq-scene-c');
-  const sequencerSceneD=document.getElementById('ep133-seq-scene-d');
-  const sequencerSceneNum=document.getElementById('ep133-seq-scene-num');
-  const sequencerSceneDen=document.getElementById('ep133-seq-scene-den');
-  const sequencerApplyScene=document.getElementById('ep133-seq-apply-scene');
-  const sequencerCurrentScene=document.getElementById('ep133-seq-current-scene');
-  const sequencerSong=document.getElementById('ep133-seq-song');
-  const sequencerApplySong=document.getElementById('ep133-seq-apply-song');
-  const projectBackup=document.getElementById('ep133-project-backup');
-  const projectRecovery=document.getElementById('ep133-project-recovery');
-  const backupDialog=document.getElementById('ep133-backup-dialog');
-  const backupClose=document.getElementById('ep133-backup-close');
-  const backupProject=document.getElementById('ep133-backup-project');
-  const backupProjectSamples=document.getElementById('ep133-backup-project-samples');
-  const backupDevice=document.getElementById('ep133-backup-device');
-  const restoreFile=document.getElementById('ep133-restore-file');
-  const restoreSummary=document.getElementById('ep133-restore-summary');
-  const restoreProjectSelect=document.getElementById('ep133-restore-project-select');
-  const restoreRun=document.getElementById('ep133-restore-run');
-  const recoveryList=document.getElementById('ep133-recovery-list');
-  const recoveryDetail=document.getElementById('ep133-recovery-detail');
-  const recoveryRestore=document.getElementById('ep133-recovery-restore');
-  const recoveryDownload=document.getElementById('ep133-recovery-download');
-  const recoveryDelete=document.getElementById('ep133-recovery-delete');
-  if(!open||!panel||!close||!list||!tabs||!search||!samplesPanel||!projectsPanel)return;
+  const dom=getEpBrowserDom(document);
+  if(!hasRequiredEpBrowserDom(dom))return;
+  const{
+    open,panel,close,title,list,tabs,search,searchClear,searchCount,
+    deviceHead,deviceName,connectionOverlay,statusEl,memoryStats,memoryMeter,sampleCount,txIndicator,rxIndicator,
+    properties,propertiesGrid,globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
+    confirmDialog,confirmMessage,confirmOk,confirmCancel,
+    samplesPanel,projectsPanel,samplesViewButton,projectsViewButton,
+    projectList,projectInspector,projectRefresh,projectEdit,
+    projectEditorDialog,projectEditorClose,projectEditorForm,projectEditorSummary,projectEditorSave,projectEditorCancel,
+    projectSequencer,sequencerDialog,sequencerClose,sequencerPattern,sequencerBars,sequencerPageLabel,
+    sequencerPrevPage,sequencerNextPage,sequencerGrid,sequencerNotes,sequencerAutomation,sequencerPatternSummary,
+    sequencerSave,sequencerCancel,sequencerNewPattern,sequencerNewPatternBars,sequencerCreatePattern,
+    sequencerDefaultVelocity,sequencerDefaultDuration,sequencerSceneIndex,sequencerSceneA,sequencerSceneB,
+    sequencerSceneC,sequencerSceneD,sequencerSceneNum,sequencerSceneDen,sequencerApplyScene,
+    sequencerCurrentScene,sequencerSong,sequencerApplySong,
+    projectBackup,projectRecovery,backupDialog,backupClose,backupProject,backupProjectSamples,backupDevice,
+    restoreFile,restoreSummary,restoreProjectSelect,restoreRun,recoveryList,recoveryDetail,recoveryRestore,recoveryDownload,recoveryDelete
+  }=dom;
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -464,7 +396,6 @@ export function initEp133Browser({showError}={}){
 
   onFileEvent(event=>{void fileEventController.handleFileEvent(event);});
 
-
   const renderConnection=state=>{
     deviceUnsafe=!!state?.unsafe;
     activeDeviceProfile=deviceView.renderIdentity(state);
@@ -518,7 +449,6 @@ export function initEp133Browser({showError}={}){
   });
   connectionLifecycle.start();
 
-  const isMobileDevice=()=>/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
   const closePanel=()=>{
     closeProperties();
     void stopCurrentPreview();
@@ -526,7 +456,7 @@ export function initEp133Browser({showError}={}){
     panel.setAttribute('aria-hidden','true');
   };
   open.addEventListener('click',()=>{
-    if(isMobileDevice()){
+    if(isMobileUserAgent(navigator.userAgent)){
       showError?.('MY EP WORKS ON DESKTOP COMPUTERS ONLY.');
       return;
     }
@@ -542,40 +472,7 @@ export function initEp133Browser({showError}={}){
   });
   close.addEventListener('click',closePanel);
 
-  const makeDraggable=windowEl=>{
-    const bar=windowEl?.querySelector('.title-bar');
-    if(!windowEl||!bar||bar.dataset.dragReady)return;
-    bar.dataset.dragReady='1';
-    let dragging=false,dx=0,dy=0;
-    bar.addEventListener('pointerdown',event=>{
-      if(event.button!==0||event.target.closest('button'))return;
-      const rect=windowEl.getBoundingClientRect();
-      windowEl.style.position='fixed';
-      windowEl.style.transform='none';
-      windowEl.style.left=rect.left+'px';
-      windowEl.style.top=rect.top+'px';
-      dx=event.clientX-rect.left;
-      dy=event.clientY-rect.top;
-      dragging=true;
-      closeProperties();
-      bar.setPointerCapture?.(event.pointerId);
-    });
-    bar.addEventListener('pointermove',event=>{
-      if(!dragging)return;
-      const maxX=Math.max(0,window.innerWidth-windowEl.offsetWidth);
-      const maxY=Math.max(0,window.innerHeight-windowEl.offsetHeight);
-      windowEl.style.left=Math.min(maxX,Math.max(0,event.clientX-dx))+'px';
-      windowEl.style.top=Math.min(maxY,Math.max(0,event.clientY-dy))+'px';
-    });
-    const stop=event=>{
-      if(!dragging)return;
-      dragging=false;
-      if(bar.hasPointerCapture?.(event.pointerId))bar.releasePointerCapture(event.pointerId);
-    };
-    bar.addEventListener('pointerup',stop);
-    bar.addEventListener('pointercancel',stop);
-  };
-  makeDraggable(panel.querySelector('.ep133-browser-window'));
+  makeDraggableWindow(panel.querySelector('.ep133-browser-window'),{windowRef:window,onDragStart:closeProperties});
 
   onConnectionChange(state=>{
     renderConnection(state);
