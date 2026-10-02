@@ -1,3 +1,5 @@
+import{createEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
+
 export const DEVICE_OPERATION_PHASE=Object.freeze({
   IDLE:'idle',
   READING:'reading',
@@ -13,12 +15,17 @@ const ACTIVE_PHASES=new Set([
   DEVICE_OPERATION_PHASE.VERIFYING
 ]);
 
-const blockedError=reason=>{
-  const error=new Error('EP-series FILE coordinator blocked: '+String(reason||'unknown coordinator state'));
-  error.name='EPFileCoordinatorError';
-  error.code='EP_FILE_COORDINATOR_BLOCKED';
-  return error;
-};
+const blockedError=reason=>createEpError(
+  EP_ERROR_CODE.FILE_COORDINATOR_BLOCKED,
+  'EP-series FILE coordinator blocked: '+String(reason||'unknown coordinator state'),
+  {
+    category:EP_ERROR_CATEGORY.SAFETY,
+    retryable:false,
+    recovery:'Reconnect the device after clearing the conflicting FILE session.',
+    details:{reason:String(reason||'unknown coordinator state')},
+    name:'EPFileCoordinatorError'
+  }
+);
 
 export function createDeviceOperationCoordinator({
   markUnsafe=()=>{},
@@ -66,7 +73,11 @@ export function createDeviceOperationCoordinator({
       getState:snapshot,
       setPhase(phase){
         assertLease();
-        if(!ACTIVE_PHASES.has(phase))throw new Error('Invalid FILE operation phase: '+String(phase));
+        if(!ACTIVE_PHASES.has(phase))throw createEpError(
+          EP_ERROR_CODE.REQUEST_REJECTED,
+          'Invalid FILE operation phase: '+String(phase),
+          {category:EP_ERROR_CATEGORY.VALIDATION,details:{phase}}
+        );
         active={...active,phase};
         notify();
         return phase;
