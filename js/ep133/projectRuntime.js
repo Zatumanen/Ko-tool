@@ -37,7 +37,7 @@ export function createProjectRuntimeGate({settleMs=PROJECT_RUNTIME_SETTLE_MS,now
         category:EP_ERROR_CATEGORY.RUNTIME,
         retryable:true,
         details:{label:String(label||'project operation'),remainingMs:state.remainingMs,settlingUntil:state.settlingUntil},
-        name:'EPProjectRuntimeError'
+        name:'Error'
       }
     );
   };
