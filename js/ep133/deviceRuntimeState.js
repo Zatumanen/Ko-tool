@@ -166,8 +166,12 @@ export function createDeviceRuntimeState({now=()=>Date.now()}={}){
         const epoch=Number(event.connectionEpoch);
         if(!Number.isInteger(epoch)||epoch<state.connection.epoch)throw staleEpoch(event.connectionEpoch);
         if(event.device?.identityVerified!==true)throw transitionError(event,'connected device identity is not verified');
+        const confirmedNewEpoch=epoch>state.connection.epoch;
+        const clearIdleInterference=confirmedNewEpoch&&state.safety.status===DEVICE_RUNTIME_SAFETY.BLOCKED;
         return commit({
           connection:{status:DEVICE_RUNTIME_CONNECTION.CONNECTED,epoch,device:sanitizeDevice(event.device)},
+          safety:clearIdleInterference?{status:DEVICE_RUNTIME_SAFETY.SAFE,reason:null}:state.safety,
+          externalInterference:clearIdleInterference?null:state.externalInterference,
           recovery:{...state.recovery,hydrated:false}
         });
       }
