@@ -105,11 +105,7 @@ function onMessage(inputPort,event){
     lastFirmwareDebugText=debugText;
     lastFirmwareDebugAt=Date.now();
     console.warn('EP firmware/debug SysEx:',debugText);
-    if(strictFirmwareDebugDepth>0){
-      const reason='Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText;
-      dispatchDeviceRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch:getDeviceRuntimeSnapshot().connection.epoch,reason});
-      enterUnsafeState(reason);
-    }
+    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText,{firmwareDebug:true});
     return;
   }
   if(data[1]===0x7E){
@@ -172,15 +168,13 @@ function unsafeError(){
   return new Error('EP-series FILE safety lock is active. Power-cycle the device, then reload this page before sending more FILE traffic. '+deviceUnsafeReason);
 }
 
-function enterUnsafeState(reason){
+function enterUnsafeState(reason,{firmwareDebug=false}={}){
   if(deviceUnsafe)return;
   deviceUnsafe=true;
   deviceUnsafeReason=String(reason||'Unknown EP-series FILE session failure.');
-  dispatchDeviceRuntimeEvent({
-    type:'DEVICE_MARKED_UNSAFE',
-    connectionEpoch:getDeviceRuntimeSnapshot().connection.epoch,
-    reason:deviceUnsafeReason
-  });
+  const runtimeEpoch=getDeviceRuntimeSnapshot().connection.epoch;
+  if(firmwareDebug)dispatchDeviceRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch:runtimeEpoch,reason:deviceUnsafeReason});
+  dispatchDeviceRuntimeEvent({type:'DEVICE_MARKED_UNSAFE',connectionEpoch:runtimeEpoch,reason:deviceUnsafeReason});
   connectionEpoch+=1;
   requestQueue=Promise.resolve();
   for(const p of pending.values()){
