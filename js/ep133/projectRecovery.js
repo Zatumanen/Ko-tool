@@ -38,6 +38,13 @@ const safeTimestamp=value=>{
   const time=value instanceof Date?value:new Date(value||Date.now());
   return Number.isFinite(time.getTime())?time.toISOString():new Date().toISOString();
 };
+let checkpointIdSequence=0;
+const checkpointIdSuffix=()=>{
+  const uuid=globalThis.crypto?.randomUUID?.();
+  if(uuid)return uuid;
+  checkpointIdSequence=(checkpointIdSequence+1)>>>0;
+  return checkpointIdSequence.toString(36)+'-'+Math.random().toString(36).slice(2,10);
+};
 
 export function createProjectRecoveryCheckpoint({
   device,projectNumber,destinationFid,parentFid,
@@ -55,7 +62,7 @@ export function createProjectRecoveryCheckpoint({
   const timestamp=safeTimestamp(createdAt);
   const originalCrc32=crc32Hex(original);
   const candidateCrc32=crc32Hex(proposed);
-  const id=['project-write',deviceIdentityHash,project,timestamp,candidateCrc32].join(':');
+  const id=['project-write',deviceIdentityHash,project,timestamp,candidateCrc32,checkpointIdSuffix()].join(':');
   return Object.freeze({
     id,
     status:'pending',
