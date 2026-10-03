@@ -14,6 +14,7 @@ import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
+import{dispatchDeviceRuntimeEvent,getDeviceRuntimeSnapshot}from './deviceRuntime.js?v=20261003-1';
 
 export{
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -31,9 +32,38 @@ export{
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
 };
 
+const runtimeEpoch=()=>getDeviceRuntimeSnapshot().connection.epoch;
+const publishSampleRecoveryRuntimeEvent=event=>{
+  const connectionEpoch=runtimeEpoch();
+  if(!connectionEpoch)return;
+  const transactionId=String(event?.transactionId||'');
+  if(!transactionId)return;
+  if(event.type==='required'){
+    dispatchDeviceRuntimeEvent({
+      type:'RECOVERY_REQUIRED',connectionEpoch,transactionId,kind:'sample',
+      reason:String(event.reason||'Sample recovery requires authoritative device verification.')
+    });
+    return;
+  }
+  if(event.type==='verified'){
+    dispatchDeviceRuntimeEvent({
+      type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,verification:event.verification||null
+    });
+    return;
+  }
+  if(event.type==='acknowledged'){
+    dispatchDeviceRuntimeEvent({
+      type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,verification:event.verification||null
+    });
+    dispatchDeviceRuntimeEvent({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId});
+  }
+};
+
 const projectRecoveryStore=createBrowserProjectRecoveryStore();
 const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
-const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
+const sampleTransactionRuntime=createSampleTransactionRuntime({
+  getConnectedDeviceInfo,onRecoveryEvent:publishSampleRecoveryRuntimeEvent
+});
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
