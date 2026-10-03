@@ -45,13 +45,13 @@
 - Create `js/ep133/deviceRuntimeState.js` — pure state/event reducer, admission checks, epoch/operation guards, immutable snapshots.
 - Create `js/ep133/deviceRuntime.js` — shared runtime instance and small public facade; no WebMIDI or DOM code.
 - Create `tests/device-runtime-state.test.mjs` — transition/admission/stale-event tests.
-- Modify `js/ep133/errors.js` — add runtime-specific structured error codes used by the reducer/admission guards.
+- Modify `js/ep133/errors.js` — add runtime-specific structured error codes used by reducer/admission guards.
 - Modify `js/ep133/device.js` — publish connection, disconnect, debug/unsafe events while retaining legacy APIs.
 - Modify `js/ep133/deviceOperationCoordinator.js` — delegate admission/phase state to runtime while preserving lease API.
 - Modify `js/ep133/fileTransport.js` — use runtime-backed coordinator and conservative compatibility checks.
-- Modify `js/ep133/ui/deviceSessionOwnership.js` and `js/ep133/ui/connectionLifecycle.js` — publish ownership transitions without moving Web Locks/BroadcastChannel into core.
-- Modify `js/ep133/filesystem.js` and sample recovery runtime boundary — reflect unresolved/verified/acknowledged recovery in runtime.
-- Modify existing coordinator/session/recovery tests only to add assertions; do not remove current safety assertions.
+- Modify `js/ep133/ui/connectionLifecycle.js` — translate cross-tab ownership state into runtime events; keep `deviceSessionOwnership.js` reusable and core-agnostic.
+- Modify `js/ep133/filesystem.js` and `js/ep133/sampleTransactionRuntime.js` — reflect unresolved/verified/acknowledged sample recovery in runtime.
+- Extend existing coordinator/session/recovery tests without removing current safety assertions.
 
 ### Task 1: Pure runtime snapshot and admission contract
 
@@ -63,35 +63,24 @@
 **Interfaces:**
 - Consumes: `createEpError`, `EP_ERROR_CATEGORY`, `EP_ERROR_CODE` from `js/ep133/errors.js`.
 - Produces:
-  - `DEVICE_RUNTIME_CONNECTION = {DISCONNECTED, CONNECTING, CONNECTED}`
-  - `DEVICE_RUNTIME_OWNERSHIP = {NONE, OWNED, BLOCKED}`
-  - `DEVICE_RUNTIME_OPERATION = {IDLE, READING, MUTATING, VERIFYING}`
-  - `DEVICE_RUNTIME_SAFETY = {SAFE, BLOCKED, RECOVERY_REQUIRED, UNSAFE}`
-  - `DEVICE_RUNTIME_STATUS = {DISCONNECTED, CONNECTING, READY, READING, MUTATING, VERIFYING, BLOCKED, RECOVERY_REQUIRED, UNSAFE}`
+  - `DEVICE_RUNTIME_CONNECTION = {DISCONNECTED:'disconnected', CONNECTING:'connecting', CONNECTED:'connected'}`
+  - `DEVICE_RUNTIME_OWNERSHIP = {NONE:'none', OWNED:'owned', BLOCKED:'blocked'}`
+  - `DEVICE_RUNTIME_OPERATION = {IDLE:'idle', READING:'reading', MUTATING:'mutating', VERIFYING:'verifying'}`
+  - `DEVICE_RUNTIME_SAFETY = {SAFE:'safe', BLOCKED:'blocked', RECOVERY_REQUIRED:'recovery-required', UNSAFE:'unsafe'}`
   - `createDeviceRuntimeState({now=()=>Date.now()}={})`
   - returned methods: `getSnapshot()`, `subscribe(listener)`, `dispatch(event)`, `assertCanStartFileOperation({mode='read'}={})`, `captureEpoch()`, `assertEpoch(epoch)`.
 
-- [ ] **Step 1: Write failing tests for initial snapshot and derived-status priority**
+- [ ] **Step 1: Write the failing initial-state/status tests**
 
-Add tests asserting:
+Assert initial values and that `ready` requires all of: connected, verified identity, owned session, idle operation, safe safety state. A connected device with ownership `none` or `blocked` must derive `blocked`, not `ready`.
 
-```js
-const runtime=createDeviceRuntimeState({now:()=>100});
-assert.deepEqual(runtime.getSnapshot().connection.status,'disconnected');
-assert.equal(runtime.getSnapshot().operation.phase,'idle');
-assert.equal(runtime.getSnapshot().safety.status,'safe');
-assert.equal(runtime.getSnapshot().status,'disconnected');
-```
-
-Also assert derived priority `unsafe > recovery-required > blocked > connecting > verifying > mutating > reading > ready > disconnected` by dispatching only valid setup events.
-
-- [ ] **Step 2: Run the focused test and verify failure**
+- [ ] **Step 2: Run focused test to verify failure**
 
 Run: `node --test tests/device-runtime-state.test.mjs`
 
 Expected: FAIL because `deviceRuntimeState.js` does not exist.
 
-- [ ] **Step 3: Add runtime-specific structured error codes**
+- [ ] **Step 3: Add runtime structured error codes**
 
 Add to `EP_ERROR_CODE`:
 
@@ -102,41 +91,25 @@ DEVICE_RUNTIME_STALE_EPOCH
 DEVICE_RUNTIME_STALE_OPERATION
 ```
 
-All runtime transition/admission failures use `EP_ERROR_CATEGORY.SAFETY` or `EP_ERROR_CATEGORY.RUNTIME` as appropriate and include sanitized details only.
+Use `EP_ERROR_CATEGORY.RUNTIME` for stale/invalid programmer-domain events and `EP_ERROR_CATEGORY.SAFETY` for denied operation admission.
 
-- [ ] **Step 4: Implement the minimal state container and immutable snapshot**
+- [ ] **Step 4: Implement the minimal immutable state container**
 
-`createDeviceRuntimeState()` must initialize:
+Initialize connection `disconnected/epoch 0/device null`, ownership `none`, operation `idle/active null`, safety `safe/reason null`, recovery transaction null, external interference null. `getSnapshot()` returns an immutable copy.
 
-```text
-connection.status = disconnected
-connection.epoch = 0
-connection.device = null
-ownership.status = none
-operation.phase = idle
-operation.active = null
-safety.status = safe
-safety.reason = null
-recovery.transaction = null
-externalInterference = null
-status = disconnected
-```
+- [ ] **Step 5: Implement subscription and derived-status priority**
 
-`getSnapshot()` returns a frozen snapshot that callers cannot mutate.
+Priority: `unsafe > recovery-required > blocked > connecting > verifying > mutating > reading > ready > disconnected`. Notify subscribers only after accepted state changes.
 
-- [ ] **Step 5: Implement subscription and derived status**
+- [ ] **Step 6: Implement read/mutation admission guard**
 
-`subscribe(listener)` immediately validates `listener` is callable, registers it, and returns an unsubscribe function. Notifications occur only after accepted state changes.
-
-- [ ] **Step 6: Implement read/mutation admission guards**
-
-`assertCanStartFileOperation({mode})` permits both modes only when connection is connected, ownership is owned, operation is idle, identity is verified, and safety is safe. Reads and mutations are blocked for `blocked`, `recovery-required`, and `unsafe`.
+`assertCanStartFileOperation({mode})` requires connected + verified identity + owned + idle + safe. Both reads and mutations are denied for `blocked`, `recovery-required`, or `unsafe`.
 
 - [ ] **Step 7: Run focused tests**
 
 Run: `node --test tests/device-runtime-state.test.mjs`
 
-Expected: PASS for initial snapshot, immutable snapshot, status priority, and admission tests.
+Expected: PASS.
 
 - [ ] **Step 8: Commit**
 
@@ -145,17 +118,20 @@ git add js/ep133/deviceRuntimeState.js js/ep133/errors.js tests/device-runtime-s
 git commit -m "feat: add authoritative EP runtime state model"
 ```
 
-### Task 2: Epoch-bound operation events and invalid-transition rules
+### Task 2: Epoch-bound operation events and invalid transitions
 
 **Files:**
 - Modify: `js/ep133/deviceRuntimeState.js`
 - Test: `tests/device-runtime-state.test.mjs`
 
 **Interfaces:**
-- Consumes: Task 1 runtime API.
+- Consumes: Task 1 API.
 - Produces accepted event shapes:
+  - `{type:'OWNERSHIP_ACQUIRED'}`
+  - `{type:'OWNERSHIP_LOST'}`
+  - `{type:'OWNERSHIP_BLOCKED',reason?}`
   - `{type:'CONNECT_STARTED'}`
-  - `{type:'DEVICE_CONNECTED',epoch,device}` where `device.identityVerified === true`
+  - `{type:'DEVICE_CONNECTED',epoch,device}` with `device.identityVerified === true`
   - `{type:'DEVICE_DISCONNECTED',epoch,reason?}`
   - `{type:'FILE_OPERATION_STARTED',epoch,operationId,label,mode}`
   - `{type:'FILE_OPERATION_VERIFYING',epoch,operationId}`
@@ -167,43 +143,27 @@ git commit -m "feat: add authoritative EP runtime state model"
 
 - [ ] **Step 1: Add failing transition tests**
 
-Cover:
+Cover connect→ready, read→ready, mutation→verifying→ready, simultaneous operation rejection, wrong operation-id completion, stale epoch event, `effect:none`→safe, `effect:possible`→recovery-required, `effect:session-ambiguous`→unsafe, debug→unsafe, unexpected FILE idle→blocked, unexpected FILE active→unsafe, and ordinary events unable to clear unsafe.
 
-```text
-connect -> ready
-read -> ready
-mutation -> verifying -> ready
-second simultaneous operation -> rejected
-wrong operationId finish -> rejected
-old epoch finish after disconnect/reconnect -> ignored/rejected with stale-epoch code
-mutation failure effect=none -> safe idle
-mutation failure effect=possible -> recovery-required
-mutation failure effect=session-ambiguous -> unsafe
-firmware debug during active FILE state -> unsafe
-unexpected FILE idle -> blocked
-unexpected FILE active -> unsafe
-ordinary event cannot clear unsafe
-```
-
-- [ ] **Step 2: Run focused tests and verify failures**
+- [ ] **Step 2: Run focused tests**
 
 Run: `node --test tests/device-runtime-state.test.mjs`
 
 Expected: new transition tests FAIL.
 
-- [ ] **Step 3: Implement epoch monotonicity and stale-event guard**
+- [ ] **Step 3: Implement monotonic epoch/stale-event rules**
 
-`DEVICE_CONNECTED` accepts only a positive epoch not older than current state. `DEVICE_DISCONNECTED` invalidates the active lease. Operation events require exact current epoch and exact active `operationId`.
+`DEVICE_CONNECTED` accepts only a positive epoch not older than current state. Operation events require exact current epoch and exact active `operationId`. Stale events return/throw a structured stale error without mutating current state.
 
 - [ ] **Step 4: Implement operation lifecycle transitions**
 
-A read starts in `reading`; a mutation starts in `mutating`; only the active operation may move to `verifying` or finish/fail. Closing an operation clears `active` only after a valid matching event.
+Read starts `reading`; mutation starts `mutating`; only matching active operation may enter `verifying` or finish/fail.
 
 - [ ] **Step 5: Implement fail-closed failure classification**
 
-`effect:'none'` may return to safe/idle. `effect:'possible'` sets `recovery-required`. `effect:'session-ambiguous'`, firmware debug, or active external interference sets `unsafe`.
+`none` may return safe/idle; `possible` sets recovery-required; `session-ambiguous`, firmware debug, or active external interference sets unsafe. Disconnect invalidates active operation but does not clear unsafe.
 
-- [ ] **Step 6: Verify focused tests**
+- [ ] **Step 6: Run focused tests**
 
 Run: `node --test tests/device-runtime-state.test.mjs`
 
@@ -225,41 +185,36 @@ git commit -m "feat: enforce epoch-bound EP operation transitions"
 - Test: `tests/device-runtime-state.test.mjs`
 
 **Interfaces:**
-- Consumes: `createDeviceRuntimeState()` from Task 1.
-- Produces from `deviceRuntime.js`:
-  - `deviceRuntime`
-  - `getDeviceRuntimeSnapshot()`
-  - `onDeviceRuntimeChange(listener)`
-  - `dispatchDeviceRuntimeEvent(event)`
-- Existing `device.js` public APIs remain available: `isConnected()`, `isDeviceUnsafe()`, `getDeviceSessionToken()`, `onConnectionChange()`.
+- Produces from `deviceRuntime.js`: `deviceRuntime`, `getDeviceRuntimeSnapshot()`, `onDeviceRuntimeChange(listener)`, `dispatchDeviceRuntimeEvent(event)`.
+- Existing `device.js` APIs remain: `isConnected()`, `isDeviceUnsafe()`, `getDeviceSessionToken()`, `onConnectionChange()`.
 
-- [ ] **Step 1: Add failing integration-contract tests**
+- [ ] **Step 1: Add failing shared-runtime/device publication contract tests**
 
-Assert the shared runtime facade exists and `device.js` source publishes connect/disconnect/unsafe/debug events without removing current legacy exports.
+Assert the facade exports exist and `device.js` keeps legacy exports while publishing connect/disconnect/unsafe/debug events.
 
 - [ ] **Step 2: Run relevant tests**
 
 Run: `node --test tests/device-runtime-state.test.mjs tests/ep133.test.mjs`
 
-Expected: FAIL on missing shared runtime/publication contract.
+Expected: FAIL.
 
-- [ ] **Step 3: Implement `deviceRuntime.js` as the single shared instance**
+- [ ] **Step 3: Implement `deviceRuntime.js`**
 
-The module may depend on `deviceRuntimeState.js` only. It must not import `device.js`, `fileTransport.js`, UI modules, DOM APIs, or recovery stores.
+It may import `deviceRuntimeState.js` only; no device, transport, UI, DOM, or recovery-store imports.
 
-- [ ] **Step 4: Publish physical connection lifecycle from `device.js`**
+- [ ] **Step 4: Publish physical lifecycle from `device.js`**
 
-Map current `connectionEpoch` and verified identity to runtime events. Preserve the existing `notifyConnection()` payload and session token behavior during shadow migration.
+Map the existing `connectionEpoch` and verified identity result to runtime events. Runtime device summary includes SKU, firmware, device key and `identityVerified:true`, but not raw serial fields.
 
 - [ ] **Step 5: Publish current unsafe/debug paths**
 
-`enterUnsafeState()` and firmware debug detection must publish runtime unsafe/debug events in addition to existing legacy state mutation. The legacy and runtime states are both kept; if they disagree, callers remain governed by the stricter legacy/runtime outcome.
+`enterUnsafeState()` and firmware debug detection publish runtime events in addition to current legacy mutation. If runtime and legacy disagree, the stricter result remains governing.
 
-- [ ] **Step 6: Verify current connection tests remain green**
+- [ ] **Step 6: Run full unit/behavior suite**
 
 Run: `npm test`
 
-Expected: PASS; no current connection/session safety assertion removed.
+Expected: PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -273,47 +228,43 @@ git commit -m "refactor: mirror device lifecycle into runtime state"
 **Files:**
 - Modify: `js/ep133/deviceOperationCoordinator.js`
 - Modify: `js/ep133/fileTransport.js`
-- Modify: `js/ep133/ui/deviceSessionOwnership.js`
 - Modify: `js/ep133/ui/connectionLifecycle.js`
 - Modify: `tests/device-operation-coordinator.test.mjs`
 - Modify: `tests/device-session-ownership.test.mjs`
 - Modify: `tests/ep133.test.mjs`
 
 **Interfaces:**
-- Consumes: shared runtime facade from Task 3.
-- `createDeviceOperationCoordinator({...})` keeps `begin`, `run`, `reset`, `observeUnexpectedFileTraffic`, `getState`, `assertAvailable` for compatibility.
-- Add optional dependencies to coordinator: `runtime=deviceRuntime`, `nextOperationId=...` for deterministic tests.
-- `createConnectionLifecycle({...})` gains `publishRuntimeEvent=dispatchDeviceRuntimeEvent` injection so ownership remains testable without a core→UI import.
+- `createDeviceOperationCoordinator({runtime,markUnsafe,isUnsafe,now,nextOperationId,onStateChange})` keeps `begin`, `run`, `reset`, `observeUnexpectedFileTraffic`, `getState`, `assertAvailable`.
+- `runtime` is the shared runtime facade or an injected test double exposing `getSnapshot`, `dispatch`, `assertCanStartFileOperation`, `captureEpoch`.
+- `createConnectionLifecycle({...})` gains `publishRuntimeEvent=()=>{}`; composition passes `dispatchDeviceRuntimeEvent`.
 
-- [ ] **Step 1: Add failing coordinator tests for runtime delegation**
+- [ ] **Step 1: Add failing coordinator delegation tests**
 
-Assert `begin()` calls runtime admission, dispatches `FILE_OPERATION_STARTED`, `setPhase(VERIFYING)` dispatches verifying, and `close()`/`run()` finish only the matching active operation.
+Assert `begin()` calls runtime admission then publishes `FILE_OPERATION_STARTED`; `setPhase(VERIFYING)` publishes verifying; `close()`/`run()` completes only matching operation.
 
-- [ ] **Step 2: Add failing ownership-loss tests**
+- [ ] **Step 2: Add failing ownership publication tests**
 
-Assert acquiring ownership publishes `OWNERSHIP_ACQUIRED`; blocked acquisition publishes `OWNERSHIP_BLOCKED`; release/loss publishes `OWNERSHIP_LOST`.
-
-For ownership loss during an active mutation, assert no new operation is admitted. Do not force-abort an already-dispatched FILE stream; its eventual failure/success is resolved through the active lease and the stricter safety state wins.
+Acquisition→`OWNERSHIP_ACQUIRED`, blocked acquisition→`OWNERSHIP_BLOCKED`, release/loss→`OWNERSHIP_LOST`. Ownership loss during active mutation blocks subsequent admission but does not forcibly cut the already-dispatched stream; its lease result determines the stricter final safety state.
 
 - [ ] **Step 3: Run focused tests**
 
 Run: `node --test tests/device-operation-coordinator.test.mjs tests/device-session-ownership.test.mjs`
 
-Expected: FAIL on missing runtime delegation/publication.
+Expected: FAIL.
 
-- [ ] **Step 4: Convert coordinator into a lease facade over runtime**
+- [ ] **Step 4: Convert coordinator to runtime lease facade**
 
-Keep the existing snapshot shape required by current diagnostics, but derive its state from the runtime-backed operation/safety fields rather than owning an independent global authority.
+Keep its current diagnostics snapshot shape, derived from runtime operation/safety instead of independent authority.
 
-- [ ] **Step 5: Preserve unexpected FILE traffic behavior**
+- [ ] **Step 5: Preserve unexpected FILE behavior**
 
-Idle unexpected FILE traffic yields runtime `blocked`; traffic during an active FILE operation yields runtime `unsafe` and still calls current `markDeviceUnsafe()` during shadow migration.
+Idle unexpected FILE→blocked; active unexpected FILE→unsafe and still calls existing `markDeviceUnsafe()` during shadow migration.
 
-- [ ] **Step 6: Publish ownership changes through `connectionLifecycle`**
+- [ ] **Step 6: Publish ownership state at `connectionLifecycle` boundary**
 
-Do not import core runtime from `deviceSessionOwnership.js`; keep it reusable/testable by translating its state changes at the lifecycle/composition boundary.
+Do not import runtime into `deviceSessionOwnership.js`; translate its existing state callback into runtime events in `connectionLifecycle.js`.
 
-- [ ] **Step 7: Run the full unit/behavior suite**
+- [ ] **Step 7: Run full unit/behavior suite**
 
 Run: `npm test`
 
@@ -322,112 +273,75 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add js/ep133/deviceOperationCoordinator.js js/ep133/fileTransport.js js/ep133/ui/deviceSessionOwnership.js js/ep133/ui/connectionLifecycle.js tests/device-operation-coordinator.test.mjs tests/device-session-ownership.test.mjs tests/ep133.test.mjs
+git add js/ep133/deviceOperationCoordinator.js js/ep133/fileTransport.js js/ep133/ui/connectionLifecycle.js tests/device-operation-coordinator.test.mjs tests/device-session-ownership.test.mjs tests/ep133.test.mjs
 git commit -m "refactor: delegate FILE leases and ownership to runtime state"
 ```
 
 ### Task 5: Recovery state bridge and conservative compatibility
 
 **Files:**
-- Modify: `js/ep133/filesystem.js`
 - Modify: `js/ep133/sampleTransactionRuntime.js`
-- Modify: `js/ep133/sampleTransactionJournal.js` only if callback placement cannot be kept in runtime boundary.
+- Modify: `js/ep133/filesystem.js`
 - Modify: `tests/sample-recovery-verifier.test.mjs`
 - Modify: `tests/ep133.test.mjs`
 - Test: `tests/device-runtime-state.test.mjs`
 
 **Interfaces:**
-- Consumes: shared runtime from Task 3; existing `verifySampleRecoveryTransactionState()` device identity checks remain unchanged.
-- Produces normalized runtime events:
-  - `{type:'RECOVERY_REQUIRED',transactionId,operation,reason}`
-  - `{type:'RECOVERY_VERIFIED',transactionId,classification,deviceIdentityHash}`
-  - `{type:'RECOVERY_ACKNOWLEDGED',transactionId,classification,deviceIdentityHash}`
-- Runtime recovery state stores identifiers/evidence summary only; no raw sample data.
+- Change constructor to `createSampleTransactionRuntime({getConnectedDeviceInfo,recoveryStore,onRecoveryEvent=()=>{}}={})`.
+- `onRecoveryEvent(event)` emits one of:
+  - `{type:'required',transactionId,operation,reason}`
+  - `{type:'verified',transactionId,operation,verification}`
+  - `{type:'acknowledged',transactionId,operation,verification}`
+- `filesystem.js` translates those into runtime `RECOVERY_REQUIRED`, `RECOVERY_VERIFIED`, `RECOVERY_ACKNOWLEDGED` events.
 
 - [ ] **Step 1: Add failing runtime recovery tests**
 
-Assert a possible mutation moves runtime to `recovery-required`; verification for a non-matching transaction id or wrong device identity cannot clear it; acknowledgement without matching authoritative verification is rejected.
+Assert possible mutation→recovery-required; wrong transaction id/device evidence cannot clear; acknowledgement before matching authoritative verification is rejected.
 
-- [ ] **Step 2: Add failing sample-runtime integration tests**
+- [ ] **Step 2: Add failing sample transaction runtime tests**
 
-Extend `sample-recovery-verifier.test.mjs` so `verifyTransaction()` emits verification evidence and `acknowledgeTransaction()` emits acknowledgement only after the existing verifier/device-identity contract succeeds.
+After `journal.fail()` returns a record with `requiresRecovery:true`, `onRecoveryEvent(required)` fires. `verifyTransaction()` emits the verifier report only after `assertSampleRecoveryDevice`/authoritative reads succeed. `acknowledgeTransaction()` emits acknowledgement only after its current re-verification succeeds.
 
 - [ ] **Step 3: Run focused tests**
 
 Run: `node --test tests/device-runtime-state.test.mjs tests/sample-recovery-verifier.test.mjs`
 
-Expected: FAIL on missing recovery event bridge.
+Expected: FAIL.
 
-- [ ] **Step 4: Publish recovery requirement from sample transaction failure boundary**
+- [ ] **Step 4: Implement `onRecoveryEvent` in sample runtime**
 
-Prefer a callback/event injection on `createSampleTransactionRuntime()` or the `filesystem.js` wrapper rather than importing UI code. The runtime event is sent after the journal has assessed `requiresRecovery:true`, using the journal transaction id and normalized operation.
+In `run()` catch, keep the return value from `journal.fail()`, inspect its normalized status/recovery detail, and emit `required` only when recovery is required. Emit `verified` after successful verifier update; emit `acknowledged` after successful acknowledged update.
 
-- [ ] **Step 5: Publish verified/acknowledged evidence**
+- [ ] **Step 5: Translate recovery events in `filesystem.js`**
 
-Keep `assertSampleRecoveryDevice()` and verifier classifications authoritative. Runtime may leave `recovery-required` only after the matching transaction has current-device verification and the supported acknowledgement/resolution path completes.
+Instantiate `createSampleTransactionRuntime` with a callback that dispatches normalized runtime recovery events. Runtime stores only transaction/evidence summary; no PCM or raw binary.
 
-- [ ] **Step 6: Add conservative legacy/runtime compatibility checks**
+- [ ] **Step 6: Keep conservative legacy/runtime admission**
 
-At FILE admission boundaries, the operation is blocked if either current legacy guards or runtime guards block it. Do not delete `isDeviceUnsafe()` or current journal checks in this PR.
+FILE work is blocked when either current legacy safety guard or runtime admission blocks. Do not remove `isDeviceUnsafe()` or persisted recovery logic in this PR.
 
-- [ ] **Step 7: Run full unit suite**
+- [ ] **Step 7: Run full verification for ZAT-5**
 
-Run: `npm test`
+Run: `npm test && npm run test:e2e && npm run build:pages`
 
-Expected: PASS.
+Expected: all PASS.
 
-- [ ] **Step 8: Run E2E before opening ZAT-5 PR**
-
-Run: `npm run test:e2e`
-
-Expected: PASS.
-
-- [ ] **Step 9: Build Pages artifact**
-
-Run: `npm run build:pages`
-
-Expected: successful build with no missing module/import errors.
-
-- [ ] **Step 10: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add js/ep133/filesystem.js js/ep133/sampleTransactionRuntime.js js/ep133/sampleTransactionJournal.js tests/device-runtime-state.test.mjs tests/sample-recovery-verifier.test.mjs tests/ep133.test.mjs
+git add js/ep133/sampleTransactionRuntime.js js/ep133/filesystem.js tests/device-runtime-state.test.mjs tests/sample-recovery-verifier.test.mjs tests/ep133.test.mjs
 git commit -m "feat: gate FILE safety on authoritative recovery state"
 ```
 
-### Task 6: ZAT-5 PR verification gate
+### Task 6: ZAT-5 PR gate
 
-**Files:**
-- No product-code changes unless verification finds a defect.
+**Files:** No planned product changes.
 
-**Interfaces:**
-- Produces: a branch where runtime state is authoritative for admission while legacy APIs still exist as compatibility adapters.
-
-- [ ] **Step 1: Run all unit/behavior tests from a clean checkout/worktree**
-
-Run: `npm test`
-
-Expected: PASS.
-
-- [ ] **Step 2: Run E2E**
-
-Run: `npm run test:e2e`
-
-Expected: PASS.
-
-- [ ] **Step 3: Build Pages output**
-
-Run: `npm run build:pages`
-
-Expected: PASS.
-
-- [ ] **Step 4: Review diff specifically for accidental safety weakening**
-
-Reject the PR if any change removes current timeout, debug SysEx, unexpected FILE traffic, ownership, session token, or recovery guard without an equivalent stricter runtime assertion.
-
-- [ ] **Step 5: Open PR tied to ZAT-5**
-
-PR scope must say explicitly: no UI redesign, no new device writes, no HIL claims.
+- [ ] **Step 1: Run `npm test` from the isolated execution worktree** — Expected PASS.
+- [ ] **Step 2: Run `npm run test:e2e`** — Expected PASS.
+- [ ] **Step 3: Run `npm run build:pages`** — Expected PASS.
+- [ ] **Step 4: Review diff for accidental weakening of timeout/debug/interference/ownership/session/recovery guards.**
+- [ ] **Step 5: Open a PR tied to ZAT-5 stating explicitly: no UI redesign, no new device writes, no HIL claims.**
 
 ---
 
@@ -435,13 +349,14 @@ PR scope must say explicitly: no UI redesign, no new device writes, no HIL claim
 
 ## File map
 
-- Keep `js/ep133/fileProtocol.js` as the canonical FILE payload/response codec.
-- Keep `js/ep133/constants.js` as wire constants; feature/UI code should not import FILE capability bit constants directly after this PR.
+- Keep `js/ep133/constants.js` as wire constants.
+- Keep `js/ep133/fileProtocol.js` as FILE payload/response codec.
 - Keep `js/ep133/capabilityEvidence.js` as evidence semantics.
-- Keep `js/ep133/evidenceRegistry.js` as the evidence database.
-- Create `js/ep133/deviceCapabilities.js` — domain capability facade for a connected SKU/firmware plus FILE-advertised rights.
-- Modify `js/ep133/deviceProfile.js` — consume the facade instead of independently composing write booleans.
-- Modify `js/ep133/ui.js` and any sample/project controllers that interpret raw capability masks — consume domain booleans/evidence.
+- Keep `js/ep133/evidenceRegistry.js` as evidence database.
+- Create `js/ep133/deviceCapabilities.js` — domain facade and FILE-rights decoder.
+- Modify `js/ep133/deviceProfile.js` — consume the facade.
+- Modify `js/ep133/ui/fileModel.js` and `js/ep133/ui.js` — stop interpreting raw FILE capability constants.
+- Modify `js/ep133/projectFilesystem.js` — stop passing raw `TE_SYSEX_FILE_CAPABILITY_READ`; rely on transport's existing default read capability for project PUT.
 - Add `tests/device-capabilities.test.mjs`.
 
 ### Task 7: Add one domain capability facade
@@ -452,117 +367,47 @@ PR scope must say explicitly: no UI redesign, no new device writes, no HIL claim
 - Test: `tests/device-capabilities.test.mjs`
 
 **Interfaces:**
-- Consumes: `CAPABILITY_KEYS`, `resolveRegisteredCapabilityEvidence()`, `canReadCapability()`, `canWriteCapability()`.
-- Produces:
-  - `resolveDeviceCapabilities({sku='',firmware='',fileCapabilities=0}={})`
-  - result fields: `sampleMetadata`, `sampleTransfers`, `sampleBars`, `projectTransport`, `projectAuthoring`, `projectReload`, plus `fileRights:{read,write,delete,move,playback}` and source evidence records.
-  - Unknown/out-of-range evidence must resolve write rights to `false`.
+- Produces `decodeFileRights(capabilities=0)` returning frozen `{read,write,delete,move,playback}` booleans.
+- Produces `resolveDeviceCapabilities({sku='',firmware='',fileCapabilities=0}={})` returning evidence for `sampleMetadata`, `sampleTransfers`, `sampleBars`, `projectTransport`, `projectAuthoring`, `projectReload` plus `fileRights`.
+- Unknown SKU, missing firmware, or firmware outside evidence range never grants write authority.
 
-- [ ] **Step 1: Write failing capability tests**
+- [ ] **Step 1: Write failing tests** for capability bit decoding, EP-133 2.5.1, EP-40 2.5.1, EP-1320 unverified writes, unknown SKU, missing firmware, and out-of-range firmware.
+- [ ] **Step 2: Run `node --test tests/device-capabilities.test.mjs`** — Expected FAIL.
+- [ ] **Step 3: Implement facade by calling existing evidence registry**; do not copy firmware ranges into the new file.
+- [ ] **Step 4: Update `getEpDeviceProfile()` to consume the facade while preserving its public shape.**
+- [ ] **Step 5: Run `node --test tests/device-capabilities.test.mjs tests/ep133.test.mjs`** — Expected PASS.
+- [ ] **Step 6: Commit:** `git commit -m "refactor: centralize EP capability resolution"` with the facade/profile/tests staged.
 
-Cover EP-133 2.5.1 verified rights, EP-40 2.5.1 verified rights, EP-1320 unverified writes, unknown SKU, missing firmware, and firmware outside verified range.
-
-- [ ] **Step 2: Run test and verify failure**
-
-Run: `node --test tests/device-capabilities.test.mjs`
-
-Expected: FAIL because facade does not exist.
-
-- [ ] **Step 3: Implement facade without duplicating evidence rules**
-
-The facade calls the existing evidence registry; it does not copy firmware ranges or create a second evidence table.
-
-- [ ] **Step 4: Update `getEpDeviceProfile()` to consume the facade**
-
-Preserve its current public shape for existing UI/controllers. `advancedSampleMetadataWrites`, `sampleTransfers`, and `sampleBars.authoring` must remain conservative.
-
-- [ ] **Step 5: Run capability/evidence tests**
-
-Run: `node --test tests/device-capabilities.test.mjs tests/ep133.test.mjs`
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add js/ep133/deviceCapabilities.js js/ep133/deviceProfile.js tests/device-capabilities.test.mjs tests/ep133.test.mjs
-git commit -m "refactor: centralize EP capability resolution"
-```
-
-### Task 8: Remove raw protocol/capability interpretation from higher layers
+### Task 8: Remove raw capability policy from higher layers
 
 **Files:**
+- Modify: `js/ep133/ui/fileModel.js`
 - Modify: `js/ep133/ui.js`
-- Modify: sample/project/UI modules found by code search importing `TE_SYSEX_FILE_CAPABILITY_*` for policy decisions.
-- Modify: `js/ep133/fileProtocol.js` only for codec/validation ownership gaps found by tests.
+- Modify: `js/ep133/projectFilesystem.js`
+- Modify: `tests/ep133-ui-helpers.test.mjs`
 - Modify: `tests/ep133.test.mjs`
 - Test: `tests/device-capabilities.test.mjs`
 
 **Interfaces:**
-- Consumes: `resolveDeviceCapabilities()` from Task 7 and `fileProtocol.js` codec functions.
-- Produces: higher layers consume named domain rights/evidence and do not derive policy by bitmask arithmetic.
+- `ui/fileModel.js` consumes `decodeFileRights()` rather than capability constants.
+- `ui.js` consumes named rights/device profile rather than bitmask arithmetic.
+- `projectFilesystem.js` omits explicit `[TE_SYSEX_FILE_CAPABILITY_READ]` when calling `putFile()` because `fileTransport.putFileUnlocked()` already defaults to read capability for FILE_PUT.
 
-- [ ] **Step 1: Add a structural test that enumerates forbidden raw capability-policy imports**
+- [ ] **Step 1: Add structural failing test** allowing `TE_SYSEX_FILE_CAPABILITY_*` imports only in `constants.js`, `fileProtocol.js`, `fileTransport.js`, `deviceCapabilities.js`, and protocol/transport test fixtures.
+- [ ] **Step 2: Run `node --test tests/ep133.test.mjs tests/ep133-ui-helpers.test.mjs tests/device-capabilities.test.mjs`** — Expected FAIL on current UI/domain imports.
+- [ ] **Step 3: Migrate `ui/fileModel.js` capability decoding to `decodeFileRights()`.**
+- [ ] **Step 4: Migrate `ui.js` policy decisions to named rights/profile fields.**
+- [ ] **Step 5: Remove projectFilesystem raw READ import and explicit PUT capability argument; preserve transport wire behavior through its existing default.**
+- [ ] **Step 6: Run `npm test && npm run test:e2e && npm run build:pages`** — Expected all PASS.
+- [ ] **Step 7: Commit:** `git commit -m "refactor: isolate FILE capability policy from feature code"`.
 
-Allow raw FILE capability constants only in protocol/transport/capability modules. Fail if UI/sample/project feature modules use them to decide product policy.
+### Task 9: ZAT-6 PR gate
 
-- [ ] **Step 2: Run structural test and verify it identifies current imports**
-
-Run: `node --test tests/ep133.test.mjs tests/device-capabilities.test.mjs`
-
-Expected: FAIL until current direct policy imports are migrated.
-
-- [ ] **Step 3: Replace higher-layer bitmask checks with domain capability fields**
-
-Do not change wire payload encoding; transport/protocol code may still use constants where they are part of the actual protocol.
-
-- [ ] **Step 4: Add response/payload validation only where ownership is currently duplicated**
-
-If a higher layer manually validates FILE wire fields already represented by `fileProtocol.js`, move that validation into a named codec/parser in `fileProtocol.js` and test it there. Do not perform unrelated protocol refactors.
-
-- [ ] **Step 5: Run unit and E2E suites**
-
-Run: `npm test && npm run test:e2e`
-
-Expected: PASS.
-
-- [ ] **Step 6: Build Pages output**
-
-Run: `npm run build:pages`
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add js/ep133/ui.js js/ep133/fileProtocol.js js/ep133/deviceCapabilities.js tests/device-capabilities.test.mjs tests/ep133.test.mjs
-git commit -m "refactor: isolate FILE protocol policy from feature code"
-```
-
-### Task 9: ZAT-6 PR verification gate
-
-**Files:**
-- No product-code changes unless verification finds a defect.
-
-- [ ] **Step 1: Search for remaining raw capability-policy usage**
-
-Run repository code search for `TE_SYSEX_FILE_CAPABILITY_` and classify every remaining use as wire encoding/transport or a defect. Feature/UI policy use is not allowed.
-
-- [ ] **Step 2: Run `npm test`**
-
-Expected: PASS.
-
-- [ ] **Step 3: Run `npm run test:e2e`**
-
-Expected: PASS.
-
-- [ ] **Step 4: Run `npm run build:pages`**
-
-Expected: PASS.
-
-- [ ] **Step 5: Open PR tied to ZAT-6**
-
-Document that no new firmware/SKU support is claimed by the refactor.
+- [ ] **Step 1: Repository search for `TE_SYSEX_FILE_CAPABILITY_`**; every remaining production use must be wire codec/transport or `deviceCapabilities.js`.
+- [ ] **Step 2: Run `npm test`** — PASS.
+- [ ] **Step 3: Run `npm run test:e2e`** — PASS.
+- [ ] **Step 4: Run `npm run build:pages`** — PASS.
+- [ ] **Step 5: Open PR tied to ZAT-6 and state that no new firmware/SKU support is claimed.**
 
 ---
 
@@ -570,13 +415,13 @@ Document that no new firmware/SKU support is claimed by the refactor.
 
 ## File map
 
-The current top-level `js/app.js` already lazy-loads the EP workspace; the EP-specific composition debt is primarily in `js/ep133/ui.js`, which imports device/filesystem APIs and instantiates many controllers while retaining local safety flags. This PR therefore keeps the existing lazy-loading behavior in `app.js` and moves EP composition/safety wiring out of `ui.js` without broad converter refactoring.
+`js/app.js` already lazy-loads the EP dependency graph; the EP-specific composition debt is primarily `js/ep133/ui.js`, which instantiates many controllers and retains local device-safety reconstruction. T1 therefore leaves the converter behavior/lazy-load contract in `app.js` unchanged and cleans the EP composition root rather than starting unrelated converter refactors.
 
-- Create `js/ep133/ui/createEpWorkspace.js` — construct core/controller dependencies from injected services; no DOM discovery.
-- Modify `js/ep133/ui.js` — DOM discovery + composition entry only.
-- Modify `js/ep133/workspaceBootstrap.js` — consume authoritative runtime subscription instead of reconstructing FILE state by polling coordinator where possible; keep project-settle/recovery polling only where no event source exists yet.
-- Modify controllers only where they currently receive redundant `isConnected`/`deviceUnsafe`/session-state inputs that can be replaced by a runtime-backed admission/session service.
-- Modify `tests/ep133.test.mjs` and focused UI tests.
+- Create `js/ep133/ui/createEpWorkspace.js` — construct EP controllers/services from injected dependencies; no DOM discovery.
+- Modify `js/ep133/ui.js` — DOM discovery + call to workspace factory + entry lifecycle only.
+- Modify `js/ep133/workspaceBootstrap.js` — subscribe to authoritative runtime instead of polling coordinator for connection/FILE state.
+- Add `tests/my-ep-workspace-bootstrap.test.mjs` for event-driven bootstrap wiring.
+- Modify `tests/ep133.test.mjs` and `tests/my-ep-workspace-state.test.mjs` only where contracts need additional assertions.
 
 ### Task 10: Extract EP workspace construction from `ui.js`
 
@@ -586,128 +431,44 @@ The current top-level `js/app.js` already lazy-loads the EP workspace; the EP-sp
 - Modify: `tests/ep133.test.mjs`
 
 **Interfaces:**
-- Consumes injected `dom`, device/filesystem services, runtime facade, and existing controller factories.
-- Produces `createEpWorkspace({dom,services,showError,documentRef=globalThis.document,windowRef=globalThis.window})` returning `{dispose?, controllers, runtime}` or the minimum existing lifecycle handle needed by tests.
+- Produces `createEpWorkspace({dom,services,showError,documentRef=globalThis.document,windowRef=globalThis.window})`.
+- `services` supplies runtime/device/filesystem/controller dependencies; workspace code does not import `app.js`.
+- `ui.js` keeps `initEp133Browser({showError}={})` and DOM-registry discovery.
 
-- [ ] **Step 1: Add structural failing tests for the new composition boundary**
+- [ ] **Step 1: Add structural failing tests** asserting `ui.js` delegates to `createEpWorkspace()` and no longer contains FILE safety/admission decisions.
+- [ ] **Step 2: Run `node --test tests/ep133.test.mjs`** — Expected FAIL.
+- [ ] **Step 3: Move controller/service construction to the factory without changing DOM ids, lazy loading, or event behavior.**
+- [ ] **Step 4: Replace local `connected && !deviceUnsafe` safety reconstruction with runtime-backed named admission/status helpers; keep UI-only `synchronized`, `metadataHydrating`, and `mutating` workflow flags local.**
+- [ ] **Step 5: Run `npm test`** — Expected PASS.
+- [ ] **Step 6: Commit:** `git commit -m "refactor: isolate EP workspace composition"`.
 
-Assert `ui.js` still exports `initEp133Browser({showError})`, performs DOM registry discovery, and delegates workspace construction to `createEpWorkspace()`.
-
-Assert feature-specific transaction/safety decisions are absent from `ui.js` after extraction.
-
-- [ ] **Step 2: Run focused structural tests**
-
-Run: `node --test tests/ep133.test.mjs`
-
-Expected: FAIL before extraction.
-
-- [ ] **Step 3: Move controller/service construction without changing behavior**
-
-Do not redesign controller interfaces beyond what Tasks 1–9 require. Preserve lazy loading from `js/app.js` and current DOM ids/event behavior.
-
-- [ ] **Step 4: Remove local duplicate device safety authority**
-
-Replace `ui.js`/workspace-local decisions that reconstruct `connected && !deviceUnsafe` with runtime-backed named helpers/services. Synchronization/hydration/mutating UI flags may remain local because they are UI workflow state, not device safety authority.
-
-- [ ] **Step 5: Run unit suite**
-
-Run: `npm test`
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add js/ep133/ui.js js/ep133/ui/createEpWorkspace.js tests/ep133.test.mjs
-git commit -m "refactor: isolate EP workspace composition"
-```
-
-### Task 11: Make workspace diagnostics consume runtime directly
+### Task 11: Drive workspace diagnostics from authoritative runtime
 
 **Files:**
+- Create: `tests/my-ep-workspace-bootstrap.test.mjs`
 - Modify: `js/ep133/workspaceBootstrap.js`
-- Modify: `js/ep133/ui/workspaceState.js` only if its input shape must be normalized.
-- Modify: relevant workspace tests in `tests/`.
+- Modify: `js/ep133/ui/workspaceState.js`
+- Modify: `tests/my-ep-workspace-state.test.mjs`
 
 **Interfaces:**
-- Consumes: `getDeviceRuntimeSnapshot()`, `onDeviceRuntimeChange(listener)`.
-- Produces: current workspace status view fed from one authoritative connection/operation/safety snapshot; project-runtime settling and persisted recovery summaries remain separate adjunct state until their later roadmap work.
+- Consumes `getDeviceRuntimeSnapshot()` and `onDeviceRuntimeChange(listener)`.
+- Workspace status derives connection/operation/safety from runtime snapshot; project-runtime settling and persisted recovery summaries remain adjunct state.
 
-- [ ] **Step 1: Add failing workspace test for event-driven runtime updates**
+- [ ] **Step 1: Write failing bootstrap test** with injected runtime subscription; dispatch a runtime snapshot change and assert workspace state updates without advancing the 200 ms coordinator poll timer.
+- [ ] **Step 2: Run `node --test tests/my-ep-workspace-bootstrap.test.mjs tests/my-ep-workspace-state.test.mjs`** — Expected FAIL before subscription wiring.
+- [ ] **Step 3: Subscribe `workspaceBootstrap` to runtime and remove coordinator polling for connection/FILE-operation/safety fields.**
+- [ ] **Step 4: Keep project settle and recovery polling unchanged because they remain separate persisted/runtime sources in T1.**
+- [ ] **Step 5: Run `npm test && npm run test:e2e`** — Expected PASS.
+- [ ] **Step 6: Commit:** `git commit -m "refactor: drive EP workspace status from runtime state"`.
 
-Assert a runtime state change updates workspace connection/operation/safety state without waiting for the current 200 ms coordinator poll.
+### Task 12: T1 final verification
 
-- [ ] **Step 2: Run focused workspace tests**
+**Files:** No planned product changes.
 
-Run the matching `node --test tests/<workspace-test>.test.mjs` file discovered in the repo; if workspace assertions currently live in `tests/ep133.test.mjs`, add the focused test there instead of creating duplicate coverage.
-
-Expected: FAIL before runtime subscription.
-
-- [ ] **Step 3: Subscribe workspace bootstrap to runtime**
-
-Remove coordinator polling only for information now supplied by the authoritative runtime. Do not remove project-settle/recovery polling unless an existing event source fully replaces it.
-
-- [ ] **Step 4: Run unit and E2E suites**
-
-Run: `npm test && npm run test:e2e`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add js/ep133/workspaceBootstrap.js js/ep133/ui/workspaceState.js tests
-git commit -m "refactor: drive EP workspace status from runtime state"
-```
-
-### Task 12: T1 final verification and cleanup
-
-**Files:**
-- Modify only if verification identifies a real defect.
-
-**Interfaces:**
-- Completion contract: one authoritative answer for FILE-operation admission; legacy APIs are adapters or explicitly isolated compatibility surfaces.
-
-- [ ] **Step 1: Search for independent safety decisions**
-
-Review remaining occurrences of:
-
-```text
-isDeviceUnsafe
-getDeviceSessionToken
-getFileOperationCoordinatorState
-ownership.canUseDevice
-connectionEpoch
-```
-
-Classify each as: compatibility adapter, diagnostics/read-only consumer, or defect. Any feature code independently deciding FILE admissibility is a defect and must be migrated before T1 closes.
-
-- [ ] **Step 2: Verify unsafe cannot be cleared by feature/UI code**
-
-Search for runtime dispatches or helpers capable of setting safety to safe. Only the documented fresh-runtime path may reset `unsafe`.
-
-- [ ] **Step 3: Run all unit/behavior tests**
-
-Run: `npm test`
-
-Expected: PASS.
-
-- [ ] **Step 4: Run E2E**
-
-Run: `npm run test:e2e`
-
-Expected: PASS.
-
-- [ ] **Step 5: Build deployable Pages output**
-
-Run: `npm run build:pages`
-
-Expected: PASS.
-
-- [ ] **Step 6: Compare behavior against T1 non-goals**
-
-Confirm no intentional UI redesign, no new write command, no new firmware/SKU support claim, no recovery-store replacement, and no TypeScript migration landed.
-
-- [ ] **Step 7: Open ZAT-7 PR and close T1 only after all three PR acceptance gates pass**
-
-The T1 completion note should list remaining compatibility adapters intentionally retained for T2/T3 rather than deleting them opportunistically.
+- [ ] **Step 1: Search remaining `isDeviceUnsafe`, `getDeviceSessionToken`, `getFileOperationCoordinatorState`, `ownership.canUseDevice`, and `connectionEpoch` uses.** Classify each remaining use as compatibility adapter, diagnostics/read-only consumer, or defect. Migrate any feature code that independently decides FILE admissibility.
+- [ ] **Step 2: Search runtime code for any feature/UI path that can set safety back to safe.** Only creation of a fresh browser runtime may clear `unsafe`.
+- [ ] **Step 3: Run `npm test`** — PASS.
+- [ ] **Step 4: Run `npm run test:e2e`** — PASS.
+- [ ] **Step 5: Run `npm run build:pages`** — PASS.
+- [ ] **Step 6: Confirm non-goals:** no intentional UI redesign, no new write command, no new firmware/SKU support claim, no recovery-store replacement, no TypeScript migration.
+- [ ] **Step 7: Open ZAT-7 PR and close T1 only after ZAT-5, ZAT-6, ZAT-7 gates pass; list intentionally retained compatibility adapters for later roadmap work.**
