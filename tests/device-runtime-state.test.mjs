@@ -93,3 +93,137 @@ test('disconnect invalidates readiness and recovery hydration',()=>{
     error=>error?.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED'
   );
 });
+
+test('runtime serializes FILE operation lifecycle by epoch and operation id',()=>{
+  const runtime=createDeviceRuntimeState({now:()=>1234});
+  makeReady(runtime);
+  runtime.dispatch({
+    type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:41,label:'sample read',mode:'read'
+  });
+  assert.equal(runtime.getSnapshot().status,'reading');
+  assert.equal(runtime.getSnapshot().operation.active.id,41);
+  assert.equal(runtime.getSnapshot().operation.active.startedAt,1234);
+  assert.throws(
+    ()=>runtime.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:42,label:'overlap',mode:'mutation'}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED'
+  );
+  assert.throws(
+    ()=>runtime.dispatch({type:'FILE_OPERATION_FINISHED',connectionEpoch:0,operationId:99}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_STALE_OPERATION'
+  );
+  assert.equal(runtime.getSnapshot().operation.active.id,41);
+  runtime.dispatch({type:'FILE_OPERATION_FINISHED',connectionEpoch:0,operationId:41});
+  assert.equal(runtime.getSnapshot().status,'ready');
+});
+
+test('mutation moves through verifying and returns ready only for the matching lease',()=>{
+  const runtime=createDeviceRuntimeState();
+  makeReady(runtime);
+  runtime.dispatch({
+    type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:7,label:'project write',mode:'mutation'
+  });
+  assert.equal(runtime.getSnapshot().status,'mutating');
+  runtime.dispatch({type:'FILE_OPERATION_VERIFYING',connectionEpoch:0,operationId:7});
+  assert.equal(runtime.getSnapshot().status,'verifying');
+  runtime.dispatch({type:'FILE_OPERATION_FINISHED',connectionEpoch:0,operationId:7});
+  assert.equal(runtime.getSnapshot().status,'ready');
+});
+
+test('stale operation callbacks cannot mutate a reconnected epoch',()=>{
+  const runtime=createDeviceRuntimeState();
+  makeReady(runtime);
+  runtime.dispatch({
+    type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:3,label:'old read',mode:'read'
+  });
+  runtime.dispatch({type:'DEVICE_DISCONNECTED',connectionEpoch:1});
+  runtime.dispatch({type:'CONNECT_STARTED'});
+  runtime.dispatch({type:'DEVICE_CONNECTED',connectionEpoch:1,device:verifiedDevice});
+  runtime.dispatch({type:'RECOVERY_SCAN_COMPLETED',connectionEpoch:1});
+  const before=runtime.getSnapshot();
+  assert.throws(
+    ()=>runtime.dispatch({type:'FILE_OPERATION_FINISHED',connectionEpoch:0,operationId:3}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_STALE_EPOCH'
+  );
+  assert.equal(runtime.getSnapshot(),before);
+  assert.equal(runtime.getSnapshot().status,'ready');
+});
+
+test('FILE failure effect classification is fail-closed',()=>{
+  const none=createDeviceRuntimeState();
+  makeReady(none);
+  none.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:1,label:'read',mode:'read'});
+  none.dispatch({type:'FILE_OPERATION_FAILED',connectionEpoch:0,operationId:1,effect:'none',reason:'timeout'});
+  assert.equal(none.getSnapshot().status,'ready');
+
+  const possible=createDeviceRuntimeState();
+  makeReady(possible);
+  possible.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:2,label:'move',mode:'mutation'});
+  possible.dispatch({type:'FILE_OPERATION_FAILED',connectionEpoch:0,operationId:2,effect:'possible',reason:'timeout'});
+  assert.equal(possible.getSnapshot().status,'recovery-required');
+  assert.equal(possible.getSnapshot().safety.status,'recovery-required');
+
+  const ambiguous=createDeviceRuntimeState();
+  makeReady(ambiguous);
+  ambiguous.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:3,label:'put',mode:'mutation'});
+  ambiguous.dispatch({type:'FILE_OPERATION_FAILED',connectionEpoch:0,operationId:3,effect:'session-ambiguous',reason:'stream interrupted'});
+  assert.equal(ambiguous.getSnapshot().status,'unsafe');
+});
+
+test('unexpected FILE traffic blocks idle runtime and makes active runtime unsafe',()=>{
+  const idle=createDeviceRuntimeState();
+  makeReady(idle);
+  idle.dispatch({type:'UNEXPECTED_FILE_TRAFFIC',connectionEpoch:0,requestId:77,reason:'external response'});
+  assert.equal(idle.getSnapshot().status,'blocked');
+  assert.equal(idle.getSnapshot().externalInterference.requestId,77);
+
+  const active=createDeviceRuntimeState();
+  makeReady(active);
+  active.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:8,label:'project write',mode:'mutation'});
+  active.dispatch({type:'UNEXPECTED_FILE_TRAFFIC',connectionEpoch:0,requestId:78,reason:'external response'});
+  assert.equal(active.getSnapshot().status,'unsafe');
+});
+
+test('firmware debug makes the runtime terminally unsafe for the current browser runtime',()=>{
+  const runtime=createDeviceRuntimeState();
+  makeReady(runtime);
+  runtime.dispatch({type:'FILE_OPERATION_STARTED',connectionEpoch:0,operationId:10,label:'put',mode:'mutation'});
+  runtime.dispatch({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch:0,reason:'err lfs 6327'});
+  assert.equal(runtime.getSnapshot().status,'unsafe');
+  runtime.dispatch({type:'FILE_OPERATION_FINISHED',connectionEpoch:0,operationId:10});
+  assert.equal(runtime.getSnapshot().status,'unsafe');
+  runtime.dispatch({type:'DEVICE_DISCONNECTED',connectionEpoch:1});
+  runtime.dispatch({type:'CONNECT_STARTED'});
+  runtime.dispatch({type:'DEVICE_CONNECTED',connectionEpoch:1,device:verifiedDevice});
+  runtime.dispatch({type:'RECOVERY_SCAN_COMPLETED',connectionEpoch:1});
+  assert.equal(runtime.getSnapshot().status,'unsafe');
+  assert.throws(
+    ()=>runtime.assertCanStartFileOperation({mode:'read'}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED'
+  );
+});
+
+test('recovery blocker clears only after matching authoritative verification and acknowledgment',()=>{
+  const runtime=createDeviceRuntimeState();
+  makeReady(runtime);
+  runtime.dispatch({
+    type:'RECOVERY_REQUIRED',connectionEpoch:0,transactionId:'sample:tx-1',source:'sample',reason:'ambiguous move'
+  });
+  assert.equal(runtime.getSnapshot().status,'recovery-required');
+  assert.equal(runtime.getSnapshot().recovery.transaction.id,'sample:tx-1');
+  assert.throws(
+    ()=>runtime.dispatch({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch:0,transactionId:'sample:tx-1'}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_INVALID_TRANSITION'
+  );
+  assert.throws(
+    ()=>runtime.dispatch({type:'RECOVERY_VERIFIED',connectionEpoch:0,transactionId:'sample:other',verification:{classification:'rollback-state-visible'}}),
+    error=>error?.code==='EP_DEVICE_RUNTIME_INVALID_TRANSITION'
+  );
+  runtime.dispatch({
+    type:'RECOVERY_VERIFIED',connectionEpoch:0,transactionId:'sample:tx-1',verification:{classification:'rollback-state-visible'}
+  });
+  assert.equal(runtime.getSnapshot().status,'recovery-required');
+  assert.equal(runtime.getSnapshot().recovery.transaction.verified,true);
+  runtime.dispatch({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch:0,transactionId:'sample:tx-1'});
+  assert.equal(runtime.getSnapshot().status,'ready');
+  assert.equal(runtime.getSnapshot().recovery.transaction,null);
+});
