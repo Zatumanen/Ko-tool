@@ -11,7 +11,6 @@ function makeHarness({failReadback=false,unsafeAfterWrite=false,failRollback=fal
   const events=[];
   const backup=emptyTar();
   const candidate=emptyTar();
-  candidate[0]=1;
   let projectData=backup.slice();
   let afterCandidate=false;
   let readbackFailed=false;
