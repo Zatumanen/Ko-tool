@@ -62,6 +62,30 @@ export function createDeviceOperationCoordinator({
     if(active)throw blockedError('operation '+active.label+' is already active');
   };
 
+  const waitForRecoveryHydration=()=>{
+    if(!runtime?.subscribe)return Promise.resolve();
+    const shouldWait=shared=>
+      shared?.connection?.status==='connected'&&
+      shared?.ownership?.status==='owned'&&
+      shared?.safety?.status==='safe'&&
+      shared?.recovery?.hydrated===false;
+    if(!shouldWait(runtimeSnapshot()))return Promise.resolve();
+    return new Promise(resolve=>{
+      let settled=false;
+      let unsubscribe=()=>{};
+      const finish=()=>{
+        if(settled)return;
+        settled=true;
+        unsubscribe();
+        resolve();
+      };
+      unsubscribe=runtime.subscribe(shared=>{
+        if(!shouldWait(shared))finish();
+      });
+      if(!shouldWait(runtimeSnapshot()))finish();
+    });
+  };
+
   const begin=(label,{mode='read'}={})=>{
     const normalizedMode=mode==='mutation'?'mutation':'read';
     assertAvailable({mode:normalizedMode});
@@ -131,6 +155,7 @@ export function createDeviceOperationCoordinator({
 
   const run=async(label,operation,{mode='read'}={})=>{
     if(typeof operation!=='function')throw new TypeError('Device operation coordinator requires an operation.');
+    await waitForRecoveryHydration();
     const lease=begin(label,{mode});
     try{return await operation(lease);}
     finally{lease.close();}
