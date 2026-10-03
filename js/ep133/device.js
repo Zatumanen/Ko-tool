@@ -2,6 +2,7 @@ import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_F
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 import{compareFirmwareVersions}from './capabilityEvidence.js?v=20261001-1';
+import{dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
@@ -104,7 +105,11 @@ function onMessage(inputPort,event){
     lastFirmwareDebugText=debugText;
     lastFirmwareDebugAt=Date.now();
     console.warn('EP firmware/debug SysEx:',debugText);
-    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
+    if(strictFirmwareDebugDepth>0){
+      const reason='Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText;
+      publishRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch,reason});
+      enterUnsafeState(reason);
+    }
     return;
   }
   if(data[1]===0x7E){
@@ -162,6 +167,11 @@ function waitForIdentity(timeout=2000){
 
 let requestQueue=Promise.resolve();
 let connectionEpoch=0;
+const deviceRuntimeSummary=device=>Object.freeze({sku:String(device?.sku||''),firmware:String(device?.metadata?.os_version||device?.metadata?.sw_version||''),deviceKey:output?.id||null,identityVerified:true});
+function publishRuntimeEvent(event){
+  try{return dispatchDeviceRuntimeEvent(event);}
+  catch(error){console.warn('EP runtime event rejected',event?.type,error);return null;}
+}
 
 function unsafeError(){
   return new Error('EP-series FILE safety lock is active. Power-cycle the device, then reload this page before sending more FILE traffic. '+deviceUnsafeReason);
@@ -169,8 +179,10 @@ function unsafeError(){
 
 function enterUnsafeState(reason){
   if(deviceUnsafe)return;
+  const runtimeEpoch=connectionEpoch;
   deviceUnsafe=true;
   deviceUnsafeReason=String(reason||'Unknown EP-series FILE session failure.');
+  publishRuntimeEvent({type:'DEVICE_MARKED_UNSAFE',connectionEpoch:runtimeEpoch,reason:deviceUnsafeReason});
   connectionEpoch+=1;
   requestQueue=Promise.resolve();
   for(const p of pending.values()){
@@ -297,6 +309,7 @@ export async function connectEp133(){
     disconnectEp133();
   }
   if(connectingPromise)return connectingPromise;
+  publishRuntimeEvent({type:'CONNECT_STARTED'});
   connectingPromise=(async()=>{
   if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');
   const access=midiAccess||await navigator.requestMIDIAccess({sysex:true});
@@ -335,10 +348,15 @@ export async function connectEp133(){
   validateFirmware(effectiveSku,metadata);
   initialized=true;
   deviceInfo={sku:effectiveSku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
+  publishRuntimeEvent({type:'DEVICE_CONNECTED',connectionEpoch,device:deviceRuntimeSummary(deviceInfo)});
   notifyConnection();
   return{...deviceInfo,input,output};
   })();
-  try{return await connectingPromise;}finally{connectingPromise=null;}
+  try{return await connectingPromise;}
+  catch(error){
+    publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason:String(error?.message||error)});
+    throw error;
+  }finally{connectingPromise=null;}
 }
 
 export function disconnectEp133(){
@@ -349,6 +367,7 @@ export function disconnectEp133(){
   pending.clear();
   recentlyExpiredRequestIds.clear();
   input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;
+  publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason:'device disconnected'});
   notifyConnection();
 }
 
