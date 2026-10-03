@@ -1,18 +1,12 @@
 import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20261001-1';
-import{
-  withFileTransportTransaction,getFileOperationCoordinatorState,resetFileTransportState,fileTransportInternals,
-  initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,
-  deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
-}from './fileTransport.js?v=20261001-1';
-import{
-  normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,
-  prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,
-  uploadSampleToSlotWithTransport
-}from './sampleFilesystem.js?v=20261001-1';
+import{withFileTransportTransaction,getFileOperationCoordinatorState,resetFileTransportState,fileTransportInternals,initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile}from './fileTransport.js?v=20261001-1';
+import{normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,uploadSampleToSlotWithTransport}from './sampleFilesystem.js?v=20261001-1';
 import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20261001-1';
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
+import{publishSampleRecoveryEvent,publishProjectRecoveryEvent,syncDeviceRuntimeRecovery,setDeviceRecoveryRescanHandler}from './deviceRecoveryRuntimeBridge.js';
+import{deviceRuntime}from './deviceRuntime.js';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
 export{
@@ -24,33 +18,29 @@ export{
 }from './fileProtocol.js?v=20261001-1';
 
 export{
-  normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,
-  prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,
-  assertProjectWriteActiveGuard,getFileOperationCoordinatorState,
-  initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,
-  deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
+  normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,prepareSampleLocalMetadata,
+  prepareSampleTransferMetadata,createTransferFileName,assertProjectWriteActiveGuard,getFileOperationCoordinatorState,
+  initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,deleteFile,moveFile,
+  setFileMetadata,startPlayback,stopPlayback,getFile
 };
 
-const projectRecoveryStore=createBrowserProjectRecoveryStore();
-const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
+const projectRecoveryStore=createBrowserProjectRecoveryStore(),sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
 const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
+sampleTransactionRuntime.setRecoveryEventHandler(publishSampleRecoveryEvent);
+const syncRuntimeRecovery=device=>syncDeviceRuntimeRecovery({
+  runtime:deviceRuntime,deviceInfo:device,listSampleTransactions:()=>sampleTransactionRuntime.listTransactions(),
+  listProjectCheckpoints:()=>projectRecoveryStore.listCheckpoints()
+}).catch(error=>console.warn('EP recovery runtime hydration failed',error));
+setDeviceRecoveryRescanHandler(()=>syncRuntimeRecovery(getConnectedDeviceInfo()));
 const projectFilesystem=createProjectFilesystem({
-  runFileOperation:fileTransportInternals.runFileOperation,
-  withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
-  initRead:fileTransportInternals.initRead,
-  initFileSystem:fileTransportInternals.initFileSystem,
-  listDirectory:fileTransportInternals.listDirectory,
-  listDeviceFiles:fileTransportInternals.listDeviceFiles,
-  getFile:fileTransportInternals.getFile,
-  putFile:fileTransportInternals.putFile,
-  getFileMetadata:fileTransportInternals.getFileMetadata,
-  setFileMetadata:fileTransportInternals.setFileMetadata,
-  recoveryStore:projectRecoveryStore
+  runFileOperation:fileTransportInternals.runFileOperation,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
+  initRead:fileTransportInternals.initRead,initFileSystem:fileTransportInternals.initFileSystem,
+  listDirectory:fileTransportInternals.listDirectory,listDeviceFiles:fileTransportInternals.listDeviceFiles,
+  getFile:fileTransportInternals.getFile,putFile:fileTransportInternals.putFile,getFileMetadata:fileTransportInternals.getFileMetadata,
+  setFileMetadata:fileTransportInternals.setFileMetadata,recoveryStore:projectRecoveryStore,onRecoveryEvent:publishProjectRecoveryEvent
 });
 
-const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(args,{
-  putFile:fileOps.putFile,setFileMetadata:fileOps.setFileMetadata,initFileSystem:fileOps.initFileSystem
-});
+const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(args,{putFile:fileOps.putFile,setFileMetadata:fileOps.setFileMetadata,initFileSystem:fileOps.initFileSystem});
 const sampleFileOps=fileOps=>Object.freeze({...fileOps,uploadSampleToSlot:args=>sampleUploadForTransport(args,fileOps)});
 const structuredFileError=(error,label)=>toStructuredEpError(error,{
   code:isDeviceUnsafe()?EP_ERROR_CODE.FILE_SAFETY_LOCK:EP_ERROR_CODE.FILE_OPERATION_FAILED,
@@ -78,22 +68,16 @@ export function withSampleUploadBatch(operation){
 export function uploadSampleToSlot(args){
   const label='sample upload transaction';
   return withFileTransportTransaction(label,async fileOps=>{
-    try{return await sampleTransactionRuntime.run({
-      label,fileOps:sampleFileOps(fileOps),operation:ops=>ops.uploadSampleToSlot(args)
-    });}catch(error){throw structuredFileError(error,label);}
+    try{return await sampleTransactionRuntime.run({label,fileOps:sampleFileOps(fileOps),operation:ops=>ops.uploadSampleToSlot(args)});}
+    catch(error){throw structuredFileError(error,label);}
   },{strict:true});
 }
 
 const runSampleRecoveryRead=(label,operation)=>withFileTransportTransaction(label,async fileOps=>{
-  try{return await operation(sampleFileOps(fileOps));}
-  catch(error){throw structuredFileError(error,label);}
+  try{return await operation(sampleFileOps(fileOps));}catch(error){throw structuredFileError(error,label);}
 },{strict:false});
-export const verifySampleRecoveryTransaction=id=>runSampleRecoveryRead(
-  'sample recovery verification',fileOps=>sampleTransactionRuntime.verifyTransaction(id,fileOps)
-);
-export const acknowledgeSampleRecoveryTransaction=id=>runSampleRecoveryRead(
-  'sample recovery acknowledge',fileOps=>sampleTransactionRuntime.acknowledgeTransaction(id,fileOps)
-);
+export const verifySampleRecoveryTransaction=id=>runSampleRecoveryRead('sample recovery verification',fileOps=>sampleTransactionRuntime.verifyTransaction(id,fileOps));
+export const acknowledgeSampleRecoveryTransaction=id=>runSampleRecoveryRead('sample recovery acknowledge',fileOps=>sampleTransactionRuntime.acknowledgeTransaction(id,fileOps));
 
 export function resetFileSystemState(){projectFilesystem.resetProjectRuntime();resetFileTransportState();}
 export function getProjectRuntimeSettleState(){return projectFilesystem.getProjectRuntimeSettleState();}
@@ -114,4 +98,7 @@ export const getSampleRecoveryTransaction=id=>sampleTransactionRuntime.getTransa
 export const listSampleRecoveryTransactions=()=>sampleTransactionRuntime.listTransactions();
 export const deleteSampleRecoveryTransaction=id=>sampleTransactionRuntime.deleteTransaction(id);
 
-onConnectionChange(({connected})=>{if(!connected)projectFilesystem.resetProjectRuntime();});
+onConnectionChange(({connected,device})=>{
+  if(!connected){projectFilesystem.resetProjectRuntime();return;}
+  syncRuntimeRecovery(device);
+});

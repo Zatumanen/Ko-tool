@@ -8,6 +8,7 @@ import{
 import{parseNullTerminatedString}from './packing.js';
 import{createFileScheduler}from './fileScheduler.js?v=20261001-1';
 import{createDeviceOperationCoordinator}from './deviceOperationCoordinator.js?v=20261001-1';
+import{deviceRuntime}from './deviceRuntime.js';
 import{
   readU16 as u16,readU32 as u32,
   calculateMaxPayloadLength,buildFileInitPayload,buildFileListPayload,parseMetadataResponse,
@@ -18,7 +19,7 @@ import{
 }from './fileProtocol.js?v=20261001-1';
 
 const deviceChunkSizes=new Map();
-const deviceOperationCoordinator=createDeviceOperationCoordinator({markUnsafe:markDeviceUnsafe,isUnsafe:isDeviceUnsafe});
+const deviceOperationCoordinator=createDeviceOperationCoordinator({runtime:deviceRuntime,markUnsafe:markDeviceUnsafe,isUnsafe:isDeviceUnsafe});
 onUnexpectedFileTraffic(detail=>deviceOperationCoordinator.observeUnexpectedFileTraffic(detail));
 async function withBrowserFileLock(operation){
   const locks=globalThis.navigator?.locks;

@@ -204,9 +204,32 @@ export async function importFilesystemPair(){
   const source=await fs.readFile(new URL('../../js/ep133/filesystem.js',import.meta.url),'utf8');
   const token=source.match(/\.\/device\.js\?v=([^'"]+)/)?.[1];
   if(!token)throw new Error('Could not resolve the filesystem/device release token.');
-  const [device,filesystem]=await Promise.all([
+  const [device,filesystem,runtime]=await Promise.all([
     import(`../../js/ep133/device.js?v=${token}`),
-    import('../../js/ep133/filesystem.js')
+    import('../../js/ep133/filesystem.js'),
+    import('../../js/ep133/deviceRuntime.js')
   ]);
-  return{device,filesystem,token};
+  const wrappedDevice={
+    ...device,
+    async connectEp133(...args){
+      runtime.dispatchDeviceRuntimeEvent({type:'OWNERSHIP_ACQUIRED'});
+      try{
+        const result=await device.connectEp133(...args);
+        await waitFor(()=>{
+          const snapshot=runtime.getDeviceRuntimeSnapshot();
+          return snapshot.connection.status==='connected'&&snapshot.recovery.hydrated===true;
+        });
+        return result;
+      }catch(error){
+        runtime.dispatchDeviceRuntimeEvent({type:'OWNERSHIP_LOST'});
+        throw error;
+      }
+    },
+    disconnectEp133(...args){
+      const result=device.disconnectEp133(...args);
+      runtime.dispatchDeviceRuntimeEvent({type:'OWNERSHIP_LOST'});
+      return result;
+    }
+  };
+  return{device:wrappedDevice,filesystem,token};
 }
