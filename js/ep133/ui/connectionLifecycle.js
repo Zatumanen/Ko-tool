@@ -1,4 +1,5 @@
 import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20261001-1';
+import{dispatchDeviceRuntimeEvent}from '../deviceRuntime.js?v=20261003-1';
 
 export function createConnectionLifecycle({
   connectEp133,
@@ -8,6 +9,7 @@ export function createConnectionLifecycle({
   setSessionNotice=()=>{},
   showError=()=>{},
   logTechnical=()=>{},
+  publishRuntimeEvent=dispatchDeviceRuntimeEvent,
   navigatorRef=globalThis.navigator,
   windowRef=globalThis.window,
   BroadcastChannelRef=globalThis.BroadcastChannel,
@@ -25,18 +27,34 @@ export function createConnectionLifecycle({
   let externalToolNoticeShown=false;
   let autoConnectTimer=null;
   let started=false;
+  let lastPublishedOwnership=null;
+
+  const publishOwnershipState=state=>{
+    const next=state?.owned?'owned':state?.blocked?'blocked':'none';
+    if(next===lastPublishedOwnership)return;
+    lastPublishedOwnership=next;
+    if(next==='owned')publishRuntimeEvent?.({type:'OWNERSHIP_ACQUIRED'});
+    else if(next==='blocked')publishRuntimeEvent?.({
+      type:'OWNERSHIP_BLOCKED',reason:'Another SpeedUpperCut tab owns the EP session.'
+    });
+    else publishRuntimeEvent?.({type:'OWNERSHIP_LOST',reason:'EP session ownership released.'});
+  };
+  const applyOwnershipState=state=>{
+    instanceLockBlocked=!!(state?.blocked&&!state?.owned);
+    publishOwnershipState(state);
+    if(instanceLockBlocked)setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
+  };
 
   const ownership=sessionOwnership||createDeviceSessionOwnership({
     navigatorRef,BroadcastChannelRef,
     logTechnical,
-    onStateChange:state=>{
-      instanceLockBlocked=state.blocked&&!state.owned;
-      if(instanceLockBlocked)setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
-    }
+    onStateChange:applyOwnershipState
   });
 
   const ensureOwnership=async()=>{
     const acquired=await ownership.acquire();
+    const ownershipState=ownership.getState?.()||{owned:acquired,blocked:!acquired};
+    applyOwnershipState(ownershipState);
     instanceLockBlocked=!acquired;
     if(!acquired){
       setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
@@ -78,12 +96,14 @@ export function createConnectionLifecycle({
       autoConnectTimer=null;
     }
     ownership.dispose();
+    publishOwnershipState({owned:false,blocked:false});
   };
 
   const start=()=>{
     if(started)return;
     started=true;
     ownership.start();
+    publishOwnershipState(ownership.getState?.()||{owned:false,blocked:false});
     autoConnectTimer=setIntervalFn?.(()=>{
       if(connectionArmed&&!isUnsafe()&&!isConnected())void autoConnect();
     },reconnectIntervalMs);
