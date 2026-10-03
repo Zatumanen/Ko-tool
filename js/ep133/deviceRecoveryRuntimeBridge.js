@@ -101,3 +101,27 @@ export function publishSampleRecoveryEvent(event){
     }
   }catch(error){console.warn('Sample recovery runtime bridge failed',error);}
 }
+
+export function publishProjectRecoveryEvent(event){
+  const snapshot=getDeviceRuntimeSnapshot();
+  if(snapshot.connection.status!=='connected')return;
+  const connectionEpoch=snapshot.connection.epoch;
+  const transactionId=String(event?.checkpointId||'');
+  if(!transactionId)return;
+  try{
+    if(event.type==='required'){
+      dispatchDeviceRuntimeEvent({
+        type:'RECOVERY_REQUIRED',connectionEpoch,transactionId,source:'project',
+        reason:String(event.reason||'Project recovery verification is required.')
+      });
+      return;
+    }
+    if(event.type!=='resolved'||snapshot.recovery.transaction?.id!==transactionId)return;
+    dispatchDeviceRuntimeEvent({type:'RECOVERY_SCAN_STARTED',connectionEpoch});
+    dispatchDeviceRuntimeEvent({
+      type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'project',
+      verification:{classification:String(event.status||'resolved'),summary:'Persisted project recovery state was resolved after verified device I/O.',deviceMutated:true,verifiedAt:new Date().toISOString()}
+    });
+    dispatchDeviceRuntimeEvent({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'project'});
+  }catch(error){console.warn('Project recovery runtime bridge failed',error);}
+}
