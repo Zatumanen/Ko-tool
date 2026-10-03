@@ -168,3 +168,52 @@ test('connection lifecycle refuses MIDI connection while another Ko-tool tab own
   assert.equal(lifecycle.getState().instanceLockBlocked,true);
   assert.equal(overlays.at(-1),'OPEN IN ANOTHER KO-TOOL TAB');
 });
+
+test('connection lifecycle publishes acquired, blocked and lost ownership to runtime boundary',async()=>{
+  const acquiredEvents=[];
+  const acquired=createConnectionLifecycle({
+    connectEp133:async()=>{},isConnected:()=>false,isUnsafe:()=>false,
+    sessionOwnership:{
+      start(){},async acquire(){return true;},dispose(){},
+      getState(){return{owned:true,blocked:false};}
+    },
+    publishRuntimeEvent:event=>acquiredEvents.push(event),
+    windowRef:{addEventListener(){}},setIntervalFn:()=>1,clearIntervalFn(){}
+  });
+  acquired.start();acquired.arm();await acquired.autoConnect();
+  assert.equal(acquiredEvents.some(event=>event.type==='OWNERSHIP_ACQUIRED'),true);
+  acquired.dispose();
+  assert.equal(acquiredEvents.at(-1).type,'OWNERSHIP_LOST');
+
+  const blockedEvents=[];
+  const blocked=createConnectionLifecycle({
+    connectEp133:async()=>{},isConnected:()=>false,isUnsafe:()=>false,
+    sessionOwnership:{
+      start(){},async acquire(){return false;},dispose(){},
+      getState(){return{owned:false,blocked:true,ownerId:'tab-a'};}
+    },
+    publishRuntimeEvent:event=>blockedEvents.push(event),
+    windowRef:{addEventListener(){}},setIntervalFn:()=>1,clearIntervalFn(){}
+  });
+  blocked.start();blocked.arm();await blocked.autoConnect();
+  assert.equal(blockedEvents.some(event=>event.type==='OWNERSHIP_BLOCKED'),true);
+});
+
+test('ownership loss does not force-abort an already dispatched operation at lifecycle boundary',async()=>{
+  const events=[];
+  let disposed=0;
+  const lifecycle=createConnectionLifecycle({
+    connectEp133:async()=>{},isConnected:()=>true,isUnsafe:()=>false,
+    sessionOwnership:{
+      start(){},async acquire(){return true;},dispose(){disposed++;},
+      getState(){return{owned:true,blocked:false};}
+    },
+    publishRuntimeEvent:event=>events.push(event),
+    windowRef:{addEventListener(){}},setIntervalFn:()=>1,clearIntervalFn(){}
+  });
+  lifecycle.start();
+  lifecycle.dispose();
+  assert.equal(disposed,1);
+  assert.equal(events.at(-1).type,'OWNERSHIP_LOST');
+  assert.equal(events.some(event=>event.type==='FILE_OPERATION_FAILED'),false);
+});

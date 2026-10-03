@@ -13,6 +13,7 @@ import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFile
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
+import{publishSampleRecoveryRuntimeEvent}from './sampleRecoveryRuntimeBridge.js?v=20261003-1';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
 export{
@@ -34,6 +35,7 @@ export{
 const projectRecoveryStore=createBrowserProjectRecoveryStore();
 const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
 const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
+sampleTransactionRuntime.setRecoveryListener(publishSampleRecoveryRuntimeEvent);
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
@@ -74,26 +76,18 @@ export function withSampleUploadBatch(operation){
   if(typeof operation!=='function')throw new TypeError('Sample upload batch requires an operation.');
   return withStrictFirmwareDebugGuard(operation,'sample upload batch');
 }
-
 export function uploadSampleToSlot(args){
   const label='sample upload transaction';
   return withFileTransportTransaction(label,async fileOps=>{
-    try{return await sampleTransactionRuntime.run({
-      label,fileOps:sampleFileOps(fileOps),operation:ops=>ops.uploadSampleToSlot(args)
-    });}catch(error){throw structuredFileError(error,label);}
+    try{return await sampleTransactionRuntime.run({label,fileOps:sampleFileOps(fileOps),operation:ops=>ops.uploadSampleToSlot(args)});}
+    catch(error){throw structuredFileError(error,label);}
   },{strict:true});
 }
-
 const runSampleRecoveryRead=(label,operation)=>withFileTransportTransaction(label,async fileOps=>{
-  try{return await operation(sampleFileOps(fileOps));}
-  catch(error){throw structuredFileError(error,label);}
+  try{return await operation(sampleFileOps(fileOps));}catch(error){throw structuredFileError(error,label);}
 },{strict:false});
-export const verifySampleRecoveryTransaction=id=>runSampleRecoveryRead(
-  'sample recovery verification',fileOps=>sampleTransactionRuntime.verifyTransaction(id,fileOps)
-);
-export const acknowledgeSampleRecoveryTransaction=id=>runSampleRecoveryRead(
-  'sample recovery acknowledge',fileOps=>sampleTransactionRuntime.acknowledgeTransaction(id,fileOps)
-);
+export const verifySampleRecoveryTransaction=id=>runSampleRecoveryRead('sample recovery verification',fileOps=>sampleTransactionRuntime.verifyTransaction(id,fileOps));
+export const acknowledgeSampleRecoveryTransaction=id=>runSampleRecoveryRead('sample recovery acknowledge',fileOps=>sampleTransactionRuntime.acknowledgeTransaction(id,fileOps));
 
 export function resetFileSystemState(){projectFilesystem.resetProjectRuntime();resetFileTransportState();}
 export function getProjectRuntimeSettleState(){return projectFilesystem.getProjectRuntimeSettleState();}

@@ -27,47 +27,91 @@ const blockedError=reason=>createEpError(
   }
 );
 
+const runtimePhase=runtime=>{
+  const state=runtime?.getSnapshot?.();
+  if(!state)return null;
+  if(state.status==='unsafe'||state.safety?.status==='unsafe')return DEVICE_OPERATION_PHASE.UNSAFE;
+  if(
+    state.status==='blocked'||state.status==='recovery-required'||
+    state.safety?.status==='blocked'||state.safety?.status==='recovery-required'
+  )return DEVICE_OPERATION_PHASE.BLOCKED;
+  return state.operation?.active?.phase||state.operation?.phase||DEVICE_OPERATION_PHASE.IDLE;
+};
+
 export function createDeviceOperationCoordinator({
+  runtime=null,
   markUnsafe=()=>{},
   isUnsafe=()=>false,
   now=()=>Date.now(),
+  nextOperationId=null,
   onStateChange=()=>{}
 }={}){
   let active=null;
   let externalInterference=null;
   let nextId=1;
+  const allocateId=()=>{
+    const value=typeof nextOperationId==='function'?Number(nextOperationId()):nextId++;
+    if(!Number.isInteger(value)||value<=0)throw new Error('Device operation coordinator requires a positive operation id.');
+    return value;
+  };
 
-  const snapshot=()=>Object.freeze({
-    state:isUnsafe()
-      ?DEVICE_OPERATION_PHASE.UNSAFE
-      :externalInterference
-        ?DEVICE_OPERATION_PHASE.BLOCKED
-        :(active?.phase||DEVICE_OPERATION_PHASE.IDLE),
-    active:active?{...active}:null,
-    externalInterference:externalInterference?{...externalInterference}:null
-  });
+  const snapshot=()=>{
+    const runtimeState=runtime?.getSnapshot?.()||null;
+    const runtimeActive=runtimeState?.operation?.active||null;
+    const runtimeInterference=runtimeState?.externalInterference||null;
+    return Object.freeze({
+      state:isUnsafe()
+        ?DEVICE_OPERATION_PHASE.UNSAFE
+        :runtime
+          ?runtimePhase(runtime)
+          :externalInterference
+            ?DEVICE_OPERATION_PHASE.BLOCKED
+            :(active?.phase||DEVICE_OPERATION_PHASE.IDLE),
+      active:runtime
+        ?(runtimeActive?{...runtimeActive}:null)
+        :(active?{...active}:null),
+      externalInterference:(runtimeInterference||externalInterference)
+        ?{...(runtimeInterference||externalInterference)}
+        :null
+    });
+  };
   const notify=()=>onStateChange(snapshot());
   const assertAvailable=()=>{
     if(isUnsafe())throw blockedError('FILE safety lock is active: device safety lock is active');
+    if(runtime){
+      try{return runtime.assertCanStartFileOperation({mode:'read'});}
+      catch(error){throw error;}
+    }
     if(externalInterference)throw blockedError(externalInterference.reason);
     if(active)throw blockedError('operation '+active.label+' is already active');
   };
 
   const begin=(label,{mode='read'}={})=>{
-    assertAvailable();
     const normalizedMode=mode==='mutation'?'mutation':'read';
+    if(runtime){
+      if(isUnsafe())throw blockedError('FILE safety lock is active: device safety lock is active');
+      runtime.assertCanStartFileOperation({mode:normalizedMode});
+    }else assertAvailable();
     const token={
-      id:nextId++,
+      id:allocateId(),
       label:String(label||'FILE operation'),
       mode:normalizedMode,
       phase:normalizedMode==='mutation'?DEVICE_OPERATION_PHASE.MUTATING:DEVICE_OPERATION_PHASE.READING,
-      startedAt:now()
+      startedAt:now(),
+      connectionEpoch:runtime?.captureEpoch?.()??null
     };
-    active=token;
+    if(runtime){
+      runtime.dispatch({
+        type:'FILE_OPERATION_STARTED',connectionEpoch:token.connectionEpoch,
+        operationId:token.id,label:token.label,mode:token.mode
+      });
+    }else active=token;
     notify();
     let closed=false;
     const assertLease=()=>{
-      if(closed||active?.id!==token.id)throw blockedError('operation lease is no longer active');
+      if(closed)throw blockedError('operation lease is no longer active');
+      const current=runtime?.getSnapshot?.().operation?.active||active;
+      if(current?.id!==token.id)throw blockedError('operation lease is no longer active');
     };
     return Object.freeze({
       getState:snapshot,
@@ -78,14 +122,29 @@ export function createDeviceOperationCoordinator({
           'Invalid FILE operation phase: '+String(phase),
           {category:EP_ERROR_CATEGORY.VALIDATION,details:{phase}}
         );
-        active={...active,phase};
+        if(runtime){
+          if(phase!==DEVICE_OPERATION_PHASE.VERIFYING)
+            throw createEpError(
+              EP_ERROR_CODE.REQUEST_REJECTED,
+              'Runtime-backed FILE leases may only advance explicitly to verifying.',
+              {category:EP_ERROR_CATEGORY.VALIDATION,details:{phase}}
+            );
+          runtime.dispatch({
+            type:'FILE_OPERATION_VERIFYING',connectionEpoch:token.connectionEpoch,operationId:token.id
+          });
+        }else active={...active,phase};
         notify();
         return phase;
       },
       close(){
         if(closed)return;
         closed=true;
-        if(active?.id===token.id)active=null;
+        if(runtime){
+          const current=runtime.getSnapshot?.().operation?.active;
+          if(current?.id===token.id)runtime.dispatch({
+            type:'FILE_OPERATION_FINISHED',connectionEpoch:token.connectionEpoch,operationId:token.id
+          });
+        }else if(active?.id===token.id)active=null;
         notify();
       }
     });
@@ -99,11 +158,13 @@ export function createDeviceOperationCoordinator({
   };
 
   const observeUnexpectedFileTraffic=(detail={})=>{
+    const runtimeState=runtime?.getSnapshot?.()||null;
+    const currentActive=runtimeState?.operation?.active||active;
     const requestId=Number(detail.requestId);
     const requestLabel=Number.isInteger(requestId)&&requestId>0?' request '+requestId:'';
-    const activeAtDetection=active?{...active}:null;
-    const reason=active
-      ?'Unexpected EP-series FILE response'+requestLabel+' during '+active.phase+' operation "'+active.label+'". Another EP tool may be using the device; FILE session state is unknown.'
+    const activeAtDetection=currentActive?{...currentActive}:null;
+    const reason=currentActive
+      ?'Unexpected EP-series FILE response'+requestLabel+' during '+currentActive.phase+' operation "'+currentActive.label+'". Another EP tool may be using the device; FILE session state is unknown.'
       :'Unexpected EP-series FILE response'+requestLabel+' while Ko-tool was idle. Another EP tool may be using the device. Close other EP tools and reconnect before FILE operations.';
     externalInterference={
       at:now(),
@@ -112,7 +173,11 @@ export function createDeviceOperationCoordinator({
       reason,
       active:activeAtDetection
     };
-    if(active)markUnsafe(reason);
+    if(runtime)runtime.dispatch({
+      type:'UNEXPECTED_FILE_TRAFFIC',connectionEpoch:runtime.captureEpoch(),
+      requestId:externalInterference.requestId,reason
+    });
+    if(currentActive)markUnsafe(reason);
     notify();
     return snapshot();
   };

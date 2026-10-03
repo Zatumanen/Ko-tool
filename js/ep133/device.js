@@ -2,6 +2,7 @@ import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_F
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 import{compareFirmwareVersions}from './capabilityEvidence.js?v=20261001-1';
+import{dispatchDeviceRuntimeEvent,getDeviceRuntimeSnapshot}from './deviceRuntime.js?v=20261003-1';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
@@ -104,7 +105,7 @@ function onMessage(inputPort,event){
     lastFirmwareDebugText=debugText;
     lastFirmwareDebugAt=Date.now();
     console.warn('EP firmware/debug SysEx:',debugText);
-    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
+    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText,{firmwareDebug:true});
     return;
   }
   if(data[1]===0x7E){
@@ -167,10 +168,13 @@ function unsafeError(){
   return new Error('EP-series FILE safety lock is active. Power-cycle the device, then reload this page before sending more FILE traffic. '+deviceUnsafeReason);
 }
 
-function enterUnsafeState(reason){
+function enterUnsafeState(reason,{firmwareDebug=false}={}){
   if(deviceUnsafe)return;
   deviceUnsafe=true;
   deviceUnsafeReason=String(reason||'Unknown EP-series FILE session failure.');
+  const runtimeEpoch=getDeviceRuntimeSnapshot().connection.epoch;
+  if(firmwareDebug)dispatchDeviceRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch:runtimeEpoch,reason:deviceUnsafeReason});
+  dispatchDeviceRuntimeEvent({type:'DEVICE_MARKED_UNSAFE',connectionEpoch:runtimeEpoch,reason:deviceUnsafeReason});
   connectionEpoch+=1;
   requestQueue=Promise.resolve();
   for(const p of pending.values()){
@@ -297,6 +301,7 @@ export async function connectEp133(){
     disconnectEp133();
   }
   if(connectingPromise)return connectingPromise;
+  dispatchDeviceRuntimeEvent({type:'CONNECT_STARTED'});
   connectingPromise=(async()=>{
   if(!navigator.requestMIDIAccess)throw new Error('Web MIDI is not supported by this browser.');
   const access=midiAccess||await navigator.requestMIDIAccess({sysex:true});
@@ -335,13 +340,28 @@ export async function connectEp133(){
   validateFirmware(effectiveSku,metadata);
   initialized=true;
   deviceInfo={sku:effectiveSku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
+  connectionEpoch+=1;
+  dispatchDeviceRuntimeEvent({type:'DEVICE_CONNECTED',connectionEpoch,device:{
+    sku:effectiveSku,
+    firmware:String(metadata?.os_version||metadata?.sw_version||''),
+    deviceKey:output?.id||null,
+    identityVerified:true
+  }});
   notifyConnection();
   return{...deviceInfo,input,output};
   })();
-  try{return await connectingPromise;}finally{connectingPromise=null;}
+  try{return await connectingPromise;}
+  catch(error){
+    const runtimeEpoch=getDeviceRuntimeSnapshot().connection.epoch;
+    dispatchDeviceRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch:runtimeEpoch,reason:String(error?.message||error)});
+    throw error;
+  }
+  finally{connectingPromise=null;}
 }
 
 export function disconnectEp133(){
+  const runtimeEpoch=getDeviceRuntimeSnapshot().connection.epoch;
+  dispatchDeviceRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch:runtimeEpoch,reason:'Disconnected'});
   connectionEpoch+=1;
   requestQueue=Promise.resolve();
   stopListeners();
