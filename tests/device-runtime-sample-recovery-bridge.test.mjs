@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
-test('filesystem composes the extracted sample recovery bridge into the transaction runtime',async()=>{
+test('filesystem composes the extracted sample recovery bridge without changing the runtime constructor contract',async()=>{
   const facade=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
   assert.match(facade,/from ['"]\.\/deviceRecoveryRuntimeBridge\.js/);
-  assert.match(facade,/onRecoveryEvent\s*:\s*publishSampleRecoveryEvent/);
+  assert.match(facade,/createSampleTransactionRuntime\(\{getConnectedDeviceInfo\}\)/);
+  assert.match(facade,/sampleTransactionRuntime\.setRecoveryEventHandler\(publishSampleRecoveryEvent\)/);
   assert.ok(facade.split('\n').length<=120);
 });
 
