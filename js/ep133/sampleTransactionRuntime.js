@@ -10,8 +10,13 @@ export function createSampleTransactionRuntime({
   getConnectedDeviceInfo,recoveryStore=createBrowserSampleRecoveryStore(),onRecoveryEvent=()=>{}
 }={}){
   if(typeof onRecoveryEvent!=='function')throw new TypeError('Sample transaction runtime onRecoveryEvent must be a function.');
+  let recoveryListener=onRecoveryEvent;
   const journal=createSampleTransactionJournal({recoveryStore,getConnectedDeviceInfo});
-  const publishRecovery=event=>onRecoveryEvent(Object.freeze({...event}));
+  const publishRecovery=event=>recoveryListener(Object.freeze({...event}));
+  const setRecoveryListener=listener=>{
+    if(typeof listener!=='function')throw new TypeError('Sample transaction runtime recovery listener must be a function.');
+    recoveryListener=listener;
+  };
 
   const run=async({label,operation,fileOps}={})=>{
     if(typeof operation!=='function')throw new TypeError('Sample transaction runtime requires an operation.');
@@ -103,7 +108,7 @@ export function createSampleTransactionRuntime({
   };
 
   return Object.freeze({
-    persistent:journal.persistent,run,
+    persistent:journal.persistent,run,setRecoveryListener,
     getTransaction:id=>journal.getTransaction(id),
     listTransactions:()=>journal.listTransactions(),
     deleteTransaction:id=>journal.deleteTransaction(id),
