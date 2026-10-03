@@ -84,6 +84,17 @@ export function uploadSampleToSlot(args){
   },{strict:true});
 }
 
+const runSampleRecoveryRead=(label,operation)=>withFileTransportTransaction(label,async fileOps=>{
+  try{return await operation(sampleFileOps(fileOps));}
+  catch(error){throw structuredFileError(error,label);}
+},{strict:false});
+export const verifySampleRecoveryTransaction=id=>runSampleRecoveryRead(
+  'sample recovery verification',fileOps=>sampleTransactionRuntime.verifyTransaction(id,fileOps)
+);
+export const acknowledgeSampleRecoveryTransaction=id=>runSampleRecoveryRead(
+  'sample recovery acknowledge',fileOps=>sampleTransactionRuntime.acknowledgeTransaction(id,fileOps)
+);
+
 export function resetFileSystemState(){projectFilesystem.resetProjectRuntime();resetFileTransportState();}
 export function getProjectRuntimeSettleState(){return projectFilesystem.getProjectRuntimeSettleState();}
 export function assertProjectRuntimeSettled(label='project operation'){return projectFilesystem.assertProjectRuntimeSettled(label);}
