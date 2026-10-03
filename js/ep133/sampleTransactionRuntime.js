@@ -10,8 +10,12 @@ export function createSampleTransactionRuntime({
   getConnectedDeviceInfo,recoveryStore=createBrowserSampleRecoveryStore(),onRecoveryEvent=()=>{}
 }={}){
   const journal=createSampleTransactionJournal({recoveryStore,getConnectedDeviceInfo});
+  let recoveryEventHandler=typeof onRecoveryEvent==='function'?onRecoveryEvent:()=>{};
   const publishRecoveryEvent=event=>{
-    try{onRecoveryEvent(event);}catch(error){console.error('Failed to publish sample recovery event',error);}
+    try{recoveryEventHandler(event);}catch(error){console.error('Failed to publish sample recovery event',error);}
+  };
+  const setRecoveryEventHandler=handler=>{
+    recoveryEventHandler=typeof handler==='function'?handler:()=>{};
   };
 
   const run=async({label,operation,fileOps}={})=>{
@@ -101,7 +105,7 @@ export function createSampleTransactionRuntime({
   };
 
   return Object.freeze({
-    persistent:journal.persistent,run,
+    persistent:journal.persistent,run,setRecoveryEventHandler,
     getTransaction:id=>journal.getTransaction(id),
     listTransactions:()=>journal.listTransactions(),
     deleteTransaction:id=>journal.deleteTransaction(id),
