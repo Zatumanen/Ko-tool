@@ -47,7 +47,8 @@ export function createProjectFilesystem({
   putFile,
   getFileMetadata,
   setFileMetadata,
-  recoveryStore
+  recoveryStore,
+  onRecoveryEvent
 }={}){
   const required={
     runFileOperation,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
@@ -59,6 +60,11 @@ export function createProjectFilesystem({
     if(typeof recoveryStore?.[method]!=='function')
       throw new TypeError('Project filesystem recoveryStore.'+method+' is required.');
 
+  const emitRecoveryEvent=event=>{
+    if(typeof onRecoveryEvent!=='function')return;
+    try{onRecoveryEvent(Object.freeze({...event}));}
+    catch(error){console.warn('Project recovery event handler failed',error);}
+  };
   const projectRuntimeGate=createProjectRuntimeGate();
   const transactionJournal=createProjectTransactionJournal({recoveryStore});
   const updateRecoveryCheckpoint=async(id,patch)=>{
@@ -457,6 +463,9 @@ export function createProjectFilesystem({
         status:'verified',
         verifiedAt:new Date().toISOString()
       });
+      if(verifiedCheckpoint)emitRecoveryEvent({
+        type:'resolved',status:'verified',checkpointId:recoveryCheckpoint.id,projectNumber:project
+      });
       return{
         project,
         fileId:destination.nodeId,
@@ -485,11 +494,15 @@ export function createProjectFilesystem({
       }
 
       if(!candidateWritten||isDeviceUnsafe()){
-        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+        const requiredCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'requires-recovery',
           error:String(error?.message||error)
         });
         try{await transactionJournal.markRequiresRecovery(recoveryCheckpoint.id,{phase});}catch{}
+        if(requiredCheckpoint)emitRecoveryEvent({
+          type:'required',status:'requires-recovery',checkpointId:recoveryCheckpoint.id,
+          projectNumber:project,reason:String(error?.message||error)
+        });
         throw error;
       }
       try{
@@ -514,21 +527,28 @@ export function createProjectFilesystem({
         await transactionJournal.completePhase(recoveryCheckpoint.id,'ROLLBACK',{
           restoredBytes:restored.data.byteLength
         });
-        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+        const rolledBackCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'rolled-back',
           rollbackAt:new Date().toISOString(),
           error:String(error?.message||error)
+        });
+        if(rolledBackCheckpoint)emitRecoveryEvent({
+          type:'resolved',status:'rolled-back',checkpointId:recoveryCheckpoint.id,projectNumber:project
         });
       }catch(rollbackError){
         error.projectRollbackSucceeded=false;
         error.rollbackError=rollbackError;
         try{await transactionJournal.failPhase(recoveryCheckpoint.id,'ROLLBACK',rollbackError,{failedPhase:phase});}
         catch{}
-        await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+        const failedRollbackCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'rollback-failed',
           rollbackAt:new Date().toISOString(),
           error:String(error?.message||error),
           rollbackError:String(rollbackError?.message||rollbackError)
+        });
+        if(failedRollbackCheckpoint)emitRecoveryEvent({
+          type:'required',status:'rollback-failed',checkpointId:recoveryCheckpoint.id,
+          projectNumber:project,reason:String(rollbackError?.message||rollbackError)
         });
         markDeviceUnsafe(
           'Project rollback failed after a project write verification error: '+
@@ -573,10 +593,19 @@ export function createProjectFilesystem({
       type:'application/x-tar',
       async arrayBuffer(){return original.buffer.slice(original.byteOffset,original.byteOffset+original.byteLength);}
     };
-    return uploadProjectArchive(file,{
+    const result=await uploadProjectArchive(file,{
       ...options,
       recoverySourceCheckpointId:checkpoint.id
     });
+    const restoredCheckpoint=await recoveryStore.updateCheckpoint(checkpoint.id,{
+      status:'restored',
+      restoredAt:new Date().toISOString()
+    });
+    emitRecoveryEvent({
+      type:'resolved',status:'restored',checkpointId:checkpoint.id,
+      projectNumber,restoredByCheckpointId:result?.recoveryCheckpoint?.id||null
+    });
+    return{...result,recoverySourceCheckpoint:restoredCheckpoint};
   };
 
   const downloadProjectArchive=async(path,onProgress)=>
