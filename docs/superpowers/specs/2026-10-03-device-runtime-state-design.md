@@ -105,7 +105,7 @@ Meaning:
 - `safe`: the runtime has no known safety blocker.
 - `blocked`: operation is prohibited but device corruption/session ambiguity has not been proven. Example: unexpected FILE traffic while idle or another SpeedUpperCut tab owns the session.
 - `recovery-required`: a mutation may have taken effect but the final state is not yet authoritatively proven.
-- `unsafe`: FILE-session continuity is unknown or a critical protocol/debug condition occurred; fail closed until a fresh physical/device session is established according to the recovery rule.
+- `unsafe`: FILE-session continuity is unknown or a critical protocol/debug condition occurred; fail closed for the lifetime of the current browser runtime.
 
 ## 5. Derived status
 
@@ -124,6 +124,18 @@ disconnected
 ```
 
 A lower-priority state can never mask a higher-priority safety condition. For example, an operation finishing while recovery remains unresolved must not produce `ready`.
+
+`ready` is valid only when all of the following are true:
+
+```text
+connection == connected
+ownership == owned
+operation == idle
+safety == safe
+device identity is verified
+```
+
+A connected device without ownership or verified identity is not `ready`; it remains non-admissible and is exposed as blocked/not-ready diagnostics rather than being treated optimistically.
 
 ## 6. Authoritative context
 
@@ -178,6 +190,8 @@ Events that belong to a device session or operation must carry the captured `con
 
 Stale events from a previous epoch are ignored or rejected deterministically and must never mutate the current device session.
 
+`RECOVERY_ACKNOWLEDGED` is bookkeeping, not proof. It cannot clear `recovery-required` unless a matching authoritative `RECOVERY_VERIFIED` result already established a supported resolved state. Acknowledging unknown or residual mutation state never converts it to `safe`.
+
 ## 8. Core invariants
 
 ### 8.1 Mutation admission
@@ -196,7 +210,7 @@ No feature/controller may bypass this gate.
 
 ### 8.2 Read admission
 
-Reads require a valid connected/owned session and an idle operation slot. Reads are prohibited when safety is `unsafe` or `recovery-required`.
+Reads require a valid connected/owned session, verified identity and an idle operation slot. Reads are prohibited when safety is `unsafe` or `recovery-required`.
 
 A `blocked` state is also non-admissible until its documented clearing transition occurs.
 
@@ -211,6 +225,8 @@ Beginning an operation while another lease is active is an invalid transition.
 Every operation lease is permanently bound to the `connectionEpoch` that created it.
 
 A disconnect/reconnect invalidates all prior leases. Late Promise callbacks and late MIDI responses from an older epoch cannot change current runtime state.
+
+A new epoch invalidates stale work but does not, by itself, clear `unsafe`.
 
 ### 8.5 External FILE interference
 
@@ -233,7 +249,7 @@ This preserves current fail-closed coordinator behavior.
 A timeout is classified using mutation evidence, not merely the fact that a timeout occurred.
 
 - read timeout with proven absence of mutation may return to safe/idle;
-- mutation request timed out after dispatch and final effect is not proven -> `recovery-required` at minimum;
+- an atomic mutation request that timed out after dispatch and whose effect is not proven -> `recovery-required` at minimum if FILE-session continuity is otherwise still proven;
 - interrupted FILE_PUT stream or interrupted paged metadata stream when session continuity cannot be proven -> `unsafe`.
 
 Existing more-conservative behavior wins during migration.
@@ -244,13 +260,17 @@ Recovery journals provide evidence; they do not directly declare the runtime saf
 
 A verifier may emit `RECOVERY_VERIFIED` with authoritative evidence. The runtime decides whether that evidence permits a transition away from `recovery-required`.
 
+Recovery acknowledgement never substitutes for verification.
+
 ### 8.8 Unsafe clearing
 
 Feature/UI code cannot directly clear `unsafe`.
 
 There is no generic `resetUnsafe()` API.
 
-Unsafe state is cleared only through the documented fresh-session path: physical/device disconnect or required power-cycle, new connection epoch, fresh identity/preflight, and no unresolved recovery blocker.
+For T1, `unsafe` is terminal for the lifetime of the current browser runtime. The user must perform the existing conservative recovery procedure: physically power-cycle/re-establish the device as instructed and reload SpeedUpperCut so a fresh runtime starts with a fresh identity/preflight. A reconnect or incremented `connectionEpoch` inside the same unsafe runtime is not sufficient to restore FILE access.
+
+This deliberately preserves the current stricter safety posture. A future relaxation would require separate device evidence and tests.
 
 ### 8.9 Conservative conflict resolution
 
@@ -354,7 +374,7 @@ They publish recovery-required/verified/acknowledged events to runtime rather th
 disconnected
   -> CONNECT_STARTED
 connecting
-  -> DEVICE_CONNECTED
+  -> DEVICE_CONNECTED + verified identity + ownership
 ready
   -> FILE_OPERATION_STARTED(read)
 reading
@@ -382,7 +402,7 @@ mutating
 ready
 ```
 
-This transition is allowed only when the caller can prove the device was not mutated.
+This transition is allowed only when the caller can prove the device was not mutated and FILE-session continuity remains valid.
 
 ### 10.4 Ambiguous mutation
 
@@ -404,7 +424,7 @@ reading|mutating|verifying
 unsafe
 ```
 
-No normal feature event can return `unsafe` directly to `ready`.
+No normal feature event can return `unsafe` directly to `ready`. In T1 the current runtime instance remains unsafe until the user follows the power-cycle/reload procedure.
 
 ## 11. Migration plan for T1
 
@@ -483,19 +503,22 @@ TDD is required for implementation.
 At minimum, runtime unit tests cover:
 
 ```text
-connect -> ready
+connect + ownership + verified identity -> ready
+connected without ownership -> not ready
 disconnect -> stale lease rejected
 read -> ready
 mutation -> verifying -> ready
-mutation timeout -> recovery-required
+atomic mutation timeout with uncertain effect -> recovery-required
 interrupted PUT -> unsafe
 unexpected FILE while idle -> blocked
 unexpected FILE while active -> unsafe
 ownership lost -> FILE operations blocked
 late event from previous epoch -> ignored/rejected
 verified recovery -> ready
+recovery acknowledgement without verification -> remains blocked
 invalid transition -> rejected
 second simultaneous operation -> rejected
+unsafe cannot be cleared by reconnect/new epoch in the same runtime
 unsafe cannot be cleared by ordinary feature event
 ```
 
@@ -544,6 +567,7 @@ Rules:
 - unresolved recovery blocks further FILE work;
 - unknown firmware/capability behavior is not inferred optimistically;
 - operation safety cannot be overridden from presentation code;
+- unsafe state is terminal for the current browser runtime;
 - runtime state is not reset merely because a UI view was reloaded/re-rendered.
 
 ## 17. Completion criteria for T1
