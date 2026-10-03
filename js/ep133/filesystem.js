@@ -13,7 +13,7 @@ import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFile
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
-import{getDeviceRuntimeSnapshot,dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
+import{publishSampleRecoveryEvent}from './deviceRecoveryRuntimeBridge.js';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
 export{
@@ -32,47 +32,9 @@ export{
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile
 };
 
-const publishSampleRecoveryEvent=event=>{
-  const snapshot=getDeviceRuntimeSnapshot();
-  if(snapshot.connection.status!=='connected')return;
-  const connectionEpoch=snapshot.connection.epoch;
-  const transactionId=String(event?.transactionId||'');
-  if(!transactionId)return;
-  try{
-    if(event.type==='required'){
-      dispatchDeviceRuntimeEvent({
-        type:'RECOVERY_REQUIRED',connectionEpoch,transactionId,source:'sample',
-        reason:String(event.reason||'Sample recovery verification is required.')
-      });
-      return;
-    }
-    if(snapshot.recovery.transaction?.id!==transactionId)return;
-    if(event.type==='verified'){
-      dispatchDeviceRuntimeEvent({
-        type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'sample',verification:event.verification||null
-      });
-      return;
-    }
-    if(event.type==='acknowledged'){
-      const current=getDeviceRuntimeSnapshot();
-      if(current.recovery.transaction?.id!==transactionId)return;
-      if(current.recovery.transaction?.verified!==true&&event.verification){
-        dispatchDeviceRuntimeEvent({
-          type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'sample',verification:event.verification
-        });
-      }
-      dispatchDeviceRuntimeEvent({
-        type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'sample'
-      });
-    }
-  }catch(error){console.warn('Sample recovery runtime bridge failed',error);}
-};
-
 const projectRecoveryStore=createBrowserProjectRecoveryStore();
 const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
-const sampleTransactionRuntime=createSampleTransactionRuntime({
-  getConnectedDeviceInfo,onRecoveryEvent:publishSampleRecoveryEvent
-});
+const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo,onRecoveryEvent:publishSampleRecoveryEvent});
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
