@@ -48,6 +48,7 @@ test('sample recovery bridge translates evidence into runtime events while files
   assert.match(bridge,/RECOVERY_ACKNOWLEDGED/);
   assert.doesNotMatch(bridge,/recoveryDetail.*data|recoveryDetail.*pcm/);
   assert.match(filesystem,/sampleRecoveryRuntimeBridge\.js/);
-  assert.match(filesystem,/onRecoveryEvent:publishSampleRecoveryRuntimeEvent/);
+  assert.match(filesystem,/createSampleTransactionRuntime\(\{getConnectedDeviceInfo\}\)/);
+  assert.match(filesystem,/setRecoveryListener\(publishSampleRecoveryRuntimeEvent\)/);
   assert.ok(filesystem.split('\n').length<=120);
 });
