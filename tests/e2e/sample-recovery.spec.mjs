@@ -33,7 +33,7 @@ test('sample recovery verifies authoritative device state and only clears warnin
   await page.locator('#ep133-view-projects').click();
   await page.locator('#ep133-project-recovery').click();
   await expect(page.locator('#ep133-sample-recovery-section')).toBeVisible();
-  await expect(page.locator('#ep133-sample-recovery-list .ep-recovery-row')).toHaveCount(1);
+  await expect(page.locator('#ep133-sample-recovery-list .ep-sample-recovery-row')).toHaveCount(1);
   await page.locator('#ep133-sample-recovery-verify').click();
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('DELETE-NOT-VISIBLE');
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('007');
