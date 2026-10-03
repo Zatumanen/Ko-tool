@@ -105,11 +105,8 @@ function onMessage(inputPort,event){
     lastFirmwareDebugText=debugText;
     lastFirmwareDebugAt=Date.now();
     console.warn('EP firmware/debug SysEx:',debugText);
-    if(strictFirmwareDebugDepth>0){
-      const reason='Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText;
-      publishRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch,reason});
-      enterUnsafeState(reason);
-    }
+    if(strictFirmwareDebugDepth>0)publishRuntimeEvent({type:'FIRMWARE_DEBUG_DETECTED',connectionEpoch,reason:'Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText});
+    if(strictFirmwareDebugDepth>0)enterUnsafeState('Firmware debug SysEx during '+strictFirmwareDebugLabel+': '+debugText);
     return;
   }
   if(data[1]===0x7E){
