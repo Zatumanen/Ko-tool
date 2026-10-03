@@ -202,6 +202,15 @@ export function createDeviceRuntimeState({now=()=>Date.now()}={}){
         exactEpoch(event.connectionEpoch);
         if(state.connection.status!==DEVICE_RUNTIME_CONNECTION.CONNECTED)throw transitionError(event,'recovery scan requires a connected device');
         return commit({recovery:{...state.recovery,hydrated:true}});
+      case'RECOVERY_SCAN_FAILED':{
+        exactEpoch(event.connectionEpoch);
+        if(state.connection.status!==DEVICE_RUNTIME_CONNECTION.CONNECTED)throw transitionError(event,'recovery scan failure requires a connected device');
+        const reason=String(event.reason||'Local recovery scan failed; FILE operations are blocked.');
+        const safety=[DEVICE_RUNTIME_SAFETY.UNSAFE,DEVICE_RUNTIME_SAFETY.RECOVERY_REQUIRED].includes(state.safety.status)
+          ?state.safety
+          :{status:DEVICE_RUNTIME_SAFETY.BLOCKED,reason};
+        return commit({safety,recovery:{...state.recovery,hydrated:false}});
+      }
       case'FILE_OPERATION_STARTED':{
         exactEpoch(event.connectionEpoch);
         const mode=String(event.mode||'read');
