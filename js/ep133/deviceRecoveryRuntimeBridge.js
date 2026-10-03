@@ -1,6 +1,16 @@
 import{getDeviceRuntimeSnapshot,dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
 import{hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
 
+let recoveryRescanHandler=null;
+export function setDeviceRecoveryRescanHandler(handler){
+  if(handler!=null&&typeof handler!=='function')throw new TypeError('Device recovery rescan handler must be a function.');
+  recoveryRescanHandler=handler||null;
+}
+const requestRecoveryRescan=()=>{
+  if(!recoveryRescanHandler)return;
+  try{Promise.resolve(recoveryRescanHandler()).catch(error=>console.warn('EP recovery runtime rescan failed',error));}
+  catch(error){console.warn('EP recovery runtime rescan failed',error);}
+};
 const recordMatchesDevice=(record,deviceInfo)=>{
   const persisted=record?.device||{};
   if(!persisted.identityHash)return false;
@@ -95,9 +105,11 @@ export function publishSampleRecoveryEvent(event){
           type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'sample',verification:event.verification
         });
       }
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_SCAN_STARTED',connectionEpoch});
       dispatchDeviceRuntimeEvent({
         type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'sample'
       });
+      requestRecoveryRescan();
     }
   }catch(error){console.warn('Sample recovery runtime bridge failed',error);}
 }
@@ -123,5 +135,6 @@ export function publishProjectRecoveryEvent(event){
       verification:{classification:String(event.status||'resolved'),summary:'Persisted project recovery state was resolved after verified device I/O.',deviceMutated:true,verifiedAt:new Date().toISOString()}
     });
     dispatchDeviceRuntimeEvent({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'project'});
+    requestRecoveryRescan();
   }catch(error){console.warn('Project recovery runtime bridge failed',error);}
 }
