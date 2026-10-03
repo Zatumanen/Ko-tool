@@ -28,41 +28,62 @@ const blockedError=reason=>createEpError(
 );
 
 export function createDeviceOperationCoordinator({
+  runtime=null,
   markUnsafe=()=>{},
   isUnsafe=()=>false,
   now=()=>Date.now(),
+  nextOperationId=null,
   onStateChange=()=>{}
 }={}){
   let active=null;
   let externalInterference=null;
   let nextId=1;
 
-  const snapshot=()=>Object.freeze({
-    state:isUnsafe()
+  const runtimeSnapshot=()=>runtime?.getSnapshot?.()||null;
+  const snapshot=()=>{
+    const shared=runtimeSnapshot();
+    const sharedState=shared?.status;
+    const state=isUnsafe()||sharedState===DEVICE_OPERATION_PHASE.UNSAFE
       ?DEVICE_OPERATION_PHASE.UNSAFE
-      :externalInterference
+      :externalInterference||sharedState===DEVICE_OPERATION_PHASE.BLOCKED||sharedState==='recovery-required'
         ?DEVICE_OPERATION_PHASE.BLOCKED
-        :(active?.phase||DEVICE_OPERATION_PHASE.IDLE),
-    active:active?{...active}:null,
-    externalInterference:externalInterference?{...externalInterference}:null
-  });
+        :(active?.phase||DEVICE_OPERATION_PHASE.IDLE);
+    return Object.freeze({
+      state,
+      active:active?{...active}:null,
+      externalInterference:externalInterference?{...externalInterference}:null
+    });
+  };
   const notify=()=>onStateChange(snapshot());
-  const assertAvailable=()=>{
+  const assertAvailable=({mode='read'}={})=>{
     if(isUnsafe())throw blockedError('FILE safety lock is active: device safety lock is active');
     if(externalInterference)throw blockedError(externalInterference.reason);
     if(active)throw blockedError('operation '+active.label+' is already active');
+    runtime?.assertCanStartFileOperation?.({mode});
   };
 
   const begin=(label,{mode='read'}={})=>{
-    assertAvailable();
     const normalizedMode=mode==='mutation'?'mutation':'read';
+    assertAvailable({mode:normalizedMode});
+    const operationId=typeof nextOperationId==='function'?nextOperationId():nextId++;
+    const connectionEpoch=runtime?.captureEpoch?.();
     const token={
-      id:nextId++,
+      id:operationId,
       label:String(label||'FILE operation'),
       mode:normalizedMode,
       phase:normalizedMode==='mutation'?DEVICE_OPERATION_PHASE.MUTATING:DEVICE_OPERATION_PHASE.READING,
-      startedAt:now()
+      startedAt:now(),
+      connectionEpoch:Number.isInteger(connectionEpoch)?connectionEpoch:null
     };
+    if(runtime){
+      runtime.dispatch({
+        type:'FILE_OPERATION_STARTED',
+        connectionEpoch:token.connectionEpoch,
+        operationId:token.id,
+        label:token.label,
+        mode:token.mode
+      });
+    }
     active=token;
     notify();
     let closed=false;
@@ -78,6 +99,13 @@ export function createDeviceOperationCoordinator({
           'Invalid FILE operation phase: '+String(phase),
           {category:EP_ERROR_CATEGORY.VALIDATION,details:{phase}}
         );
+        if(runtime&&phase===DEVICE_OPERATION_PHASE.VERIFYING){
+          runtime.dispatch({
+            type:'FILE_OPERATION_VERIFYING',
+            connectionEpoch:token.connectionEpoch,
+            operationId:token.id
+          });
+        }
         active={...active,phase};
         notify();
         return phase;
@@ -85,6 +113,16 @@ export function createDeviceOperationCoordinator({
       close(){
         if(closed)return;
         closed=true;
+        if(runtime){
+          const shared=runtimeSnapshot();
+          if(shared?.operation?.active?.id===token.id){
+            runtime.dispatch({
+              type:'FILE_OPERATION_FINISHED',
+              connectionEpoch:token.connectionEpoch,
+              operationId:token.id
+            });
+          }
+        }
         if(active?.id===token.id)active=null;
         notify();
       }
@@ -112,6 +150,14 @@ export function createDeviceOperationCoordinator({
       reason,
       active:activeAtDetection
     };
+    if(runtime){
+      runtime.dispatch({
+        type:'UNEXPECTED_FILE_TRAFFIC',
+        connectionEpoch:runtime.captureEpoch(),
+        requestId:externalInterference.requestId,
+        reason
+      });
+    }
     if(active)markUnsafe(reason);
     notify();
     return snapshot();
