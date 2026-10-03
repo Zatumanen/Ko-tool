@@ -37,12 +37,17 @@ test('runtime device identity summary is intentionally serial-free',async()=>{
   assert.doesNotMatch(match[0],/serialNumber|\bserial\b/);
 });
 
-test('filesystem translates sample recovery evidence into authoritative runtime events',async()=>{
-  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
-  assert.match(source,/deviceRuntime\.js/);
-  assert.match(source,/onRecoveryEvent/);
-  assert.match(source,/RECOVERY_REQUIRED/);
-  assert.match(source,/RECOVERY_VERIFIED/);
-  assert.match(source,/RECOVERY_ACKNOWLEDGED/);
-  assert.doesNotMatch(source,/recoveryDetail.*data|recoveryDetail.*pcm/);
+test('sample recovery bridge translates evidence into runtime events while filesystem remains thin',async()=>{
+  const [bridge,filesystem]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/sampleRecoveryRuntimeBridge.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8')
+  ]);
+  assert.match(bridge,/deviceRuntime\.js/);
+  assert.match(bridge,/RECOVERY_REQUIRED/);
+  assert.match(bridge,/RECOVERY_VERIFIED/);
+  assert.match(bridge,/RECOVERY_ACKNOWLEDGED/);
+  assert.doesNotMatch(bridge,/recoveryDetail.*data|recoveryDetail.*pcm/);
+  assert.match(filesystem,/sampleRecoveryRuntimeBridge\.js/);
+  assert.match(filesystem,/onRecoveryEvent:publishSampleRecoveryRuntimeEvent/);
+  assert.ok(filesystem.split('\n').length<=120);
 });
