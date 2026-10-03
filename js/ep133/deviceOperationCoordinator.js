@@ -58,8 +58,8 @@ export function createDeviceOperationCoordinator({
   const assertAvailable=({mode='read'}={})=>{
     if(isUnsafe())throw blockedError('FILE safety lock is active: device safety lock is active');
     if(externalInterference)throw blockedError(externalInterference.reason);
-    if(active)throw blockedError('operation '+active.label+' is already active');
     runtime?.assertCanStartFileOperation?.({mode});
+    if(active)throw blockedError('operation '+active.label+' is already active');
   };
 
   const begin=(label,{mode='read'}={})=>{
