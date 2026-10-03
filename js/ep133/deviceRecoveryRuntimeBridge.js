@@ -54,7 +54,17 @@ export async function syncDeviceRuntimeRecovery({
   if(snapshot.connection.status!=='connected')throw new Error('Device recovery hydration requires a connected device.');
   const connectionEpoch=snapshot.connection.epoch;
   runtime.dispatch({type:'RECOVERY_SCAN_STARTED',connectionEpoch});
-  const[samples,projects]=await Promise.all([listSampleTransactions(),listProjectCheckpoints()]);
+  let samples,projects;
+  try{
+    [samples,projects]=await Promise.all([listSampleTransactions(),listProjectCheckpoints()]);
+  }catch(error){
+    runtime.assertEpoch(connectionEpoch);
+    runtime.dispatch({
+      type:'RECOVERY_SCAN_FAILED',connectionEpoch,
+      reason:'Local recovery scan failed: '+String(error?.message||error)
+    });
+    throw error;
+  }
   runtime.assertEpoch(connectionEpoch);
   const blockers=[
     ...(Array.isArray(samples)?samples:[])
