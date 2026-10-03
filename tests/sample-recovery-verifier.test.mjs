@@ -65,3 +65,44 @@ test('sample recovery acknowledgment refuses unverifiable records',async()=>{
   await assert.rejects(()=>runtime.acknowledgeTransaction(transaction.id,fileOpsFor({})),/not specific enough/);
   assert.equal((await store.getTransaction(transaction.id)).status,'requires-recovery');
 });
+
+test('failed sample mutation emits required recovery only after journal classifies residual device state',async()=>{
+  const store=createMemorySampleRecoveryStore();
+  const events=[];
+  const runtime=createSampleTransactionRuntime({
+    getConnectedDeviceInfo:()=>device,recoveryStore:store,onRecoveryEvent:event=>events.push(event)
+  });
+  await assert.rejects(()=>runtime.run({
+    label:'sample delete transaction',
+    fileOps:{async deleteFile(){}},
+    operation:async ops=>{await ops.deleteFile(7);throw new Error('post-delete failure');}
+  }),/post-delete failure/);
+  assert.equal(events.length,1);
+  assert.equal(events[0].type,'required');
+  assert.equal(events[0].operation,'delete');
+  assert.match(events[0].reason,/delete/i);
+  assert.ok(events[0].transactionId);
+});
+
+test('sample recovery verifier and acknowledgment publish matching evidence events in order',async()=>{
+  const store=createMemorySampleRecoveryStore();
+  const transaction=createSampleRecoveryTransaction({device,operation:'delete',slots:[7]});
+  await store.saveTransaction(transaction);
+  await store.updateTransaction(transaction.id,{
+    status:'requires-recovery',transactionStatus:'requires-recovery',
+    recoveryDetail:{requiresRecovery:true,reason:'delete uncertain'}
+  });
+  const events=[];
+  const runtime=createSampleTransactionRuntime({
+    getConnectedDeviceInfo:()=>device,recoveryStore:store,onRecoveryEvent:event=>events.push(event)
+  });
+  const fileOps=fileOpsFor({7:{size:10,meta:{name:'kick',crc:123}}});
+  await runtime.verifyTransaction(transaction.id,fileOps);
+  await runtime.acknowledgeTransaction(transaction.id,fileOps);
+  assert.deepEqual(events.map(event=>event.type),['verified','acknowledged']);
+  assert.equal(events[0].transactionId,transaction.id);
+  assert.equal(events[1].transactionId,transaction.id);
+  assert.equal(events[0].operation,'delete');
+  assert.equal(events[0].verification.deviceMutated,false);
+  assert.equal(events[1].verification.deviceMutated,false);
+});
