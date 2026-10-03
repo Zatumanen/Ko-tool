@@ -5,7 +5,7 @@ import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFile
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
-import{publishSampleRecoveryEvent,publishProjectRecoveryEvent,syncDeviceRuntimeRecovery}from './deviceRecoveryRuntimeBridge.js';
+import{publishSampleRecoveryEvent,publishProjectRecoveryEvent,syncDeviceRuntimeRecovery,setDeviceRecoveryRescanHandler}from './deviceRecoveryRuntimeBridge.js';
 import{deviceRuntime}from './deviceRuntime.js';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
@@ -31,13 +31,13 @@ const syncRuntimeRecovery=device=>syncDeviceRuntimeRecovery({
   runtime:deviceRuntime,deviceInfo:device,listSampleTransactions:()=>sampleTransactionRuntime.listTransactions(),
   listProjectCheckpoints:()=>projectRecoveryStore.listCheckpoints()
 }).catch(error=>console.warn('EP recovery runtime hydration failed',error));
+setDeviceRecoveryRescanHandler(()=>syncRuntimeRecovery(getConnectedDeviceInfo()));
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
   initRead:fileTransportInternals.initRead,initFileSystem:fileTransportInternals.initFileSystem,
   listDirectory:fileTransportInternals.listDirectory,listDeviceFiles:fileTransportInternals.listDeviceFiles,
   getFile:fileTransportInternals.getFile,putFile:fileTransportInternals.putFile,getFileMetadata:fileTransportInternals.getFileMetadata,
-  setFileMetadata:fileTransportInternals.setFileMetadata,recoveryStore:projectRecoveryStore,
-  onRecoveryEvent:event=>{publishProjectRecoveryEvent(event);if(event?.type==='resolved')syncRuntimeRecovery(getConnectedDeviceInfo());}
+  setFileMetadata:fileTransportInternals.setFileMetadata,recoveryStore:projectRecoveryStore,onRecoveryEvent:publishProjectRecoveryEvent
 });
 
 const sampleUploadForTransport=(args,fileOps)=>uploadSampleToSlotWithTransport(args,{putFile:fileOps.putFile,setFileMetadata:fileOps.setFileMetadata,initFileSystem:fileOps.initFileSystem});
