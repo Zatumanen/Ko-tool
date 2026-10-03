@@ -1,4 +1,5 @@
 import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20261001-1';
+import{dispatchDeviceRuntimeEvent}from '../deviceRuntime.js';
 
 export function createConnectionLifecycle({
   connectEp133,
@@ -12,6 +13,7 @@ export function createConnectionLifecycle({
   windowRef=globalThis.window,
   BroadcastChannelRef=globalThis.BroadcastChannel,
   sessionOwnership=null,
+  publishRuntimeEvent=dispatchDeviceRuntimeEvent,
   setIntervalFn=globalThis.setInterval,
   clearIntervalFn=globalThis.clearInterval,
   reconnectIntervalMs=4000
@@ -25,12 +27,24 @@ export function createConnectionLifecycle({
   let externalToolNoticeShown=false;
   let autoConnectTimer=null;
   let started=false;
+  let runtimeOwnership='none';
+
+  const publishOwnership=type=>{
+    const next=type==='OWNERSHIP_ACQUIRED'?'owned':type==='OWNERSHIP_BLOCKED'?'blocked':'none';
+    if(runtimeOwnership===next)return;
+    runtimeOwnership=next;
+    try{publishRuntimeEvent?.({type});}
+    catch(error){logTechnical('EP RUNTIME OWNERSHIP',error);}
+  };
 
   const ownership=sessionOwnership||createDeviceSessionOwnership({
     navigatorRef,BroadcastChannelRef,
     logTechnical,
     onStateChange:state=>{
       instanceLockBlocked=state.blocked&&!state.owned;
+      if(state.owned)publishOwnership('OWNERSHIP_ACQUIRED');
+      else if(instanceLockBlocked)publishOwnership('OWNERSHIP_BLOCKED');
+      else publishOwnership('OWNERSHIP_LOST');
       if(instanceLockBlocked)setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
     }
   });
@@ -39,9 +53,11 @@ export function createConnectionLifecycle({
     const acquired=await ownership.acquire();
     instanceLockBlocked=!acquired;
     if(!acquired){
+      publishOwnership('OWNERSHIP_BLOCKED');
       setConnectionOverlay('OPEN IN ANOTHER KO-TOOL TAB');
       return false;
     }
+    publishOwnership('OWNERSHIP_ACQUIRED');
     if(!externalToolNoticeShown){
       externalToolNoticeShown=true;
       setSessionNotice('CLOSE OTHER EP TOOLS BEFORE FILE OPERATIONS');
@@ -78,6 +94,7 @@ export function createConnectionLifecycle({
       autoConnectTimer=null;
     }
     ownership.dispose();
+    publishOwnership('OWNERSHIP_LOST');
   };
 
   const start=()=>{
