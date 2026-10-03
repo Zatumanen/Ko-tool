@@ -36,3 +36,13 @@ test('runtime device identity summary is intentionally serial-free',async()=>{
   assert.ok(match,'DEVICE_CONNECTED runtime publication must exist');
   assert.doesNotMatch(match[0],/serialNumber|\bserial\b/);
 });
+
+test('filesystem translates sample recovery evidence into authoritative runtime events',async()=>{
+  const source=await fs.readFile(new URL('../js/ep133/filesystem.js',import.meta.url),'utf8');
+  assert.match(source,/deviceRuntime\.js/);
+  assert.match(source,/onRecoveryEvent/);
+  assert.match(source,/RECOVERY_REQUIRED/);
+  assert.match(source,/RECOVERY_VERIFIED/);
+  assert.match(source,/RECOVERY_ACKNOWLEDGED/);
+  assert.doesNotMatch(source,/recoveryDetail.*data|recoveryDetail.*pcm/);
+});
