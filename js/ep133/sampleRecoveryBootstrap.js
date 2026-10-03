@@ -17,6 +17,8 @@ function installStyle(documentRef){
   const style=documentRef.createElement('style');
   style.id='ep133-sample-recovery-style';
   style.textContent=`
+.ep-backup-dialog[data-mode="backup"] [data-sample-recovery-panel]{display:none}
+.ep-sample-recovery-row{width:100%;display:grid;grid-template-columns:42px minmax(0,1fr);gap:2px 6px;padding:6px;border:0;border-bottom:1px solid #ddd;background:#fff;text-align:left;font:8px "Courier New",monospace;cursor:pointer}.ep-sample-recovery-row small{grid-column:1/-1;color:#666}.ep-sample-recovery-row.selected{background:var(--primary-blue);color:#fff}.ep-sample-recovery-row.selected small{color:#e8e8ff}
 .ep-sample-recovery-summary{padding:5px 6px;border:1px solid #aaa;background:#f4f4f4;font:8px "Courier New",monospace}.ep-sample-recovery-slots{margin-top:6px;border:1px solid #aaa}.ep-sample-recovery-slot{display:grid;grid-template-columns:38px 70px minmax(0,1fr) 90px;gap:5px;padding:3px 5px;border-bottom:1px solid #ddd;font:8px "Courier New",monospace}.ep-sample-recovery-slot:last-child{border-bottom:0}.ep-sample-recovery-slot .missing{color:#8a1c12;font-weight:700}.ep-sample-recovery-slot .present{color:#275c27;font-weight:700}.ep-sample-recovery-note{margin-top:6px;padding:5px 6px;background:#fff2c7;border:1px solid #b7952e;font:8px "Courier New",monospace}.ep-sample-recovery-error{padding:6px;color:#7b2015;background:#ffe2de;font:8px "Courier New",monospace}@media(max-width:760px){.ep-sample-recovery-slot{grid-template-columns:38px 70px minmax(0,1fr)}.ep-sample-recovery-slot span:last-child{display:none}}
 `;
   documentRef.head?.appendChild(style);
@@ -30,7 +32,7 @@ function ensureUi(documentRef){
   section=documentRef.createElement('section');
   section.id='ep133-sample-recovery-section';
   section.className='ep-backup-section ep-sample-recovery-section';
-  section.setAttribute('data-recovery-panel','');
+  section.setAttribute('data-sample-recovery-panel','');
   section.innerHTML=`
     <h3>SAMPLE TRANSACTION RECOVERY</h3>
     <div class="ep-recovery-layout">
@@ -99,7 +101,7 @@ export function startSampleRecoveryUi({documentRef=globalThis.document,windowRef
     if(!records.length){list.innerHTML='<div class="ep-backup-empty">NO SAMPLE RECOVERY RECORDS</div>';selectedId=null;renderDetail(null);return;}
     if(!records.some(item=>item.id===selectedId))selectedId=records[0].id;
     list.innerHTML=records.map(record=>
-      '<button type="button" class="ep-recovery-row '+(record.id===selectedId?'selected':'')+'" data-sample-recovery-id="'+escapeHtml(record.id)+'"><b>'+escapeHtml(String(record.operation||'sample').toUpperCase())+'</b><span>'+escapeHtml(statusOf(record).toUpperCase())+'</span><small>'+escapeHtml(formatTime(record.updatedAt||record.createdAt))+'</small></button>'
+      '<button type="button" class="ep-sample-recovery-row '+(record.id===selectedId?'selected':'')+'" data-sample-recovery-id="'+escapeHtml(record.id)+'"><b>'+escapeHtml(String(record.operation||'sample').toUpperCase())+'</b><span>'+escapeHtml(statusOf(record).toUpperCase())+'</span><small>'+escapeHtml(formatTime(record.updatedAt||record.createdAt))+'</small></button>'
     ).join('');
     renderDetail(selected());
   };
