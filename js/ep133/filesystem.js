@@ -34,7 +34,8 @@ export{
 
 const projectRecoveryStore=createBrowserProjectRecoveryStore();
 const sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
-const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo,onRecoveryEvent:publishSampleRecoveryEvent});
+const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
+sampleTransactionRuntime.setRecoveryEventHandler(publishSampleRecoveryEvent);
 const projectFilesystem=createProjectFilesystem({
   runFileOperation:fileTransportInternals.runFileOperation,
   withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe,
