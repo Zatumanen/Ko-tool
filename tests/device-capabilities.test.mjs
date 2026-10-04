@@ -95,3 +95,15 @@ test('out-of-range firmware downgrades verified evidence to unverified',()=>{
   assert.equal(capabilities.evidence.sampleTransfers.write,false);
   assert.equal(capabilities.evidence.projectAuthoring.write,false);
 });
+
+test('device profiles delegate evidence resolution through the capability facade',async()=>{
+  const fs=await import('node:fs/promises');
+  const[deviceProfile,deviceCapabilities]=await Promise.all([
+    fs.readFile(new URL('../js/ep133/deviceProfile.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/deviceCapabilities.js',import.meta.url),'utf8')
+  ]);
+  assert.match(deviceProfile,/resolveDeviceCapabilities\s*\(/);
+  assert.doesNotMatch(deviceProfile,/resolveRegisteredCapabilityEvidence\s*\(/);
+  assert.match(deviceCapabilities,/resolveRegisteredCapabilityEvidence\s*\(/);
+  assert.match(deviceCapabilities,/\.\/evidenceRegistry\.js\?v=/);
+});
