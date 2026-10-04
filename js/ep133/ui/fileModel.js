@@ -1,8 +1,5 @@
-import{
-  TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
-  TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
-  TE_SYSEX_FILE_CAPABILITY_PLAYBACK,TE_SYSEX_FILE_FILE_TYPE_FILE
-}from '../constants.js?v=20261001-1';
+import{TE_SYSEX_FILE_FILE_TYPE_FILE}from '../constants.js?v=20261001-1';
+import{decodeFileRights,encodeFileRights}from '../deviceCapabilities.js?v=20261001-1';
 
 export const getSoundsParentId=files=>
   (files||[]).find(item=>item.fileName==='/sounds'&&item.fileType==='folder')?.nodeId||0;
@@ -14,17 +11,18 @@ export function buildFileItemFromInfo(info,deviceFiles=[]){
   if(parentId!==0&&!parentPath)return null;
   const fileName=(parentPath||'')+'/'+String(info?.fileName||'').replace(/^\/+/, '');
   const flags=Number(info?.flags)||0;
+  const rights=decodeFileRights(flags);
   return{
     nodeId:Number(info?.nodeId),
     flags,
     fileSize:Number(info?.fileSize)||0,
     fileName,
     fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',
-    isReadable:!!(flags&TE_SYSEX_FILE_CAPABILITY_READ),
-    isWritable:!!(flags&TE_SYSEX_FILE_CAPABILITY_WRITE),
-    isDeletable:!!(flags&TE_SYSEX_FILE_CAPABILITY_DELETE),
-    isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
-    isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
+    isReadable:rights.read,
+    isWritable:rights.write,
+    isDeletable:rights.delete,
+    isMovable:rights.move,
+    isPlayable:rights.playback
   };
 }
 
@@ -33,7 +31,7 @@ export function buildProvisionalUploadedFileItem({nodeId,parentId,fileSize,fileN
   const parent=(deviceFiles||[]).find(item=>Number(item.nodeId)===Number(parentId));
   const parentPath=parent?.fileName||'/sounds';
   const normalizedName=normalizeFileName(fileName||'sample.wav');
-  const flags=TE_SYSEX_FILE_FILE_TYPE_FILE|TE_SYSEX_FILE_CAPABILITY_READ;
+  const flags=TE_SYSEX_FILE_FILE_TYPE_FILE|encodeFileRights({read:true});
   return{
     nodeId:Number(nodeId),
     flags,
