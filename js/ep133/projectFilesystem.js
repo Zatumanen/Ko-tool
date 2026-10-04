@@ -1,4 +1,3 @@
-import{TE_SYSEX_FILE_CAPABILITY_READ}from './constants.js';
 import{
   parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies
 }from './projectArchive.js?v=20261001-1';
@@ -413,7 +412,7 @@ export function createProjectFilesystem({
       mutationAttempted=true;
       await putFile({
         data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
-        metadata:null,onProgress,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]
+        metadata:null,onProgress,timeout,isDirectory:true
       });
       candidateWritten=true;
       await updateRecoveryCheckpoint(recoveryCheckpoint.id,{status:'candidate-written'});
@@ -511,7 +510,7 @@ export function createProjectFilesystem({
         });
         await putFile({
           data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
-          metadata:null,timeout,isDirectory:true,capabilities:[TE_SYSEX_FILE_CAPABILITY_READ]
+          metadata:null,timeout,isDirectory:true
         });
         await initFileSystem();
         const restored=await getFile(destination.nodeId);
