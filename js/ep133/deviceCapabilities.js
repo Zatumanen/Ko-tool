@@ -30,6 +30,16 @@ export function decodeFileRights(mask=0){
   });
 }
 
+export function encodeFileRights({read=false,write=false,delete:canDelete=false,move=false,playback=false}={}){
+  return(
+    (read?TE_SYSEX_FILE_CAPABILITY_READ:0)|
+    (write?TE_SYSEX_FILE_CAPABILITY_WRITE:0)|
+    (canDelete?TE_SYSEX_FILE_CAPABILITY_DELETE:0)|
+    (move?TE_SYSEX_FILE_CAPABILITY_MOVE:0)|
+    (playback?TE_SYSEX_FILE_CAPABILITY_PLAYBACK:0)
+  );
+}
+
 export function resolveDeviceCapabilities({sku='',firmware='',fileCapabilities=0}={}){
   const normalizedSku=String(sku||'').toUpperCase();
   const normalizedFirmware=String(firmware||'');
