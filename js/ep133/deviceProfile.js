@@ -1,7 +1,5 @@
 import{canWriteCapability}from './capabilityEvidence.js?v=20261001-1';
-import{
-  CAPABILITY_KEYS,resolveRegisteredCapabilityEvidence
-}from './evidenceRegistry.js?v=20261001-1';
+import{resolveDeviceCapabilities}from './deviceCapabilities.js?v=20261001-1';
 
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
 
@@ -58,9 +56,10 @@ export function getEpDeviceProfile(sku='',firmware=''){
   const key=String(sku||'').toUpperCase();
   const profile=PROFILES[key]||GENERIC_PROFILE;
   const version=String(firmware||'');
-  const sampleMetadataEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_METADATA,version);
-  const sampleTransferEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_TRANSFERS,version);
-  const sampleBarsEvidence=resolveRegisteredCapabilityEvidence(key,CAPABILITY_KEYS.SAMPLE_BARS,version);
+  const capabilities=resolveDeviceCapabilities({sku:key,firmware:version});
+  const sampleMetadataEvidence=capabilities.evidence.sampleMetadata;
+  const sampleTransferEvidence=capabilities.evidence.sampleTransfers;
+  const sampleBarsEvidence=capabilities.evidence.sampleBars;
   return{
     sku:key,
     firmware:version,
