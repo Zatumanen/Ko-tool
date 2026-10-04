@@ -1,6 +1,8 @@
 import{canWriteCapability}from './capabilityEvidence.js?v=20261001-1';
 import{resolveDeviceCapabilities}from './deviceCapabilities.js?v=20261001-1';
 
+// Migration note: deviceCapabilities owns resolveRegisteredCapabilityEvidence and
+// the ./evidenceRegistry.js?v=20261001-1 dependency; device profiles must not call it directly.
 const COMMON_PLAY_MODES=Object.freeze(['oneshot','key','legato']);
 
 const EP133_FALLBACK_TABS=Object.freeze([
