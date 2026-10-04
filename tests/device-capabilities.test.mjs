@@ -107,3 +107,24 @@ test('device profiles delegate evidence resolution through the capability facade
   assert.match(deviceCapabilities,/resolveRegisteredCapabilityEvidence\s*\(/);
   assert.match(deviceCapabilities,/\.\/evidenceRegistry\.js\?v=/);
 });
+
+test('raw FILE capability bits stay below the domain capability boundary',async()=>{
+  const fs=await import('node:fs/promises');
+  const path=await import('node:path');
+  const root=new URL('../js/ep133/',import.meta.url);
+  const allowed=new Set(['constants.js','fileProtocol.js','fileTransport.js','deviceCapabilities.js']);
+  const offenders=[];
+  const walk=async(dir,relative='')=>{
+    for(const entry of await fs.readdir(dir,{withFileTypes:true})){
+      const rel=path.posix.join(relative,entry.name);
+      const url=new URL(rel,dir.endsWith('/')?dir:dir+'/');
+      if(entry.isDirectory())await walk(url.href,rel);
+      else if(entry.isFile()&&entry.name.endsWith('.js')){
+        const source=await fs.readFile(url,'utf8');
+        if(/TE_SYSEX_FILE_CAPABILITY_/.test(source)&&!allowed.has(rel))offenders.push(rel);
+      }
+    }
+  };
+  await walk(root.href);
+  assert.deepEqual(offenders,[]);
+});
