@@ -9,7 +9,7 @@ import{
   TE_SYSEX_FILE_CAPABILITY_PLAYBACK
 }from '../js/ep133/constants.js';
 import{
-  decodeFileRights,resolveDeviceCapabilities
+  decodeFileRights,encodeFileRights,resolveDeviceCapabilities
 }from '../js/ep133/deviceCapabilities.js';
 
 const ALL_FILE_RIGHTS=
@@ -28,6 +28,12 @@ test('decodeFileRights exposes named immutable FILE rights',()=>{
     {read:true,write:false,delete:false,move:false,playback:true}
   );
   assert.deepEqual(decodeFileRights(),{read:false,write:false,delete:false,move:false,playback:false});
+});
+
+test('named FILE rights encode back to the exact transport mask',()=>{
+  assert.equal(encodeFileRights({read:true,playback:true}),TE_SYSEX_FILE_CAPABILITY_READ|TE_SYSEX_FILE_CAPABILITY_PLAYBACK);
+  assert.equal(encodeFileRights(decodeFileRights(ALL_FILE_RIGHTS)),ALL_FILE_RIGHTS);
+  assert.equal(encodeFileRights(),0);
 });
 
 test('resolveDeviceCapabilities resolves EP-133 2.5.1 evidence from the registry',()=>{
