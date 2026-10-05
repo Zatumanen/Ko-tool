@@ -44,7 +44,7 @@ for(const name of[
   'sample mutation controllers reserve strict FILE transaction leases',
   'My EP pastes and drops audio into the shared forward-only uploader',
   'My EP exposes the sample library before prioritized metadata hydration completes',
-  'My EP initial sample sync lists only root and the direct /sounds directory',
+  'My EP initial sample sync lists only root and the direct \\/sounds directory',
   'SampleStore metadata is invalidated or refreshed by device file events',
   'SampleStore is the only sample-state mutation owner outside the sampleMemory projection',
   'My EP runtime cannot mutate sample projection state outside SampleStore'
