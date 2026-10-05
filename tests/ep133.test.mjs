@@ -430,8 +430,8 @@ test('SpeedUpperCut statistics separate disk file size from offline EP PCM stora
 test('My EP cache-busting chain keeps deep EP modules on the same release token',async()=>{
   const fs=await import('node:fs/promises');
   const read=path=>fs.readFile(new URL('../'+path,import.meta.url),'utf8');
-  const [html,app,ui,index]=await Promise.all([
-    read('index.html'),read('js/app.js'),read('js/ep133/ui.js'),read('js/ep133/index.js')
+  const [html,app,ui,workspace,index]=await Promise.all([
+    read('index.html'),read('js/app.js'),read('js/ep133/ui.js'),read('js/ep133/ui/createEpWorkspace.js'),read('js/ep133/index.js')
   ]);
   const token=html.match(/js\/app\.js\?v=([^"']+)/)?.[1];
   assert.ok(token);
@@ -464,33 +464,36 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   const deviceSessionOwnership=await read('js/ep133/ui/deviceSessionOwnership.js');
   const connectionLifecycle=await read('js/ep133/ui/connectionLifecycle.js');
   assert.equal(app.includes("./ep133/ui.js?v="+token),true);
-  assert.equal(ui.includes("./index.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleMoveController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleCopyController.js?v="+token),true);
-  assert.equal(ui.includes("./deviceProfile.js?v="+token),true);
-  assert.equal(ui.includes("./ui/samplePropertiesController.js?v="+token),true);
-  assert.equal(ui.includes("./sampleStore.js?v="+token),true);
-  assert.equal(ui.includes("./sampleMemory.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sessionGuard.js?v="+token),true);
-  assert.equal(ui.includes("./ui/feedback.js?v="+token),true);
-  assert.equal(ui.includes("./ui/fileModel.js?v="+token),true);
-  assert.equal(ui.includes("./ui/fileEvents.js?v="+token),true);
-  assert.equal(ui.includes("./ui/connectionLifecycle.js?v="+token),true);
-  assert.equal(ui.includes("./ui/projectReadOnlyController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/projectEditorController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/projectSequencerController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/backupRestoreController.js?v="+token),true);
+  assert.equal(ui.includes("./ui/createEpWorkspace.js?v="+token),true);
+  assert.equal(workspace.includes("../deviceRuntime.js"),true);
+  assert.doesNotMatch(workspace,/deviceRuntime\.js\?v=/);
+  assert.equal(workspace.includes("../index.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleUploadController.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleMoveController.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleCopyController.js?v="+token),true);
+  assert.equal(workspace.includes("../deviceProfile.js?v="+token),true);
+  assert.equal(workspace.includes("./samplePropertiesController.js?v="+token),true);
+  assert.equal(workspace.includes("../sampleStore.js?v="+token),true);
+  assert.equal(workspace.includes("../sampleMemory.js?v="+token),true);
+  assert.equal(workspace.includes("./sessionGuard.js?v="+token),true);
+  assert.equal(workspace.includes("./feedback.js?v="+token),true);
+  assert.equal(workspace.includes("./fileModel.js?v="+token),true);
+  assert.equal(workspace.includes("./fileEvents.js?v="+token),true);
+  assert.equal(workspace.includes("./connectionLifecycle.js?v="+token),true);
+  assert.equal(workspace.includes("./projectReadOnlyController.js?v="+token),true);
+  assert.equal(workspace.includes("./projectEditorController.js?v="+token),true);
+  assert.equal(workspace.includes("./projectSequencerController.js?v="+token),true);
+  assert.equal(workspace.includes("./backupRestoreController.js?v="+token),true);
   assert.equal(projectReadOnlyController.includes("summarizeProjectReadOnly"),true);
   assert.equal(projectEditorController.includes("../projectEditor.js?v="+token),true);
   assert.equal(projectSequencerController.includes("../projectSequencerUi.js?v="+token),true);
   assert.equal(backupRestoreController.includes("../backupBundle.js?v="+token),true);
   assert.equal(connectionLifecycle.includes("./deviceSessionOwnership.js?v="+token),true);
   assert.equal(deviceSessionOwnership.includes("ep-sample-util"),true);
-  assert.equal(ui.includes("./ui/sampleLibrarySync.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleReadController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleDeleteController.js?v="+token),true);
-  assert.equal(ui.includes("./ui/sampleUploadController.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleLibrarySync.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleReadController.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleDeleteController.js?v="+token),true);
+  assert.equal(workspace.includes("./sampleUploadController.js?v="+token),true);
   assert.equal(samplePropertiesController.includes("../sampleProperties.js?v="+token),true);
   assert.equal(sampleReadController.includes("../audio.js?v="+token),true);
   assert.doesNotMatch(sampleDeleteController,/from [\'\"]/);
@@ -925,7 +928,7 @@ test('My EP confirms destructive deletes through authoritative /sounds LIST',asy
 
 test('My EP keeps event-first metadata sync lease-aware for destructive mutations but not the normal upload fast path',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   const deletes=await fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8');
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(ui,/const waitForMetadataUpdate=nodeId=>waitForFileEvent/);
@@ -944,7 +947,7 @@ test('My EP keeps event-first metadata sync lease-aware for destructive mutation
 test('My EP aborts batches when the connected MIDI session changes',async()=>{
   const fs=await import('node:fs/promises');
   const device=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   const batchControllers=await Promise.all([
     '../js/ep133/ui/sampleLibrarySync.js',
     '../js/ep133/ui/sampleReadController.js',
@@ -2078,7 +2081,7 @@ test('sample mutation controllers reserve strict FILE transaction leases',async(
     fs.readFile(new URL('../js/ep133/ui/sampleDeleteController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+    fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8')
   ]);
   assert.match(uploads,/withFileTransaction\('sample upload batch',operation,\{strict:true\}\)/);
   assert.match(deletes,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
@@ -2108,7 +2111,7 @@ test('own upload FILE_ADDED events do not insert readback traffic into the activ
 
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(ui,/clipboardData\?\.items/);
   assert.match(ui,/window\.addEventListener\('paste'/);
@@ -2503,7 +2506,7 @@ test('EP-ready WAV fast path preserves supported source rate and rejects a misma
 test('My EP exposes the sample library before prioritized metadata hydration completes',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   const properties=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   assert.match(source,/setMetadataHydrating\(pending\.length>0\)/);
   assert.ok(source.indexOf('setSynchronized(true)')<source.indexOf('for(const slot of pending)'));
@@ -2521,7 +2524,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   const fs=await import('node:fs/promises');
   const [source,ui]=await Promise.all([
     fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8')
+    fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8')
   ]);
   assert.match(source,/runBootstrap\(async fileOps=>\{/);
   assert.match(source,/fileOps\.listDirectory\(0,'\/'\)/);
@@ -2575,7 +2578,7 @@ test('project reload marks runtime settling and later project mutations honor th
 test('SampleStore metadata is invalidated or refreshed by device file events',async()=>{
   const fs=await import('node:fs/promises');
   const events=await fs.readFile(new URL('../js/ep133/ui/fileEvents.js',import.meta.url),'utf8');
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   assert.match(events,/sampleStore\.mergeMetadata\(nodeId,payload\.metadata\|\|\{\}\)/);
   assert.match(events,/FILE_ADDED\|\|event\.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED\)[\s\S]*sampleStore\.invalidateMetadata\(nodeId\)/);
   assert.match(events,/TE_SYSEX_FILE_EVENT_FILE_DELETED\)[\s\S]*sampleStore\.removeFile\(nodeId\)/);
@@ -2587,7 +2590,7 @@ test('SampleStore metadata is invalidated or refreshed by device file events',as
 test('SampleStore is the only sample-state mutation owner outside the sampleMemory projection',async()=>{
   const fs=await import('node:fs/promises');
   const paths=[
-    '../js/ep133/ui.js',
+    '../js/ep133/ui/createEpWorkspace.js',
     '../js/ep133/ui/sampleLibrarySync.js',
     '../js/ep133/ui/fileEvents.js',
     '../js/ep133/ui/samplePropertiesController.js',
@@ -2686,7 +2689,7 @@ test('My EP read and rename paths re-resolve canonical SampleStore state before 
 test('My EP runtime cannot mutate sample projection state outside SampleStore',async()=>{
   const fs=await import('node:fs/promises');
   const runtimePaths=[
-    '../js/ep133/ui.js',
+    '../js/ep133/ui/createEpWorkspace.js',
     '../js/ep133/ui/fileEvents.js',
     '../js/ep133/ui/sampleLibrarySync.js',
     '../js/ep133/ui/samplePropertiesController.js',
@@ -2704,7 +2707,7 @@ test('My EP runtime cannot mutate sample projection state outside SampleStore',a
     const source=await fs.readFile(new URL(path,import.meta.url),'utf8');
     assert.doesNotMatch(source,forbidden,path+' bypasses SampleStore');
   }
-  const ui=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
+  const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
   const store=await fs.readFile(new URL('../js/ep133/sampleStore.js',import.meta.url),'utf8');
   const memory=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
   assert.match(ui,/sampleStore\.bindMemory\(memory\)/);
