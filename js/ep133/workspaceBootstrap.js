@@ -1,6 +1,6 @@
-import{onConnectionChange}from './device.js?v=20261001-1';
+import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from './deviceRuntime.js';
 import{
-  getFileOperationCoordinatorState,getProjectRuntimeSettleState,
+  getProjectRuntimeSettleState,
   listSampleRecoveryTransactions,listProjectRecoveryCheckpoints
 }from './filesystem.js?v=20261001-1';
 import{createMyEpWorkspaceState}from './ui/workspaceState.js?v=20261003-1';
@@ -132,7 +132,6 @@ export function startMyEpWorkspace({
     applyStatus(lastEl,formatLast(state));
   };
   const unsubscribeWorkspace=workspace.subscribe(render);
-  const unsubscribeConnection=onConnectionChange(state=>{workspace.setConnection(state);void refreshRecovery();});
 
   const samplesButton=documentRef.getElementById('ep133-view-samples');
   const projectsButton=documentRef.getElementById('ep133-view-projects');
@@ -144,24 +143,29 @@ export function startMyEpWorkspace({
     if(button&&button.getAttribute('aria-selected')!=='true')button.click();
   },0);
 
-  let previousCoordinator=null;
-  let previousRuntime=null;
-  const pollTransient=()=>{
+  let previousDeviceRuntime=null;
+  const applyDeviceRuntime=snapshot=>{
+    const previousActive=previousDeviceRuntime?.operation?.active;
+    const nextActive=snapshot?.operation?.active;
+    const becameConnected=
+      previousDeviceRuntime?.connection?.status!=='connected'&&snapshot?.connection?.status==='connected';
+    previousDeviceRuntime=snapshot;
+    workspace.setRuntime(snapshot);
+    if(previousActive&&!nextActive){
+      workspace.recordOperation({label:previousActive.label,status:'finished',at:Date.now()});
+      setTimeoutFn?.(()=>{void refreshRecovery();},0);
+    }
+    if(becameConnected)void refreshRecovery();
+  };
+  applyDeviceRuntime(getDeviceRuntimeSnapshot());
+  const unsubscribeRuntime=onDeviceRuntimeChange(applyDeviceRuntime);
+
+  let previousProjectRuntime=null;
+  const pollProjectRuntime=()=>{
     try{
-      const coordinator=getFileOperationCoordinatorState();
-      if(!sameState(previousCoordinator,coordinator)){
-        const finished=previousCoordinator?.active&&!coordinator?.active;
-        const previousActive=previousCoordinator?.active;
-        previousCoordinator=coordinator;
-        workspace.setCoordinator(coordinator);
-        if(finished&&previousActive){
-          workspace.recordOperation({label:previousActive.label,status:'finished',at:Date.now()});
-          setTimeoutFn?.(()=>{void refreshRecovery();},0);
-        }
-      }
       const runtime=getProjectRuntimeSettleState();
-      if(!sameState(previousRuntime,runtime)){
-        previousRuntime=runtime;
+      if(!sameState(previousProjectRuntime,runtime)){
+        previousProjectRuntime=runtime;
         workspace.setProjectRuntime(runtime);
       }
     }catch{}
@@ -203,12 +207,12 @@ export function startMyEpWorkspace({
     if(latest&&latest.at>(workspace.getState().lastOperation?.at||0))workspace.recordOperation(latest);
   }
 
-  pollTransient();
+  pollProjectRuntime();
   void refreshRecovery();
-  const pollTimer=setIntervalFn?.(pollTransient,POLL_MS);
+  const pollTimer=setIntervalFn?.(pollProjectRuntime,POLL_MS);
   const recoveryTimer=setIntervalFn?.(()=>{void refreshRecovery();},RECOVERY_POLL_MS);
   const dispose=()=>{
-    unsubscribeWorkspace();unsubscribeConnection();
+    unsubscribeWorkspace();unsubscribeRuntime();
     if(pollTimer!=null)clearIntervalFn?.(pollTimer);
     if(recoveryTimer!=null)clearIntervalFn?.(recoveryTimer);
     if(windowRef?.[BOOTSTRAP_KEY]===workspace)delete windowRef[BOOTSTRAP_KEY];
