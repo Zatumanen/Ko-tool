@@ -32,6 +32,19 @@ const normalizeLastOperation=operation=>{
     error:normalizeError(operation.error)
   });
 };
+const normalizeActiveOperation=(active,state='idle')=>active?Object.freeze({
+  id:Number(active.id)||0,
+  label:safeText(active.label||'FILE operation',200),
+  mode:safeText(active.mode||'read',40),
+  phase:safeText(active.phase||state||'idle',40),
+  startedAt:safeTime(active.startedAt)
+}):null;
+const normalizeExternalInterference=input=>input?Object.freeze({
+  at:safeTime(input.at),
+  requestId:Number.isInteger(Number(input.requestId))?Number(input.requestId):null
+}):null;
+const idleCoordinator=state=>Object.freeze({state,active:null,externalInterference:null});
+const idleProjectRuntime=()=>Object.freeze({settling:false,settlingUntil:0,remainingMs:0});
 const readPersisted=(storage,key)=>{
   try{
     const parsed=JSON.parse(storage?.getItem?.(key)||'null');
@@ -66,8 +79,8 @@ export function createMyEpWorkspaceState({
   const listeners=new Set();
   let state={
     connection:Object.freeze({status:'disconnected',unsafe:false,device:null}),
-    coordinator:Object.freeze({state:'idle',active:null,externalInterference:null}),
-    projectRuntime:Object.freeze({settling:false,settlingUntil:0,remainingMs:0}),
+    coordinator:idleCoordinator('idle'),
+    projectRuntime:idleProjectRuntime(),
     recovery:Object.freeze({required:false,sampleRequired:0,projectRequired:0}),
     view:Object.freeze({mode:persisted.viewMode||'samples'}),
     lastOperation:persisted.lastOperation||null,
@@ -96,30 +109,49 @@ export function createMyEpWorkspaceState({
       ...state,
       connection,
       lastDevice,
-      coordinator:connected
-        ?state.coordinator
-        :Object.freeze({state:unsafe?'unsafe':'idle',active:null,externalInterference:null}),
-      projectRuntime:connected
-        ?state.projectRuntime
-        :Object.freeze({settling:false,settlingUntil:0,remainingMs:0})
+      coordinator:connected?state.coordinator:idleCoordinator(unsafe?'unsafe':'idle'),
+      projectRuntime:connected?state.projectRuntime:idleProjectRuntime()
     };
     persist();emit();return snapshot();
   };
 
   const setCoordinator=input=>replace({coordinator:Object.freeze({
     state:safeText(input?.state||'idle',40),
-    active:input?.active?Object.freeze({
-      id:Number(input.active.id)||0,
-      label:safeText(input.active.label||'FILE operation',200),
-      mode:safeText(input.active.mode||'read',40),
-      phase:safeText(input.active.phase||input?.state||'idle',40),
-      startedAt:safeTime(input.active.startedAt)
-    }):null,
-    externalInterference:input?.externalInterference?Object.freeze({
-      at:safeTime(input.externalInterference.at),
-      requestId:Number.isInteger(Number(input.externalInterference.requestId))?Number(input.externalInterference.requestId):null
-    }):null
+    active:normalizeActiveOperation(input?.active,input?.state),
+    externalInterference:normalizeExternalInterference(input?.externalInterference)
   })});
+
+  const setRuntime=input=>{
+    const connectionStatus=safeText(input?.connection?.status||'disconnected',40);
+    const safetyStatus=safeText(input?.safety?.status||'safe',40);
+    const runtimeStatus=safeText(input?.status||'',40);
+    const ownershipStatus=safeText(input?.ownership?.status||'none',40);
+    const connected=connectionStatus==='connected';
+    const unsafe=safetyStatus==='unsafe'||runtimeStatus==='unsafe';
+    const device=connected?normalizeDevice(input?.connection?.device):null;
+    const lastDevice=device||state.lastDevice;
+    const operationPhase=safeText(input?.operation?.phase||'idle',40);
+    const blocked=
+      safetyStatus==='blocked'||safetyStatus==='recovery-required'||
+      ownershipStatus==='blocked'||runtimeStatus==='blocked'||runtimeStatus==='recovery-required';
+    const coordinatorState=unsafe?'unsafe':blocked?'blocked':operationPhase;
+    state={
+      ...state,
+      connection:Object.freeze({
+        status:unsafe?'unsafe':connected?'connected':'disconnected',
+        unsafe,
+        device
+      }),
+      coordinator:Object.freeze({
+        state:coordinatorState||'idle',
+        active:normalizeActiveOperation(input?.operation?.active,operationPhase),
+        externalInterference:normalizeExternalInterference(input?.externalInterference)
+      }),
+      projectRuntime:connected?state.projectRuntime:idleProjectRuntime(),
+      lastDevice
+    };
+    persist();emit();return snapshot();
+  };
 
   const setProjectRuntime=input=>replace({projectRuntime:Object.freeze({
     settling:!!input?.settling,
@@ -151,7 +183,7 @@ export function createMyEpWorkspaceState({
   };
 
   return Object.freeze({
-    getState:snapshot,setConnection,setCoordinator,setProjectRuntime,setRecovery,setView,recordOperation,
+    getState:snapshot,setConnection,setCoordinator,setRuntime,setProjectRuntime,setRecovery,setView,recordOperation,
     subscribe(listener){
       if(typeof listener!=='function')return()=>{};
       listeners.add(listener);
