@@ -2112,9 +2112,10 @@ test('own upload FILE_ADDED events do not insert readback traffic into the activ
 test('My EP pastes and drops audio into the shared forward-only uploader',async()=>{
   const fs=await import('node:fs/promises');
   const ui=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
+  const entry=await fs.readFile(new URL('../js/ep133/ui.js',import.meta.url),'utf8');
   const uploads=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(ui,/clipboardData\?\.items/);
-  assert.match(ui,/window\.addEventListener\('paste'/);
+  assert.match(entry,/window\.addEventListener\('paste',workspace\.handlePaste\)/);
   assert.match(ui,/const slot=memory\.getSelected\(\)/);
   assert.match(ui,/uploadFilesToSlot\(slot,files\)/);
   assert.match(ui,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
