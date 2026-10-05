@@ -41,18 +41,18 @@ editTest('My EP cache-busting chain keeps deep EP modules on the same release to
 for(const name of[
   'My EP keeps event-first metadata sync lease-aware for destructive mutations but not the normal upload fast path',
   'My EP aborts batches when the connected MIDI session changes',
-  'My EP collection-scoped sample mutations use one strict FILE transaction lease',
-  'My EP paste/drop route through shared transactional uploader',
-  'My EP keeps mutations disabled until prioritized metadata hydration finishes',
-  'My EP initial sync uses one FILE transaction while prioritized metadata hydration stays inside it',
-  'SampleStore event invalidation clears stale metadata and disconnect clears store state',
-  'SampleStore is the canonical My EP mutation owner and UI modules do not mutate file arrays directly',
-  'Runtime My EP UI no longer mutates the SampleStore memory projection directly'
+  'sample mutation controllers reserve strict FILE transaction leases',
+  'My EP pastes and drops audio into the shared forward-only uploader',
+  'My EP exposes the sample library before prioritized metadata hydration completes',
+  'My EP initial sample sync lists only root and the direct /sounds directory',
+  'SampleStore metadata is invalidated or refreshed by device file events',
+  'SampleStore is the only sample-state mutation owner outside the sampleMemory projection',
+  'My EP runtime cannot mutate sample projection state outside SampleStore'
 ]){
   editTest(name,block=>{
-    const old="../js/ep133/ui.js";
+    const old='../js/ep133/ui.js';
     if(!block.includes(old))throw new Error(`Expected ui.js source read in: ${name}`);
-    return block.replaceAll(old,"../js/ep133/ui/createEpWorkspace.js");
+    return block.replaceAll(old,'../js/ep133/ui/createEpWorkspace.js');
   });
 }
 
