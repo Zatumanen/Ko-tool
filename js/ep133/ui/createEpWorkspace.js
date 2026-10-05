@@ -7,7 +7,7 @@ import{
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
   prepareSampleTransferMetadata,prepareSampleLocalMetadata,createTransferFileName
 }from '../index.js?v=20261001-1';
-import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from '../deviceRuntime.js?v=20261003-1';
+import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from '../deviceRuntime.js';
 import{TE_SYSEX_FILE_EVENT_METADATA_UPDATED}from '../constants.js';
 import{createSampleMemory}from '../sampleMemory.js?v=20261001-1';
 import{getEpDeviceProfile}from '../deviceProfile.js?v=20261001-1';
@@ -78,7 +78,7 @@ export function createEpWorkspace({
   }=dom;
 
   const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
   const humanError=message=>String(message||'OPERATION FAILED.').toUpperCase();
   const logTechnical=(label,error)=>{
