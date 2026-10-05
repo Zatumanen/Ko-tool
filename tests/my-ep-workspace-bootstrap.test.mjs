@@ -48,3 +48,12 @@ test('workspace state projects authoritative runtime connection operation and sa
   assert.equal(state.coordinator.active,null);
   assert.equal(state.coordinator.externalInterference.requestId,17);
 });
+
+test('workspace history ignores unlabeled transport plumbing but records semantic operations',()=>{
+  const workspace=createMyEpWorkspaceState({storageRef:createStorage()});
+  workspace.recordOperation({label:'previous upload',status:'succeeded',at:1});
+  workspace.recordOperation({label:'FILE operation',status:'finished',at:2});
+  assert.equal(workspace.getState().lastOperation.label,'previous upload');
+  workspace.recordOperation({label:'workspace hold',status:'finished',at:3});
+  assert.equal(workspace.getState().lastOperation.label,'workspace hold');
+});
