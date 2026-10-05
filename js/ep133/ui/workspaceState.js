@@ -1,6 +1,7 @@
 const STORAGE_VERSION=1;
 export const MY_EP_WORKSPACE_STORAGE_KEY='speeduppercut-my-ep-workspace-v1';
 const RECOVERY_REQUIRED='requires-recovery';
+const DEFAULT_FILE_OPERATION_LABEL='FILE operation';
 
 const clone=value=>value==null?value:JSON.parse(JSON.stringify(value));
 const safeText=(value,max=200)=>String(value??'').slice(0,max);
@@ -34,7 +35,7 @@ const normalizeLastOperation=operation=>{
 };
 const normalizeActiveOperation=(active,state='idle')=>active?Object.freeze({
   id:Number(active.id)||0,
-  label:safeText(active.label||'FILE operation',200),
+  label:safeText(active.label||DEFAULT_FILE_OPERATION_LABEL,200),
   mode:safeText(active.mode||'read',40),
   phase:safeText(active.phase||state||'idle',40),
   startedAt:safeTime(active.startedAt)
@@ -176,7 +177,7 @@ export function createMyEpWorkspaceState({
 
   const recordOperation=operation=>{
     const normalized=normalizeLastOperation({...operation,at:operation?.at||now()});
-    if(!normalized)return snapshot();
+    if(!normalized||normalized.label===DEFAULT_FILE_OPERATION_LABEL)return snapshot();
     if(state.lastOperation&&normalized.at<state.lastOperation.at)return snapshot();
     state={...state,lastOperation:normalized};
     persist();emit();return snapshot();
