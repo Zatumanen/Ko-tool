@@ -1,5 +1,5 @@
 import{onConnectionChange,onMidiActivity}from './index.js?v=20261001-1';
-import{createEpWorkspace}from './ui/createEpWorkspace.js?v=20261005-1';
+import{createEpWorkspace}from './ui/createEpWorkspace.js?v=20261001-1';
 import{getEpBrowserDom,hasRequiredEpBrowserDom}from './ui/domRegistry.js';
 import{isMobileUserAgent,makeDraggableWindow}from './ui/windowShell.js';
 
