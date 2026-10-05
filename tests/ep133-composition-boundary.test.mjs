@@ -18,6 +18,8 @@ test('My EP entry retains DOM discovery and entry lifecycle only',async()=>{
   const source=await read('js/ep133/ui.js');
   assert.match(source,/const dom=getEpBrowserDom\(document\)/);
   assert.match(source,/hasRequiredEpBrowserDom\(dom\)/);
+  assert.match(source,/window\.addEventListener\('paste',workspace\.handlePaste\)/);
+  assert.match(source,/document\.addEventListener\('keydown',workspace\.handleKeyDown\)/);
   assert.match(source,/export function initEp133Browser/);
 });
 
@@ -28,5 +30,6 @@ test('extracted EP workspace parses and shares the authoritative runtime singlet
   const source=await read('js/ep133/ui/createEpWorkspace.js');
   assert.match(source,/from '\.\.\/deviceRuntime\.js'/);
   assert.doesNotMatch(source,/deviceRuntime\.js\?v=/);
+  assert.match(source,/const handlePaste=/);
   assert.match(source,/export function createEpWorkspace/);
 });
