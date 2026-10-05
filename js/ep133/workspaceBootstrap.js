@@ -152,7 +152,7 @@ export function startMyEpWorkspace({
     previousDeviceRuntime=snapshot;
     workspace.setRuntime(snapshot);
     if(previousActive&&!nextActive){
-      workspace.recordOperation({label:previousActive.label,status:'finished',at:Date.now()});
+      workspace.recordOperation({label:previousActive.label,mode:previousActive.mode,status:'finished',at:Date.now()});
       setTimeoutFn?.(()=>{void refreshRecovery();},0);
     }
     if(becameConnected)void refreshRecovery();
