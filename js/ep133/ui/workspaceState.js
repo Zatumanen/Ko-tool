@@ -177,7 +177,7 @@ export function createMyEpWorkspaceState({
 
   const recordOperation=operation=>{
     const normalized=normalizeLastOperation({...operation,at:operation?.at||now()});
-    if(!normalized||normalized.label===DEFAULT_FILE_OPERATION_LABEL)return snapshot();
+    if(!normalized||operation?.mode==='read'||normalized.label===DEFAULT_FILE_OPERATION_LABEL)return snapshot();
     if(state.lastOperation&&normalized.at<state.lastOperation.at)return snapshot();
     state={...state,lastOperation:normalized};
     persist();emit();return snapshot();
