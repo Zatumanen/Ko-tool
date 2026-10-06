@@ -16,46 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: TEMP ZAT-8 generate pinned INIT/LIST fixture
-        run: |
-          set -euo pipefail
-          curl -fsSL 'https://raw.githubusercontent.com/icherniukh/ep133-krate/6f2a85b844387418a98f948cbd61431365c344ae/captures/sniffer-readmeta.jsonl' -o /tmp/zat8-readmeta.jsonl
-          cat > /tmp/zat8-init-list-descriptor.json <<'JSON'
-          {
-            "id": "ep133-official-init-list-001",
-            "provenance": {
-              "kind": "real-device",
-              "source": {
-                "repository": "icherniukh/ep133-krate",
-                "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
-                "path": "captures/sniffer-readmeta.jsonl",
-                "blobSha": "13c86e8ead2d88c0e2b468a4d426af8cea31307e",
-                "license": "MIT"
-              },
-              "captureMethod": "official-app-proxy",
-              "device": {"family": "EP-series", "model": "EP-133", "firmware": "2.0.5"}
-            },
-            "window": {"start": 6, "end": 13},
-            "rules": [],
-            "scenario": {
-              "operation": "init-list",
-              "outcome": "success",
-              "description": "Official EP Sample Tool FILE INIT followed by pipelined root LIST pages"
-            },
-            "expectations": {
-              "wire": {"coverage": ["init", "list"]},
-              "runtime": []
-            }
-          }
-          JSON
-          mkdir -p tests/fixtures/ep-series/file-traces/v1/real
-          node scripts/import-ep-file-capture.mjs \
-            --source /tmp/zat8-readmeta.jsonl \
-            --descriptor /tmp/zat8-init-list-descriptor.json \
-            --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-init-list-001.json
-          echo '---ZAT8_FIXTURE_BEGIN---'
-          cat tests/fixtures/ep-series/file-traces/v1/real/ep133-official-init-list-001.json
-          echo '---ZAT8_FIXTURE_END---'
       - run: npm test
 
   build-pages:
