@@ -45,9 +45,12 @@ jobs:
           }
           JSON
           node scripts/import-ep-file-capture.mjs --source /tmp/sniffer-slot26.jsonl --descriptor /tmp/put-descriptor.json --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
-          echo '---BEGIN-ZAT8-PUT-FIXTURE---'
-          cat tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
-          echo '---END-ZAT8-PUT-FIXTURE---'
+      - name: Upload generated PUT fixture
+        uses: actions/upload-artifact@v4
+        with:
+          name: zat8-put-fixture
+          path: tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
+          if-no-files-found: error
       - run: npm test
 
   build-pages:
