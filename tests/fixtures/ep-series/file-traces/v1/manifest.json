@@ -28,6 +28,11 @@
       "id": "ep133-official-metadata-001",
       "path": "real/ep133-official-metadata-001.json",
       "coverage": ["metadata-set", "metadata-get"]
+    },
+    {
+      "id": "ep133-official-put-001",
+      "path": "real/ep133-official-put-001.json",
+      "coverage": ["put"]
     }
   ]
 }
