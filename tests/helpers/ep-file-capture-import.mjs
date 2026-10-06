@@ -32,14 +32,15 @@ function timestampToMs(value,lineNumber){
   throw new Error(`Invalid capture timestamp on line ${lineNumber}.`);
 }
 
-export function parseCaptureJsonl(text){
+export function parseCaptureJsonl(text,{start=0,end=null}={}){
   const source=String(text??'');
-  const lines=source.split(/\r?\n/);
+  const sourceRecords=source.split(/\r?\n/)
+    .map((rawLine,index)=>({rawLine,lineNumber:index+1}))
+    .filter(({rawLine})=>rawLine.trim());
+  const resolvedEnd=end==null?sourceRecords.length:end;
+  if(!Number.isInteger(start)||!Number.isInteger(resolvedEnd)||start<0||resolvedEnd<start||resolvedEnd>sourceRecords.length)throw new Error('Invalid capture source-record window.');
   const records=[];
-  for(let index=0;index<lines.length;index++){
-    const rawLine=lines[index];
-    if(!rawLine.trim())continue;
-    const lineNumber=index+1;
+  for(const{rawLine,lineNumber}of sourceRecords.slice(start,resolvedEnd)){
     let value;
     try{value=JSON.parse(rawLine);}catch(error){throw new Error(`Invalid capture JSON on line ${lineNumber}: ${error.message}`);}
     const direction=String(value?.dir||'').toLowerCase();
