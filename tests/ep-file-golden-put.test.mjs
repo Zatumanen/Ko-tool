@@ -35,14 +35,14 @@ test('real EP-133 PUT trace preserves init, contiguous data pages, sentinel and 
   const fileSize=readU32(init.rawData,7);
   assert.equal(fileId,26);
   assert.equal(parentId,1000);
-  assert.ok(fileSize>0);
+  assert.equal(fileSize,19412);
 
   const filenameEnd=init.rawData.indexOf(0,11);
   assert.ok(filenameEnd>11);
   const filenameBytes=init.rawData.slice(11,filenameEnd);
   bytesEqual(
     filenameBytes,
-    Uint8Array.from([0x4b,0xd4,0x6b,0x69,0x63,0x6b,0x20,0x64,0x69,0x72,0x74,0x20,0x65,0x70,0x20,0x73,0x61,0x6d]),
+    Uint8Array.from([0x6b,0x69,0x63,0x6b,0x20,0x64,0x69,0x72,0x74,0x20,0x65,0x70,0x20,0x73,0x61,0x6d]),
     'captured filename bytes stay unchanged'
   );
   const filename=String.fromCharCode(...filenameBytes);
