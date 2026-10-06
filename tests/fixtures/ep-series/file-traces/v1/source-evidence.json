@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "repository": "icherniukh/ep133-krate",
+      "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
+      "license": "MIT",
+      "licenseBlobSha": "2902d08505db73db2fa4a940837ec1c6b66462e9",
+      "entries": [
+        {
+          "id": "ep133-krate-readmeta",
+          "path": "captures/sniffer-readmeta.jsonl",
+          "blobSha": "13c86e8ead2d88c0e2b468a4d426af8cea31307e",
+          "evidenceKind": "real-device",
+          "captureMethod": "official-app-proxy",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": "2.0.5"
+          },
+          "supports": ["init", "list", "metadata-get"],
+          "notes": "Bidirectional raw SysEx includes product info and FILE INIT/LIST/METADATA GET traffic from the official app proxy capture."
+        },
+        {
+          "id": "ep133-krate-rename",
+          "path": "captures/sniffer-rename.jsonl",
+          "blobSha": "7cb86f4ce5c6635833b29ab4921b80f30aa486ca",
+          "evidenceKind": "real-device",
+          "captureMethod": "official-app-proxy",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": null
+          },
+          "supports": ["metadata-set"],
+          "notes": "Source evidence matrix identifies this raw SysEx capture as official-tool FILE METADATA SET evidence."
+        },
+        {
+          "id": "ep133-krate-slot26-upload",
+          "path": "captures/sniffer-slot26.jsonl",
+          "blobSha": "090d1b31b30124592f1d60c4e8d9f5cfaeca029f",
+          "evidenceKind": "real-device",
+          "captureMethod": "official-app-proxy",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": null
+          },
+          "supports": ["put"],
+          "notes": "Official-tool upload capture cited by the source project's protocol evidence archive."
+        },
+        {
+          "id": "ep133-krate-upload-kick-official",
+          "path": "tests/fixtures/sniffer-upload-kick-official.jsonl",
+          "blobSha": "e89c83680af8ca7e76f8412df1074103b9d1331f",
+          "evidenceKind": "real-device",
+          "captureMethod": "official-app-proxy",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": null
+          },
+          "supports": ["put"],
+          "notes": "Additional official-tool upload trace retained by the source project."
+        },
+        {
+          "id": "ep133-krate-delete-hi",
+          "path": "captures/sniffer-delete-hi.bin",
+          "blobSha": "26742449d7b56b1c027df5c05c79f09a14892765",
+          "evidenceKind": "real-device",
+          "captureMethod": "usb-midi-sniffer",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": null
+          },
+          "supports": ["delete"],
+          "notes": "Raw hardware capture cited by the source evidence matrix as confirmed DELETE wire evidence. Client identity is not promoted beyond what the pinned source documents."
+        },
+        {
+          "id": "ep133-krate-download-state-bug",
+          "path": "captures/evidence-download-state-bug.jsonl",
+          "blobSha": "898ed20d4e2c07bf38ab623c2006c64867f8fe41",
+          "evidenceKind": "real-device",
+          "captureMethod": "independent-client-device-capture",
+          "device": {
+            "family": "EP-series",
+            "model": "EP-133",
+            "firmware": null
+          },
+          "supports": [],
+          "notes": "Excerpt around DELETE attempts after a completed independent-client download; useful evidence for stale download-session behavior, but not a complete start-to-finish GET golden trace."
+        },
+        {
+          "id": "ep133-krate-protocol-evidence",
+          "path": "docs/protocol-evidence.md",
+          "blobSha": "d5d3b8368024799ee8bcb5818d5155bf43cda279",
+          "evidenceKind": "analysis-only",
+          "supports": [],
+          "notes": "Pinned analysis/index used to locate raw captures and preserve the source project's own confidence/gap statements. It never counts as real-device coverage by itself."
+        }
+      ]
+    }
+  ],
+  "explicitGaps": [
+    {
+      "class": "get",
+      "reason": "The pinned source explicitly marks official-app Download/GET wire evidence as pending. The available independent-client excerpt does not contain a complete start-to-finish GET transaction and therefore does not close this class."
+    },
+    {
+      "class": "move",
+      "reason": "No direct pinned real-device FILE MOVE capture was identified in the audited public corpus. Implementation behavior alone is not evidence."
+    },
+    {
+      "class": "timeout",
+      "reason": "No pinned real-device timeout capture has been accepted into the corpus yet; synthetic timeout regressions remain non-covering evidence."
+    },
+    {
+      "class": "late-response",
+      "reason": "No pinned real-device late-response trace with timing sufficient to prove stale-request classification has been accepted yet."
+    },
+    {
+      "class": "firmware-debug",
+      "reason": "Public documentation describes hardware debug behavior, but this registry does not yet contain a pinned raw real-device debug-frame capture suitable for a ZAT-8 golden fixture."
+    },
+    {
+      "class": "interrupted-session",
+      "reason": "The audited public captures do not yet provide a pinned complete interrupted FILE-session trace with unambiguous operation context and runtime classification."
+    }
+  ]
+}
