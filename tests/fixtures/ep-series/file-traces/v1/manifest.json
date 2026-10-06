@@ -18,5 +18,11 @@
       "interrupted-session"
     ]
   },
-  "entries": []
+  "entries": [
+    {
+      "id": "ep133-official-init-list-001",
+      "path": "real/ep133-official-init-list-001.json",
+      "coverage": ["init", "list"]
+    }
+  ]
 }
