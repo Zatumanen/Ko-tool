@@ -1,0 +1,117 @@
+{
+  "expectations": {
+    "runtime": [],
+    "wire": {
+      "coverage": [
+        "metadata-set",
+        "metadata-get"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F000207633406F44050005010014000000100000000368F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 6,
+      "direction": "rx",
+      "hex": "F000207633402F440500F7",
+      "index": 1
+    },
+    {
+      "deltaMs": 4724,
+      "direction": "tx",
+      "hex": "F000207633406F450500070100147B226E00616D65223A227300616D706C655F6E00616D655F30303000227D00F7",
+      "index": 2
+    },
+    {
+      "deltaMs": 4741,
+      "direction": "rx",
+      "hex": "F000207633402F450500F7",
+      "index": 3
+    },
+    {
+      "deltaMs": 4743,
+      "direction": "tx",
+      "hex": "F000207633406F4605000B0014F7",
+      "index": 4
+    },
+    {
+      "deltaMs": 4745,
+      "direction": "tx",
+      "hex": "F000207633406F470500070200140000F7",
+      "index": 5
+    },
+    {
+      "deltaMs": 4745,
+      "direction": "rx",
+      "hex": "F000207633402F46050008001403681D0000026F5C3032302E7000636D00F7",
+      "index": 6
+    },
+    {
+      "deltaMs": 4752,
+      "direction": "tx",
+      "hex": "F000207633406F480500070200140001F7",
+      "index": 7
+    },
+    {
+      "deltaMs": 4752,
+      "direction": "rx",
+      "hex": "F000207633402F4705000000007B22636861006E6E656C73223A00312C2273616D70006C657261746522003A34363837352C0022666F726D617400223A2273313622002C22637263223A0033373333393132003830342C22736F00756E642E6C6F6F0070737461727422003A2D312C22736F00756E642E6C6F6F0070656E64223A2D00312C226E616D6500223A2273616D70006C655F6E616D65005F303030222C2200736F756E642E61006D706C697475640065223A3130302C0022736F756E642E00706C61796D6F640065223A226F6E650073686F74222C2200736F756E642E7000616E223A302C2200736F756E642E700069746368223A30002E30302C22736F756E642E726F6F00746E6F7465223A0036302C2274696D00652E6D6F646500223A226F666622002C22736F756E64002E62706D223A30002E30302C22736F00756E642E6261727300223A312E30302C0022656E76656C6F0070652E6174746100636B223A302C2200656E76656C6F7000652E72656C6561F7",
+      "index": 8
+    },
+    {
+      "deltaMs": 4753,
+      "direction": "rx",
+      "hex": "F000207633402F4805000000017365223A320035357D00F7",
+      "index": 9
+    }
+  ],
+  "id": "ep133-official-metadata-001",
+  "provenance": {
+    "captureMethod": "official-app-proxy",
+    "device": {
+      "family": "EP-series",
+      "firmware": null,
+      "model": "EP-133"
+    },
+    "kind": "real-device",
+    "source": {
+      "blobSha": "7cb86f4ce5c6635833b29ab4921b80f30aa486ca",
+      "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
+      "license": "MIT",
+      "path": "captures/sniffer-rename.jsonl",
+      "repository": "icherniukh/ep133-krate"
+    }
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:42924b0d6e9aa1e1a35810bc520f39ae4b03c72f71eadeef4cce37b29841a29c",
+    "sourceDigest": "sha256:bbc6218710fc587e291b0cc71f787b86e269fedc5f22c5886faab766adf78ee4",
+    "transforms": [
+      {
+        "byteLength": 15,
+        "frameIndex": 2,
+        "kind": "decoded-ascii",
+        "label": "sample name",
+        "offset": 13
+      },
+      {
+        "byteLength": 15,
+        "frameIndex": 8,
+        "kind": "decoded-ascii",
+        "label": "sample name readback",
+        "offset": 115
+      }
+    ],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Official EP Sample Tool metadata rename with paged readback",
+    "operation": "metadata-set-get",
+    "outcome": "success"
+  },
+  "schemaVersion": 1
+}
