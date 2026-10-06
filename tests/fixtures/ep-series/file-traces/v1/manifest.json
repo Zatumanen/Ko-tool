@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "requiredRealCoverage": {
+    "success": [
+      "init",
+      "list",
+      "get",
+      "put",
+      "move",
+      "delete",
+      "metadata-get",
+      "metadata-set"
+    ],
+    "failure": [
+      "timeout",
+      "late-response",
+      "firmware-debug",
+      "interrupted-session"
+    ]
+  },
+  "entries": []
+}
