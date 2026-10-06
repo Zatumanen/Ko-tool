@@ -16,6 +16,46 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Generate pinned PUT golden fixture for verification
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/icherniukh/ep133-krate/6f2a85b844387418a98f948cbd61431365c344ae/captures/sniffer-slot26.jsonl" -o /tmp/sniffer-slot26.jsonl
+          cat > /tmp/put-descriptor.json <<'JSON'
+          {
+            "id": "ep133-official-put-001",
+            "window": {"start": 4, "end": 104},
+            "provenance": {
+              "kind": "real-device",
+              "captureMethod": "official-app-proxy",
+              "device": {"family": "EP-series", "model": "EP-133", "firmware": null},
+              "source": {
+                "repository": "icherniukh/ep133-krate",
+                "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
+                "path": "captures/sniffer-slot26.jsonl",
+                "blobSha": "090d1b31b30124592f1d60c4e8d9f5cfaeca029f",
+                "license": "MIT"
+              }
+            },
+            "scenario": {
+              "operation": "put",
+              "outcome": "success",
+              "description": "Official EP Sample Tool FILE_PUT stream with contiguous pages and empty sentinel"
+            },
+            "expectations": {"wire": {"coverage": ["put"]}, "runtime": []},
+            "rules": [
+              {
+                "kind": "decoded-ascii",
+                "frameIndex": 0,
+                "match": "KTkick dirt ep sam",
+                "replacement": "sample_upload_0000",
+                "label": "sample filename"
+              }
+            ]
+          }
+          JSON
+          node scripts/import-ep-file-capture.mjs --source /tmp/sniffer-slot26.jsonl --descriptor /tmp/put-descriptor.json --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
+          echo '---BEGIN-ZAT8-PUT-FIXTURE---'
+          cat tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
+          echo '---END-ZAT8-PUT-FIXTURE---'
       - run: npm test
 
   build-pages:
