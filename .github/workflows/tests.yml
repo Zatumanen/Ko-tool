@@ -16,49 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: TEMP ZAT-8 generate pinned metadata fixture
-        run: |
-          set -euo pipefail
-          curl -fsSL 'https://raw.githubusercontent.com/icherniukh/ep133-krate/6f2a85b844387418a98f948cbd61431365c344ae/captures/sniffer-rename.jsonl' -o /tmp/zat8-rename.jsonl
-          cat > /tmp/zat8-metadata-descriptor.json <<'JSON'
-          {
-            "id": "ep133-official-metadata-001",
-            "provenance": {
-              "kind": "real-device",
-              "source": {
-                "repository": "icherniukh/ep133-krate",
-                "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
-                "path": "captures/sniffer-rename.jsonl",
-                "blobSha": "7cb86f4ce5c6635833b29ab4921b80f30aa486ca",
-                "license": "MIT"
-              },
-              "captureMethod": "official-app-proxy",
-              "device": {"family": "EP-series", "model": "EP-133", "firmware": null}
-            },
-            "window": {"start": 4, "end": 14},
-            "rules": [
-              {"kind":"decoded-ascii","frameIndex":2,"match":"low_rename_test","replacement":"sample_name_000","label":"sample name"},
-              {"kind":"decoded-ascii","frameIndex":8,"match":"low_rename_test","replacement":"sample_name_000","label":"sample name readback"}
-            ],
-            "scenario": {
-              "operation": "metadata-set-get",
-              "outcome": "success",
-              "description": "Official EP Sample Tool metadata rename with paged readback"
-            },
-            "expectations": {
-              "wire": {"coverage": ["metadata-set", "metadata-get"]},
-              "runtime": []
-            }
-          }
-          JSON
-          mkdir -p tests/fixtures/ep-series/file-traces/v1/real
-          node scripts/import-ep-file-capture.mjs \
-            --source /tmp/zat8-rename.jsonl \
-            --descriptor /tmp/zat8-metadata-descriptor.json \
-            --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-metadata-001.json
-          echo '---ZAT8_METADATA_FIXTURE_BEGIN---'
-          cat tests/fixtures/ep-series/file-traces/v1/real/ep133-official-metadata-001.json
-          echo '---ZAT8_METADATA_FIXTURE_END---'
       - run: npm test
 
   build-pages:
