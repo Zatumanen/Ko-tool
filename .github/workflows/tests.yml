@@ -41,15 +41,7 @@ jobs:
               "description": "Official EP Sample Tool FILE_PUT stream with contiguous pages and empty sentinel"
             },
             "expectations": {"wire": {"coverage": ["put"]}, "runtime": []},
-            "rules": [
-              {
-                "kind": "decoded-ascii",
-                "frameIndex": 0,
-                "match": "KTkick dirt ep sam",
-                "replacement": "sample_upload_0000",
-                "label": "sample filename"
-              }
-            ]
+            "rules": []
           }
           JSON
           node scripts/import-ep-file-capture.mjs --source /tmp/sniffer-slot26.jsonl --descriptor /tmp/put-descriptor.json --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
