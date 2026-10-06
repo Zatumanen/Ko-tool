@@ -8,11 +8,16 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,12 +50,17 @@ jobs:
           }
           JSON
           node scripts/import-ep-file-capture.mjs --source /tmp/sniffer-slot26.jsonl --descriptor /tmp/put-descriptor.json --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
-      - name: Upload generated PUT fixture
-        uses: actions/upload-artifact@v4
-        with:
-          name: zat8-put-fixture
-          path: tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
-          if-no-files-found: error
+      - name: Commit generated PUT fixture once
+        if: github.event_name == 'pull_request' && github.head_ref == 'feat/zat-8-golden-captures'
+        run: |
+          git add tests/fixtures/ep-series/file-traces/v1/real/ep133-official-put-001.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'test: add real PUT golden fixture'
+          git push origin HEAD:${GITHUB_HEAD_REF}
       - run: npm test
 
   build-pages:
