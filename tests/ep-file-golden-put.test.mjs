@@ -21,7 +21,7 @@ test('real EP-133 PUT trace preserves init, contiguous data pages, sentinel and 
   const fixture=await loadGoldenFixture(fixtureUrl,{requireReal:true});
   assert.equal(fixture.provenance.source.path,'captures/sniffer-slot26.jsonl');
   assert.equal(fixture.provenance.source.blobSha,'090d1b31b30124592f1d60c4e8d9f5cfaeca029f');
-  assert.equal(fixture.sanitization.transforms.length,1);
+  assert.equal(fixture.sanitization.transforms.length,0);
 
   const parsed=fixture.frames.map(frame=>({frame,sysex:parseTeSysex(decodeFixtureFrame(frame))}));
   const fileFrames=parsed.filter(item=>item.sysex?.command===TE_SYSEX_FILE);
@@ -39,8 +39,13 @@ test('real EP-133 PUT trace preserves init, contiguous data pages, sentinel and 
 
   const filenameEnd=init.rawData.indexOf(0,11);
   assert.ok(filenameEnd>11);
-  const filename=decoder.decode(init.rawData.slice(11,filenameEnd));
-  assert.equal(filename,'sample_upload_0000');
+  const filenameBytes=init.rawData.slice(11,filenameEnd);
+  bytesEqual(
+    filenameBytes,
+    Uint8Array.from([0x4b,0xd4,0x6b,0x69,0x63,0x6b,0x20,0x64,0x69,0x72,0x74,0x20,0x65,0x70,0x20,0x73,0x61,0x6d]),
+    'captured filename bytes stay unchanged'
+  );
+  const filename=String.fromCharCode(...filenameBytes);
   const metadataText=decoder.decode(init.rawData.slice(filenameEnd+1)).replace(/\0+$/u,'');
   const metadata=metadataText?JSON.parse(metadataText):null;
   bytesEqual(
