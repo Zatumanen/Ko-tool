@@ -23,6 +23,11 @@
       "id": "ep133-official-init-list-001",
       "path": "real/ep133-official-init-list-001.json",
       "coverage": ["init", "list"]
+    },
+    {
+      "id": "ep133-official-metadata-001",
+      "path": "real/ep133-official-metadata-001.json",
+      "coverage": ["metadata-set", "metadata-get"]
     }
   ]
 }
