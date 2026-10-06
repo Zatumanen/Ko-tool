@@ -22,7 +22,7 @@ jobs:
           cat > /tmp/put-descriptor.json <<'JSON'
           {
             "id": "ep133-official-put-001",
-            "window": {"start": 4, "end": 102},
+            "window": {"start": 4, "end": 104},
             "provenance": {
               "kind": "real-device",
               "captureMethod": "official-app-proxy",
