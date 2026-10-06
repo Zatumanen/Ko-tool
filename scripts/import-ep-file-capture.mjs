@@ -29,8 +29,8 @@ export async function importEpFileCapture({source,descriptor,out}){
   if(!config||typeof config!=='object')throw new Error('Capture descriptor must be an object.');
   for(const key of ['id','provenance','scenario','expectations'])if(config[key]==null)throw new Error(`Capture descriptor requires ${key}.`);
 
-  const records=parseCaptureJsonl(new TextDecoder().decode(sourceBytes));
-  const frames=normalizeCaptureWindow(records,config.window||{start:0,end:records.length});
+  const records=parseCaptureJsonl(new TextDecoder().decode(sourceBytes),config.window||{});
+  const frames=normalizeCaptureWindow(records,{start:0,end:records.length});
   if(!frames.length)throw new Error('Capture descriptor selected an empty frame window.');
   const sanitized=sanitizeCaptureFrames(frames,{rules:config.rules||[]});
   const fixture=buildGoldenFixture({
