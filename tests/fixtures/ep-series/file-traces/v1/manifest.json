@@ -33,6 +33,11 @@
       "id": "ep133-official-put-001",
       "path": "real/ep133-official-put-001.json",
       "coverage": ["put"]
+    },
+    {
+      "id": "ep133-official-delete-001",
+      "path": "real/ep133-official-delete-001.json",
+      "coverage": ["delete"]
     }
   ]
 }
