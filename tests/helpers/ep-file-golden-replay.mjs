@@ -70,7 +70,7 @@ export function createGoldenFileReplay(value,{range=null}={}){
     if(!step){
       return{
         status:3,
-        payload:new TextEncoder().encode('unexpected golden replay request: '+printable(raw)+'\0')
+        payload:new TextEncoder().encode('unexpected golden replay request in '+fixture.id+': '+printable(raw)+'\0')
       };
     }
     return{
