@@ -16,21 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Inspect pinned DELETE raw capture
-        run: |
-          curl -fsSL "https://raw.githubusercontent.com/icherniukh/ep133-krate/6f2a85b844387418a98f948cbd61431365c344ae/captures/sniffer-delete-hi.bin" -o /tmp/sniffer-delete-hi.bin
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import {parseCaptureRaw} from './tests/helpers/ep-file-capture-import.mjs';
-          import {parseTeSysex} from './js/ep133/sysex.js';
-          const records=parseCaptureRaw(fs.readFileSync('/tmp/sniffer-delete-hi.bin'));
-          console.log('records='+records.length);
-          records.forEach((record,index)=>{
-            const parsed=parseTeSysex(record.bytes);
-            if(!parsed)return;
-            console.log(JSON.stringify({index,direction:record.direction,timestampMs:record.timestampMs,requestId:parsed.requestId,command:parsed.command,status:parsed.status,raw:[...parsed.rawData]}));
-          });
-          NODE
       - run: npm test
 
   build-pages:
