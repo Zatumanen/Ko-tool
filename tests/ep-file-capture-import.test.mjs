@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createHash}from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import{importEpFileCapture}from '../scripts/import-ep-file-capture.mjs';
 import{
   parseCaptureJsonl,
   parseCaptureRaw,
@@ -88,6 +92,38 @@ test('raw capture parser validates direction timestamp length and complete recor
   badDirection[0]=0x58;
   assert.throws(()=>parseCaptureRaw(badDirection),/direction|record 1/i);
   assert.throws(()=>parseCaptureRaw(source.subarray(0,source.length-1)),/truncated|length|record 2/i);
+});
+
+test('capture importer accepts documented raw binary source format',async()=>{
+  const request=encodeTeSysex(TE_SYSEX_FILE,Uint8Array.from([0x06,0x01,0xd3]),0x33,0x211).bytes;
+  const response=responseFrame({requestId:0x211,status:0,payload:new Uint8Array()});
+  const source=Buffer.concat([
+    rawRecord('tx',1_760_000_000_100,request),
+    rawRecord('rx',1_760_000_000_109,response)
+  ]);
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ep-raw-capture-'));
+  const sourcePath=path.join(dir,'capture.bin');
+  const descriptorPath=path.join(dir,'descriptor.json');
+  const outPath=path.join(dir,'fixture.json');
+  await fs.writeFile(sourcePath,source);
+  await fs.writeFile(descriptorPath,JSON.stringify({
+    id:'ep133-delete-raw-test',
+    provenance:{...provenance,source:{...provenance.source,path:'captures/sniffer-delete-hi.bin',blobSha:'26742449d7b56b1c027df5c05c79f09a14892765'}},
+    scenario:{operation:'delete',outcome:'success',description:'raw DELETE capture'},
+    expectations:{wire:{coverage:['delete']},runtime:[]},
+    rules:[]
+  }));
+  try{
+    const fixture=await importEpFileCapture({source:sourcePath,descriptor:descriptorPath,out:outPath,format:'raw'});
+    assert.equal(fixture.frames.length,2);
+    assert.deepEqual(fixture.frames.map(frame=>frame.direction),['tx','rx']);
+    assert.deepEqual(fixture.frames.map(frame=>frame.deltaMs),[0,9]);
+    const parsed=parseTeSysex(Uint8Array.from(Buffer.from(fixture.frames[0].hex,'hex')));
+    assert.deepEqual([...parsed.rawData],[0x06,0x01,0xd3]);
+    assert.equal((await fs.readFile(outPath,'utf8')).endsWith('\n'),true);
+  }finally{
+    await fs.rm(dir,{recursive:true,force:true});
+  }
 });
 
 test('capture window normalization rebases time without changing frame order or bytes',()=>{
