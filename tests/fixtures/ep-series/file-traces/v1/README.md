@@ -18,6 +18,17 @@ The initial public source is `icherniukh/ep133-krate` at immutable revision `6f2
 
 The pinned source currently gives direct hardware evidence for FILE INIT/LIST, PUT, DELETE and metadata GET/SET classes. Its own evidence archive explicitly leaves a complete official-app Download/GET capture pending. MOVE and the required failure classes also remain explicit gaps until direct captures are accepted. These gaps must not be hidden by synthetic tests or by implementation behavior.
 
+## Synthetic failure baselines
+
+Schema-v1 synthetic fixtures currently exercise the production transport/runtime policies for:
+
+- read timeout with preserved session continuity → `ready / safe`;
+- late response to an expired request → `ready / safe`;
+- firmware debug during guarded FILE work → `unsafe / unsafe`;
+- interrupted FILE_PUT stream before EOF → `unsafe / unsafe`.
+
+They are indexed in `manifest.json` so the same coverage accounting code proves that these classes still remain missing from **real-device** coverage.
+
 ## Required real-device coverage
 
 Success classes:
