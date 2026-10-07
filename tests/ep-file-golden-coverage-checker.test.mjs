@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import{
   evaluateGoldenCoverageRecords,
-  formatGoldenCoverage
+  formatGoldenCoverage,
+  loadGoldenCoverage
 }from '../scripts/check-ep-file-golden-coverage.mjs';
 
 const sha40=char=>char.repeat(40);
@@ -67,4 +68,15 @@ test('coverage checker completes only when every required class has validated re
   assert.deepEqual(result.missingSuccess,[]);
   assert.deepEqual(result.missingFailure,[]);
   assert.match(formatGoldenCoverage(result),/coverage complete/);
+});
+
+test('current ZAT-8 corpus remains fail-closed on the exact public-evidence gaps',async()=>{
+  const result=await loadGoldenCoverage();
+  assert.equal(result.complete,false);
+  assert.deepEqual(result.missingSuccess,['get','move']);
+  assert.deepEqual(result.missingFailure,['firmware-debug','interrupted-session','late-response','timeout']);
+  assert.deepEqual(
+    result.covered,
+    ['delete','init','list','metadata-get','metadata-set','put']
+  );
 });
