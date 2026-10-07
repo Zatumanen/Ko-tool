@@ -1,0 +1,59 @@
+{
+  "expectations": {
+    "runtime": [],
+    "wire": {
+      "coverage": [
+        "delete"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F00020763340716D0504060153F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 85,
+      "direction": "rx",
+      "hex": "F00020763340400005040A0153F7",
+      "index": 1
+    },
+    {
+      "deltaMs": 85,
+      "direction": "rx",
+      "hex": "F00020763340316D0500F7",
+      "index": 2
+    }
+  ],
+  "id": "ep133-official-delete-001",
+  "provenance": {
+    "captureMethod": "usb-midi-sniffer",
+    "device": {
+      "family": "EP-series",
+      "firmware": null,
+      "model": "EP-133"
+    },
+    "kind": "real-device",
+    "source": {
+      "blobSha": "26742449d7b56b1c027df5c05c79f09a14892765",
+      "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
+      "license": "MIT",
+      "path": "captures/sniffer-delete-hi.bin",
+      "repository": "icherniukh/ep133-krate"
+    }
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:c09da0bf6730320fbe633a6eab8f7378e563c69f3a263cea0e75884030f584ff",
+    "sourceDigest": "sha256:c7800931d017a32b95f3ab102284199ee157e12ee0909ba7c05be918fc8319a1",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Real EP-133 FILE_DELETE for node 467 with event and ACK",
+    "operation": "delete",
+    "outcome": "success"
+  },
+  "schemaVersion": 1
+}

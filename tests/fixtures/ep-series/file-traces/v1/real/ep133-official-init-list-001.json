@@ -1,0 +1,84 @@
+{
+  "expectations": {
+    "runtime": [],
+    "wire": {
+      "coverage": [
+        "init",
+        "list"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F000207633406B130500010100400000F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 9,
+      "direction": "tx",
+      "hex": "F000207633406B1405000400000000F7",
+      "index": 1
+    },
+    {
+      "deltaMs": 9,
+      "direction": "rx",
+      "hex": "F000207633402B130500000C00000200F7",
+      "index": 2
+    },
+    {
+      "deltaMs": 12,
+      "direction": "tx",
+      "hex": "F000207633406B1505000400010000F7",
+      "index": 3
+    },
+    {
+      "deltaMs": 12,
+      "direction": "rx",
+      "hex": "F000207633402B14050008000003680E0000000000736F756E6408730007500E000000000070726F6A650063747300F7",
+      "index": 4
+    },
+    {
+      "deltaMs": 13,
+      "direction": "tx",
+      "hex": "F000207633406B160508070203680000F7",
+      "index": 5
+    },
+    {
+      "deltaMs": 13,
+      "direction": "rx",
+      "hex": "F000207633402B150500000001F7",
+      "index": 6
+    }
+  ],
+  "id": "ep133-official-init-list-001",
+  "provenance": {
+    "captureMethod": "official-app-proxy",
+    "device": {
+      "family": "EP-series",
+      "firmware": "2.0.5",
+      "model": "EP-133"
+    },
+    "kind": "real-device",
+    "source": {
+      "blobSha": "13c86e8ead2d88c0e2b468a4d426af8cea31307e",
+      "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
+      "license": "MIT",
+      "path": "captures/sniffer-readmeta.jsonl",
+      "repository": "icherniukh/ep133-krate"
+    }
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:d5c522eb1d6619a669bdb92cc978cb792e77ae679b87b19734b007e80d1a9275",
+    "sourceDigest": "sha256:9ce21ee165cd1e0c23f39211eed9d59f509c61f176e1544ff182ad75aafcc412",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Official EP Sample Tool FILE INIT followed by pipelined root LIST pages",
+    "operation": "init-list",
+    "outcome": "success"
+  },
+  "schemaVersion": 1
+}

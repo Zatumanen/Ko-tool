@@ -1,0 +1,48 @@
+{
+  "expectations": {
+    "runtime": [
+      {
+        "expectedSafety": "safe",
+        "expectedStatus": "ready"
+      }
+    ],
+    "transport": {
+      "action": "drop",
+      "operation": "raw-read",
+      "payloadHex": "0B0007",
+      "settleMs": 0,
+      "timeoutMs": 20
+    },
+    "wire": {
+      "coverage": [
+        "timeout"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F00020763C40606505000B0007F7",
+      "index": 0
+    }
+  ],
+  "id": "speeduppercut-synthetic-timeout-001",
+  "provenance": {
+    "basis": "SpeedUpperCut device transport regression: a dropped read response times out without poisoning a proven-continuous session. Synthetic only; no real-device timeout capture is claimed.",
+    "generator": "speeduppercut",
+    "kind": "synthetic"
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:5e01dfd0952ab1fbb9b739c3a43ff1a138ebe163ffef88b70fb2bf380e38dd81",
+    "sourceDigest": "sha256:0b6777fc47e8a16a1cc1f037ff3701def128d66017f6231a609b66b4dc773227",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Synthetic FILE_INFO request with no response, used to exercise the existing read-timeout policy.",
+    "operation": "file-info-read",
+    "outcome": "timeout"
+  },
+  "schemaVersion": 1
+}

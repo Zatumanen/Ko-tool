@@ -1,0 +1,57 @@
+{
+  "expectations": {
+    "runtime": [
+      {
+        "expectedSafety": "unsafe",
+        "expectedStatus": "unsafe"
+      }
+    ],
+    "transport": {
+      "action": "debug",
+      "debug": "err lfs 6327",
+      "debugDelayMs": 0,
+      "operation": "raw-read",
+      "payloadHex": "0B0009",
+      "settleMs": 0,
+      "strict": true,
+      "timeoutMs": 100
+    },
+    "wire": {
+      "coverage": [
+        "firmware-debug"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F00020763C40606705000B0009F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 1,
+      "direction": "rx",
+      "hex": "F00020763C33657272206C66732036333237F7",
+      "index": 1
+    }
+  ],
+  "id": "speeduppercut-synthetic-firmware-debug-001",
+  "provenance": {
+    "basis": "SpeedUpperCut strict FILE transport regression: a firmware debug SysEx frame observed during guarded FILE work activates the terminal FILE safety lock. The debug framing is supported by project device tests and community protocol observations, but this fixture is synthetic and does not count as hardware evidence.",
+    "generator": "speeduppercut",
+    "kind": "synthetic"
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:f536bf0bdf12a0be02b3c7281519019003feaf498c8c9ebbbb4d990c1c7c007b",
+    "sourceDigest": "sha256:8c476de15c71dac71b8f9af727eb9433cb392e54071d82d5b2b82aebae210f32",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Synthetic firmware debug frame injected during a strict FILE_INFO request.",
+    "operation": "strict-file-info-read",
+    "outcome": "firmware-debug"
+  },
+  "schemaVersion": 1
+}

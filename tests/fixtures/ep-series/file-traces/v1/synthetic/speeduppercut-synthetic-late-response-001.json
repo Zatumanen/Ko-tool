@@ -1,0 +1,55 @@
+{
+  "expectations": {
+    "runtime": [
+      {
+        "expectedSafety": "safe",
+        "expectedStatus": "ready"
+      }
+    ],
+    "transport": {
+      "action": "delay",
+      "delayMs": 40,
+      "operation": "raw-read",
+      "payloadHex": "0B0007",
+      "settleMs": 70,
+      "timeoutMs": 10
+    },
+    "wire": {
+      "coverage": [
+        "late-response"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F00020763C40606605000B0007F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 40,
+      "direction": "rx",
+      "hex": "F00020763C4020660500F7",
+      "index": 1
+    }
+  ],
+  "id": "speeduppercut-synthetic-late-response-001",
+  "provenance": {
+    "basis": "SpeedUpperCut device transport regression: a response arriving after the request timeout is recognized as belonging to the recently expired request and is not treated as external FILE traffic. Synthetic only; no real-device late-response capture is claimed.",
+    "generator": "speeduppercut",
+    "kind": "synthetic"
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:66314024516f2e7d013bf284d89949b29dba5b6413f3dc6ae1fbb94862e76376",
+    "sourceDigest": "sha256:e9f0b7bba1b9feefba38c5e9029cbba37b31dac3ede84c743d0254ac89b1ff92",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Synthetic FILE_INFO response arrives after the local timeout boundary to exercise stale-request correlation.",
+    "operation": "file-info-read",
+    "outcome": "late-response"
+  },
+  "schemaVersion": 1
+}
