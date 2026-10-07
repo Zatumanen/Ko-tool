@@ -38,6 +38,26 @@
       "id": "ep133-official-delete-001",
       "path": "real/ep133-official-delete-001.json",
       "coverage": ["delete"]
+    },
+    {
+      "id": "speeduppercut-synthetic-timeout-001",
+      "path": "synthetic/speeduppercut-synthetic-timeout-001.json",
+      "coverage": ["timeout"]
+    },
+    {
+      "id": "speeduppercut-synthetic-late-response-001",
+      "path": "synthetic/speeduppercut-synthetic-late-response-001.json",
+      "coverage": ["late-response"]
+    },
+    {
+      "id": "speeduppercut-synthetic-firmware-debug-001",
+      "path": "synthetic/speeduppercut-synthetic-firmware-debug-001.json",
+      "coverage": ["firmware-debug"]
+    },
+    {
+      "id": "speeduppercut-synthetic-interrupted-session-001",
+      "path": "synthetic/speeduppercut-synthetic-interrupted-session-001.json",
+      "coverage": ["interrupted-session"]
     }
   ]
 }

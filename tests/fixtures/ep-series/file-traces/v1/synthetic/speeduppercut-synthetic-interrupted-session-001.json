@@ -1,0 +1,77 @@
+{
+  "expectations": {
+    "runtime": [
+      {
+        "expectedSafety": "unsafe",
+        "expectedStatus": "unsafe"
+      }
+    ],
+    "transport": {
+      "action": "disconnect-on-put-data",
+      "operation": "put-stream",
+      "put": {
+        "dataHex": "01020304",
+        "destinationId": 7,
+        "filename": "golden.wav",
+        "parentId": 1000
+      },
+      "settleMs": 20,
+      "timeoutMs": 100
+    },
+    "wire": {
+      "coverage": [
+        "interrupted-session"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "deltaMs": 0,
+      "direction": "tx",
+      "hex": "F00020763C4061490500010100400000F7",
+      "index": 0
+    },
+    {
+      "deltaMs": 1,
+      "direction": "rx",
+      "hex": "F00020763C4021490500000000000200F7",
+      "index": 1
+    },
+    {
+      "deltaMs": 2,
+      "direction": "tx",
+      "hex": "F00020763C40614A0540020005000703680000000004676F6C0064656E2E7761760000F7",
+      "index": 2
+    },
+    {
+      "deltaMs": 3,
+      "direction": "rx",
+      "hex": "F00020763C40214A0500000007F7",
+      "index": 3
+    },
+    {
+      "deltaMs": 4,
+      "direction": "tx",
+      "hex": "F00020763C40614B0500020100000102030004F7",
+      "index": 4
+    }
+  ],
+  "id": "speeduppercut-synthetic-interrupted-session-001",
+  "provenance": {
+    "basis": "SpeedUpperCut FILE_PUT safety regression: once a PUT stream has opened, interruption before the empty EOF sentinel is classified as unsafe because device write/session state is unknown. Synthetic only; no real-device interrupted-session capture is claimed.",
+    "generator": "speeduppercut",
+    "kind": "synthetic"
+  },
+  "sanitization": {
+    "fixtureDigest": "sha256:791f93747cf0185e4b62104c6e1d4c3e81d49db88624fe248a3e77006651c204",
+    "sourceDigest": "sha256:1f44582c510679e9a704302cda049060d9df723f4f976d3f01c2977504774563",
+    "transforms": [],
+    "version": 1
+  },
+  "scenario": {
+    "description": "Synthetic FILE_INIT and PUT init succeed, then the session disconnects while the first PUT_DATA page is in flight before EOF.",
+    "operation": "file-put-stream",
+    "outcome": "interrupted-session"
+  },
+  "schemaVersion": 1
+}
