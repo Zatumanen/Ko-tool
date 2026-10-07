@@ -58,6 +58,33 @@ export function parseCaptureJsonl(text,{start=0,end=null}={}){
   return records;
 }
 
+export function parseCaptureRaw(input,{start=0,end=null}={}){
+  const source=bytes(input);
+  const records=[];
+  let offset=0,recordNumber=0;
+  while(offset<source.length){
+    recordNumber++;
+    if(source.length-offset<13)throw new Error('Truncated raw capture header at record '+recordNumber+'.');
+    const directionByte=source[offset];
+    const direction=directionByte===0x54?'tx':directionByte===0x52?'rx':null;
+    if(!direction)throw new Error('Invalid raw capture direction at record '+recordNumber+'.');
+    const view=new DataView(source.buffer,source.byteOffset+offset+1,12);
+    const timestampBig=view.getBigUint64(0,true);
+    if(timestampBig>BigInt(Number.MAX_SAFE_INTEGER))throw new Error('Raw capture timestamp exceeds safe integer range at record '+recordNumber+'.');
+    const length=view.getUint32(8,true);
+    const frameStart=offset+13;
+    const frameEnd=frameStart+length;
+    if(frameEnd>source.length)throw new Error('Truncated raw capture payload at record '+recordNumber+'.');
+    const frame=source.slice(frameStart,frameEnd);
+    if(frame.length<2||frame[0]!==0xf0||frame.at(-1)!==0xf7)throw new Error('Invalid SysEx frame at raw capture record '+recordNumber+'.');
+    records.push({direction,timestampMs:Number(timestampBig),bytes:frame});
+    offset=frameEnd;
+  }
+  const resolvedEnd=end==null?records.length:end;
+  if(!Number.isInteger(start)||!Number.isInteger(resolvedEnd)||start<0||resolvedEnd<start||resolvedEnd>records.length)throw new Error('Invalid capture source-record window.');
+  return records.slice(start,resolvedEnd);
+}
+
 export function normalizeCaptureWindow(records,{start=0,end=records?.length??0}={}){
   if(!Array.isArray(records))throw new Error('Capture records must be an array.');
   if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>records.length)throw new Error('Invalid capture window.');
