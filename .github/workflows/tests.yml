@@ -16,41 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Generate pinned DELETE golden fixture
-        run: |
-          curl -fsSL "https://raw.githubusercontent.com/icherniukh/ep133-krate/6f2a85b844387418a98f948cbd61431365c344ae/captures/sniffer-delete-hi.bin" -o /tmp/sniffer-delete-hi.bin
-          cat > /tmp/delete-descriptor.json <<'JSON'
-          {
-            "id": "ep133-official-delete-001",
-            "window": {"start": 4, "end": 7},
-            "provenance": {
-              "kind": "real-device",
-              "captureMethod": "usb-midi-sniffer",
-              "device": {"family": "EP-series", "model": "EP-133", "firmware": null},
-              "source": {
-                "repository": "icherniukh/ep133-krate",
-                "commit": "6f2a85b844387418a98f948cbd61431365c344ae",
-                "path": "captures/sniffer-delete-hi.bin",
-                "blobSha": "26742449d7b56b1c027df5c05c79f09a14892765",
-                "license": "MIT"
-              }
-            },
-            "scenario": {
-              "operation": "delete",
-              "outcome": "success",
-              "description": "Real EP-133 FILE_DELETE for node 467 with event and ACK"
-            },
-            "expectations": {"wire": {"coverage": ["delete"]}, "runtime": []},
-            "rules": []
-          }
-          JSON
-          node scripts/import-ep-file-capture.mjs --source /tmp/sniffer-delete-hi.bin --descriptor /tmp/delete-descriptor.json --out tests/fixtures/ep-series/file-traces/v1/real/ep133-official-delete-001.json --format raw
-      - name: Upload generated DELETE fixture
-        uses: actions/upload-artifact@v4
-        with:
-          name: zat8-delete-fixture
-          path: tests/fixtures/ep-series/file-traces/v1/real/ep133-official-delete-001.json
-          if-no-files-found: error
       - run: npm test
 
   build-pages:
