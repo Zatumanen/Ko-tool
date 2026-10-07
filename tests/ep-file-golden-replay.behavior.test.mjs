@@ -39,49 +39,38 @@ test('golden replay extracts correlated FILE pairs and reports unconsumed reques
   assert.throws(()=>createGoldenFileReplay(broken),/correlation|response|request/i);
 });
 
-test('real golden traces replay sequentially through production filesystem APIs',async()=>{
-  {
-    const fixture=await loadGoldenFixture(new URL('ep133-official-init-list-001.json',root),{requireReal:true});
-    const replay=createGoldenFileReplay(fixture);
-    const fake=createFakeEpMidi({sku:'TE032AS001',osVersion:'2.0.5',onRequest:replay.onRequest});
-    fake.install();
-    const{device,filesystem}=await importFilesystemPair();
-    filesystem.resetFileSystemState();
-    try{
-      await device.connectEp133();
-      const entries=await filesystem.listDirectory(0,'/');
-      assert.deepEqual(entries.map(entry=>entry.fileName),['/sounds','/projects']);
-      replay.assertComplete();
-      assert.equal(device.isDeviceUnsafe(),false);
-    }finally{
-      device.disconnectEp133();
-      fake.restore();
-    }
-  }
+test('real INIT/LIST and DELETE traces replay through one production filesystem session',async()=>{
+  const initListFixture=await loadGoldenFixture(new URL('ep133-official-init-list-001.json',root),{requireReal:true});
+  const deleteFixture=await loadGoldenFixture(new URL('ep133-official-delete-001.json',root),{requireReal:true});
+  const initListReplay=createGoldenFileReplay(initListFixture);
+  const deleteReplay=createGoldenFileReplay(deleteFixture);
 
-  {
-    const fixture=await loadGoldenFixture(new URL('ep133-official-delete-001.json',root),{requireReal:true});
-    const replay=createGoldenFileReplay(fixture);
-    const fake=createFakeEpMidi({
-      sku:'TE032AS001',
-      osVersion:'2.0.5',
-      onRequest:request=>{
-        if(request.command===TE_SYSEX_FILE&&request.rawData[0]===TE_SYSEX_FILE_DELETE)return replay.onRequest(request);
-        if(request.command===TE_SYSEX_FILE&&request.rawData[0]===1)return{status:0,payload:initResponse(512)};
-        return{status:3,payload:new Uint8Array()};
-      }
-    });
-    fake.install();
-    const{device,filesystem}=await importFilesystemPair();
-    filesystem.resetFileSystemState();
-    try{
-      await device.connectEp133();
-      await filesystem.deleteFile(467,{timeout:200});
-      replay.assertComplete();
-      assert.equal(device.isDeviceUnsafe(),false);
-    }finally{
-      device.disconnectEp133();
-      fake.restore();
+  const fake=createFakeEpMidi({
+    sku:'TE032AS001',
+    osVersion:'2.0.5',
+    onRequest:request=>{
+      if(request.command!==TE_SYSEX_FILE)return{status:3,payload:new Uint8Array()};
+      if(request.rawData[0]===TE_SYSEX_FILE_DELETE)return deleteReplay.onRequest(request);
+      if(initListReplay.remaining()>0)return initListReplay.onRequest(request);
+      if(request.rawData[0]===1)return{status:0,payload:initResponse(512)};
+      return{status:3,payload:new Uint8Array()};
     }
+  });
+  fake.install();
+  const{device,filesystem}=await importFilesystemPair();
+  filesystem.resetFileSystemState();
+  try{
+    await device.connectEp133();
+
+    const entries=await filesystem.listDirectory(0,'/');
+    assert.deepEqual(entries.map(entry=>entry.fileName),['/sounds','/projects']);
+    initListReplay.assertComplete();
+
+    await filesystem.deleteFile(467,{timeout:200});
+    deleteReplay.assertComplete();
+    assert.equal(device.isDeviceUnsafe(),false);
+  }finally{
+    device.disconnectEp133();
+    fake.restore();
   }
 });
