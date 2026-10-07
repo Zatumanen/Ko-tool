@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import{createHash}from 'node:crypto';
 import{
   parseCaptureJsonl,
+  parseCaptureRaw,
   normalizeCaptureWindow,
   sanitizeCaptureFrames,
   buildGoldenFixture
@@ -56,6 +57,37 @@ test('capture JSONL parser validates direction hex and declared length',()=>{
   assert.throws(()=>parseCaptureJsonl(JSON.stringify({ts:'18:17:21.444',dir:'SIDE',len:2,hex:'F0F7'})),/direction/i);
   assert.throws(()=>parseCaptureJsonl(JSON.stringify({ts:'18:17:21.444',dir:'TX',len:3,hex:'F0F7'})),/length/i);
   assert.throws(()=>parseCaptureJsonl(JSON.stringify({ts:'18:17:21.444',dir:'TX',len:2,hex:'F0XZ'})),/hex/i);
+});
+
+function rawRecord(direction,timestampMs,frame){
+  const bytes=frame instanceof Uint8Array?frame:new Uint8Array(frame);
+  const out=Buffer.alloc(13+bytes.length);
+  out[0]=direction==='tx'?0x54:direction==='rx'?0x52:0x58;
+  out.writeBigUInt64LE(BigInt(timestampMs),1);
+  out.writeUInt32LE(bytes.length,9);
+  Buffer.from(bytes).copy(out,13);
+  return out;
+}
+
+test('raw capture parser validates direction timestamp length and complete records',()=>{
+  const request=encodeTeSysex(TE_SYSEX_FILE,Uint8Array.from([0x06,0x01,0xd3]),0x33,0x211).bytes;
+  const response=responseFrame({requestId:0x211,status:0,payload:new Uint8Array()});
+  const source=Buffer.concat([
+    rawRecord('tx',1_760_000_000_100,request),
+    rawRecord('rx',1_760_000_000_109,response)
+  ]);
+  const parsed=parseCaptureRaw(source);
+  assert.equal(parsed.length,2);
+  assert.equal(parsed[0].direction,'tx');
+  assert.equal(parsed[1].direction,'rx');
+  assert.equal(parsed[1].timestampMs-parsed[0].timestampMs,9);
+  assert.deepEqual([...parsed[0].bytes],[...request]);
+  assert.deepEqual([...parsed[1].bytes],[...response]);
+
+  const badDirection=Buffer.from(source);
+  badDirection[0]=0x58;
+  assert.throws(()=>parseCaptureRaw(badDirection),/direction|record 1/i);
+  assert.throws(()=>parseCaptureRaw(source.subarray(0,source.length-1)),/truncated|length|record 2/i);
 });
 
 test('capture window normalization rebases time without changing frame order or bytes',()=>{
