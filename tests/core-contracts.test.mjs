@@ -168,3 +168,11 @@ test('project recovery checkpoint rejects out of range FIDs before persistence',
     backup:{name:'P01.tar',data:new Uint8Array(1024)},candidate:new Uint8Array(1024)
   }),/project destination FID/);
 });
+
+test('sample recovery evidence retains only valid 1..999 sample slots',async()=>{
+  const tx=createSampleRecoveryTransaction({
+    operation:'upload',device:{sku:'TE032AS001'},
+    slots:[42,999,1000,-1,'not-a-slot']
+  });
+  assert.deepEqual(tx.slots.map(slot=>slot.slotId),[42,999]);
+});
