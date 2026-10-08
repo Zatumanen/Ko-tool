@@ -1,3 +1,4 @@
+import{assertWireFid,assertProjectRecoveryStatus,assertProjectTransactionStatus}from './coreContracts.js?v=20261008-1';
 const DB_NAME='speeduppercut-project-recovery';
 const DB_VERSION=1;
 const STORE_NAME='checkpoints';
@@ -50,6 +51,8 @@ export function createProjectRecoveryCheckpoint({
   device,projectNumber,destinationFid,parentFid,
   backup,candidate,activation=null,operation='project-write',createdAt=new Date()
 }={}){
+  assertWireFid(destinationFid,{label:'project destination FID'});
+  assertWireFid(parentFid,{allowRoot:true,label:'project parent FID'});
   const project=String(projectNumber||'').padStart(2,'0');
   if(!/^\d{2}$/.test(project))throw new Error('Project recovery checkpoint requires a two-digit project number.');
   const original=cloneBytes(backup?.data);
@@ -94,6 +97,11 @@ export function createProjectRecoveryCheckpoint({
     journal:Object.freeze([])
   });
 }
+
+const assertCheckpointPatch=patch=>{
+  if(Object.hasOwn(patch,'status'))assertProjectRecoveryStatus(patch.status);
+  if(Object.hasOwn(patch,'transactionStatus'))assertProjectTransactionStatus(patch.transactionStatus);
+};
 
 const cloneCheckpoint=checkpoint=>checkpoint?{
   ...checkpoint,
@@ -206,6 +214,7 @@ export function createBrowserProjectRecoveryStore({
       return saved;
     },
     async updateCheckpoint(id,patch={}){
+      assertCheckpointPatch(patch);
       const current=await get(id);
       if(!current)throw new Error('Project recovery checkpoint was not found: '+String(id||''));
       const next={
@@ -239,6 +248,7 @@ export function createMemoryProjectRecoveryStore(){
       return cloneCheckpoint(saved);
     },
     async updateCheckpoint(id,patch={}){
+      assertCheckpointPatch(patch);
       const current=records.get(String(id||''));
       if(!current)throw new Error('Project recovery checkpoint was not found: '+String(id||''));
       const next={...current,...patch,id:current.id,updatedAt:safeTimestamp(patch.updatedAt||new Date())};
