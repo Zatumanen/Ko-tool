@@ -13,6 +13,8 @@ import{
 }from'../js/ep133/fileProtocol.js';
 import{decodeFileRights}from'../js/ep133/deviceCapabilities.js';
 import{parseFileEvent}from'../js/ep133/device.js';
+import{createMemoryProjectRecoveryStore,createProjectRecoveryCheckpoint}from'../js/ep133/projectRecovery.js';
+import{createMemorySampleRecoveryStore,createSampleRecoveryTransaction}from'../js/ep133/sampleRecovery.js';
 
 test('core contracts reject coercion, fractional FILE ids, overflow and non-Uint8Array',()=>{
   assert.equal(assertWireFid(65535),65535);
@@ -128,4 +130,41 @@ test('incoming FILE metadata event validates JSON object shape',()=>{
     {nodeId:7,metadata:{active:1}});
   const wrong=new TextEncoder().encode('[]');
   assert.throws(()=>parseFileEvent(3,Uint8Array.from([0,7,...wrong,0])),/metadata/);
+});
+
+test('recovery stores reject invented project/sample states without modifying records',async()=>{
+  const projectStore=createMemoryProjectRecoveryStore();
+  const project=await projectStore.saveCheckpoint(createProjectRecoveryCheckpoint({
+    device:{sku:'TE032AS001',metadata:{os_version:'2.5.1'}},
+    projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P01.tar',data:new Uint8Array(1024)},
+    candidate:new Uint8Array(1024)
+  }));
+  await assert.rejects(
+    ()=>projectStore.updateCheckpoint(project.id,{status:'magically-safe'}),
+    /project recovery status/
+  );
+  await assert.rejects(
+    ()=>projectStore.updateCheckpoint(project.id,{transactionStatus:'unknown'}),
+    /project transaction status/
+  );
+  assert.equal((await projectStore.getCheckpoint(project.id)).status,'pending');
+
+  const sampleStore=createMemorySampleRecoveryStore();
+  const sample=await sampleStore.saveTransaction(createSampleRecoveryTransaction({
+    operation:'upload',device:{sku:'TE032AS001'},slots:[42]
+  }));
+  await assert.rejects(
+    ()=>sampleStore.updateTransaction(sample.id,{transactionStatus:'magic'}),
+    /sample transaction status/
+  );
+  assert.equal((await sampleStore.getTransaction(sample.id)).status,'pending');
+});
+
+test('project recovery checkpoint rejects out of range FIDs before persistence',()=>{
+  assert.throws(()=>createProjectRecoveryCheckpoint({
+    device:{sku:'TE032AS001'},projectNumber:'01',
+    destinationFid:65536,parentFid:2000,
+    backup:{name:'P01.tar',data:new Uint8Array(1024)},candidate:new Uint8Array(1024)
+  }),/project destination FID/);
 });
