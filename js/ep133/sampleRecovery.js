@@ -1,4 +1,4 @@
-import{assertSampleTransactionStatus}from './coreContracts.js?v=20261008-1';
+import{assertSampleSlot,assertSampleTransactionStatus}from './coreContracts.js?v=20261008-1';
 import{hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
 
 const DB_NAME='speeduppercut-sample-recovery';
@@ -33,13 +33,13 @@ const normalizeSlot=slot=>{
   if(slot==null)return null;
   if(typeof slot==='number'||typeof slot==='string'){
     const id=Number(slot);
-    return Number.isInteger(id)&&id>0?{slotId:id}:null;
+    try{return{slotId:assertSampleSlot(id)};}catch{return null;}
   }
   if(typeof slot!=='object')return null;
   const out={};
   for(const key of ['slotId','sourceId','targetId','nodeId']){
     const value=Number(slot[key]);
-    if(Number.isInteger(value)&&value>0)out[key]=value;
+    try{out[key]=assertSampleSlot(value);}catch{}
   }
   if(slot.name!=null)out.name=String(slot.name).slice(0,200);
   if(Number.isFinite(Number(slot.size))&&Number(slot.size)>=0)out.size=Number(slot.size);
