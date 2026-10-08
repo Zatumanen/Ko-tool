@@ -1,3 +1,4 @@
+import{assertSampleSlot}from './coreContracts.js?v=20261008-1';
 export const SAMPLE_TRANSACTION_PHASES=Object.freeze(['PRECHECK','MUTATE','RECOVERY','FINALIZE']);
 export const SAMPLE_TRANSACTION_EVENT_STATUS=Object.freeze(['started','completed','failed']);
 export const SAMPLE_TRANSACTION_OUTCOMES=Object.freeze(['succeeded','failed','rolled-back','requires-recovery','acknowledged']);
@@ -12,7 +13,10 @@ const CONTRACTS=Object.freeze({
   property:Object.freeze({operation:'property',recoveryKind:'metadata-state'})
 });
 
-const positive=value=>Number.isInteger(Number(value))&&Number(value)>0?Number(value):null;
+const positive=value=>{
+  const id=Number(value);
+  try{return assertSampleSlot(id);}catch{return null;}
+};
 const unique=values=>[...new Set(values.map(positive).filter(Boolean))].sort((a,b)=>a-b);
 const keyPair=(a,b)=>String(Number(a)||0)+'>'+String(Number(b)||0);
 const mutationEvents=transaction=>(transaction?.journal||[]).filter(event=>event?.phase==='MUTATE'&&event?.detail?.action);
