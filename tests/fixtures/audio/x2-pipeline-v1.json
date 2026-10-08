@@ -123,7 +123,7 @@
         "sampleRate": 46875,
         "channels": 2,
         "frames": 9,
-        "pcmHex": "ff7f0080ff7f0080ff7f0080ff7f0080ff7f0080ff7f0080ff7f0080ff7f0080ff7f0080",
+        "pcmHex": "ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180",
         "playmode": "loop"
       }
     },
