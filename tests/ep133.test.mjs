@@ -1904,7 +1904,7 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/withStrictFirmwareDebugGuard/);
-  assert.match(block,/const backup=await getFile\(destination\.nodeId\)/);
+  assert.match(block,/resolveProjectWritePreflight\(\{/);\n  assert.match(source,/const backup=await getFile\(destination\.nodeId\)/);
   assert.match(block,/await onBackup\?\.\(/);
   assert.match(block,/const readback=await getFile\(destination\.nodeId\)/);
   assert.match(block,/compareProjectArchiveMembers\(data,readback\.data\)/);
@@ -1921,7 +1921,7 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'VERIFY'/);
   assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'ROLLBACK'/);
   assert.match(block,/status:'rolled-back'/);
-  const backupIndex=block.indexOf('const backup=await getFile');
+  const backupIndex=block.indexOf('resolveProjectWritePreflight');
   const checkpointIndex=block.indexOf('await recoveryStore.saveCheckpoint');
   const writeJournalIndex=block.indexOf("transactionJournal.beginPhase(recoveryCheckpoint.id,'WRITE'");
   const putIndex=block.indexOf('await putFile');
