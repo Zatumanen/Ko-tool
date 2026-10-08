@@ -1904,7 +1904,8 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/withStrictFirmwareDebugGuard/);
-  assert.match(block,/const backup=await getFile\(destination\.nodeId\)/);
+  assert.match(block,/resolveProjectWritePreflight\(\{/);
+  assert.match(source,/const backup=await getFile\(destination\.nodeId\)/);
   assert.match(block,/await onBackup\?\.\(/);
   assert.match(block,/const readback=await getFile\(destination\.nodeId\)/);
   assert.match(block,/compareProjectArchiveMembers\(data,readback\.data\)/);
@@ -1921,7 +1922,7 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'VERIFY'/);
   assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'ROLLBACK'/);
   assert.match(block,/status:'rolled-back'/);
-  const backupIndex=block.indexOf('const backup=await getFile');
+  const backupIndex=block.indexOf('resolveProjectWritePreflight');
   const checkpointIndex=block.indexOf('await recoveryStore.saveCheckpoint');
   const writeJournalIndex=block.indexOf("transactionJournal.beginPhase(recoveryCheckpoint.id,'WRITE'");
   const putIndex=block.indexOf('await putFile');
@@ -1961,19 +1962,24 @@ test('EP low-level FILE_PUT filename field keeps raw text but caps it at 54 char
   assert.equal(new TextDecoder().decode(payload.slice(11,end)),longName.slice(0,54));
 });
 
+
 test('EP-1320 project transport stays opaque while semantic validation and reload remain blocked',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/projectFilesystem.js',import.meta.url),'utf8');
-  const start=source.indexOf('const uploadProjectArchive=async');
-  const end=source.indexOf('const downloadProjectArchive=async',start);
-  const block=source.slice(start,end);
-  assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
-  assert.match(block,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
-  assert.match(block,/sampleDependencies=profile\.projectAuthoring/);
-  assert.match(block,/const activation=profile\.projectReloadVerified/);
-  assert.match(block,/let reload=null/);
-  assert.match(block,/if\(profile\.projectReloadVerified&&performReload\)/);
-  assert.match(block,/reason:performReload\?'reload-not-hardware-verified':'reload-disabled'/);
+  const candidateStart=source.indexOf('const readProjectWriteCandidate=async');
+  const preflightStart=source.indexOf('const resolveProjectWritePreflight=async');
+  const uploadStart=source.indexOf('const uploadProjectArchive=async');
+  const uploadEnd=source.indexOf('const downloadProjectArchive=async',uploadStart);
+  const candidate=source.slice(candidateStart,preflightStart);
+  const preflight=source.slice(preflightStart,source.indexOf('const captureProjectActivation=async',preflightStart));
+  const upload=source.slice(uploadStart,uploadEnd);
+  assert.match(candidate,/const profile=connectedProjectProfile\('transport'\)/);
+  assert.match(candidate,/if\(profile\.projectAuthoring\)validateProjectArchive\(data,\{profile\}\);\s*else parseProjectArchive\(data\)/);
+  assert.match(preflight,/sampleDependencies=profile\.projectAuthoring/);
+  assert.match(upload,/const activation=profile\.projectReloadVerified/);
+  assert.match(upload,/let reload=null/);
+  assert.match(upload,/if\(profile\.projectReloadVerified&&performReload\)/);
+  assert.match(upload,/reason:performReload\?'reload-not-hardware-verified':'reload-disabled'/);
 });
 
 test('EP project archive upload uses the TE 15s timeout through injected unlocked transport',async()=>{
@@ -1988,16 +1994,15 @@ test('EP project archive upload uses the TE 15s timeout through injected unlocke
   const block=project.slice(start,end);
   assert.match(block,/timeout=15000/);
   assert.match(block,/requireInactive=false,expectedActiveProjectFid=null/);
-  assert.match(block,/const profile=connectedProjectProfile\('transport'\)/);
-  assert.match(block,/validateProjectArchive\(data,\{profile\}\)/);
-  assert.match(block,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile\}\)/);
-  assert.ok(block.indexOf('validateProjectArchive(data,{profile})')<block.indexOf('await initRead()'));
+  assert.match(block,/const\{project,data,deviceInfo,profile\}=prepared/);
+  assert.match(project,/validateProjectArchive\(data,\{profile\}\)/);
+  assert.match(project,/preflightProjectSampleDependencies\(data,occupiedSampleSlots,\{profile,strict:true\}\)/);
+  assert.ok(block.indexOf('resolveProjectWritePreflight')<block.indexOf('createProjectRecoveryCheckpoint'));
   assert.match(block,/await putFile\(\{/);
   assert.match(filesystem,/putFile:fileTransportInternals\.putFile/);
   assert.match(transport,/putFile:putFileUnlocked/);
   assert.doesNotMatch(project,/putFileUnlocked/);
 });
-
 test('EP small metadata framing matches TE charCode byte semantics',()=>{
   const metadata={name:'привет',description:'café'};
   const json=JSON.stringify(metadata);
@@ -2799,6 +2804,7 @@ test('remaining compound sample reads and verification windows use FILE transact
   assert.match(rename,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
 });
 
+
 test('project layer occupies one scheduler task while filesystem injects transport internals',async()=>{
   const fs=await import('node:fs/promises');
   const [project,filesystem,transport]=await Promise.all([
@@ -2810,9 +2816,13 @@ test('project layer occupies one scheduler task while filesystem injects transpo
   const uploadStart=project.indexOf('const uploadProjectArchive=async');
   const uploadEnd=project.indexOf('const downloadProjectArchive=async',uploadStart);
   const upload=project.slice(uploadStart,uploadEnd);
+  const preflightStart=project.indexOf('const resolveProjectWritePreflight=async');
+  const preflightEnd=project.indexOf('const captureProjectActivation=async',preflightStart);
+  const preflight=project.slice(preflightStart,preflightEnd);
   assert.match(upload,/runFileOperation\(\(\)=>withStrictFirmwareDebugGuard\(async\(\)=>\{/);
-  assert.match(upload,/await listDirectory\(/);
-  assert.match(upload,/await getFile\(/);
+  assert.match(upload,/resolveProjectWritePreflight\(\{/);
+  assert.match(preflight,/await listDirectory\(/);
+  assert.match(preflight,/await getFile\(/);
   assert.match(upload,/await putFile\(/);
 
   assert.match(filesystem,/runFileOperation:fileTransportInternals\.runFileOperation/);
@@ -2820,11 +2830,10 @@ test('project layer occupies one scheduler task while filesystem injects transpo
   assert.match(filesystem,/listDeviceFiles:fileTransportInternals\.listDeviceFiles/);
   assert.match(filesystem,/getFile:fileTransportInternals\.getFile/);
   assert.match(filesystem,/putFile:fileTransportInternals\.putFile/);
-  assert.match(filesystem,/getFileMetadata:fileTransportInternals\.getFileMetadata/);
-  assert.match(filesystem,/setFileMetadata:fileTransportInternals\.setFileMetadata/);
-  assert.match(transport,/export const fileTransportInternals=Object\.freeze\(\{/);
+  assert.doesNotMatch(project,/runFileOperation:\s*operation=>fileScheduler/);
+  assert.doesNotMatch(project,/putFileUnlocked|listDirectoryUnlocked|getFileUnlocked/);
+  assert.match(transport,/export const fileTransportInternals=Object\.freeze/);
 });
-
 test('FILE protocol builders and parsers live in a device-independent pure module',async()=>{
   const fs=await import('node:fs/promises');
   const protocolSource=await fs.readFile(new URL('../js/ep133/fileProtocol.js',import.meta.url),'utf8');

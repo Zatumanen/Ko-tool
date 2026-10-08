@@ -117,6 +117,25 @@ export function buildProjectWriteDiff(originalInput,candidateInput){
   });
 }
 
+
+export function assertProjectWriteNativePreservation(diff){
+  if(!diff?.members||!Array.isArray(diff?.changedMembers))
+    throw new TypeError('Project write preservation check requires a project diff.');
+  const typeChanged=diff.changedMembers.filter(entry=>entry.typeChanged===true);
+  if(typeChanged.length)
+    throw new Error('Refusing project write: native member type changed for '+typeChanged.map(entry=>entry.path).join(', ')+'.');
+
+  const unknownChanged=diff.changedMembers.filter(entry=>entry.kind==='unknown');
+  if(unknownChanged.length)
+    throw new Error('Refusing project write: unverified native members would change: '+unknownChanged.map(entry=>entry.path).join(', ')+'.');
+
+  const requiredKinds=new Set(['pad','scenes','settings','fx','live']);
+  const removedRequired=diff.changedMembers.filter(entry=>entry.status==='removed'&&requiredKinds.has(entry.kind));
+  if(removedRequired.length)
+    throw new Error('Refusing project write: required native project members would be removed: '+removedRequired.map(entry=>entry.path).join(', ')+'.');
+  return diff;
+}
+
 const memberLabel=entry=>{
   const status=entry.status==='modified'?'MOD':entry.status==='added'?'ADD':'DEL';
   const bytes=entry.status==='modified'

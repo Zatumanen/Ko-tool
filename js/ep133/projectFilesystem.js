@@ -1,7 +1,7 @@
 import{
   parseProjectArchive,validateProjectArchive,compareProjectArchiveMembers,preflightProjectSampleDependencies
 }from './projectArchive.js?v=20261001-1';
-import{buildProjectWriteDiff}from './projectWriteDiff.js?v=20261001-1';
+import{buildProjectWriteDiff,assertProjectWriteNativePreservation}from './projectWriteDiff.js?v=20261008-1';
 import{
   assertProjectTransportSupported,assertProjectAuthoringSupported,assertProjectReloadSupported
 }from './projectProfile.js?v=20261001-1';
@@ -189,7 +189,7 @@ export function createProjectFilesystem({
         .filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
       :[];
     const sampleDependencies=profile.projectAuthoring
-      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
+      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile,strict:true})
       :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
     const projects=await listDirectory(parent.nodeId,'/projects');
     const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
@@ -206,7 +206,9 @@ export function createProjectFilesystem({
         expectedActiveProjectFid
       });
     }
-    return{parent,destination,backup,sampleDependencies,activeProjectBeforeWrite};
+    const diff=buildProjectWriteDiff(backup.data,data);
+    if(profile.projectAuthoring)assertProjectWriteNativePreservation(diff);
+    return{parent,destination,backup,sampleDependencies,activeProjectBeforeWrite,diff};
   };
 
   const captureProjectActivation=async(projectId,projectsNodeId)=>{
@@ -309,7 +311,7 @@ export function createProjectFilesystem({
       }),
       activeProjectBeforeWrite:preflight.activeProjectBeforeWrite,
       sampleDependencies:preflight.sampleDependencies,
-      diff:buildProjectWriteDiff(preflight.backup.data,prepared.data)
+      diff:preflight.diff
     });
   });
 
@@ -320,39 +322,13 @@ export function createProjectFilesystem({
   }={})=>runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
     assertProjectRuntimeSettled('project write');
     const prepared=await readProjectWriteCandidate(file);
-    const{project,data,deviceInfo}=prepared;
-    const profile=connectedProjectProfile('transport');
-    if(profile.projectAuthoring)validateProjectArchive(data,{profile});
-    else parseProjectArchive(data);
-
-    await initRead();
-    const root=await listDirectory(0,'/');
-    const parent=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
-    if(!parent)throw new Error('EP-series /projects node is not available.');
-    const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
-    const occupiedSampleSlots=sounds
-      ?(await listDirectory(sounds.nodeId,'/sounds'))
-        .map(item=>Number(item.nodeId))
-        .filter(id=>Number.isInteger(id)&&id>=1&&id<=999)
-      :[];
-    const sampleDependencies=profile.projectAuthoring
-      ?preflightProjectSampleDependencies(data,occupiedSampleSlots,{profile})
-      :{referencedSampleSlots:null,missingSampleSlots:null,allSamplesAvailable:null,semanticPreflight:false};
-    const projects=await listDirectory(parent.nodeId,'/projects');
-    const destination=projects.find(item=>item.fileName===`/projects/${project}`&&item.fileType==='folder');
-    if(!destination)throw new Error(`EP-series project ${project} is not available.`);
-    const backup=await getFile(destination.nodeId);
-    if(profile.projectAuthoring)validateProjectArchive(backup.data,{profile});
-    else parseProjectArchive(backup.data);
-    let activeProjectBeforeWrite=null;
-    if(requireInactive||expectedActiveProjectFid!=null){
-      activeProjectBeforeWrite=assertProjectWriteActiveGuard({
-        destinationFid:destination.nodeId,
-        activeProjectFid:await getActiveNode(parent.nodeId),
-        requireInactive,
-        expectedActiveProjectFid
-      });
-    }
+    const{project,data,deviceInfo,profile}=prepared;
+    const preflight=await resolveProjectWritePreflight({
+      project,data,profile,requireInactive,expectedActiveProjectFid
+    });
+    const{
+      parent,destination,backup,sampleDependencies,activeProjectBeforeWrite,diff
+    }=preflight;
 
     const candidateCrc32=crc32Hex(data);
     const originalCrc32=crc32Hex(backup.data);
@@ -426,11 +402,16 @@ export function createProjectFilesystem({
       const readback=await getFile(destination.nodeId);
       if(profile.projectAuthoring)validateProjectArchive(readback.data,{profile});
       else parseProjectArchive(readback.data);
-      await transactionJournal.completePhase(recoveryCheckpoint.id,'READBACK',{
-        bytes:readback.data.byteLength
-      });
-
+      const readbackCrc32=crc32Hex(readback.data);
+      if(!crcEqual(readbackCrc32,candidateCrc32))
+        throw new Error('Project readback CRC mismatch after write.');
       const verification=compareProjectArchiveMembers(data,readback.data);
+      await transactionJournal.completePhase(recoveryCheckpoint.id,'READBACK',{
+        bytes:readback.data.byteLength,
+        candidateCrc32,
+        readbackCrc32,
+        crcVerified:true
+      });
 
       phase='RELOAD';
       let reload=null;
@@ -454,9 +435,16 @@ export function createProjectFilesystem({
 
       phase='VERIFY';
       await transactionJournal.beginPhase(recoveryCheckpoint.id,'VERIFY');
+      const activationVerified=reload
+        ?Number(reload.activeProjectFid)===Number(destination.nodeId)
+        :null;
       await transactionJournal.completePhase(recoveryCheckpoint.id,'VERIFY',{
         matchedMembers:verification.matched??null,
-        firmwareAddedMembers:verification.added??null
+        firmwareAddedMembers:verification.added??null,
+        candidateCrc32,
+        readbackCrc32,
+        crcVerified:true,
+        activationVerified
       });
       const verifiedCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
         status:'verified',
@@ -470,6 +458,8 @@ export function createProjectFilesystem({
         fileId:destination.nodeId,
         verification,
         reload,
+        diff,
+        readbackCrc32,
         sampleDependencies,
         activeProjectBeforeWrite,
         backup:{name:backup.name,size:backup.size},

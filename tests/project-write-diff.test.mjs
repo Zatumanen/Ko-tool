@@ -1,6 +1,6 @@
 import test from'node:test';
 import assert from'node:assert/strict';
-import{buildProjectWriteDiff,formatProjectWriteDiffPreview,getProjectMemberKind}from'../js/ep133/projectWriteDiff.js';
+import{buildProjectWriteDiff,formatProjectWriteDiffPreview,getProjectMemberKind,assertProjectWriteNativePreservation}from'../js/ep133/projectWriteDiff.js';
 
 const writeText=(bytes,offset,length,text)=>{
   bytes.fill(0,offset,offset+length);
@@ -83,4 +83,57 @@ test('project member kind classification stays explicit for native and unknown m
   assert.equal(getProjectMemberKind('live'),'live');
   assert.equal(getProjectMemberKind('vendor/blob'),'unknown');
   assert.equal(getProjectMemberKind('pads','5'),'directory');
+});
+
+test('project write preservation accepts unchanged unknown native members and pattern changes',()=>{
+  const original=tar([
+    ['patterns/a01',[1,2]],
+    ['vendor/blob',[9,8,7]]
+  ]);
+  const candidate=tar([
+    ['patterns/a01',[1,3]],
+    ['patterns/b01',[4,4]],
+    ['vendor/blob',[9,8,7]]
+  ]);
+  const diff=buildProjectWriteDiff(original,candidate);
+  assert.equal(assertProjectWriteNativePreservation(diff),diff);
+});
+
+test('project write preservation rejects changing or removing unverified native members',()=>{
+  const original=tar([
+    ['patterns/a01',[1,2]],
+    ['vendor/blob',[9,8,7]]
+  ]);
+  const modified=tar([
+    ['patterns/a01',[1,2]],
+    ['vendor/blob',[9,8,6]]
+  ]);
+  const removed=tar([
+    ['patterns/a01',[1,2]]
+  ]);
+  assert.throws(
+    ()=>assertProjectWriteNativePreservation(buildProjectWriteDiff(original,modified)),
+    /unverified native members would change: vendor\/blob/
+  );
+  assert.throws(
+    ()=>assertProjectWriteNativePreservation(buildProjectWriteDiff(original,removed)),
+    /unverified native members would change: vendor\/blob/
+  );
+});
+
+test('project write preservation rejects removal of required native structures',()=>{
+  const original=tar([
+    ['settings',[1]],
+    ['scenes',[2]],
+    ['fx_settings',[3]],
+    ['pads/a/p01',[4]],
+    ['patterns/a01',[5]]
+  ]);
+  const candidate=tar([
+    ['patterns/a01',[5]]
+  ]);
+  assert.throws(
+    ()=>assertProjectWriteNativePreservation(buildProjectWriteDiff(original,candidate)),
+    /required native project members would be removed/
+  );
 });

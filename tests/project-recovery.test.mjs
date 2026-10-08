@@ -6,6 +6,37 @@ import{
 import{createProjectFilesystem}from '../js/ep133/projectFilesystem.js';
 
 const emptyTar=()=>new Uint8Array(1024);
+const writeTarText=(bytes,offset,length,text)=>{
+  bytes.fill(0,offset,offset+length);
+  for(let i=0;i<text.length&&i<length;i++)bytes[offset+i]=text.charCodeAt(i);
+};
+const projectTar=members=>{
+  const chunks=[];let size=1024;
+  for(const item of members){
+    const data=item.data instanceof Uint8Array?item.data:Uint8Array.from(item.data||[]);
+    const header=new Uint8Array(512);
+    writeTarText(header,0,100,item.path);
+    writeTarText(header,100,8,'0000644\0');
+    if(data.length)writeTarText(header,124,12,data.length.toString(8)+'\0');
+    header[156]='0'.charCodeAt(0);
+    header.fill(0x20,148,156);
+    let checksum=0;for(const byte of header)checksum+=byte;
+    const checksumText=checksum.toString(8)+'\0';
+    writeTarText(header,148,8,checksumText);
+    for(let i=148+checksumText.length;i<156;i++)header[i]=0x20;
+    const padded=new Uint8Array(Math.ceil(data.length/512)*512);padded.set(data);
+    chunks.push(header,padded);size+=header.length+padded.length;
+  }
+  const out=new Uint8Array(size);let offset=0;
+  for(const chunk of chunks){out.set(chunk,offset);offset+=chunk.length;}
+  return out;
+};
+const projectPadForSlot=slot=>{
+  const pad=new Uint8Array(26);
+  pad[1]=slot&255;pad[2]=(slot>>8)&255;
+  pad[16]=100;pad[20]=255;pad[24]=60;
+  return pad;
+};
 const projectFile=data=>({
   name:'P01.tar',
   async arrayBuffer(){return data.slice().buffer;}
@@ -325,4 +356,38 @@ test('recovery checkpoint restore normalizes bare FILE names to Pxx.tar',async()
   });
   assert.equal(result.project,'01');
   assert.equal(harness.actions.includes('put'),true);
+});
+
+test('project write rejects missing sample dependencies before the first PUT',async()=>{
+  const harness=makeHarness();
+  const candidate=projectTar([{path:'pads/a/p01',data:projectPadForSlot(42)}]);
+  await assert.rejects(
+    ()=>harness.filesystem.uploadProjectArchive(projectFile(candidate),{performReload:false}),
+    /missing sample slots: 042/i
+  );
+  assert.equal(harness.actions.includes('put'),false);
+  assert.equal((await harness.filesystem.listProjectRecoveryCheckpoints()).length,0);
+});
+
+test('project write rejects unverified native member changes before the first PUT',async()=>{
+  const harness=makeHarness();
+  const candidate=projectTar([{path:'vendor/private-state',data:Uint8Array.from([1,2,3])}]);
+  await assert.rejects(
+    ()=>harness.filesystem.uploadProjectArchive(projectFile(candidate),{performReload:false}),
+    /unverified native members would change/i
+  );
+  assert.equal(harness.actions.includes('put'),false);
+  assert.equal((await harness.filesystem.listProjectRecoveryCheckpoints()).length,0);
+});
+
+test('project write journal records readback CRC evidence',async()=>{
+  const harness=makeHarness();
+  const result=await harness.filesystem.uploadProjectArchive(projectFile(harness.candidate),{performReload:false});
+  const readback=result.transactionJournal.events.find(event=>event.phase==='READBACK'&&event.status==='completed');
+  const verify=result.transactionJournal.events.find(event=>event.phase==='VERIFY'&&event.status==='completed');
+  assert.equal(readback.detail.crcVerified,true);
+  assert.equal(readback.detail.candidateCrc32,readback.detail.readbackCrc32);
+  assert.equal(verify.detail.crcVerified,true);
+  assert.equal(verify.detail.candidateCrc32,verify.detail.readbackCrc32);
+  assert.equal(verify.detail.activationVerified,null);
 });
