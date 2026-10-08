@@ -1,21 +1,12 @@
 import{
   CAPABILITY_EVIDENCE,capabilityEvidence,firmwareMatchesRange,resolveCapabilityEvidence
 }from './capabilityEvidence.js?v=20261001-1';
+import{CAPABILITY_KEYS,SUPPORTED_EP_SKUS}from './deviceCompatibilityMatrix.js?v=20261008-1';
+export{CAPABILITY_KEYS};
 
-export const CAPABILITY_KEYS=Object.freeze({
-  SAMPLE_METADATA:'sample.metadata',
-  SAMPLE_TRANSFERS:'sample.transfers',
-  SAMPLE_BARS:'sample.bars',
-  PROJECT_TRANSPORT:'project.transport',
-  PROJECT_AUTHORING:'project.authoring',
-  PROJECT_RELOAD:'project.reload',
-  SCENE_TIME_SIGNATURE:'project.scene-time-signature',
-  LIVE_WITH_PATTERNS:'project.live-with-patterns',
-  LIVE_WITH_FX:'project.live-with-fx'
-});
 
 const RECORDED_AT='2026-09-30';
-const KNOWN_SKUS=new Set(['TE032AS001','TE032AS005','TE032AS006']);
+const KNOWN_SKUS=new Set(SUPPORTED_EP_SKUS);
 const KNOWN_CAPABILITIES=new Set(Object.values(CAPABILITY_KEYS));
 const SOURCE_TYPES=new Set(['hil','capture','device-observation','shared-protocol','unverified']);
 
