@@ -75,4 +75,78 @@ function makeSmplChunk(){const out=new Uint8Array(44);const v=new DataView(out.b
 export async function encodeWav(buffer,bits=16,hooks={},playmode='oneshot'){const ch=Math.min(2,buffer.numberOfChannels),bps=bits/8,frames=buffer.length,size=frames*ch*bps,smpl=makeSmplChunk(),list=makeKo2ListChunk(playmode),riffSize=4+(8+16)+smpl.length+list.length+(8+size),out=new ArrayBuffer(8+riffSize),v=new DataView(out),w=(o,s)=>writeAscii(v,o,s);w(0,'RIFF');v.setUint32(4,riffSize,true);w(8,'WAVE');let header=12;w(header,'fmt ');v.setUint32(header+4,16,true);v.setUint16(header+8,1,true);v.setUint16(header+10,ch,true);v.setUint32(header+12,buffer.sampleRate,true);v.setUint32(header+16,buffer.sampleRate*ch*bps,true);v.setUint16(header+20,ch*bps,true);v.setUint16(header+22,bits,true);header+=24;new Uint8Array(out,header,smpl.length).set(smpl);header+=smpl.length;new Uint8Array(out,header,list.length).set(list);header+=list.length;w(header,'data');v.setUint32(header+4,size,true);const data=Array.from({length:ch},(_,c)=>buffer.getChannelData(c));let o=header+8;for(let i=0;i<frames;i++){if(i%20000===0){checkCancel(hooks);await yieldControl();}for(let c=0;c<ch;c++){const x=Math.max(-1,Math.min(1,data[c][i]));if(bits===8)v.setUint8(o++,Math.max(0,Math.min(255,Math.round((x+1)*127.5))));else{v.setInt16(o,x<0?Math.round(x*32768):Math.round(x*32767),true);o+=2;}}}return new Blob([out],{type:'audio/wav'});}
 export function buildSpeedUppercutMetadata(playmode='oneshot'){const mode=playmode==='loop'?'loop':'oneshot';return Object.freeze({...KO2_METADATA,"sound.playmode":mode});}
 export async function encodeEpReadyWav(buffer,hooks={},playmode='oneshot'){checkCancel(hooks);return encodeReferenceEpWav(buffer,{name:'speeduppercut.wav',metadata:buildSpeedUppercutMetadata(playmode),module:hooks.referenceModule,moduleProvider:hooks.referenceModuleProvider});}
-export async function processAudio(input,{fidelity='hi',channels='stereo',playmode='oneshot',autoTrim=true,context}={},hooks={}){const p=getPreset(fidelity),ctx=context||null;checkCancel(hooks);hooks.progress?.(.05,'Decoding');let b=await decodeAudio(input,ctx);const sourceStorage=estimateDirectEpStorage({frames:b.length,sampleRate:b.sampleRate,channels:b.numberOfChannels});checkCancel(hooks);if(autoTrim){hooks.progress?.(.2,'Auto-trim');b=await trimSilence(b,-60,.1,hooks);}checkCancel(hooks);hooks.progress?.(.35,'Channels');b=await convertChannels(b,channels==='mono'?1:2,hooks);checkCancel(hooks);hooks.progress?.(.55,'Speed ×2 · reference resampler');b=await speedAndResample(b,EP_REPITCH_FACTOR,p.sampleRate,hooks);checkCancel(hooks);hooks.progress?.(.82,'Normalize');b=await normalizeBuffer(b,hooks);checkCancel(hooks);hooks.progress?.(.9,'16-bit PCM');b=await quantizeBuffer(b,EP_OUTPUT_BIT_DEPTH,hooks);const epStorage=measureEpStorage(b);const metadata=buildSpeedUppercutMetadata(playmode);checkCancel(hooks);hooks.progress?.(.94,'Reference WAV encoding');const blob=await encodeEpReadyWav(b,hooks,playmode);hooks.progress?.(1,'Done');return{buffer:b,blob,metadata,sampleRate:p.sampleRate,bitDepth:EP_OUTPUT_BIT_DEPTH,channels:channels==='mono'?1:2,repitchFactor:EP_REPITCH_FACTOR,pitchCompensation:EP_REPITCH_COMPENSATION,sourceEpStorage:sourceStorage,epStorage,outputFormat:'wav'};}
+// The public x2 conversion contract. An EP sample upload is a distinct path;
+// it may bypass these stages when the input is already EP-compatible.
+export const EP_AUDIO_PIPELINE_STAGES=Object.freeze([
+  'decode','trim','channels','x2-reference-resample',
+  'peak-normalize','s16-quantize','reference-wav'
+]);
+
+/**
+ * Canonical SpeedUpperCut x2 pipeline, used for individual files and folders.
+ * The reference module is required; no silent browser/linear resampler fallback.
+ */
+export async function processAudio(input,{
+  fidelity='hi',channels='stereo',playmode='oneshot',autoTrim=true,context
+}={},hooks={}){
+  const preset=getPreset(fidelity),ctx=context||null;
+  const stage=(index,progress,label)=>{
+    checkCancel(hooks);
+    hooks.stage?.(EP_AUDIO_PIPELINE_STAGES[index]);
+    hooks.progress?.(progress,label);
+  };
+  stage(0,.05,'Decoding');
+  let buffer=await decodeAudio(input,ctx);
+  const sourceStorage=estimateDirectEpStorage({
+    frames:buffer.length,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels
+  });
+  checkCancel(hooks);
+  if(autoTrim){
+    stage(1,.2,'Auto-trim');
+    buffer=await trimSilence(buffer,-60,.1,hooks);
+  }
+  stage(2,.35,'Channels');
+  buffer=await convertChannels(buffer,channels==='mono'?1:2,hooks);
+  stage(3,.55,'Speed ×2 · reference resampler');
+  buffer=await speedAndResample(buffer,EP_REPITCH_FACTOR,preset.sampleRate,hooks);
+  stage(4,.82,'Normalize');
+  buffer=await normalizeBuffer(buffer,hooks);
+  stage(5,.9,'16-bit PCM');
+  buffer=await quantizeBuffer(buffer,EP_OUTPUT_BIT_DEPTH,hooks);
+  const epStorage=measureEpStorage(buffer);
+  const metadata=buildSpeedUppercutMetadata(playmode);
+  stage(6,.94,'Reference WAV encoding');
+  const blob=await encodeEpReadyWav(buffer,hooks,playmode);
+  checkCancel(hooks);
+  hooks.progress?.(1,'Done');
+  return{
+    buffer,blob,metadata,sampleRate:preset.sampleRate,
+    bitDepth:EP_OUTPUT_BIT_DEPTH,channels:channels==='mono'?1:2,
+    repitchFactor:EP_REPITCH_FACTOR,pitchCompensation:EP_REPITCH_COMPENSATION,
+    sourceEpStorage:sourceStorage,epStorage,outputFormat:'wav'
+  };
+}
+
+/**
+ * Shared batch adapter. A one-file import and a folder import both enter the
+ * exact same processAudio call with the same options and reference module.
+ * Results stream in input order and are never silently skipped.
+ */
+export async function* processAudioInputs(files,options={},hooks={}){
+  const sources=Array.from(files||[]),total=sources.length;
+  for(let index=0;index<total;index++){
+    checkCancel(hooks);
+    const file=sources[index];
+    if(typeof file?.arrayBuffer!=='function')
+      throw new TypeError('Audio input must expose arrayBuffer().');
+    hooks.onStart?.(file,index,total);
+    const input=await file.arrayBuffer();
+    checkCancel(hooks);
+    const result=await processAudio(input,options,{
+      ...hooks,
+      progress:(value,phase)=>hooks.progress?.(value,phase,index,total,file)
+    });
+    checkCancel(hooks);
+    yield Object.freeze({file,index,total,result});
+  }
+}
