@@ -1,5 +1,6 @@
 import{createDeviceSessionOwnership}from './deviceSessionOwnership.js?v=20261001-1';
 import{dispatchDeviceRuntimeEvent}from '../deviceRuntime.js';
+import{explainMidiAccessError}from '../../platformSupport.js?v=20261008-1';
 
 export function createConnectionLifecycle({
   connectEp133,
@@ -72,14 +73,10 @@ export function createConnectionLifecycle({
       await connectEp133();
     }catch(error){
       const message=String(error?.message||error);
-      if(error?.name==='NotAllowedError'||/permission|denied/i.test(message)){
+      const supportError=explainMidiAccessError(error);
+      if(supportError?.blocked){
         midiPermissionBlocked=true;
-        showError('MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.');
-        return;
-      }
-      if(/not supported/i.test(message)){
-        midiPermissionBlocked=true;
-        showError('WEB MIDI IS NOT SUPPORTED IN THIS BROWSER.');
+        showError(supportError.message);
         return;
       }
       if(!/No MIDI ports|was not found/i.test(message))logTechnical('AUTO CONNECT',error);

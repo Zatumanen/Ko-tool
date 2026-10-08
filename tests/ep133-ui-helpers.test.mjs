@@ -206,7 +206,10 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
   await lifecycle.autoConnect();
   await lifecycle.autoConnect();
   assert.equal(connectCalls,1);
-  assert.deepEqual(errors,['MIDI ACCESS DENIED. ALLOW SYSEX AND RELOAD.']);
+  assert.equal(errors.length,1);
+  assert.match(errors[0],/MIDI\/SysEx access was denied/);
+  assert.match(errors[0],/Allow MIDI and SysEx permissions/);
+  assert.match(errors[0],/reload the page/);
   assert.equal(lifecycle.getState().midiPermissionBlocked,true);
 });
 
