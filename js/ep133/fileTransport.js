@@ -6,6 +6,7 @@ import{
   requestRead,requestFile,onConnectionChange,onUnexpectedFileTraffic,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
 }from './device.js?v=20261001-1';
 import{parseNullTerminatedString}from './packing.js';
+import{assertWireFid,assertFileMetadata}from './coreContracts.js?v=20261008-1';
 import{createFileScheduler}from './fileScheduler.js?v=20261001-1';
 import{createDeviceOperationCoordinator}from './deviceOperationCoordinator.js?v=20261001-1';
 import{deviceRuntime}from './deviceRuntime.js';
@@ -118,8 +119,8 @@ async function getMetadataByNodeId(nodeId,key=null){
         if(!parsed)break;
         text+=parsed.text;if(parsed.done)break;page+=1;
       }
-      const parsed=JSON.parse(text);
-      return Object.assign({},parsed);
+      const parsed=assertFileMetadata(JSON.parse(text),'device FILE metadata');
+      return Object.fromEntries(Object.entries(parsed));
     }catch(error){
       lastError=error;
       if(!(error instanceof SyntaxError)||attempt>=2)throw error;
@@ -245,6 +246,8 @@ export async function moveFile(fileId,parentId,newFileId,options={}){
 }
 
 async function setFileMetadataUnlocked(fileId,metadata,{timeout=2000}={}){
+  assertWireFid(fileId,{label:'METADATA_SET id'});
+  assertFileMetadata(metadata);
   const chunkSize=getCachedChunkSize()||await initFileSystemUnlocked();
   const json=JSON.stringify(metadata),jsonBytes=new TextEncoder().encode(json);
   if(json.length<=chunkSize-8){await requestFile(TE_SYSEX_FILE,buildMetadataSetPayload(fileId,metadata),timeout);return;}
