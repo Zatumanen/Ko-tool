@@ -4,7 +4,8 @@ import{
 }from './sampleTransactionJournal.js?v=20261001-1';
 import{
   verifySampleRecoveryTransactionState,assertSampleRecoveryDevice
-}from './sampleRecoveryVerifier.js?v=20261003-3';
+}from './sampleRecoveryVerifier.js?v=20261008-1';
+import{isSampleRecoveryVerificationAcknowledgable}from './sampleTransactionContract.js?v=20261008-1';
 
 export function createSampleTransactionRuntime({
   getConnectedDeviceInfo,recoveryStore=createBrowserSampleRecoveryStore(),onRecoveryEvent=()=>{}
@@ -86,7 +87,7 @@ export function createSampleTransactionRuntime({
     const verified=await verifySampleRecoveryTransactionState(transaction,{
       fileOps,device:getConnectedDeviceInfo()
     });
-    if(verified.classification==='unverifiable'||verified.classification==='move-state-unverifiable')
+    if(!isSampleRecoveryVerificationAcknowledgable(verified))
       throw new Error('Sample recovery state is not specific enough to acknowledge safely.');
     const current=await recoveryStore.getTransaction(id);
     const acknowledgedAt=new Date().toISOString();
