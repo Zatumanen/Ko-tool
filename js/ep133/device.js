@@ -2,7 +2,7 @@ import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_F
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 import{assertDeviceIdentity,assertFileMetadata}from './coreContracts.js?v=20261008-1';
-import{compareFirmwareVersions}from './capabilityEvidence.js?v=20261001-1';
+import{assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
 import{dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
@@ -13,19 +13,11 @@ const FIRMWARE_DEBUG_PREFLIGHT_MS=1200,FIRMWARE_DEBUG_GRACE_MS=2500;
 const listeners=new Map(),pending=new Map(),connectionListeners=new Set(),fileEventListeners=new Set(),midiActivityListeners=new Set(),unexpectedFileTrafficListeners=new Set();
 const recentlyExpiredRequestIds=new Map();
 const LATE_RESPONSE_TTL_MS=5000;
-const MIN_FIRMWARE={
-  TE032AS001:{beta:'0.100.38',production:'2.0.5'},
-  TE032AS005:{beta:'0.2.13',production:'1.0.2'},
-  TE032AS006:{beta:'0.4.7',production:'1.0.5'}
-};
 function validateFirmware(sku,metadata){
   const version=String(metadata?.os_version||'');
-  if(version.startsWith('0.1.0'))return;
-  const minimums=MIN_FIRMWARE[sku];
-  if(!minimums||!version)throw new Error('EP-series firmware version could not be verified.');
-  const channel=version.startsWith('0.')?'beta':'production';
-  const minimum=minimums[channel];
-  if(compareFirmwareVersions(version,minimum)<0)throw new Error(`EP-series firmware ${version} is too old for ${sku}. Minimum supported version is ${minimum}.`);
+  const compatibility=assessEpFirmwareCompatibility(sku,version);
+  if(!compatibility.supported)
+    throw new Error(compatibility.reason||'EP-series firmware version could not be verified.');
 }
 
 export function parseFirmwareDebugFrame(bytes){

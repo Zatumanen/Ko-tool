@@ -4,21 +4,9 @@ import{
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
   TE_SYSEX_FILE_CAPABILITY_PLAYBACK
 }from './constants.js?v=20261001-1';
-import{
-  CAPABILITY_KEYS,resolveRegisteredCapabilityEvidence
-}from './evidenceRegistry.js?v=20261001-1';
+import{resolveRegisteredCapabilityEvidence}from './evidenceRegistry.js?v=20261001-1';
+import{CAPABILITY_NAMES}from './deviceCompatibilityMatrix.js?v=20261008-1';
 
-const evidenceKeys=Object.freeze({
-  sampleMetadata:CAPABILITY_KEYS.SAMPLE_METADATA,
-  sampleTransfers:CAPABILITY_KEYS.SAMPLE_TRANSFERS,
-  sampleBars:CAPABILITY_KEYS.SAMPLE_BARS,
-  projectTransport:CAPABILITY_KEYS.PROJECT_TRANSPORT,
-  projectAuthoring:CAPABILITY_KEYS.PROJECT_AUTHORING,
-  projectReload:CAPABILITY_KEYS.PROJECT_RELOAD,
-  sceneTimeSignature:CAPABILITY_KEYS.SCENE_TIME_SIGNATURE,
-  liveWithPatterns:CAPABILITY_KEYS.LIVE_WITH_PATTERNS,
-  liveWithFx:CAPABILITY_KEYS.LIVE_WITH_FX
-});
 
 export function decodeFileRights(mask=0){
   const value=assertUnsigned(mask,'FILE capability mask',0xff);
@@ -45,7 +33,7 @@ export function resolveDeviceCapabilities({sku='',firmware='',fileCapabilities=0
   const normalizedSku=String(sku||'').toUpperCase();
   const normalizedFirmware=String(firmware||'');
   const evidence={};
-  for(const[name,capability]of Object.entries(evidenceKeys)){
+  for(const[name,capability]of Object.entries(CAPABILITY_NAMES)){
     evidence[name]=resolveRegisteredCapabilityEvidence(normalizedSku,capability,normalizedFirmware);
   }
   return Object.freeze({

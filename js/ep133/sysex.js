@@ -1,6 +1,7 @@
 import{assertBinaryBytes,assertUnsigned,isValidTeWireFrame}from './coreContracts.js?v=20261008-1';
 import{MIDI_SYSEX_START,MIDI_SYSEX_END,TE_MIDI_ID,MIDI_SYSEX_TE,BIT_IS_REQUEST,BIT_REQUEST_ID_AVAILABLE,STATUS_OK}from './constants.js';
 import{packToBuffer,packedLength,unpackInPlace}from './packing.js';
+import{isKnownEpSku}from './deviceCompatibilityMatrix.js?v=20261008-1';
 
 const requestIds=new Map();
 
@@ -12,8 +13,7 @@ function requestId(outputId){
   return id;
 }
 
-const SUPPORTED_EP_SKUS=new Set(['TE032AS001','TE032AS005','TE032AS006']);
-export function isSupportedEpSku(sku){return SUPPORTED_EP_SKUS.has(String(sku||'').toUpperCase());}
+export function isSupportedEpSku(sku){return isKnownEpSku(sku);}
 
 export function parseIdentityResponse(bytes){
   if(!(bytes instanceof Uint8Array)||bytes.length!==17||bytes[0]!==0xF0||bytes[1]!==0x7E||bytes[3]!==0x06||bytes[4]!==0x02||bytes[5]!==TE_MIDI_ID[0]||bytes[6]!==TE_MIDI_ID[1]||bytes[7]!==TE_MIDI_ID[2]||bytes[16]!==0xF7)return null;
