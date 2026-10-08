@@ -19,8 +19,7 @@ export function inspectBrowserCapabilities({
   const webMidi=typeof navigatorRef?.requestMIDIAccess==='function';
   const audioContext=typeof windowRef?.AudioContext==='function'||typeof windowRef?.webkitAudioContext==='function';
   const fileInput=typeof documentRef?.createElement==='function';
-  const folderInput=Boolean(documentRef?.getElementById?.('folder-upload')&&
-    'webkitdirectory' in documentRef.getElementById('folder-upload'));
+  const folderInput=typeof documentRef?.getElementById?.('folder-upload')?.webkitdirectory==='boolean';
   const savePicker=typeof windowRef?.showSaveFilePicker==='function'&&secureContext;
   const policy=documentRef?.permissionsPolicy||documentRef?.featurePolicy;
   let midiAllowedByPolicy=true;
