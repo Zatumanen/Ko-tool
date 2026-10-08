@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "pipeline": "speeduppercut-x2-reference-v1",
+  "description": "Synthetic normalized-source WAV vectors with fixed expected signed 16-bit little-endian PCM outputs; fake reference adapter only, NOT evidence of physical EP or WASM equivalence.",
+  "cases": [
+    {
+      "id": "mono-s16-48k-mid",
+      "source": {
+        "encoding": "pcm16",
+        "sampleRate": 48000,
+        "channels": 1,
+        "frames": 12,
+        "channelValues": [
+          {
+            "0": 0,
+            "3": 1,
+            "6": -1,
+            "9": 0.5
+          }
+        ]
+      },
+      "options": {
+        "fidelity": "mid",
+        "channels": "mono",
+        "playmode": "loop",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 32000,
+        "channels": 1,
+        "frames": 4,
+        "pcmHex": "0000ff7f00800040",
+        "playmode": "loop"
+      }
+    },
+    {
+      "id": "stereo-s16-48k-mid",
+      "source": {
+        "encoding": "pcm16",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 12,
+        "channelValues": [
+          {
+            "0": 0,
+            "3": 1,
+            "6": 0.5,
+            "9": -1
+          },
+          {
+            "0": 1,
+            "3": -1,
+            "6": 0,
+            "9": 0.25
+          }
+        ]
+      },
+      "options": {
+        "fidelity": "mid",
+        "channels": "stereo",
+        "playmode": "oneshot",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 32000,
+        "channels": 2,
+        "frames": 4,
+        "pcmHex": "0000ff7fff7f00800040000000800020",
+        "playmode": "oneshot"
+      }
+    },
+    {
+      "id": "mono-s24-32k-mid",
+      "source": {
+        "encoding": "pcm24",
+        "sampleRate": 32000,
+        "channels": 1,
+        "frames": 12,
+        "channelValues": [
+          {
+            "0": 1,
+            "2": 0.5,
+            "4": 0,
+            "6": -1,
+            "8": -0.5,
+            "10": 0.25
+          }
+        ]
+      },
+      "options": {
+        "fidelity": "mid",
+        "channels": "mono",
+        "playmode": "oneshot",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 32000,
+        "channels": 1,
+        "frames": 6,
+        "pcmHex": "ff7f00400000008000c00020",
+        "playmode": "oneshot"
+      }
+    },
+    {
+      "id": "stereo-f32-44k-hi",
+      "source": {
+        "encoding": "float32",
+        "sampleRate": 44100,
+        "channels": 2,
+        "frames": 16,
+        "channelDefaults": [
+          0.25,
+          -0.25
+        ]
+      },
+      "options": {
+        "fidelity": "hi",
+        "channels": "stereo",
+        "playmode": "loop",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 46875,
+        "channels": 2,
+        "frames": 9,
+        "pcmHex": "ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180ff7f0180",
+        "playmode": "loop"
+      }
+    },
+    {
+      "id": "mono-u8-48k-lo",
+      "source": {
+        "encoding": "pcm8",
+        "sampleRate": 48000,
+        "channels": 1,
+        "frames": 12,
+        "channelDefaults": [
+          0.5
+        ]
+      },
+      "options": {
+        "fidelity": "lo",
+        "channels": "mono",
+        "playmode": "oneshot",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 26250,
+        "channels": 1,
+        "frames": 3,
+        "pcmHex": "ff7fff7fff7f",
+        "playmode": "oneshot"
+      }
+    },
+    {
+      "id": "mono-s32-48k-hi",
+      "source": {
+        "encoding": "pcm32",
+        "sampleRate": 48000,
+        "channels": 1,
+        "frames": 16,
+        "channelDefaults": [
+          -0.5
+        ]
+      },
+      "options": {
+        "fidelity": "hi",
+        "channels": "mono",
+        "playmode": "oneshot",
+        "autoTrim": false
+      },
+      "expected": {
+        "sampleRate": 46875,
+        "channels": 1,
+        "frames": 8,
+        "pcmHex": "00800080008000800080008000800080",
+        "playmode": "oneshot"
+      }
+    }
+  ]
+}
