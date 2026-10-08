@@ -125,9 +125,12 @@ export function buildFileDeletePayload(fileId){
 }
 
 export function buildFileMovePayload(fileId,parentId,newFileId){
-  assertWireFid(fileId,{label:'FILE_MOVE source id'});
-  assertWireFid(parentId,{allowRoot:true,label:'FILE_MOVE parent id'});
-  assertWireFid(newFileId,{label:'FILE_MOVE destination id'});
+  for(const[value,label,allowRoot]of [
+    [fileId,'source id',false],[parentId,'parent id',true],[newFileId,'destination id',false]
+  ]){
+    try{assertWireFid(value,{allowRoot,label:'FILE_MOVE '+label});}
+    catch{throw new Error('EP-series FILE_MOVE '+label+' must be a 16-bit integer.');}
+  }
   const p=new Uint8Array(7),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_MOVED;
   view.setUint16(1,fileId);
