@@ -386,8 +386,9 @@ test('EP connection uses GREET base_sku for the effective device profile',async(
   const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   assert.match(source,/const baseSku=String\(metadata\?\.base_sku\|\|''\)\.toUpperCase\(\)/);
   assert.match(source,/const effectiveSku=isSupportedEpSku\(baseSku\)\?baseSku:found\.parsed\.sku/);
-  assert.match(source,/validateFirmware\(effectiveSku,metadata\)/);
-  assert.match(source,/deviceInfo=\{sku:effectiveSku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
+  assert.match(source,/const identity=assertDeviceIdentity\(\{/);
+  assert.match(source,/validateFirmware\(identity\.sku,metadata\)/);
+  assert.match(source,/deviceInfo=\{sku:identity\.sku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
 });
 
 test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
