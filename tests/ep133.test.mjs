@@ -1904,7 +1904,8 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   const end=source.indexOf('const downloadProjectArchive=async',start);
   const block=source.slice(start,end);
   assert.match(block,/withStrictFirmwareDebugGuard/);
-  assert.match(block,/resolveProjectWritePreflight\(\{/);\n  assert.match(source,/const backup=await getFile\(destination\.nodeId\)/);
+  assert.match(block,/resolveProjectWritePreflight\(\{/);
+  assert.match(source,/const backup=await getFile\(destination\.nodeId\)/);
   assert.match(block,/await onBackup\?\.\(/);
   assert.match(block,/const readback=await getFile\(destination\.nodeId\)/);
   assert.match(block,/compareProjectArchiveMembers\(data,readback\.data\)/);
