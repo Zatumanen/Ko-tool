@@ -1,8 +1,12 @@
 import{createSampleRecoveryTransaction}from './sampleRecovery.js?v=20261001-1';
 import{serializeEpError}from './errors.js?v=20261001-1';
+import{
+  SAMPLE_TRANSACTION_PHASES,SAMPLE_TRANSACTION_EVENT_STATUS,
+  assessSampleTransactionRecovery,sampleOperationFromLabel
+}from './sampleTransactionContract.js?v=20261008-1';
 
-export const SAMPLE_TRANSACTION_PHASES=Object.freeze(['PRECHECK','MUTATE','RECOVERY','FINALIZE']);
-export const SAMPLE_TRANSACTION_EVENT_STATUS=Object.freeze(['started','completed','failed']);
+export{SAMPLE_TRANSACTION_PHASES,SAMPLE_TRANSACTION_EVENT_STATUS,sampleOperationFromLabel};
+export const assessSampleRecovery=assessSampleTransactionRecovery;
 
 const PHASES=new Set(SAMPLE_TRANSACTION_PHASES);
 const EVENT_STATUS=new Set(SAMPLE_TRANSACTION_EVENT_STATUS);
@@ -27,89 +31,6 @@ const sanitizeValue=(value,depth=0)=>{
   }
   return String(value).slice(0,500);
 };
-
-const completedMutations=transaction=>(transaction?.journal||[])
-  .filter(event=>event.phase==='MUTATE'&&event.status==='completed'&&event.detail?.action);
-const failedMutations=transaction=>(transaction?.journal||[])
-  .filter(event=>event.phase==='MUTATE'&&event.status==='failed'&&event.detail?.action);
-const keyPair=(a,b)=>String(Number(a)||0)+'>'+String(Number(b)||0);
-
-export function assessSampleRecovery(transaction){
-  const operation=String(transaction?.operation||'').toLowerCase();
-  const completed=completedMutations(transaction);
-  const failed=failedMutations(transaction);
-  const attempted=(transaction?.journal||[]).filter(event=>
-    event.phase==='MUTATE'&&event.status==='started'&&event.detail?.action
-  );
-
-  if(!attempted.length&&!completed.length&&!failed.length)
-    return{status:'failed',requiresRecovery:false,reason:'No sample mutation reached the device.'};
-
-  if(operation==='delete'){
-    return{
-      status:'requires-recovery',requiresRecovery:true,
-      reason:'A delete transaction failed after a destructive FILE mutation was attempted.',
-      affectedSlots:[...new Set([...completed,...failed].map(event=>Number(event.detail?.slotId)).filter(Boolean))]
-    };
-  }
-
-  if(operation==='move'){
-    if(failed.some(event=>event.detail?.action==='move')){
-      return{status:'requires-recovery',requiresRecovery:true,reason:'A native MOVE failed after it was attempted.'};
-    }
-    const stack=[];
-    for(const event of completed.filter(event=>event.detail?.action==='move')){
-      const source=Number(event.detail?.sourceId)||0;
-      const target=Number(event.detail?.targetId)||0;
-      const reverseIndex=stack.findLastIndex(item=>item.source===target&&item.target===source);
-      if(reverseIndex>=0)stack.splice(reverseIndex,1);
-      else stack.push({source,target});
-    }
-    if(!stack.length&&completed.some(event=>event.detail?.action==='move'))
-      return{status:'rolled-back',requiresRecovery:false,reason:'Completed MOVE steps were reversed successfully.'};
-    return{
-      status:'requires-recovery',requiresRecovery:true,
-      reason:'One or more MOVE effects remain unmatched after transaction failure.',
-      moves:stack.map(item=>keyPair(item.source,item.target))
-    };
-  }
-
-  if(operation==='copy'||operation==='upload'){
-    const created=new Set();
-    const deleted=new Set();
-    for(const event of completed){
-      if(event.detail?.action==='upload'){
-        const id=Number(event.detail?.fileId||event.detail?.createdId||event.detail?.destinationId)||0;
-        if(id)created.add(id);
-      }
-      if(event.detail?.action==='delete'){
-        const id=Number(event.detail?.slotId)||0;
-        if(id)deleted.add(id);
-      }
-    }
-    for(const event of failed.filter(event=>event.detail?.action==='upload')){
-      const id=Number(event.detail?.createdId)||0;
-      if(id)created.add(id);
-    }
-    const residual=[...created].filter(id=>!deleted.has(id));
-    if(!residual.length&&created.size&&failed.every(event=>event.detail?.action!=='delete'))
-      return{status:'rolled-back',requiresRecovery:false,reason:'Created sample slots were removed successfully.',createdSlots:[...created]};
-    return{
-      status:'requires-recovery',requiresRecovery:true,
-      reason:residual.length?'Created sample slots may remain after rollback.':'An upload mutation failed before its final state could be proven.',
-      affectedSlots:residual.length?residual:[...created]
-    };
-  }
-
-  const metadataCompleted=completed.some(event=>event.detail?.action==='set-metadata');
-  if(metadataCompleted){
-    return{
-      status:'requires-recovery',requiresRecovery:true,
-      reason:'Sample metadata changed before the transaction failed; authoritative readback is required.'
-    };
-  }
-  return{status:'failed',requiresRecovery:false,reason:'The sample transaction failed before a confirmed mutation.'};
-}
 
 export function createSampleTransactionJournal({
   recoveryStore,getConnectedDeviceInfo,now=()=>new Date()
@@ -182,17 +103,6 @@ export function createSampleTransactionJournal({
     listTransactions:()=>recoveryStore.listTransactions(),
     deleteTransaction:id=>recoveryStore.deleteTransaction(id)
   });
-}
-
-export function sampleOperationFromLabel(label){
-  const text=String(label||'').toLowerCase();
-  if(text.includes('upload'))return'upload';
-  if(text.includes('copy'))return'copy';
-  if(text.includes('move'))return'move';
-  if(text.includes('delete'))return'delete';
-  if(text.includes('rename'))return'rename';
-  if(text.includes('property'))return'property';
-  return null;
 }
 
 export function createJournaledSampleFileOps({fileOps,journal,transactionId,ensurePrecheckComplete}={}){
