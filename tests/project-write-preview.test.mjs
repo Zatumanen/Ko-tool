@@ -6,10 +6,10 @@ const writeText=(bytes,offset,length,text)=>{
   bytes.fill(0,offset,offset+length);
   for(let index=0;index<text.length&&index<length;index++)bytes[offset+index]=text.charCodeAt(index);
 };
-const tar=payload=>{
+const member=(path,payload)=>{
   const data=Uint8Array.from(payload);
   const header=new Uint8Array(512);
-  writeText(header,0,100,'vendor_blob');
+  writeText(header,0,100,path);
   writeText(header,100,8,'0000644\0');
   writeText(header,124,12,data.length.toString(8)+'\0');
   header[156]='0'.charCodeAt(0);header.fill(0x20,148,156);
@@ -17,7 +17,16 @@ const tar=payload=>{
   const checksum=sum.toString(8)+'\0';writeText(header,148,8,checksum);
   for(let index=148+checksum.length;index<156;index++)header[index]=0x20;
   const padded=new Uint8Array(Math.ceil(data.length/512)*512);padded.set(data);
-  const out=new Uint8Array(512+padded.length+1024);out.set(header);out.set(padded,512);
+  return[header,padded];
+};
+const tar=bars=>{
+  const chunks=[
+    ...member('vendor_blob',[1,2,3]),
+    ...member('patterns/a01',[0,bars,0,0])
+  ];
+  const out=new Uint8Array(chunks.reduce((sum,chunk)=>sum+chunk.length,1024));
+  let offset=0;
+  for(const chunk of chunks){out.set(chunk,offset);offset+=chunk.length;}
   return out;
 };
 const projectFile=data=>({
@@ -26,7 +35,7 @@ const projectFile=data=>({
 });
 
 const harness=()=>{
-  let current=tar([1,2,3]);
+  let current=tar(1);
   let putCalls=0,checkpointSaves=0;
   const recoveryStore={
     async saveCheckpoint(){checkpointSaves++;},
@@ -72,14 +81,15 @@ const harness=()=>{
 
 test('project write preview reads the live destination and creates no checkpoint or FILE mutation',async()=>{
   const h=harness();
-  const candidate=tar([1,9,3]);
+  const candidate=tar(2);
   const preview=await h.filesystem.previewProjectArchiveWrite(projectFile(candidate),{requireInactive:true});
   assert.equal(preview.project,'02');
   assert.equal(preview.activeProjectBeforeWrite,3001);
   assert.equal(preview.diff.members.changed,1);
-  assert.equal(preview.diff.changedMembers[0].path,'vendor_blob');
-  assert.equal(preview.diff.changedMembers[0].kind,'unknown');
-  assert.equal(preview.diff.unknown.touched,1);
+  assert.equal(preview.diff.changedMembers[0].path,'patterns/a01');
+  assert.equal(preview.diff.changedMembers[0].kind,'pattern');
+  assert.equal(preview.diff.unknown.touched,0);
+  assert.equal(preview.diff.unknown.preserved,1);
   assert.match(preview.original.crc32,/^[0-9a-f]{8}$/i);
   assert.match(preview.candidate.crc32,/^[0-9a-f]{8}$/i);
   assert.deepEqual(h.stats(),{putCalls:0,checkpointSaves:0});
@@ -87,9 +97,9 @@ test('project write preview reads the live destination and creates no checkpoint
 
 test('project write refuses stale diff previews before checkpoint creation or FILE PUT',async()=>{
   const h=harness();
-  const candidate=tar([1,9,3]);
+  const candidate=tar(2);
   const preview=await h.filesystem.previewProjectArchiveWrite(projectFile(candidate),{requireInactive:true});
-  h.setCurrent(tar([7,7,7]));
+  h.setCurrent(tar(3));
   await assert.rejects(()=>h.filesystem.uploadProjectArchive(projectFile(candidate),{
     requireInactive:true,performReload:false,
     expectedOriginalCrc32:preview.original.crc32,
