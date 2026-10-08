@@ -244,21 +244,27 @@ test('registered evidence resolves firmware scope without losing registry proven
   assert.match(unknown.reason,/No evidence registry entry exists/);
 });
 
-test('profiles consume the central evidence registry instead of defining capability evidence locally',async()=>{
+test('device and project profiles share the compatibility matrix and evidence facade',async()=>{
   const fs=await import('node:fs/promises');
-  const [deviceProfile,projectProfile,registry]=await Promise.all([
+  const [deviceProfile,projectProfile,registry,capabilities,matrix]=await Promise.all([
     fs.readFile(new URL('../js/ep133/deviceProfile.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/projectProfile.js',import.meta.url),'utf8'),
-    fs.readFile(new URL('../js/ep133/evidenceRegistry.js',import.meta.url),'utf8')
+    fs.readFile(new URL('../js/ep133/evidenceRegistry.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/deviceCapabilities.js',import.meta.url),'utf8'),
+    fs.readFile(new URL('../js/ep133/deviceCompatibilityMatrix.js',import.meta.url),'utf8')
   ]);
-  assert.match(deviceProfile,/resolveRegisteredCapabilityEvidence/);
-  assert.match(projectProfile,/resolveRegisteredCapabilityEvidence/);
-  assert.doesNotMatch(deviceProfile,/capabilityEvidence\(/);
-  assert.doesNotMatch(projectProfile,/capabilityEvidence\(/);
+  for(const source of [deviceProfile,projectProfile]){
+    assert.match(source,/getEpCompatibility/);
+    assert.match(source,/resolveDeviceCapabilities/);
+    assert.doesNotMatch(source,/resolveRegisteredCapabilityEvidence/);
+    assert.doesNotMatch(source,/capabilityEvidence\(/);
+  }
+  assert.match(capabilities,/resolveRegisteredCapabilityEvidence/);
   assert.match(registry,/hardware-verified|HARDWARE_VERIFIED/);
   assert.match(registry,/firmwareRange/);
   assert.match(registry,/recordedAt/);
   assert.match(registry,/artifactId/);
+  assert.match(matrix,/DEVICE_COMPATIBILITY_MATRIX/);
 });
 
 test('EP-series identity accepts supported TE032 SKUs',()=>{
@@ -551,8 +557,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(fileTransport.includes("./fileScheduler.js?v="+token),true);
   assert.equal(fileTransport.includes("./fileProtocol.js?v="+token),true);
   assert.equal(index.includes("./evidenceRegistry.js?v="+token),true);
-  assert.equal(deviceProfile.includes("./evidenceRegistry.js?v="+token),true);
-  assert.equal(projectProfile.includes("./evidenceRegistry.js?v="+token),true);
+  assert.equal(deviceProfile.includes("./deviceCompatibilityMatrix.js?v=20261008-1"),true);
+  assert.equal(projectProfile.includes("./deviceCompatibilityMatrix.js?v=20261008-1"),true);
+  assert.equal(evidenceRegistry.includes("./deviceCompatibilityMatrix.js?v=20261008-1"),true);
   assert.equal(evidenceRegistry.includes("./capabilityEvidence.js?v="+token),true);
 });
 
