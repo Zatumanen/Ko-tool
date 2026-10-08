@@ -1,3 +1,4 @@
+import{assertUnsigned}from './coreContracts.js?v=20261008-1';
 import{
   TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_CAPABILITY_WRITE,
   TE_SYSEX_FILE_CAPABILITY_DELETE,TE_SYSEX_FILE_CAPABILITY_MOVE,
@@ -20,7 +21,7 @@ const evidenceKeys=Object.freeze({
 });
 
 export function decodeFileRights(mask=0){
-  const value=Number(mask)||0;
+  const value=assertUnsigned(mask,'FILE capability mask',0xff);
   return Object.freeze({
     read:(value&TE_SYSEX_FILE_CAPABILITY_READ)!==0,
     write:(value&TE_SYSEX_FILE_CAPABILITY_WRITE)!==0,

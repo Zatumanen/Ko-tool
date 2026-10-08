@@ -1,3 +1,4 @@
+import{assertSampleTransactionStatus}from './coreContracts.js?v=20261008-1';
 import{createSampleRecoveryTransaction}from './sampleRecovery.js?v=20261001-1';
 import{serializeEpError}from './errors.js?v=20261001-1';
 import{
@@ -93,6 +94,7 @@ export function createSampleTransactionJournal({
       }else if(assessment.requiresRecovery){
         try{await append(id,'RECOVERY','failed',{detail:assessment,error});}catch{}
       }
+      assertSampleTransactionStatus(assessment.status);
       return recoveryStore.updateTransaction(id,{
         status:assessment.status,
         transactionStatus:assessment.status,

@@ -1,3 +1,4 @@
+import{assertSampleSlot,assertSampleTransactionStatus}from './coreContracts.js?v=20261008-1';
 import{hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
 
 const DB_NAME='speeduppercut-sample-recovery';
@@ -32,13 +33,13 @@ const normalizeSlot=slot=>{
   if(slot==null)return null;
   if(typeof slot==='number'||typeof slot==='string'){
     const id=Number(slot);
-    return Number.isInteger(id)&&id>0?{slotId:id}:null;
+    try{return{slotId:assertSampleSlot(id)};}catch{return null;}
   }
   if(typeof slot!=='object')return null;
   const out={};
   for(const key of ['slotId','sourceId','targetId','nodeId']){
     const value=Number(slot[key]);
-    if(Number.isInteger(value)&&value>0)out[key]=value;
+    try{out[key]=assertSampleSlot(value);}catch{}
   }
   if(slot.name!=null)out.name=String(slot.name).slice(0,200);
   if(Number.isFinite(Number(slot.size))&&Number(slot.size)>=0)out.size=Number(slot.size);
@@ -76,6 +77,11 @@ export function createSampleRecoveryTransaction({
   });
 }
 
+const assertTransactionPatch=patch=>{
+  if(Object.hasOwn(patch,'status'))assertSampleTransactionStatus(patch.status);
+  if(Object.hasOwn(patch,'transactionStatus'))assertSampleTransactionStatus(patch.transactionStatus);
+};
+
 const cloneTransaction=transaction=>transaction?{
   ...transaction,
   device:{...(transaction.device||{})},
@@ -103,6 +109,7 @@ const createRecordStore=({persistent=false}={})=>{
       return cloneTransaction(saved);
     },
     async updateTransaction(id,patch={}){
+      assertTransactionPatch(patch);
       const key=String(id||'');
       const current=records.get(key);
       if(!current)throw new Error('Sample recovery transaction was not found: '+key);
@@ -207,6 +214,7 @@ export function createBrowserSampleRecoveryStore({
     persistent:true,
     async saveTransaction(transaction){return put({...cloneTransaction(transaction),status:'pending',transactionStatus:'pending'});},
     async updateTransaction(id,patch={}){
+      assertTransactionPatch(patch);
       const current=await get(id);
       if(!current)throw new Error('Sample recovery transaction was not found: '+String(id||''));
       const next={

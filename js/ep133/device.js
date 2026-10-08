@@ -1,6 +1,7 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
 import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
+import{assertDeviceIdentity,assertFileMetadata}from './coreContracts.js?v=20261008-1';
 import{compareFirmwareVersions}from './capabilityEvidence.js?v=20261001-1';
 import{dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
 
@@ -48,7 +49,7 @@ export function parseFileEvent(type,data=new Uint8Array()){
     case TE_SYSEX_FILE_EVENT_METADATA_UPDATED:{
       if(bytes.length<3)throw new Error('Invalid EP-series METADATA_UPDATED event.');
       const json=parseNullTerminatedString(bytes,2);
-      return{nodeId:eventU16(bytes,0),metadata:JSON.parse(json)};
+      return{nodeId:eventU16(bytes,0),metadata:assertFileMetadata(JSON.parse(json),'FILE event metadata')};
     }
     case TE_SYSEX_FILE_EVENT_FILE_MOVED:
       if(bytes.length<6)throw new Error('Invalid EP-series FILE_MOVED event.');
@@ -339,12 +340,18 @@ export async function connectEp133(){
   const greet=await sendRequest(TE_SYSEX_GREET);
   if(!greet||greet.status!==STATUS_OK)throw new Error('EP-series GREET failed.');
   identityCode=greet.identityCode;
-  const metadata=metadataStringToObject(new TextDecoder().decode(greet.rawData));
+  const metadata=assertFileMetadata(
+    metadataStringToObject(new TextDecoder().decode(greet.rawData)),
+    'device GREET metadata'
+  );
   const baseSku=String(metadata?.base_sku||'').toUpperCase();
   const effectiveSku=isSupportedEpSku(baseSku)?baseSku:found.parsed.sku;
-  validateFirmware(effectiveSku,metadata);
+  const identity=assertDeviceIdentity({
+    sku:effectiveSku,firmware:metadata?.os_version||'',midiId:found.parsed.midiId
+  });
+  validateFirmware(identity.sku,metadata);
   initialized=true;
-  deviceInfo={sku:effectiveSku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
+  deviceInfo={sku:identity.sku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
   publishRuntimeEvent({type:'DEVICE_CONNECTED',connectionEpoch,device:deviceRuntimeSummary(deviceInfo)});
   notifyConnection();
   return{...deviceInfo,input,output};

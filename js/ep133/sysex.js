@@ -1,3 +1,4 @@
+import{assertBinaryBytes,assertUnsigned,isValidTeWireFrame}from './coreContracts.js?v=20261008-1';
 import{MIDI_SYSEX_START,MIDI_SYSEX_END,TE_MIDI_ID,MIDI_SYSEX_TE,BIT_IS_REQUEST,BIT_REQUEST_ID_AVAILABLE,STATUS_OK}from './constants.js';
 import{packToBuffer,packedLength,unpackInPlace}from './packing.js';
 
@@ -15,7 +16,8 @@ const SUPPORTED_EP_SKUS=new Set(['TE032AS001','TE032AS005','TE032AS006']);
 export function isSupportedEpSku(sku){return SUPPORTED_EP_SKUS.has(String(sku||'').toUpperCase());}
 
 export function parseIdentityResponse(bytes){
-  if(bytes.length!==17||bytes[0]!==0xF0||bytes[1]!==0x7E||bytes[5]!==TE_MIDI_ID[0]||bytes[6]!==TE_MIDI_ID[1]||bytes[7]!==TE_MIDI_ID[2])return null;
+  if(!(bytes instanceof Uint8Array)||bytes.length!==17||bytes[0]!==0xF0||bytes[1]!==0x7E||bytes[3]!==0x06||bytes[4]!==0x02||bytes[5]!==TE_MIDI_ID[0]||bytes[6]!==TE_MIDI_ID[1]||bytes[7]!==TE_MIDI_ID[2]||bytes[16]!==0xF7)return null;
+  for(let i=2;i<16;i++)if(bytes[i]>0x7f)return null;
   const productCode=bytes[8]^(bytes[9]<<7);
   const assemblyCode=bytes[10]^(bytes[11]<<7);
   return{midiId:bytes[2],sku:`TE${String(productCode).padStart(3,'0')}AS${String(assemblyCode).padStart(3,'0')}`};
@@ -23,7 +25,9 @@ export function parseIdentityResponse(bytes){
 
 export function encodeTeSysex(command,payload=new Uint8Array(),identityCode=0,id=1){
   if(!Number.isInteger(id)||id<1||id>0xfff)throw new Error('TE request id must be 1..4095.');
-  const data=payload instanceof Uint8Array?payload:new Uint8Array(payload||[]);
+  assertUnsigned(command,'TE SysEx command',0x7f);
+  assertUnsigned(identityCode,'TE SysEx identity code',0x7f);
+  const data=assertBinaryBytes(payload,'TE SysEx payload');
   const plen=packedLength(data.length);
   const msg=new Uint8Array(10+plen);
   msg.set([MIDI_SYSEX_START,...TE_MIDI_ID,identityCode,MIDI_SYSEX_TE,BIT_IS_REQUEST|BIT_REQUEST_ID_AVAILABLE|((id>>7)&0x1f),id&0x7f,command],0);
@@ -37,8 +41,9 @@ export function buildTeSysex(command,payload=new Uint8Array(),identityCode=0,out
 }
 
 export function parseTeSysex(bytes){
-  if(bytes.length<10||bytes[0]!==MIDI_SYSEX_START||bytes[1]!==TE_MIDI_ID[0]||bytes[2]!==TE_MIDI_ID[1]||bytes[3]!==TE_MIDI_ID[2]||bytes[5]!==MIDI_SYSEX_TE||bytes.at(-1)!==MIDI_SYSEX_END)return null;
+  if(!(bytes instanceof Uint8Array)||bytes.length<10||bytes[0]!==MIDI_SYSEX_START||bytes[1]!==TE_MIDI_ID[0]||bytes[2]!==TE_MIDI_ID[1]||bytes[3]!==TE_MIDI_ID[2]||bytes[5]!==MIDI_SYSEX_TE||bytes.at(-1)!==MIDI_SYSEX_END)return null;
   const flags=bytes[6],isRequest=!!(flags&BIT_IS_REQUEST),hasId=!!(flags&BIT_REQUEST_ID_AVAILABLE);
+  if(!isValidTeWireFrame(bytes,isRequest?9:10))return null;
   const id=hasId?((flags&0x1f)<<7)|(bytes[7]&0x7f):0;
   let index=9,status=-1;
   if(!isRequest)status=bytes[index++];

@@ -11,6 +11,7 @@ import{
   TE_SYSEX_FILE_GET,TE_SYSEX_FILE_GET_TYPE_INIT,TE_SYSEX_FILE_GET_TYPE_DATA
 }from './constants.js';
 import{parseNullTerminatedString}from './packing.js';
+import{assertBinaryBytes,assertUnsigned,assertWireFid,assertFileMetadata}from './coreContracts.js?v=20261008-1';
 
 export const readU16=(a,i)=>(a[i]<<8)|a[i+1];
 export const readU32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
@@ -30,6 +31,7 @@ export function calculateMaxPayloadLength(maxPacketLength){
 }
 
 export function buildFileInitPayload(maxResponseLength=4*1024*1024){
+  assertUnsigned(maxResponseLength,'FILE_INIT response length');
   const p=new Uint8Array(6),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_INIT;
   p[1]=TE_SYSEX_FILE_INIT_SUBSCRIBE;
@@ -38,6 +40,8 @@ export function buildFileInitPayload(maxResponseLength=4*1024*1024){
 }
 
 export function buildFileListPayload(page,nodeId){
+  assertUnsigned(page,'FILE_LIST page',0xffff);
+  assertWireFid(nodeId,{allowRoot:true,label:'FILE_LIST parent id'});
   const p=new Uint8Array(5),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_LIST;
   view.setUint16(1,page);
@@ -53,6 +57,8 @@ export function parseMetadataResponse(raw,page){
 }
 
 export function buildMetadataGetPayload(nodeId,page=0,key=null){
+  assertWireFid(nodeId,{allowRoot:true,label:'FILE_METADATA id'});
+  assertUnsigned(page,'FILE_METADATA page',0xffff);
   const keyBytes=key?new TextEncoder().encode(String(key)):null;
   const p=new Uint8Array(6+(keyBytes?.length||0)+(keyBytes?1:0)),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_METADATA;
@@ -64,13 +70,18 @@ export function buildMetadataGetPayload(nodeId,page=0,key=null){
 }
 
 export function parseFileListEntries(data){
+  assertBinaryBytes(data,'FILE_LIST entries');
   const out=[];
   let offset=0;
-  while(offset+7<=data.length){
+  while(offset<data.length){
+    if(data.length-offset<8)throw new Error('Truncated EP-series FILE_LIST entry.');
     const nodeId=readU16(data,offset);
     const flags=data[offset+2];
     const fileSize=readU32(data,offset+3);
-    const fileName=parseNullTerminatedString(data,offset+7);
+    const nameStart=offset+7;
+    const nameEnd=data.indexOf(0,nameStart);
+    if(nameEnd<0)throw new Error('Unterminated EP-series FILE_LIST name.');
+    const fileName=parseNullTerminatedString(data,nameStart);
     out.push({
       nodeId,flags,fileSize,fileName,
       fileType:(flags&TE_SYSEX_FILE_FILE_TYPE_FILE)?'file':'folder',
@@ -80,12 +91,13 @@ export function parseFileListEntries(data){
       isMovable:!!(flags&TE_SYSEX_FILE_CAPABILITY_MOVE),
       isPlayable:!!(flags&TE_SYSEX_FILE_CAPABILITY_PLAYBACK)
     });
-    offset+=7+fileName.length+1;
+    offset=nameEnd+1;
   }
   return out;
 }
 
 export function buildFileInfoPayload(fileId){
+  assertWireFid(fileId);
   const p=new Uint8Array(3),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_INFO;
   view.setUint16(1,fileId);
@@ -93,7 +105,8 @@ export function buildFileInfoPayload(fileId){
 }
 
 export function parseFileInfoResponse(raw){
-  if(raw.length<10)throw new Error('Invalid EP-series FILE_INFO response.');
+  assertBinaryBytes(raw,'FILE_INFO response');
+  if(raw.length<10||raw.indexOf(0,9)<0)throw new Error('Invalid EP-series FILE_INFO response.');
   return{
     nodeId:readU16(raw,0),
     parentId:readU16(raw,2),
@@ -104,6 +117,7 @@ export function parseFileInfoResponse(raw){
 }
 
 export function buildFileDeletePayload(fileId){
+  assertWireFid(fileId);
   const p=new Uint8Array(3),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_DELETE;
   view.setUint16(1,fileId);
@@ -111,9 +125,11 @@ export function buildFileDeletePayload(fileId){
 }
 
 export function buildFileMovePayload(fileId,parentId,newFileId){
-  for(const[value,label]of [[fileId,'source id'],[parentId,'parent id'],[newFileId,'destination id']]){
-    if(!Number.isInteger(value)||value<0||value>0xffff)
-      throw new Error('EP-series FILE_MOVE '+label+' must be a 16-bit integer.');
+  for(const[value,label,allowRoot]of [
+    [fileId,'source id',false],[parentId,'parent id',true],[newFileId,'destination id',false]
+  ]){
+    try{assertWireFid(value,{allowRoot,label:'FILE_MOVE '+label});}
+    catch{throw new Error('EP-series FILE_MOVE '+label+' must be a 16-bit integer.');}
   }
   const p=new Uint8Array(7),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_MOVED;
@@ -124,7 +140,7 @@ export function buildFileMovePayload(fileId,parentId,newFileId){
 }
 
 export function parseFileMoveResponse(raw){
-  if(!(raw instanceof Uint8Array))raw=new Uint8Array(raw||[]);
+  assertBinaryBytes(raw,'FILE_MOVE response');
   if(raw.length<6)throw new Error('Invalid EP-series FILE_MOVE response.');
   return{oldFileId:readU16(raw,0),parentId:readU16(raw,2),newFileId:readU16(raw,4)};
 }
@@ -133,6 +149,10 @@ export function buildFilePutInitPayload(
   fileId,parentId,fileSize,filename,metadata=null,
   {isDirectory=false,capabilities=[TE_SYSEX_FILE_CAPABILITY_READ]}={}
 ){
+  assertWireFid(fileId,{label:'FILE_PUT destination id'});
+  assertWireFid(parentId,{allowRoot:true,label:'FILE_PUT parent id'});
+  assertUnsigned(fileSize,'FILE_PUT file size');
+  if(metadata!=null)assertFileMetadata(metadata);
   const safe=String(filename||'').slice(0,54);
   const meta=metadata==null?'':JSON.stringify(metadata);
   const p=new Uint8Array(11+safe.length+1+meta.length),view=new DataView(p.buffer);
@@ -157,6 +177,7 @@ export function validateFilePutPage(page){
 
 export function buildFilePutDataPayload(page,data){
   validateFilePutPage(page);
+  assertBinaryBytes(data,'FILE_PUT page data');
   const p=new Uint8Array(4+data.byteLength),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_PUT;
   p[1]=TE_SYSEX_FILE_PUT_TYPE_DATA;
@@ -166,6 +187,8 @@ export function buildFilePutDataPayload(page,data){
 }
 
 export function buildMetadataSetPayload(fileId,metadata){
+  assertWireFid(fileId);
+  assertFileMetadata(metadata);
   const json=JSON.stringify(metadata);
   const p=new Uint8Array(5+json.length),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_METADATA;
@@ -176,6 +199,8 @@ export function buildMetadataSetPayload(fileId,metadata){
 }
 
 export function buildMetadataPagedInitPayload(fileId,size){
+  assertWireFid(fileId);
+  assertUnsigned(size,'METADATA_SET payload size');
   const p=new Uint8Array(9),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_METADATA;
   p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;
@@ -186,6 +211,8 @@ export function buildMetadataPagedInitPayload(fileId,size){
 }
 
 export function buildMetadataPagedDataPayload(page,data){
+  assertUnsigned(page,'METADATA_SET page',0xffff);
+  assertBinaryBytes(data,'METADATA_SET page data');
   const p=new Uint8Array(5+data.byteLength),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_METADATA;
   p[1]=TE_SYSEX_FILE_METADATA_SET_PAGED;
@@ -196,6 +223,9 @@ export function buildMetadataPagedDataPayload(page,data){
 }
 
 export function validateFileGetChunk(raw,page,remaining){
+  assertBinaryBytes(raw,'FILE_GET response');
+  assertUnsigned(page,'FILE_GET page',0xffff);
+  assertUnsigned(remaining,'FILE_GET remaining byte count');
   if(raw.length<2)throw new Error(`Invalid FILE_GET response for page ${page}.`);
   const gotPage=readU16(raw,0);
   if(gotPage!==page)throw new Error(`Unexpected page ${gotPage}, expected ${page}`);
@@ -206,6 +236,8 @@ export function validateFileGetChunk(raw,page,remaining){
 }
 
 export function buildFileGetInitPayload(nodeId,offset=0){
+  assertWireFid(nodeId);
+  assertUnsigned(offset,'FILE_GET offset');
   const p=new Uint8Array(8),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_GET;
   p[1]=TE_SYSEX_FILE_GET_TYPE_INIT;
@@ -215,6 +247,7 @@ export function buildFileGetInitPayload(nodeId,offset=0){
 }
 
 export function buildFileGetDataPayload(page){
+  assertUnsigned(page,'FILE_GET page',0xffff);
   const p=new Uint8Array(4),view=new DataView(p.buffer);
   p[0]=TE_SYSEX_FILE_GET;
   p[1]=TE_SYSEX_FILE_GET_TYPE_DATA;

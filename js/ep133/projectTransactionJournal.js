@@ -1,3 +1,4 @@
+import{assertProjectTransactionStatus}from './coreContracts.js?v=20261008-1';
 import{serializeEpError}from './errors.js?v=20261001-1';
 
 export const PROJECT_TRANSACTION_PHASES=Object.freeze([
@@ -81,6 +82,7 @@ export function createProjectTransactionJournal({
     if(normalizedPhase==='ROLLBACK'&&normalizedStatus==='completed')nextTransactionStatus='rolled-back';
     if(normalizedPhase==='ROLLBACK'&&normalizedStatus==='failed')nextTransactionStatus='rollback-failed';
 
+    assertProjectTransactionStatus(nextTransactionStatus);
     const patch={
       journal,
       transactionStatus:nextTransactionStatus,
