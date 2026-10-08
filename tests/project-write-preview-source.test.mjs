@@ -19,7 +19,9 @@ test('project write preview runs before mutation and upload rechecks preview CRC
   assert.ok(previewStart>=0&&uploadStart>previewStart);
   const previewBlock=source.slice(previewStart,uploadStart);
   assert.match(previewBlock,/assertProjectRuntimeSettled\('project write preview'\)/);
-  assert.match(previewBlock,/diff:preflight\.diff/);\n  assert.match(source,/const diff=buildProjectWriteDiff\(backup\.data,data\)/);\n  assert.match(source,/assertProjectWriteNativePreservation\(diff\)/);
+  assert.match(previewBlock,/diff:preflight\.diff/);
+  assert.match(source,/const diff=buildProjectWriteDiff\(backup\.data,data\)/);
+  assert.match(source,/assertProjectWriteNativePreservation\(diff\)/);
   assert.doesNotMatch(previewBlock,/putFile\(|saveCheckpoint\(|createProjectRecoveryCheckpoint\(/);
 
   const uploadEnd=source.indexOf('const getProjectRecoveryCheckpoint=',uploadStart);
