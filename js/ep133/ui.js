@@ -1,7 +1,8 @@
 import{onConnectionChange,onMidiActivity}from './index.js?v=20261001-1';
 import{createEpWorkspace}from './ui/createEpWorkspace.js?v=20261001-1';
 import{getEpBrowserDom,hasRequiredEpBrowserDom}from './ui/domRegistry.js';
-import{isMobileUserAgent,makeDraggableWindow}from './ui/windowShell.js';
+import{makeDraggableWindow}from './ui/windowShell.js';
+import{inspectBrowserCapabilities}from '../platformSupport.js?v=20261008-1';
 
 export function initEp133Browser({showError}={}){
   const dom=getEpBrowserDom(document);
@@ -10,8 +11,9 @@ export function initEp133Browser({showError}={}){
   const workspace=createEpWorkspace({dom,showError,documentRef:document,windowRef:window});
 
   open.addEventListener('click',()=>{
-    if(isMobileUserAgent(navigator.userAgent)){
-      showError?.('MY EP WORKS ON DESKTOP COMPUTERS ONLY.');
+    const support=inspectBrowserCapabilities({navigatorRef:navigator,windowRef:window,documentRef:document});
+    if(!support.myEp.supported){
+      showError?.(support.myEp.message);
       return;
     }
     workspace.openPanel();
