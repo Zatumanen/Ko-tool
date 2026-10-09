@@ -26,7 +26,7 @@ test('OS shell distinguishes actual operations from preview-only features',async
   assert.match(html,/NO DEVICE SESSION/);
   assert.match(html,/DEMO SIGNAL \/ NOT DEVICE AUDIO/);
   assert.match(html,/\.\.\/index\.html#my-ep/);
-  assert.match(js,/NO device writes/i);
+  assert.match(js,/No WebMIDI requests or device writes/);
   assert.match(renderPage('samples'),/OPEN CONVERTER/);
   assert.match(renderPage('device'),/OPEN DEVICE MANAGER/);
   assert.match(renderPage('community'),/not an active public database/);
