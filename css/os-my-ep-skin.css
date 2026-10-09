@@ -361,3 +361,50 @@ html.os-embedded[data-os-theme="classic"] .ep-sequencer-window{
 @media(prefers-reduced-motion:reduce){
  html.os-embedded *{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+/* Accessible project actions: span the WHOLE device panel, never hide Backup
+   beyond the narrow project sidebar. Retain the original DOM and listeners. */
+html.os-embedded .ep-project-browser{
+ display:grid;
+ grid-template-columns:minmax(155px,35%) minmax(0,1fr);
+ grid-template-rows:auto minmax(0,1fr);
+ overflow:hidden
+}
+html.os-embedded .ep-project-sidebar{display:contents}
+html.os-embedded .ep-project-toolbar{
+ grid-column:1/-1;grid-row:1;min-width:0;
+ display:flex;flex-direction:row;flex-wrap:wrap;
+ align-items:center;justify-content:space-between;gap:10px;
+ padding:11px 14px;min-height:54px
+}
+html.os-embedded .ep-project-toolbar-actions{
+ flex:1 1 420px;min-width:0;display:flex;align-items:center;
+ justify-content:flex-end;gap:5px;flex-wrap:wrap
+}
+html.os-embedded .ep-project-toolbar-actions button{
+ white-space:nowrap;flex:0 0 auto;min-width:0
+}
+html.os-embedded .ep-project-list{
+ grid-column:1;grid-row:2;min-width:0;min-height:0;
+ border-right:1px solid var(--su-edge)
+}
+html.os-embedded .ep-project-inspector{
+ grid-column:2;grid-row:2;min-width:0;min-height:0
+}
+@media(max-width:760px){
+ html.os-embedded .ep-project-toolbar{align-items:flex-start}
+ html.os-embedded .ep-project-toolbar-actions{justify-content:flex-start}
+}
+@media(max-width:460px){
+ html.os-embedded .ep-project-browser{
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(140px,180px) minmax(200px,1fr);
+  overflow:auto
+ }
+ html.os-embedded .ep-project-toolbar{grid-column:1;grid-row:1}
+ html.os-embedded .ep-project-list{
+  grid-column:1;grid-row:2;max-height:180px;border-right:0;
+  border-bottom:1px solid var(--su-edge)
+ }
+ html.os-embedded .ep-project-inspector{grid-column:1;grid-row:3}
+}
