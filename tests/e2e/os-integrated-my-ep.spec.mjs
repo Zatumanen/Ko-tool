@@ -79,3 +79,34 @@ test('original verified sample upload works from the embedded My EP without leav
  await expect(page.locator('#os-runtime-label')).toContainText('READY',{timeout:12000});
  expect(context.pages().length).toBe(1);
 });
+
+test('embedded sample slots support keyboard navigation, range selection, search and rename',async({page})=>{
+ const frame=await openIntegratedEp(page);
+ const slot=id=>frame.locator('[data-slot="'+id+'"]');
+ await expect(slot(1)).toHaveAttribute('tabindex','0');
+ await slot(1).focus();
+ await page.keyboard.press('ArrowDown');
+ await expect(slot(2)).toBeFocused();
+ await expect(slot(2)).toHaveAttribute('aria-selected','true');
+ await page.keyboard.press('End');
+ await expect(slot(99)).toBeFocused();
+ await page.keyboard.press('Shift+ArrowUp');
+ await expect(slot(98)).toBeFocused();
+ await expect(slot(98)).toHaveAttribute('aria-selected','true');
+ await expect(slot(99)).toHaveAttribute('aria-selected','true');
+ await page.keyboard.press('Home');
+ await expect(slot(1)).toBeFocused();
+ await page.keyboard.press('Space');
+ await expect(slot(1)).toHaveAttribute('aria-selected','true');
+ await frame.locator('#ep133-sample-search').fill('snare');
+ await expect(frame.locator('#ep133-sample-list [data-slot]')).toHaveCount(1);
+ await slot(8).focus();
+ await page.keyboard.press('Home');
+ await expect(slot(8)).toBeFocused();
+ await frame.locator('#ep133-sample-search').fill('');
+ await slot(7).focus();
+ await page.keyboard.press('F2');
+ await expect(frame.locator('[data-name-input="7"]')).toBeFocused();
+ await page.keyboard.press('Escape');
+ expect(await frame.locator('body').evaluate(()=>window.__fakeEp.midiAccessRequests.length)).toBe(1);
+});
