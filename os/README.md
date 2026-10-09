@@ -27,6 +27,38 @@ remain available without functional changes to hardware operations.
   A standalone legacy deep link remains possible, but it is no longer
   required for the OS interface.
 
+## Design system slice: My EP in Studio / Classic
+
+The embedded My EP now uses the OS visual language while **keeping every
+existing DOM ID, handler, project-format validation, transaction journal and
+write confirmation**:
+
+- `css/os-my-ep-skin.css` is scoped under `html.os-embedded` and cannot
+  restyle the default Win95 desktop. It skins the verified device header,
+  storage meter, MIDI activity, group selectors, search, sample rows, the
+  projects sidebar/inspector, operation progress and existing dialogs.
+- `Studio` is graphite with muted industrial typography and a restrained
+  orange highlight. `Classic` uses an off-white device surface with
+  stronger Win95-inspired blue titlebars. Both share responsive geometry.
+- `os/deviceDock.js` synchronizes **only** the `data-os-theme` presentation
+  attribute on the same-origin iframe; never sends commands or alters its
+  runtime. In a different-origin context it fails closed without DOM access.
+- The embedded `index.html` also reads the saved local appearance
+  preference on its own initial load to avoid a flash of the wrong theme.
+- Data-dependent UI (selected rows, disabled commands, read-only project
+  flags, real progress, unsafe state and recovery dialogs) continues to
+  come from the original My EP controller. No generated fake slot names or
+  substitute hardware status appear.
+- A real user activation remains mandatory for MIDI. Changing theme does
+  not reload the frame, reopen a MIDI connection or abandon a transaction.
+- Browser E2E covers device connection, tab/row selection, project and
+  backup dialogs, Studio/Classic toggles, session continuity and unchanged
+  legacy appearance. Physical WebMIDI permission UX on actual KO II
+  still requires device-in-the-loop review before merging.
+
+This is a **visual-system integration**, not a rewrite of the original
+project browser, sample transfer or sequencer workflows.
+
 ## ZAT-17: live runtime status (passive, same-origin)
 
 When activating My EP **inside the embedded iframe** (or in a separate tab), the original
