@@ -25,7 +25,9 @@ test('OS shell distinguishes actual operations from preview-only features',async
   const [html,js]=await Promise.all([read('os/index.html'),read('os/app.js')]);
   assert.match(html,/NO DEVICE SESSION/);
   assert.match(html,/DEMO SIGNAL \/ NOT DEVICE AUDIO/);
-  assert.match(html,/\.\.\/index\.html#my-ep/);
+  assert.match(html,/id="os-embedded-my-ep"/);
+  assert.match(html,/id="os-device-dock"/);
+  assert.match(renderPage('device'),/data-os-open-device/);
   assert.match(js,/No WebMIDI requests or device writes/);
   assert.match(renderPage('samples'),/OPEN CONVERTER/);
   assert.match(renderPage('device'),/OPEN DEVICE MANAGER/);
