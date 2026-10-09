@@ -1,4 +1,5 @@
 import {createSampleWorkspaceController} from './sampleWorkspace.js';
+import {createSequencerSketch} from './sequencerSketch.js';
 /**
  * Experimental Speeduppercut OS shell. No WebMIDI requests or device writes.
  * This first ZAT-16 slice only owns navigation, theme preference and visual DEMO meters.
@@ -87,6 +88,7 @@ function init(){
  const $=id=>document.getElementById(id);
  const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash)};
  const sampleWorkspace=createSampleWorkspaceController();
+ const sequencerSketch=createSequencerSketch();
  const meters=startDemoMeters();
  const root=document.body,view=$('os-view'),title=$('os-view-title'),desc=$('os-view-description');
  let toastTimer=0;
@@ -104,8 +106,10 @@ function init(){
   const model=PAGES[state.page];
   title.textContent=model.title;desc.textContent=model.subtitle;
   sampleWorkspace.dispose();
+  sequencerSketch.dispose();
   view.innerHTML=renderPage(state.page);
   if(state.page==='samples')sampleWorkspace.mount(view,meters);
+  if(state.page==='sequencer')sequencerSketch.mount(view);
   document.querySelectorAll('#os-navigation [data-view]').forEach(button=>{
    if(button.dataset.view===state.page)button.setAttribute('aria-current','page');
    else button.removeAttribute('aria-current');
