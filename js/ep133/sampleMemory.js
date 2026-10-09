@@ -386,30 +386,13 @@ export function createSampleMemory({
       });
 
       row.addEventListener('keydown',event=>{
-        // Inputs and action buttons retain their own keyboard behavior.
+        // Preserve the original global arrow-preview and page-group shortcuts.
         if(event.target!==row||event.altKey||event.ctrlKey||event.metaKey)return;
         if(event.key==='F2'&&beginRenameFromKeyboard){beginRenameFromKeyboard(event);return;}
-        if(event.key==='Enter'||event.key===' '){
+        if(event.key==='Enter'){
           event.preventDefault();selectClick(slot,event);
           listEl.querySelector('[data-slot="'+slot.id+'"]')?.focus();
-          return;
         }
-        if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
-        const options=visible();
-        const index=options.findIndex(item=>item.id===slot.id);
-        if(index<0)return;
-        let next=index;
-        if(event.key==='ArrowDown')next=Math.min(options.length-1,index+1);
-        if(event.key==='ArrowUp')next=Math.max(0,index-1);
-        if(event.key==='Home')next=0;
-        if(event.key==='End')next=options.length-1;
-        event.preventDefault();
-        const target=options[next];
-        if(event.shiftKey&&selectionAnchor){
-          const first=Math.min(selectionAnchor,target.id),last=Math.max(selectionAnchor,target.id);
-          setSelection(Array.from({length:last-first+1},(_,i)=>first+i),target.id,{preview:false,anchor:false});
-        }else setSelection([target.id],target.id,{preview:false});
-        listEl.querySelector('[data-slot="'+target.id+'"]')?.focus();
       });
       row.addEventListener('click',event=>{
         if(suppressClick||event.target.closest('button'))return;
@@ -498,14 +481,20 @@ export function createSampleMemory({
     const first=tab.range[0],last=tab.range[1];
     const current=selectedId>=first&&selectedId<=last?selectedId:first;
     const target=Math.max(first,Math.min(last,current+direction));
-    if(target!==selectedId)setSelection([target],target,{preview:!!slots[target-1]?.file,navigate:false});
+    if(target!==selectedId){
+      const keepFocus=document.activeElement?.matches?.('.ep133-sample-row')===true;
+      setSelection([target],target,{preview:!!slots[target-1]?.file,navigate:false});
+      if(keepFocus)listEl.querySelector('[data-slot="'+target+'"]')?.focus();
+    }
   };
   const changeTab=direction=>{
     const next=Math.max(0,Math.min(sampleTabs.length-1,activeTab+direction));
     if(next===activeTab)return;
     activeTab=next;renderTabs();
     const tab=sampleTabs[activeTab];
+    const keepFocus=document.activeElement?.matches?.('.ep133-sample-row')===true;
     setSelection([tab.range[0]],tab.range[0],{preview:false,navigate:false});
+    if(keepFocus)listEl.querySelector('[data-slot="'+tab.range[0]+'"]')?.focus();
   };
   const requestDeleteSelected=async()=>{
     if(!mutationsEnabled)return;
