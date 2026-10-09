@@ -11,6 +11,17 @@ export const isEpSessionBusy=status=>
 export function createDeviceDockController({dock,frame}={}){
  if(!dock||!frame)throw new TypeError('Device dock requires its persistent frame and container');
  let created=false;
+ let theme='studio';
+ // Only set a presentation attribute in the same-origin embedded document.
+ // Never dispatch MIDI or interact with My EP's controllers from the OS shell.
+ function syncTheme(){
+  try{
+   const doc=frame.contentDocument;
+   if(doc?.documentElement?.classList.contains('os-embedded'))doc.documentElement.dataset.osTheme=theme;
+  }catch{/* Cross-origin/unavailable frame: no access, never bypass isolation. */}
+ }
+ frame.addEventListener?.('load',syncTheme);
+ function setTheme(next){theme=next==='classic'?'classic':'studio';syncTheme();}
  function open(){
   dock.hidden=false;
   if(!created){
@@ -24,5 +35,5 @@ export function createDeviceDockController({dock,frame}={}){
   dock.hidden=true;
   return true;
  }
- return Object.freeze({open,hide,isLoaded:()=>created});
+ return Object.freeze({open,hide,setTheme,isLoaded:()=>created});
 }
