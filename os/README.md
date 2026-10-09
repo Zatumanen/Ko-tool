@@ -17,6 +17,34 @@ remain available without functional changes to hardware operations.
   triggers the *existing* device preflight with all permissions and safety
   gates intact. It does not auto-connect on normal legacy startup.
 
+## ZAT-17: live runtime status (passive, cross-tab)
+
+When opening My EP in a **second, same-origin tab**, the original
+`js/ep133/deviceRuntime.js` publishes a *read-only projection* through
+`BroadcastChannel('speeduppercut-os-device-status-v1')`.
+
+- The OS never acquires the EP device lock, requests MIDI or sends FILE/SysEx.
+  Hardware actions remain solely inside the original My EP tab.
+- The OS header and Device diagnostics are always accessible and display
+  the current model and firmware **only after verified connection**. They
+  also reflect connecting, ready, reading, mutating, verifying, blocked,
+  recovery-required and unsafe. Project/bank/group are left unknown.
+- No device key, serial number, recovery transaction ID or raw MIDI bytes
+  are transmitted or persisted. The payload is deliberately limited to
+  product status fields, operation label and safety reason.
+- Each publisher periodically refreshes; after 6.5 seconds without a
+  heartbeat, stale status is discarded. An explicit tab close removes
+  the publisher immediately.
+- A second disconnected publisher must not override a valid owned session;
+  a recovery-required/unsafe publisher remains prominent.
+- Clicking the status opens in-app read-only diagnostics with a link to My EP.
+  If cross-tab channels are unsupported, the display stays **unavailable**.
+- A live status does not prove that the device is safe to mutate from the
+  OS shell. File-writing and recovery confirmations remain in My EP.
+- Browser automation exercises the existing fake-EP session in one tab
+  and the OS receiver in another. Physical USB + firmware verification is
+  a separate HIL requirement.
+
 ## Scope of this PR
 
 Included:
@@ -33,7 +61,7 @@ Included:
   editor. No CDN image dependency.
 - Theme tokens and responsive Studio / Classic presentations;
   only an appearance preference is persisted locally.
-- Stable header (device disconnected / unknown, no fabricated project ID),
+- Persistent read-only live device runtime header and diagnostics from the trusted My EP tab (unknown until actively verified),
   contextual inspector, assistant information and visualizer dock.
 - Real links to existing converter / My EP and transparent coming-soon UI.
 - Synthetic waveform and spectrum visualization labeled as **demo signal**;
@@ -42,7 +70,7 @@ Included:
   survives, theme switch, navigation and device truthfulness.
 
 Not included:
-- Device runtime integration, WebMIDI access from OS, SysEx commands,
+- Direct device runtime mutation, WebMIDI access from OS, SysEx commands,
   direct OS transfers, sequencer device read/write.
 - Audio input/system capture, accurate loudness or
   performance-mode visualization. The meter responds to local WAV playback
@@ -75,8 +103,10 @@ after checking dependencies rather than resetting shared branch history.
 1. Refine layout and real Design System v1 tokens/components against the
    standalone visual prototype. Add responsive screenshots and accessibility
    audits; do not yet move sample or project state.
-2. Bind the header and Device workspace to authoritative device runtime
-   (ZAT-17); unknown/recovery/disconnected remain fail-closed.
+2. **ZAT-17 underway:** Header and Device read-only runtime telemetry is
+   integrated across same-origin tabs. Future work can integrate hardware
+   UI in one runtime without duplicating ownership; unknown/recovery/
+   disconnected remain fail-closed.
 3. **Started:** Samples now uses the existing x2 reference processing pipeline
    for local WAV conversion. Next integrate the device file browser and safe
    guarded transfer; no surprise overwrite or pitch change.
