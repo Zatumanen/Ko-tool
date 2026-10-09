@@ -22,6 +22,15 @@ remain available without functional changes to hardware operations.
 Included:
 - Navigation for Samples, Projects, Device, Sequencer, Community, Visualizers
   and Settings with accessible current-page state.
+- A real local Sample Laboratory: import files, prepare EP-ready WAV using
+  production `processAudioInputs` and its reference x2 engine, inspect actual
+  decoded waveform/format/storage estimates, preview and download WAV.
+  Output includes the pipeline's −12 pitch metadata. No direct hardware write
+  is made; device playback settings must still be verified.
+- Browser-local Web Audio playback feeds actual analyzer data into the
+  visualizer dock while playing. Demo mode is otherwise explicitly labeled.
+- Self-hosted vector skyline illustration and detailed responsive sample
+  editor. No CDN image dependency.
 - Theme tokens and responsive Studio / Classic presentations;
   only an appearance preference is persisted locally.
 - Stable header (device disconnected / unknown, no fabricated project ID),
@@ -34,9 +43,10 @@ Included:
 
 Not included:
 - Device runtime integration, WebMIDI access from OS, SysEx commands,
-  transfers, sample import/conversion into OS, sequencer device read/write.
-- Audio capture, system audio streaming, accurate loudness or
-  performance-mode visualization.
+  direct OS transfers, sequencer device read/write.
+- Audio input/system capture, accurate loudness or
+  performance-mode visualization. The meter responds to local WAV playback
+  but not to the EP hardware output.
 - Hosted community, registration, paid memberships or donations.
 - Changing any firmware/device capability or transaction authority.
 
@@ -67,7 +77,8 @@ after checking dependencies rather than resetting shared branch history.
    audits; do not yet move sample or project state.
 2. Bind the header and Device workspace to authoritative device runtime
    (ZAT-17); unknown/recovery/disconnected remain fail-closed.
-3. Bind Samples to the existing x2 audio pipeline, file browser and safe
+3. **Started:** Samples now uses the existing x2 reference processing pipeline
+   for local WAV conversion. Next integrate the device file browser and safe
    guarded transfer; no surprise overwrite or pitch change.
 4. Expose validated sequence and project read data; only enable writes
    where contract + firmware evidence and user confirmation permit.
