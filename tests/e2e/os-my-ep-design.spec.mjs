@@ -62,3 +62,67 @@ test('legacy Win95 interface is unaffected by the scoped OS device skin',async({
  expect(value).toBe('');
  await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
 });
+
+test('Device focus fits desktop workspaces, preserves live My EP across details and themes',async({page})=>{
+ await page.addInitScript({path:fakeEpScript});
+ await page.goto('/os/index.html#os-device');
+ const frame=page.frameLocator('#os-embedded-my-ep');
+ const toggle=page.locator('#os-device-layout-toggle');
+ const inspector=page.locator('#os-inspector');
+ const iframe=page.locator('#os-embedded-my-ep');
+ await expect(page.locator('body')).toHaveAttribute('data-os-device-layout','focus');
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await expect(inspector).toBeHidden();
+ await expect(page.locator('.os-meters')).toBeHidden();
+ await frame.locator('#os-embedded-launch-button').click();
+ await expect(page.locator('#os-runtime-label')).toContainText('READY',{timeout:18000});
+ await frame.locator('#ep133-view-projects').click();
+ await expect(frame.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
+ for(const size of [{width:1920,height:1080},{width:1440,height:900},{width:1366,height:768}]){
+  await page.setViewportSize(size);
+  await expect(toggle).toBeVisible();
+  await expect(inspector).toBeHidden();
+  const focusedWidth=await iframe.evaluate(element=>element.getBoundingClientRect().width);
+  expect(focusedWidth).toBeGreaterThan(size.width-210);
+  const geometry=await frame.locator('#ep133-project-backup').evaluate(button=>{
+   const rect=button.getBoundingClientRect();
+   return {left:rect.left,right:rect.right,viewport:innerWidth,visible:getComputedStyle(button).visibility};
+  });
+  expect(geometry.visible).toBe('visible');
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewport+1);
+  await toggle.click();
+  await expect(page.locator('body')).toHaveAttribute('data-os-device-layout','details');
+  await expect(toggle).toHaveAttribute('aria-expanded','true');
+  await expect(inspector).toBeVisible();
+  const detailsWidth=await iframe.evaluate(element=>element.getBoundingClientRect().width);
+  expect(focusedWidth-detailsWidth).toBeGreaterThan(180);
+  await toggle.click();
+  await expect(inspector).toBeHidden();
+  await expect(toggle).toHaveText('SHOW DETAILS');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
+ }
+ await page.locator('#os-theme').click();
+ await expect(frame.locator('html')).toHaveAttribute('data-os-theme','classic');
+ await frame.locator('#ep133-project-backup').click();
+ await expect(frame.locator('#ep133-backup-dialog')).toBeVisible();
+ await frame.locator('#ep133-backup-close').click();
+ expect(await frame.locator('body').evaluate(()=>window.__fakeEp.midiAccessRequests.length)).toBe(1);
+});
+
+test('Device focus preserves mobile navigation without horizontal document overflow',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/os/index.html#os-device');
+ const toggle=page.locator('#os-device-layout-toggle');
+ await expect(toggle).toBeVisible();
+ await expect(page.locator('#os-inspector')).toBeHidden();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
+ await toggle.click();
+ await expect(page.locator('#os-inspector')).toBeVisible();
+ await expect(toggle).toHaveText('HIDE DETAILS');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
+ await page.locator('#os-device-hide').click();
+ await expect(page.locator('#os-device-dock')).toBeHidden();
+ await expect(page.locator('#os-inspector')).toBeVisible();
+ await expect(page.locator('.os-meters')).toBeVisible();
+});
