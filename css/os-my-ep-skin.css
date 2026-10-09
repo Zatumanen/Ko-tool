@@ -1,0 +1,363 @@
+/*
+ * Speeduppercut OS visual skin for the EXISTING My EP DOM.
+ * All selectors are scoped to html.os-embedded. No JS controllers, capability
+ * gates, transfer confirmations or original Win95 interface are changed.
+ * Theme is a presentation attribute, never a signal to hardware.
+ */
+html.os-embedded{
+ --su-bg:#101619;--su-shell:#181f24;--su-surface:#222c32;
+ --su-raised:#2d383f;--su-inset:#11191e;--su-edge:#39464c;
+ --su-text:#f0f2ec;--su-sub:#aebcbf;--su-accent:#fa7953;
+ --su-accent-text:#191b1b;--su-green:#9ce4b6;--su-warn:#ffd093;
+ --su-hover:#33454e;--su-shadow:0 14px 28px #02070848;
+ --su-radius:7px;--su-font:Inter,Arial,Helvetica,sans-serif;
+ color-scheme:dark;--win-gray:var(--su-surface);--win-dark:var(--su-edge);
+ --win-light:#667880;--primary-blue:var(--su-accent)
+}
+html.os-embedded[data-os-theme="classic"]{
+ --su-bg:#bdc0ba;--su-shell:#d4d7d0;--su-surface:#e6e8e2;
+ --su-raised:#f8f9f5;--su-inset:#fff;--su-edge:#7b888c;
+ --su-text:#222d30;--su-sub:#465a5e;--su-accent:#e95f3d;
+ --su-accent-text:#161b1d;--su-green:#146f56;--su-warn:#785100;
+ --su-hover:#dae8e5;--su-shadow:3px 3px 0 #54616465;
+ --su-radius:1px;--win-gray:#e3e5df;--win-dark:#727e84;
+ --win-light:#fff;--primary-blue:#20388d;color-scheme:light
+}
+html.os-embedded body{background:var(--su-bg);color:var(--su-text);font-family:var(--su-font)}
+html.os-embedded #ep133-browser[aria-hidden="false"]{background:var(--su-shell)}
+html.os-embedded .ep133-browser-window.my-ep-window{
+ background:var(--su-shell);color:var(--su-text);font-family:var(--su-font)
+}
+html.os-embedded .ep133-browser-window>.title-bar{
+ background:var(--su-inset);color:var(--su-sub);border-bottom:1px solid var(--su-edge);
+ height:45px;padding:7px 18px
+}
+html.os-embedded .ep133-browser-window>.title-bar span{
+ font:800 13px/1.2 "Courier New",monospace;letter-spacing:1.4px;color:var(--su-text)
+}
+html.os-embedded .ep133-browser-window>.title-bar span::before{
+ content:"///";display:inline-block;color:var(--su-accent);margin-right:14px;font-size:17px;
+ font-weight:900;letter-spacing:-5px;padding-right:7px;transform:skewX(-10deg)
+}
+html.os-embedded #ep133-close{
+ background:var(--su-surface);border:1px solid var(--su-edge);color:var(--su-text);
+ border-radius:var(--su-radius);box-shadow:none;min-width:30px;min-height:28px;font-size:17px
+}
+html.os-embedded .ep133-browser-body{gap:12px;background:var(--su-shell);padding:16px}
+html.os-embedded .ep133-browser-body>*,html.os-embedded .ep133-sample-memory{min-width:0}
+html.os-embedded .ep133-device-head{
+ background:var(--su-surface);border:1px solid var(--su-edge);border-radius:var(--su-radius);
+ min-height:90px;padding:14px 16px;align-items:center;box-shadow:none;gap:16px
+}
+html.os-embedded .ep133-device-name{flex:1;min-width:105px}
+html.os-embedded .ep133-device-name strong{
+ font:850 clamp(15px,2.8vw,25px)/1.15 var(--su-font);color:var(--su-text);
+ letter-spacing:-.9px
+}
+html.os-embedded .ep133-device-stats{gap:10px;min-width:235px}
+html.os-embedded .ep133-device-metrics{gap:7px}
+html.os-embedded .ep133-device-metrics>div{
+ background:var(--su-inset);border:1px solid var(--su-edge);border-radius:4px;
+ padding:9px 11px;color:var(--su-text)
+}
+html.os-embedded .ep133-device-metrics span,
+html.os-embedded .ep133-device-stats span{
+ color:var(--su-sub);font:700 10px "Courier New",monospace;letter-spacing:.4px
+}
+html.os-embedded .ep133-device-stats strong{color:var(--su-text);font:700 13px "Courier New",monospace}
+html.os-embedded .ep133-memory-meter{
+ height:6px;background:var(--su-bg);border:1px solid var(--su-edge);
+ border-radius:4px;overflow:hidden
+}
+html.os-embedded .ep133-memory-meter>span{background:var(--su-accent)}
+html.os-embedded .ep133-midi-activity{align-self:stretch;border-left:1px solid var(--su-edge);padding-left:13px}
+html.os-embedded .ep133-midi-led{
+ border:1px solid var(--su-edge);box-shadow:none
+}
+html.os-embedded .ep133-midi-led.active{background:var(--su-green);box-shadow:0 0 9px var(--su-green)}
+html.os-embedded .ep133-connection-overlay{
+ background:color-mix(in srgb,var(--su-surface) 93%,transparent);color:var(--su-accent);
+ border:1px dashed var(--su-accent);font:800 12px "Courier New",monospace;
+ border-radius:var(--su-radius);cursor:pointer
+}
+html.os-embedded .ep133-view-tabs{
+ display:flex;gap:7px;padding:0;border-bottom:1px solid var(--su-edge);min-height:40px
+}
+html.os-embedded .ep133-view-tabs button{
+ border:1px solid var(--su-edge);border-bottom:0;background:transparent;color:var(--su-sub);
+ padding:10px 18px;min-height:38px;border-radius:var(--su-radius) var(--su-radius) 0 0;
+ font:800 11px "Courier New",monospace;letter-spacing:.7px
+}
+html.os-embedded .ep133-view-tabs button span{color:var(--su-warn);font-size:9px}
+html.os-embedded .ep133-view-tabs button.selected,
+html.os-embedded .ep133-view-tabs button[aria-selected="true"]{
+ background:var(--su-raised);color:var(--su-text);border-bottom:3px solid var(--su-accent)
+}
+html.os-embedded #ep133-samples-panel .ep133-sample-memory,
+html.os-embedded #ep133-projects-panel .ep-project-browser{
+ background:var(--su-inset);border:1px solid var(--su-edge);border-radius:var(--su-radius);
+ min-height:0;overflow:hidden
+}
+html.os-embedded .ep133-sample-nav{
+ background:var(--su-surface);border-color:var(--su-edge);
+ padding:8px 9px 0;min-height:47px;gap:12px;align-items:center
+}
+html.os-embedded #ep133-sample-tabs{
+ background:transparent;gap:3px;min-width:0;align-self:end
+}
+html.os-embedded #ep133-sample-tabs .ep133-sample-tab{
+ margin:0;background:var(--su-inset);color:var(--su-sub);
+ border:1px solid var(--su-edge);border-bottom:0;padding:5px 2px 4px;
+ min-height:30px;height:30px;font:700 10px "Courier New",monospace;
+ border-radius:4px 4px 0 0
+}
+html.os-embedded #ep133-sample-tabs .ep133-sample-tab.selected{
+ background:var(--su-accent);border-color:var(--su-accent);color:var(--su-accent-text)
+}
+html.os-embedded .ep133-search-box{background:var(--su-inset);border:1px solid var(--su-edge);
+ border-radius:4px;padding:3px 8px;align-items:center;min-width:105px}
+html.os-embedded .ep133-search-box i{color:var(--su-sub)}
+html.os-embedded #ep133-sample-search{color:var(--su-text);background:transparent;
+ font:12px var(--su-font);outline:none}
+html.os-embedded #ep133-search-clear{color:var(--su-sub);background:transparent;border:0}
+html.os-embedded .ep133-search-count{color:var(--su-accent)}
+html.os-embedded .ep133-sample-columns{
+ background:var(--su-inset);color:var(--su-sub);
+ border-bottom:1px solid var(--su-edge);
+ grid-template-columns:46px minmax(0,1fr) 78px 40px 72px
+}
+html.os-embedded .ep133-sample-columns span{
+ border:0;min-height:30px;height:auto;padding:11px 8px 8px;
+ font:800 10px "Courier New",monospace;letter-spacing:.8px
+}
+html.os-embedded #ep133-sample-list{background:var(--su-inset);padding:2px 0}
+html.os-embedded .ep133-sample-row{
+ grid-template-columns:46px minmax(0,1fr) 78px 40px 72px;
+ background:var(--su-inset);color:var(--su-text);
+ border-bottom:1px solid var(--su-edge);min-height:39px;
+ padding:7px 8px;gap:0;font:12px "Courier New",monospace
+}
+html.os-embedded .ep133-sample-row:nth-child(even){background:var(--su-shell)}
+html.os-embedded .ep133-sample-row:hover{background:var(--su-hover)}
+html.os-embedded .ep133-sample-row.selected,
+html.os-embedded .ep133-sample-row.multi-selected,
+html.os-embedded .ep133-sample-row[aria-selected="true"]{
+ background:color-mix(in srgb,var(--su-accent) 23%,var(--su-surface));
+ color:var(--su-text);box-shadow:inset 3px 0 var(--su-accent)
+}
+html.os-embedded .ep133-sample-row .ep133-sample-number{color:var(--su-accent);font-weight:800}
+html.os-embedded .ep133-sample-row .ep133-sample-name{
+ font-family:var(--su-font);font-weight:600;overflow:hidden;text-overflow:ellipsis;
+ white-space:nowrap
+}
+html.os-embedded .ep133-sample-row .ep133-sample-size,
+html.os-embedded .ep133-sample-row .ep133-sample-channel,
+html.os-embedded .ep133-sample-row .ep133-sample-rate{color:var(--su-sub)}
+html.os-embedded .ep133-sample-row button{color:var(--su-text);background:var(--su-raised);
+ border:1px solid var(--su-edge);border-radius:3px}
+html.os-embedded .ep133-sample-row:focus-visible,
+html.os-embedded button:focus-visible,
+html.os-embedded a:focus-visible,
+html.os-embedded input:focus-visible,
+html.os-embedded select:focus-visible{
+ outline:2px solid var(--su-accent);outline-offset:2px
+}
+html.os-embedded .ep133-empty,
+html.os-embedded .ep133-search-empty,
+html.os-embedded .ep-project-empty{color:var(--su-sub);background:transparent}
+html.os-embedded .ep133-global-progress{
+ padding:11px 13px;min-height:40px;
+ border:1px solid var(--su-edge);background:var(--su-surface);color:var(--su-text);
+ border-radius:var(--su-radius);font:800 10px "Courier New",monospace
+}
+html.os-embedded .ep133-global-progress-track{
+ height:10px;border:1px solid var(--su-edge);background:var(--su-inset);border-radius:5px
+}
+html.os-embedded .ep133-global-progress-track>span{background:var(--su-accent)}
+html.os-embedded .ep-project-browser{
+ grid-template-columns:minmax(190px,38%) minmax(0,1fr);gap:0
+}
+html.os-embedded .ep-project-sidebar{
+ min-width:0;background:var(--su-surface);border-right:1px solid var(--su-edge)
+}
+html.os-embedded .ep-project-toolbar{
+ background:var(--su-shell);border-bottom:1px solid var(--su-edge);
+ padding:13px;gap:12px
+}
+html.os-embedded .ep-project-toolbar>strong{
+ color:var(--su-accent);font:800 12px "Courier New",monospace;letter-spacing:1.3px
+}
+html.os-embedded .ep-project-toolbar-actions{gap:5px;display:flex;flex-wrap:wrap}
+html.os-embedded .ep-project-toolbar-actions button,
+html.os-embedded .ep133-file-actions button{
+ background:var(--su-raised);color:var(--su-text);border:1px solid var(--su-edge);
+ border-radius:4px;min-height:32px;padding:6px 9px;box-shadow:none;
+ font:700 10px "Courier New",monospace
+}
+html.os-embedded .ep-project-toolbar-actions button:hover:not(:disabled),
+html.os-embedded .ep133-file-actions button:hover:not(:disabled){border-color:var(--su-accent)}
+html.os-embedded button:disabled{cursor:not-allowed;opacity:.48}
+html.os-embedded .ep-project-list{background:var(--su-inset);min-width:0}
+html.os-embedded .ep-project-row{
+ background:var(--su-inset);color:var(--su-text);border-bottom:1px solid var(--su-edge);
+ min-height:48px;font:12px "Courier New",monospace
+}
+html.os-embedded .ep-project-row:hover{background:var(--su-hover)}
+html.os-embedded .ep-project-row.selected{
+ background:color-mix(in srgb,var(--su-accent) 21%,var(--su-surface));
+ box-shadow:inset 3px 0 var(--su-accent);color:var(--su-text)
+}
+html.os-embedded .ep-project-number{color:var(--su-accent);font-weight:800}
+html.os-embedded .ep-project-inspector{
+ background:var(--su-inset);color:var(--su-text);font:12px var(--su-font);
+ padding:15px
+}
+html.os-embedded .ep-project-inspector-head,
+html.os-embedded .ep-project-section,
+html.os-embedded .ep-project-kpis>div,
+html.os-embedded .ep-project-dependency-summary,
+html.os-embedded .ep-project-dependency-list,
+html.os-embedded .ep-project-note{
+ background:var(--su-surface);color:var(--su-text);border-color:var(--su-edge);
+ border-radius:4px
+}
+html.os-embedded .ep-project-inspector-head h2,
+html.os-embedded .ep-project-inspector h3{color:var(--su-text)}
+html.os-embedded .ep-project-inspector-head span,
+html.os-embedded .ep-project-kpis span,
+html.os-embedded .ep-project-section span,
+html.os-embedded .ep-project-dependency-meta,
+html.os-embedded .ep-project-note p{color:var(--su-sub)}
+html.os-embedded .ep-project-section th{background:var(--su-raised);color:var(--su-sub)}
+html.os-embedded .ep-project-section td{background:var(--su-inset);color:var(--su-text)}
+html.os-embedded .ep-project-slot-chips span{background:var(--su-raised);color:var(--su-text)}
+html.os-embedded .ep133-sample-memory,
+html.os-embedded .ep133-properties,
+html.os-embedded .ep133-info{background:var(--su-inset);color:var(--su-text);border-color:var(--su-edge)}
+html.os-embedded .ep133-properties-grid,
+html.os-embedded .ep133-property-row{color:var(--su-text);background:var(--su-surface)}
+html.os-embedded .ep133-property-row label{color:var(--su-sub)}
+html.os-embedded input,
+html.os-embedded select{accent-color:var(--su-accent)}
+html.os-embedded .ep-backup-dialog,
+html.os-embedded .ep-project-editor-dialog,
+html.os-embedded .ep-sequencer-dialog,
+html.os-embedded .ep133-confirm-dialog{background:#05090bcc}
+html.os-embedded .ep-backup-window,
+html.os-embedded .ep-project-editor-window,
+html.os-embedded .ep-sequencer-window,
+html.os-embedded .ep133-confirm-window{
+ background:var(--su-shell);color:var(--su-text);
+ border:1px solid var(--su-edge);border-radius:var(--su-radius);
+ box-shadow:var(--su-shadow)
+}
+html.os-embedded .ep-backup-window>.title-bar,
+html.os-embedded .ep-project-editor-window>.title-bar,
+html.os-embedded .ep-sequencer-window>.title-bar,
+html.os-embedded .ep133-confirm-window>.title-bar{
+ background:var(--su-raised);color:var(--su-text);
+ min-height:35px;padding:7px 11px
+}
+html.os-embedded .ep-backup-body,
+html.os-embedded .ep-project-editor-body,
+html.os-embedded .ep-sequencer-body,
+html.os-embedded .ep133-confirm-body{background:var(--su-shell);color:var(--su-text)}
+html.os-embedded .ep-backup-section,
+html.os-embedded .ep-project-editor-section,
+html.os-embedded .ep-sequencer-section,
+html.os-embedded .ep-sequencer-topbar,
+html.os-embedded .ep-sequencer-add-row,
+html.os-embedded .ep-sequencer-scene-grid,
+html.os-embedded .ep-sequencer-song-row,
+html.os-embedded .ep-sequencer-pattern-summary{
+ background:var(--su-surface);color:var(--su-text);border-color:var(--su-edge)
+}
+html.os-embedded .ep-backup-section h3,
+html.os-embedded .ep-project-editor-section h3,
+html.os-embedded .ep-sequencer-section h3{
+ background:var(--su-raised);color:var(--su-text);border-color:var(--su-edge)
+}
+html.os-embedded .ep-project-editor-evidence,
+html.os-embedded .ep-sequencer-evidence{background:#173a34;color:#adebd1;border-color:#39775e}
+html.os-embedded .ep-project-editor-warning,
+html.os-embedded .ep-sequencer-warning,
+html.os-embedded .ep-backup-warning{background:#493719;color:#ffdda1;border-color:#8a6427}
+html.os-embedded .ep-backup-body button,
+html.os-embedded .ep-project-editor-body button,
+html.os-embedded .ep-sequencer-body button,
+html.os-embedded .ep133-confirm-actions button{
+ background:var(--su-raised);color:var(--su-text);
+ border:1px solid var(--su-edge);border-radius:4px;min-height:32px
+}
+html.os-embedded #ep133-project-editor-save,
+html.os-embedded #ep133-seq-save,
+html.os-embedded #ep133-restore-run,
+html.os-embedded #ep133-confirm-ok{
+ background:var(--su-accent);color:var(--su-accent-text);border-color:var(--su-accent)
+}
+html.os-embedded .ep-backup-summary,
+html.os-embedded .ep-recovery-list,
+html.os-embedded .ep-recovery-detail,
+html.os-embedded .ep-sequencer-events,
+html.os-embedded .ep-sequencer-grid{
+ background:var(--su-inset);color:var(--su-text);border-color:var(--su-edge)
+}
+html.os-embedded .ep-seq-grid-header{background:var(--su-raised);color:var(--su-text)}
+html.os-embedded .ep-seq-step{border-color:var(--su-edge)}
+html.os-embedded .ep-seq-step.selected{background:var(--su-accent);color:var(--su-accent-text)}
+html.os-embedded .ep-backup-body input,
+html.os-embedded .ep-backup-body select,
+html.os-embedded .ep-project-editor-body input,
+html.os-embedded .ep-project-editor-body select,
+html.os-embedded .ep-sequencer-body input,
+html.os-embedded .ep-sequencer-body select{
+ background:var(--su-inset);color:var(--su-text);border:1px solid var(--su-edge);
+ padding:6px
+}
+html.os-embedded[data-os-theme="classic"] .ep133-browser-window>.title-bar{
+ background:#20388d;color:#fff
+}
+html.os-embedded[data-os-theme="classic"] .ep133-browser-window>.title-bar span{
+ color:white
+}
+html.os-embedded[data-os-theme="classic"] .ep-project-editor-evidence,
+html.os-embedded[data-os-theme="classic"] .ep-sequencer-evidence{
+ background:#deefe4;color:#24553a;border-color:#7db697
+}
+html.os-embedded[data-os-theme="classic"] .ep-project-editor-warning,
+html.os-embedded[data-os-theme="classic"] .ep-sequencer-warning,
+html.os-embedded[data-os-theme="classic"] .ep-backup-warning{
+ background:#fff1c4;color:#634400;border-color:#b38e2e
+}
+html.os-embedded[data-os-theme="classic"] .ep133-confirm-window,
+html.os-embedded[data-os-theme="classic"] .ep-backup-window,
+html.os-embedded[data-os-theme="classic"] .ep-project-editor-window,
+html.os-embedded[data-os-theme="classic"] .ep-sequencer-window{
+ box-shadow:4px 4px 0 #5e71756e;border-radius:1px
+}
+@media(max-width:760px){
+ html.os-embedded .ep133-browser-body{padding:8px;gap:8px}
+ html.os-embedded .ep133-device-head{gap:7px;flex-wrap:wrap;padding:8px}
+ html.os-embedded .ep133-device-name strong{font-size:16px}
+ html.os-embedded .ep133-device-stats{min-width:0;flex:1 1 200px}
+ html.os-embedded .ep133-sample-nav{gap:5px;padding:4px;flex-wrap:wrap}
+ html.os-embedded #ep133-sample-tabs{flex-basis:100%}
+ html.os-embedded .ep133-search-box{flex:1 1 100%}
+ html.os-embedded .ep133-sample-columns,
+ html.os-embedded .ep133-sample-row{
+  grid-template-columns:38px minmax(0,1fr) 55px 27px 57px;
+  font-size:10px
+ }
+ html.os-embedded .ep133-sample-columns span{font-size:8px;padding:8px 3px}
+ html.os-embedded .ep-project-browser{grid-template-columns:minmax(140px,36%) minmax(0,1fr)}
+ html.os-embedded .ep-project-toolbar-actions button{font-size:9px;padding:4px 6px}
+}
+@media(max-width:460px){
+ html.os-embedded .ep-project-browser{grid-template-columns:1fr;overflow:auto}
+ html.os-embedded .ep-project-sidebar{max-height:240px;border-right:0;border-bottom:1px solid var(--su-edge)}
+ html.os-embedded .ep-project-inspector{min-height:210px}
+ html.os-embedded .ep133-view-tabs button{flex:1;padding:9px 7px}
+}
+@media(prefers-reduced-motion:reduce){
+ html.os-embedded *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
