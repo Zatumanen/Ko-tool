@@ -26,6 +26,7 @@ test('My EP connects and keeps its actual browser and session inside the single 
  await expect(frame.locator('[data-slot="7"]')).toHaveClass(/occupied/);
  await frame.locator('#ep133-view-projects').click();
  await expect(frame.locator('#ep133-projects-panel')).toBeVisible();
+ await expect(frame.locator('.ep-project-row')).toHaveCount(2,{timeout:16000});
  await expect(page.locator('#os-runtime-label')).toContainText('READY',{timeout:20000});
  await page.locator('[data-view=samples]').click();
  await expect(page.locator('#os-device-dock')).toBeHidden();
