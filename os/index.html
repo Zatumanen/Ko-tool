@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#131619">
+<meta name="description" content="Speeduppercut OS preview: alternative interface for the existing EP companion, with unchanged legacy workflows.">
+<title>Speeduppercut OS — Interface Preview</title>
+<link rel="stylesheet" href="./styles.css">
+<script type="module" src="./app.js"></script>
+</head>
+<body data-os-theme="studio">
+<a class="skip" href="#os-main">Skip to workspace</a>
+<div class="os-app" id="os-app">
+  <header class="os-top">
+    <a class="wordmark" href="./index.html" aria-label="Speeduppercut OS home"><span aria-hidden="true" class="mark">///</span><span>Speeduppercut<small>OS / EARLY ACCESS</small></span></a>
+    <div class="os-device" aria-live="polite"><span class="led led-idle"></span><span>NO DEVICE SESSION</span><span class="os-device-note">OPEN MY EP TO CONNECT</span></div>
+    <div class="os-project-strip"><span>PROJECT <strong>—</strong></span><span>BANK <strong>—</strong></span><span>GROUP <strong>—</strong></span></div>
+    <div class="top-actions">
+      <button type="button" id="os-theme" aria-label="Switch theme" aria-pressed="false">CLASSIC THEME</button>
+      <a class="top-link" href="../index.html" id="os-legacy">ORIGINAL APP ↗</a>
+    </div>
+  </header>
+  <div class="os-body">
+    <aside class="os-nav" aria-label="Application navigation">
+      <div class="nav-intro">MORE SAMPLES<br>LESS LIMITS<span>THE KO II COMPANION</span></div>
+      <nav id="os-navigation" aria-label="Workspaces">
+        <button type="button" data-view="samples" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-6 3 12 3-15 3 18 3-9h2"/></svg> SAMPLES</button>
+        <button type="button" data-view="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 3h9v11H3z"/></svg> PROJECTS</button>
+        <button type="button" data-view="device"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 13h8M8 18h8"/></svg> DEVICE</button>
+        <button type="button" data-view="sequencer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M3 14h18M9 4v16M15 4v16"/></svg> SEQUENCER</button>
+        <button type="button" data-view="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M2 21v-3c0-6 12-6 12 0v3M14 16c5-2 8 1 8 5"/></svg> COMMUNITY</button>
+        <button type="button" data-view="visualizers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15v5M7 8v12M11 3v17M15 10v10M19 5v15"/></svg> VISUALIZERS</button>
+        <button type="button" data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg> SETTINGS</button>
+      </nav>
+      <div class="nav-bottom"><strong>SU.01</strong><span>FOR CREATORS, BY CREATORS<br>FEATURE PREVIEW · NO WRITES</span></div>
+    </aside>
+    <main class="os-main" id="os-main" tabindex="-1">
+      <div class="os-hero"><span>THE SAMPLE OPERATING SYSTEM / CONCEPT BUILD</span><h1 id="os-view-title">Samples</h1><p id="os-view-description">Discover, prepare and transfer — with the existing, proven tools.</p></div>
+      <div id="os-view" class="os-view" aria-live="polite"></div>
+    </main>
+    <aside class="os-inspector" aria-label="Device and assistant">
+      <section class="side-panel" id="device-card"><div class="panel-kicker">DEVICE / SESSION</div><div class="device-frame"><div class="ko-top">K.O. II <small>サンプラー</small></div><div class="ko-grille" aria-hidden="true"></div><div class="ko-display"><span>NO MIDI</span><span>USB —</span></div><div class="ko-pads" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p>Live status is not connected in this preview. The original My EP remains available.</p><a class="side-action" href="../index.html#my-ep" id="launch-my-ep">OPEN MY EP ↗</a></section>
+      <section class="side-panel assistant-card" id="assistant-card"><div class="panel-kicker">ASSISTANT / CONTEXT</div><div class="assistant-avatar" aria-hidden="true"><span>SU</span><i></i></div><h2 id="assistant-heading">You're in preview mode</h2><p id="assistant-copy">Explore the new navigation safely. Hardware actions remain in the original application until they have been integrated and tested.</p></section>
+      <section class="side-panel support-card"><div class="panel-kicker">COMMUNITY / SUPPORT</div><h2>Make something good.</h2><p>Sample packs, project sharing and voluntary creator support are being designed. Nothing is locked behind a paywall here.</p><button type="button" id="support-info">ABOUT SUPPORT ↗</button></section>
+    </aside>
+  </div>
+  <footer class="os-meters" aria-label="Audio visualizer dock">
+    <div class="meters-label"><span class="tiny-signal"></span><b>VISUALIZER DOCK</b><span id="meter-source">DEMO SIGNAL / NOT DEVICE AUDIO</span></div>
+    <div class="meters-content"><div class="meter"><b>WAVEFORM</b><canvas id="os-waveform" width="360" height="90" aria-label="Demonstration animated waveform"></canvas></div><div class="meter"><b>SPECTRUM</b><canvas id="os-spectrum" width="340" height="90" aria-label="Demonstration spectrum"></canvas></div><div class="meter meter-loudness"><b>LOUDNESS</b><strong>— LUFS</strong><small>CALIBRATION PENDING</small></div><div class="meter meter-stereo"><b>STEREO FIELD</b><span aria-hidden="true">L  ◇  R</span><small>NO AUDIO CAPTURE</small></div></div>
+  </footer>
+</div>
+<div class="os-toast" id="os-toast" role="status" aria-live="polite"></div>
+</body>
+</html>
