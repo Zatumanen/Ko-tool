@@ -15,7 +15,7 @@
 <div class="os-app" id="os-app">
   <header class="os-top">
     <a class="wordmark" href="./index.html" aria-label="Speeduppercut OS home"><span aria-hidden="true" class="mark">///</span><span>Speeduppercut<small>OS / EARLY ACCESS</small></span></a>
-    <div class="os-device" aria-live="polite"><span class="led led-idle"></span><span>NO DEVICE SESSION</span><span class="os-device-note">OPEN MY EP TO CONNECT</span></div>
+    <button class="os-device" type="button" id="os-runtime-trigger" title="Open live device diagnostics" aria-label="Device status — open diagnostics"><span class="led led-idle" id="os-runtime-led" aria-hidden="true"></span><span id="os-runtime-label" aria-live="polite">NO DEVICE SESSION</span><span class="os-device-note" id="os-runtime-subtitle">OPEN MY EP TO CONNECT</span></button>
     <div class="os-project-strip"><span>PROJECT <strong>—</strong></span><span>BANK <strong>—</strong></span><span>GROUP <strong>—</strong></span></div>
     <div class="top-actions">
       <button type="button" id="os-theme" aria-label="Switch theme" aria-pressed="false">CLASSIC THEME</button>
@@ -41,7 +41,7 @@
       <div id="os-view" class="os-view" aria-live="polite"></div>
     </main>
     <aside class="os-inspector" aria-label="Device and assistant">
-      <section class="side-panel" id="device-card"><div class="panel-kicker">DEVICE / SESSION</div><div class="device-frame"><div class="ko-top">K.O. II <small>サンプラー</small></div><div class="ko-grille" aria-hidden="true"></div><div class="ko-display"><span>NO MIDI</span><span>USB —</span></div><div class="ko-pads" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p>Live status is not connected in this preview. The original My EP remains available.</p><a class="side-action" href="../index.html#my-ep" id="launch-my-ep">OPEN MY EP ↗</a></section>
+      <section class="side-panel" id="device-card"><div class="panel-kicker">DEVICE / SESSION</div><div class="device-frame"><div class="ko-top">K.O. II <small>サンプラー</small></div><div class="ko-grille" aria-hidden="true"></div><div class="ko-display"><span id="os-ko-display-state">NO SESSION</span><span id="os-ko-display-firmware">FW —</span></div><div class="ko-pads" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p id="os-inspector-status">Waiting for a live My EP session. No device access is requested here.</p><a class="side-action" href="../index.html#my-ep" id="launch-my-ep" target="_blank" rel="noopener">OPEN MY EP IN NEW TAB ↗</a><button class="device-diagnostics-link" type="button" id="os-open-diagnostics">VIEW DIAGNOSTICS →</button></section>
       <section class="side-panel assistant-card" id="assistant-card"><div class="panel-kicker">ASSISTANT / CONTEXT</div><div class="assistant-avatar" aria-hidden="true"><span>SU</span><i></i></div><h2 id="assistant-heading">You're in preview mode</h2><p id="assistant-copy">Explore the new navigation safely. Hardware actions remain in the original application until they have been integrated and tested.</p></section>
       <section class="side-panel support-card"><div class="panel-kicker">COMMUNITY / SUPPORT</div><h2>Make something good.</h2><p>Sample packs, project sharing and voluntary creator support are being designed. Nothing is locked behind a paywall here.</p><button type="button" id="support-info">ABOUT SUPPORT ↗</button></section>
     </aside>
