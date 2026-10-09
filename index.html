@@ -2,16 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><base href="./"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>if(new URLSearchParams(location.search).get("os-embed")==="1")document.documentElement.classList.add("os-embedded");</script>
 <title>SpeedUpperCut</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/my-ep.css?v=20261001-1">
 <link rel="stylesheet" href="css/my-ep-projects.css">
 <link rel="stylesheet" href="css/os-entry.css">
+<link rel="stylesheet" href="css/os-embedded.css">
 </head>
 <body>
 <div class="crt-overlay"><div class="crt-scanlines"></div><div class="crt-flicker"></div><div class="crt-glow"></div><div class="crt-vignette"></div></div>
 <div class="desktop-apps" id="desktop-apps">
+  <section id="os-embedded-launch" aria-labelledby="os-embedded-title">
+    <div class="os-embedded-identifier">SPEEDUPPERCUT OS  /  HARDWARE MODULE</div>
+    <h1 id="os-embedded-title">Your KO II, right here.</h1>
+    <p>My EP runs here using the original verified connection, sample browser, project tools and transfer safeguards. No MIDI access is requested until you choose to open it.</p>
+    <button type="button" id="os-embedded-launch-button">OPEN MY EP / CONNECT →</button>
+    <span>SECURE SESSION • ONE DEVICE OWNER • NO BACKGROUND WRITES</span>
+  </section>
   <div class="app-icon" id="app-icon" title="Open SpeedUpperCut" role="button" tabindex="0" aria-label="Open SpeedUpperCut"><i class="fas fa-bolt"></i><span>SpeedUpperCut</span></div>
   <div class="app-icon my-ep-icon" id="my-ep-icon" title="Open My EP" role="button" tabindex="0" aria-label="Open My EP"><i class="fas fa-folder-open"></i><span>My EP</span></div>
   <a class="app-icon os-preview-icon" id="os-preview-icon" href="os/index.html" title="Open Speeduppercut OS preview" aria-label="Open experimental Speeduppercut OS preview"><i class="fas fa-layer-group" aria-hidden="true"></i><span>OS Preview</span></a>
