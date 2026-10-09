@@ -56,3 +56,25 @@ test('embedded My EP keeps guarded operations and prevents navigation while FILE
  await expect(page.locator('#os-device-dock')).toBeHidden();
  await expect(page.getByRole('heading',{name:'Sample laboratory'})).toBeVisible();
 });
+
+
+test('original verified sample upload works from the embedded My EP without leaving OS',async({page,context})=>{
+ const frame=await openIntegratedEp(page);
+ const frames=140;
+ const data=Buffer.alloc(44+frames*2);
+ data.write('RIFF',0);data.writeUInt32LE(data.length-8,4);data.write('WAVEfmt ',8);data.writeUInt32LE(16,16);
+ data.writeUInt16LE(1,20);data.writeUInt16LE(1,22);data.writeUInt32LE(46875,24);data.writeUInt32LE(93750,28);
+ data.writeUInt16LE(2,32);data.writeUInt16LE(16,34);data.write('data',36);data.writeUInt32LE(frames*2,40);
+ for(let i=0;i<frames;i++)data.writeInt16LE(Math.round(Math.sin(i/8)*10000),44+i*2);
+ await frame.locator('[data-slot="9"]').evaluate((row,bytes)=>{
+  const file=new File([new Uint8Array(bytes)],'integrated-test.wav',{type:'audio/wav'});
+  const dt=new DataTransfer();dt.items.add(file);
+  row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt}));
+  row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
+ },[...data]);
+ await expect.poll(()=>frame.locator('body').evaluate(()=>
+  window.__fakeEp.snapshot().some(s=>s.id===9)),{timeout:15000}).toBe(true);
+ await expect(frame.locator('[data-slot="9"]')).toHaveClass(/occupied/);
+ await expect(page.locator('#os-runtime-label')).toContainText('READY',{timeout:12000});
+ expect(context.pages().length).toBe(1);
+});
