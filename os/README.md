@@ -13,18 +13,28 @@ remain available without functional changes to hardware operations.
   themes and clearly labeled **synthetic** visualizer demo.
 - Use the `OS Preview` desktop icon in the existing UI to switch.
 - Use `ORIGINAL APP` at the top of the new shell to return.
-- `OPEN MY EP` uses the explicit `/index.html#my-ep` deep link; this
-  triggers the *existing* device preflight with all permissions and safety
-  gates intact. It does not auto-connect on normal legacy startup.
+- The OS Device Workspace **embeds** the original My EP under
+  `/index.html?os-embed=1` within a **persistent same-origin iframe**.
+  No second browser tab is required. It is not a new transfer implementation.
+  The iframe is created on first opening Device and retained across views.
+  Press **OPEN MY EP / CONNECT** inside the iframe to initiate the normal,
+  explicit legacy connection flow; iframe loading does not request WebMIDI.
+- Embedded My EP retains its real sample browser, project tools, confirmed
+  write authorizations and backup/recovery UI. OS navigation is blocked
+  during reading/mutating/verifying operations to avoid hiding critical work.
+  Device recovery and unsafe states remain visible in the top status bar.
+- `index.html` without `?os-embed=1` preserves its normal Win95 UI.
+  A standalone legacy deep link remains possible, but it is no longer
+  required for the OS interface.
 
-## ZAT-17: live runtime status (passive, cross-tab)
+## ZAT-17: live runtime status (passive, same-origin)
 
-When opening My EP in a **second, same-origin tab**, the original
+When activating My EP **inside the embedded iframe** (or in a separate tab), the original
 `js/ep133/deviceRuntime.js` publishes a *read-only projection* through
 `BroadcastChannel('speeduppercut-os-device-status-v1')`.
 
-- The OS never acquires the EP device lock, requests MIDI or sends FILE/SysEx.
-  Hardware actions remain solely inside the original My EP tab.
+- The outer OS shell never acquires the EP device lock, requests MIDI or sends FILE/SysEx.
+  Hardware actions remain solely inside the original My EP runtime, whether embedded or standalone.
 - The OS header and Device diagnostics are always accessible and display
   the current model and firmware **only after verified connection**. They
   also reflect connecting, ready, reading, mutating, verifying, blocked,
@@ -33,7 +43,7 @@ When opening My EP in a **second, same-origin tab**, the original
   are transmitted or persisted. The payload is deliberately limited to
   product status fields, operation label and safety reason.
 - Each publisher periodically refreshes; after 6.5 seconds without a
-  heartbeat, stale status is discarded. An explicit tab close removes
+  heartbeat, stale status is discarded. An explicit source page close removes
   the publisher immediately.
 - A second disconnected publisher must not override a valid owned session;
   a recovery-required/unsafe publisher remains prominent.
@@ -61,9 +71,9 @@ Included:
   editor. No CDN image dependency.
 - Theme tokens and responsive Studio / Classic presentations;
   only an appearance preference is persisted locally.
-- Persistent read-only live device runtime header and diagnostics from the trusted My EP tab (unknown until actively verified),
+- Persistent read-only live device runtime header and diagnostics from the trusted My EP iframe/tab (unknown until actively verified),
   contextual inspector, assistant information and visualizer dock.
-- Real links to existing converter / My EP and transparent coming-soon UI.
+- Real links to the existing converter and an embedded, persistent original My EP runtime, plus transparent coming-soon UI.
 - Synthetic waveform and spectrum visualization labeled as **demo signal**;
   not calibrated measurement or device audio.
 - Build-pages includes `os/`; unit and browser E2E verify main app
@@ -104,12 +114,12 @@ after checking dependencies rather than resetting shared branch history.
    standalone visual prototype. Add responsive screenshots and accessibility
    audits; do not yet move sample or project state.
 2. **ZAT-17 underway:** Header and Device read-only runtime telemetry is
-   integrated across same-origin tabs. Future work can integrate hardware
-   UI in one runtime without duplicating ownership; unknown/recovery/
+   integrated through the persistent same-origin My EP iframe.
+   It reuses the original runtime without duplicating device ownership; unknown/recovery/
    disconnected remain fail-closed.
 3. **Started:** Samples now uses the existing x2 reference processing pipeline
-   for local WAV conversion. Next integrate the device file browser and safe
-   guarded transfer; no surprise overwrite or pitch change.
+   for local WAV conversion. Original My EP device browser and guarded transfer are now embedded under Device;
+   next is native component integration, no surprise overwrite or pitch change.
 4. Expose validated sequence and project read data; only enable writes
    where contract + firmware evidence and user confirmation permit.
 5. Add opt-in audio capture and performance visualization, then
