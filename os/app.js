@@ -1,3 +1,4 @@
+import {createSampleWorkspaceController} from './sampleWorkspace.js';
 /**
  * Experimental Speeduppercut OS shell. No WebMIDI requests or device writes.
  * This first ZAT-16 slice only owns navigation, theme preference and visual DEMO meters.
@@ -85,6 +86,8 @@ export function renderPage(page){
 function init(){
  const $=id=>document.getElementById(id);
  const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash)};
+ const sampleWorkspace=createSampleWorkspaceController();
+ const meters=startDemoMeters();
  const root=document.body,view=$('os-view'),title=$('os-view-title'),desc=$('os-view-description');
  let toastTimer=0;
  function toast(message){const n=$('os-toast');n.textContent=message;n.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.classList.remove('visible'),5500);}
@@ -100,7 +103,9 @@ function init(){
   state.page=normalizeWorkspace(page);
   const model=PAGES[state.page];
   title.textContent=model.title;desc.textContent=model.subtitle;
+  sampleWorkspace.dispose();
   view.innerHTML=renderPage(state.page);
+  if(state.page==='samples')sampleWorkspace.mount(view,meters);
   document.querySelectorAll('#os-navigation [data-view]').forEach(button=>{
    if(button.dataset.view===state.page)button.setAttribute('aria-current','page');
    else button.removeAttribute('aria-current');
@@ -127,25 +132,65 @@ function init(){
  $('support-info').addEventListener('click',()=>toast('Support and donation links will be added only after the recipient is verified.'));
  window.addEventListener('hashchange',()=>updatePage(location.hash));
  updateTheme(state.theme);updatePage(state.page);
- startDemoMeters();
 }
 function readSavedTheme(){try{return localStorage.getItem('speeduppercut-os-theme');}catch{return null;}}
 function startDemoMeters(){
  const wave=document.getElementById('os-waveform'),spectrum=document.getElementById('os-spectrum');
- if(!wave||!spectrum)return;
- const w=wave.getContext('2d'),s=spectrum.getContext('2d');if(!w||!s)return;
+ const w=wave?.getContext('2d'),s=spectrum?.getContext('2d');
+ if(!w||!s)return Object.freeze({start:async()=>{},stop:()=>{},reset:()=>{}});
  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches===true;
+ const label=document.getElementById('meter-source');
+ let ctx=null,analyser=null,audio=null,active=false;
  let frame=0;
+ async function start(element){
+  if(audio!==element){
+   if(ctx){await ctx.close().catch(()=>{});}
+   const AC=window.AudioContext||window.webkitAudioContext;
+   if(!AC)throw Error('Web Audio API is unavailable');
+   ctx=new AC();analyser=ctx.createAnalyser();analyser.fftSize=2048;
+   const source=ctx.createMediaElementSource(element);
+   source.connect(analyser);analyser.connect(ctx.destination);
+   audio=element;
+  }
+  await ctx.resume();
+  active=true;
+  if(label)label.textContent='LOCAL WAV PLAYBACK / LIVE AUDIO LEVELS';
+ }
+ function stop(){active=false;if(label)label.textContent='DEMO SIGNAL / NOT DEVICE AUDIO';}
+ function reset(){stop();audio=null;analyser=null;const prev=ctx;ctx=null;prev?.close().catch(()=>{});}
  function draw(){
-  if(document.hidden){if(!reduced)requestAnimationFrame(draw);return;}
-  const activeColor='#fa714b',minor='#9ba6ab';
-  const wx=wave.width,wy=wave.height;w.clearRect(0,0,wx,wy);w.strokeStyle='#293139';w.beginPath();w.moveTo(0,wy/2);w.lineTo(wx,wy/2);w.stroke();
-  for(let i=0;i<wx;i+=3){const n=(Math.sin(i*.082+frame*.054)*Math.sin(i*.014-frame*.012)+Math.sin(i*.21)*.14)*29*(.5+.5*Math.sin(i*.006+1));w.fillStyle=i<wx*.42?activeColor:minor;const v=Math.abs(n);w.fillRect(i,wy/2-v,2,2*v||1);}
-  const sx=spectrum.width,sy=spectrum.height;s.clearRect(0,0,sx,sy);
-  for(let i=0;i<44;i++){const n=(Math.sin(i*.48+frame*.057)**2*.65+Math.sin(i*.18+2.5)**2*.35),h=9+Math.max(0,n)*sy*.77;s.fillStyle=i<23?activeColor:minor;s.fillRect(i*(sx/44)+2,sy-h,sx/44-3,h);}
+  if(!document.hidden){
+   const W=wave.width,H=wave.height;
+   w.clearRect(0,0,W,H);w.strokeStyle='#39474d';w.lineWidth=1;
+   w.beginPath();w.moveTo(0,H/2);w.lineTo(W,H/2);w.stroke();
+   const live=active&&analyser&&audio&&!audio.paused;
+   if(live){
+    const timeData=new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(timeData);
+    w.strokeStyle='#ff7953';w.lineWidth=1.4;w.beginPath();
+    for(let x=0;x<W;x++){const n=timeData[Math.min(timeData.length-1,Math.floor(x/W*timeData.length))]/255-.5;const y=H/2-n*(H*.84);x===0?w.moveTo(x,y):w.lineTo(x,y);}
+    w.stroke();
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    s.clearRect(0,0,spectrum.width,spectrum.height);
+    const n=44,bw=spectrum.width/n;
+    for(let i=0;i<n;i++){
+     const f=Math.floor((Math.exp(i/n*Math.log(data.length+1))-1));
+     const a=data[Math.min(data.length-1,f)]/255;
+     const h=Math.max(2,Math.pow(a,1.2)*spectrum.height*.91);
+     s.fillStyle=i<25?'#ff7953':'#adbabe';
+     s.fillRect(i*bw+1,spectrum.height-h,Math.max(1,bw-2),h);
+    }
+   }else{
+    for(let x=0;x<W;x+=3){const v=(Math.sin(x*.08+frame*.051)*Math.sin(x*.012-frame*.013))*(H*.3);w.fillStyle=x<W*.45?'#ff7953':'#9ba8ab';w.fillRect(x,H/2-Math.abs(v),2,2*Math.abs(v)||1);}
+    const n=44,bw=spectrum.width/n;s.clearRect(0,0,spectrum.width,spectrum.height);
+    for(let i=0;i<n;i++){const f=(Math.sin(i*.51+frame*.052)**2*.7+Math.sin(i*.19)**2*.3);const h=7+f*spectrum.height*.65;s.fillStyle=i<24?'#ff7953':'#9ba8ab';s.fillRect(i*bw+1,spectrum.height-h,Math.max(1,bw-2),h);}
+   }
+  }
   frame++;
   if(!reduced)requestAnimationFrame(draw);
  }
  draw();
+ return Object.freeze({start,stop,reset});
 }
 if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',init);
