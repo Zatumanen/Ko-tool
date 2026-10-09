@@ -17,3 +17,36 @@ button.side-action{border:0;width:100%;cursor:pointer}
 button.side-action:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 @media(max-width:850px){.os-device-dock{margin:12px;padding:11px}.os-device-dock-top{align-items:flex-start;flex-direction:column}.os-device-frame-shell{height:75vh;min-height:490px}}
 @media(max-width:620px){.os-device-dock{margin:10px 7px;padding:7px}.os-device-dock-top{padding:9px 5px}.os-device-frame-shell{height:72vh;min-height:490px}.os-device-embed-note{font-size:10px}}
+
+/* Device is a focused hardware workspace: keep interactive My EP actions above
+   the fold instead of wasting scroll height on the editorial Samples hero. */
+body[data-os-view="device"] .os-hero{
+ height:77px;min-height:77px;padding:12px 22px;
+ display:flex;flex-direction:column;justify-content:center
+}
+body[data-os-view="device"] .os-hero h1{font-size:26px;margin:4px 0 0;line-height:1.1}
+body[data-os-view="device"] .os-hero>span{font-size:9px}
+body[data-os-view="device"] .os-hero p{display:none}
+body[data-os-view="device"] .os-device-dock{
+ margin:6px 12px 0;padding:9px
+}
+body[data-os-view="device"] .os-device-dock-top{
+ padding:2px 3px 7px;min-height:48px;align-items:center
+}
+body[data-os-view="device"] .os-device-dock-top h2{
+ font-size:17px;margin:3px 0 0
+}
+body[data-os-view="device"] .os-device-dock-top p{display:none}
+body[data-os-view="device"] .os-device-embed-note{
+ font-size:10px;margin-bottom:6px;padding:6px 10px;min-height:28px
+}
+body[data-os-view="device"] .os-device-frame-shell{
+ height:clamp(470px,78vh,1000px)
+}
+@media(max-width:620px){
+ body[data-os-view="device"] .os-hero{height:63px;min-height:63px;padding:8px 14px}
+ body[data-os-view="device"] .os-hero h1{font-size:22px}
+ body[data-os-view="device"] .os-device-dock{margin:4px 6px 0;padding:6px}
+ body[data-os-view="device"] .os-device-dock-top{gap:8px}
+ body[data-os-view="device"] .os-device-frame-shell{height:75vh;min-height:470px}
+}
