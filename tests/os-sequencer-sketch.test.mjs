@@ -13,6 +13,6 @@ test('Local sequencer defaults are distinct track patterns and do not expose dev
  assert.equal(typeof sketch.mount,'function');
  assert.equal(typeof sketch.dispose,'function');
  const src=await fs.readFile(new URL('../os/sequencerSketch.js',import.meta.url),'utf8');
- assert.match(src,/NO MIDI/i);
+ assert.match(src,/Never sends MIDI/);
  assert.doesNotMatch(src,/requestMIDIAccess|sendSysex|navigator\.midi|writeProject/);
 });
