@@ -19,7 +19,7 @@ export function createSampleWorkspaceController(){
  function html(){
   return `<div class="os-samples">
  <section class="os-workflow-heading"><div><div class="eyebrow">SAMPLES / WORKSPACE 01</div><h2>Sample laboratory</h2><p>Real EP-ready WAV conversion · your files remain on this computer</p></div>
- <a class="button secondary" href="../index.html#my-ep">DEVICE TRANSFER ↗</a></section>
+ <a class="button secondary" href="../index.html#my-ep" target="_blank" rel="noopener">DEVICE TRANSFER ↗</a></section>
  <section class="os-space-saver"><div class="os-toggle-mark">×2</div><div><strong>SPACE SAVER</strong><p>Always prepares audio at x2 speed, with −12 semitone pitch metadata. Confirm playback settings on KO II after import.</p></div><span class="os-fixed-badge">ALWAYS ON</span></section>
  <section class="os-sample-layout">
   <div class="os-sample-library">
