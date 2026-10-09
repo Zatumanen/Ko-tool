@@ -34,7 +34,8 @@ test('OS workspaces, theme and honesty guards behave on desktop',async({page})=>
 
 test('OS preview keeps direct access to the current converter and My EP',async({page})=>{
   await page.goto('/os/index.html#os-samples');
-  await page.getByRole('link',{name:'OPEN CONVERTER ↗'}).click();
+  await expect(page.getByRole('heading',{name:'Sample laboratory'})).toBeVisible();
+  await page.locator('#os-legacy').click();
   await expect(page).toHaveURL(/\/index\.html$/);
   await expect(page.locator('#audio-upload')).toBeAttached();
 
