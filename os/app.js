@@ -88,7 +88,7 @@ export function renderPage(page){
 }
 function init(){
  const $=id=>document.getElementById(id);
- const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash),live:null};
+ const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash),live:null,deviceDetails:false};
  const sampleWorkspace=createSampleWorkspaceController();
  const sequencerSketch=createSequencerSketch();
  const deviceDock=createDeviceDockController({dock:document.getElementById('os-device-dock'),frame:document.getElementById('os-embedded-my-ep')});
@@ -104,6 +104,12 @@ function init(){
   button.textContent=state.theme==='studio'?'CLASSIC THEME':'STUDIO THEME';
   button.setAttribute('aria-pressed',String(state.theme==='classic'));
   try{localStorage.setItem('speeduppercut-os-theme',state.theme);}catch{}
+ }
+ function updateDeviceLayout(){
+  root.dataset.osDeviceLayout=state.deviceDetails?'details':'focus';
+  const control=$('os-device-layout-toggle');
+  control.textContent=state.deviceDetails?'HIDE DETAILS':'SHOW DETAILS';
+  control.setAttribute('aria-expanded',String(state.deviceDetails));
  }
  function updatePage(page){
   const target=normalizeWorkspace(page);
@@ -186,11 +192,15 @@ function init(){
  $('os-runtime-trigger').addEventListener('click',()=>{navigate('device');$('os-runtime-diagnostics')?.scrollIntoView?.({behavior:'smooth',block:'start'});});
  $('launch-my-ep').addEventListener('click',()=>navigate('device'));
  $('os-device-hide').addEventListener('click',()=>navigate('samples'));
+ $('os-device-layout-toggle').addEventListener('click',()=>{
+  state.deviceDetails=!state.deviceDetails;
+  updateDeviceLayout();
+ });
  $('os-open-diagnostics').addEventListener('click',()=>navigate('device'));
  $('os-theme').addEventListener('click',()=>updateTheme(state.theme==='studio'?'classic':'studio'));
  $('support-info').addEventListener('click',()=>toast('Support and donation links will be added only after the recipient is verified.'));
  window.addEventListener('hashchange',()=>{if(updatePage(location.hash)===false)history.replaceState(null,'','#os-device');});
- updateTheme(state.theme);updatePage(state.page);
+ updateTheme(state.theme);updateDeviceLayout();updatePage(state.page);
  const statusReceiver=startEpStatusReceiver({onChange:live=>{state.live=live;renderLiveState();}});
  window.addEventListener('pagehide',()=>statusReceiver.dispose(),{once:true});
 }
