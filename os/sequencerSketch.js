@@ -12,7 +12,7 @@ export function createDemoPattern(){
 }
 export function createSequencerSketch(){
  const store=new Map();
- let root=null,group='A',pattern=1,step=-1,playing=false,timer=null;
+ let root=null,group='A',pattern=1,step=-1,playing=false,timer=null,listeners=null;
  const key=()=>group+'-'+pattern;
  const getSteps=()=>{const id=key();if(!store.has(id))store.set(id,createDemoPattern());return store.get(id);};
  function markup(){
@@ -55,6 +55,7 @@ export function createSequencerSketch(){
  }
  function stop(){playing=false;step=-1;if(timer){clearInterval(timer);timer=null;}}
  function mount(element){
+  listeners?.abort();listeners=new AbortController();
   root=element;update();
   root.addEventListener('click',event=>{
    const hit=event.target.closest('[data-track][data-step]');
@@ -76,12 +77,12 @@ export function createSequencerSketch(){
     },60000/93/4);
    }
    if(event.target.closest('#os-seq-clear')){store.set(key(),DEMO_TRACKS.map(()=>Array(16).fill(false)));update();}
-  });
+  },{signal:listeners.signal});
   root.addEventListener('change',event=>{
    if(event.target.id==='os-demo-group'){stop();group=event.target.value;update();}
    if(event.target.id==='os-demo-pattern'){stop();pattern=Number(event.target.value);update();}
-  });
+  },{signal:listeners.signal});
  }
- function dispose(){stop();root=null;}
+ function dispose(){stop();listeners?.abort();listeners=null;root=null;}
  return Object.freeze({mount,dispose,getPattern:()=>getSteps()});
 }
