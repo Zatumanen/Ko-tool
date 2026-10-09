@@ -35,7 +35,7 @@ export const PAGES=Object.freeze({
  },
  device:{
   title:'Device',subtitle:'See the real KO II status and operate safely.',
-  heading:'Real hardware. No guesses.',description:'This shell does not connect or request USB-MIDI access. Live session status arrives read-only from My EP in another tab; transfers remain in the guarded device manager.',
+  heading:'Real hardware. No guesses.',description:'This shell does not connect or request USB-MIDI access. Live session status arrives read-only from the embedded original My EP runtime; transfers remain guarded inside the device panel.',
   tiles:[
    {eyebrow:'CONNECT THROUGH ORIGINAL MY EP',title:'KO II Device Manager',copy:'MIDI / SysEx support, firmware-aware capabilities, transfer verification and recovery are all handled by the existing app.',action:'OPEN DEVICE MANAGER ↗',href:'../index.html#my-ep'},
    {eyebrow:'WORKING NOW / MY EP',title:'Storage, Backup / Restore',copy:'Inspect hardware sample memory, create project backups and access the existing guarded recovery workflows.',action:'OPEN DEVICE STORAGE ↗',href:'../index.html#my-ep'},
