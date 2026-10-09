@@ -302,6 +302,8 @@ export function createSampleMemory({
       listEl.innerHTML='<div class="ep133-empty ep133-search-empty">NO MATCHES</div>';
       return;
     }
+    // Exactly one option enters the tab order; arrows move focus without triggering device playback.
+    const focusId=visibleSlots.some(item=>item.id===selectedId)?selectedId:visibleSlots[0]?.id;
     listEl.innerHTML=visibleSlots.map(slot=>{
       const active=slot.id===selectedId;
       const secondary=selectedIds.has(slot.id)&&!active;
@@ -310,14 +312,14 @@ export function createSampleMemory({
       const editing=editingId===slot.id;
       const name=slotName(slot);
       const nameControl=occupied
-        ?'<input class="ep133-sample-name-input" data-name-input="'+slot.id+'" maxlength="16" value="'+escapeHtml(editing?editingValue:name)+'" '+(editing?'':'readonly')+' title="'+escapeHtml(name)+'" aria-label="Sample name">'
+        ?'<input class="ep133-sample-name-input" data-name-input="'+slot.id+'" maxlength="16" value="'+escapeHtml(editing?editingValue:name)+'" '+(editing?'':'readonly tabindex="-1"')+' title="'+escapeHtml(name)+'" aria-label="Sample name">'
         :'<span class="ep133-sample-name"></span>';
       const actionButtons=active&&occupied
         ?'<span class="ep133-row-actions"><button type="button" data-download-row="'+slot.id+'" title="Download selected sample(s)" aria-label="Download selected sample(s)">↓</button>'+(slot.node?.isDeletable===true?'<button type="button" data-delete-row="'+slot.id+'" title="Delete selected sample(s)" aria-label="Delete selected sample(s)">×</button>':'')+'</span>'
         :'';
       const opCell=operationCell(operation);
       const draggable=mutationsEnabled&&occupied&&slot.node?.isReadable===true?' draggable="true"':'';
-      return'<div class="ep133-sample-row '+(occupied?'occupied':'empty')+(active?' selected':'')+(secondary?' multi-selected':'')+(previewingId===slot.id?' previewing':'')+(matchesSearch(slot)?' search-match':'')+(operation?' operation-active':'')+'" data-slot="'+slot.id+'" role="option" aria-selected="'+(selectedIds.has(slot.id)?'true':'false')+'"'+draggable+'>'+
+      return'<div class="ep133-sample-row '+(occupied?'occupied':'empty')+(active?' selected':'')+(secondary?' multi-selected':'')+(previewingId===slot.id?' previewing':'')+(matchesSearch(slot)?' search-match':'')+(operation?' operation-active':'')+'" data-slot="'+slot.id+'" role="option" tabindex="'+(slot.id===focusId?'0':'-1')+'" aria-selected="'+(selectedIds.has(slot.id)?'true':'false')+'"'+draggable+'>'+
         '<span class="ep133-sample-number">'+String(slot.id).padStart(3,'0')+'</span>'+
         nameControl+
         '<span class="ep133-sample-size">'+(opCell||escapeHtml(occupied?formatSize(slot.file.size):''))+'</span>'+
@@ -330,6 +332,7 @@ export function createSampleMemory({
     listEl.querySelectorAll('[data-slot]').forEach(row=>{
       const slot=slots[Number(row.dataset.slot)-1];
       const nameInput=row.querySelector('[data-name-input]');
+      let beginRenameFromKeyboard=null;
       if(nameInput){
         const beginRename=event=>{
           if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return false;
@@ -339,6 +342,7 @@ export function createSampleMemory({
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
           return true;
         };
+        beginRenameFromKeyboard=beginRename;
         nameInput.addEventListener('click',event=>{event.stopPropagation();});
         nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
@@ -381,6 +385,32 @@ export function createSampleMemory({
         }catch(error){onUserError?.('COULD NOT DELETE SAMPLE.',error);}
       });
 
+      row.addEventListener('keydown',event=>{
+        // Inputs and action buttons retain their own keyboard behavior.
+        if(event.target!==row||event.altKey||event.ctrlKey||event.metaKey)return;
+        if(event.key==='F2'&&beginRenameFromKeyboard){beginRenameFromKeyboard(event);return;}
+        if(event.key==='Enter'||event.key===' '){
+          event.preventDefault();selectClick(slot,event);
+          listEl.querySelector('[data-slot="'+slot.id+'"]')?.focus();
+          return;
+        }
+        if(!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+        const options=visible();
+        const index=options.findIndex(item=>item.id===slot.id);
+        if(index<0)return;
+        let next=index;
+        if(event.key==='ArrowDown')next=Math.min(options.length-1,index+1);
+        if(event.key==='ArrowUp')next=Math.max(0,index-1);
+        if(event.key==='Home')next=0;
+        if(event.key==='End')next=options.length-1;
+        event.preventDefault();
+        const target=options[next];
+        if(event.shiftKey&&selectionAnchor){
+          const first=Math.min(selectionAnchor,target.id),last=Math.max(selectionAnchor,target.id);
+          setSelection(Array.from({length:last-first+1},(_,i)=>first+i),target.id,{preview:false,anchor:false});
+        }else setSelection([target.id],target.id,{preview:false});
+        listEl.querySelector('[data-slot="'+target.id+'"]')?.focus();
+      });
       row.addEventListener('click',event=>{
         if(suppressClick||event.target.closest('button'))return;
         selectClick(slot,event);
