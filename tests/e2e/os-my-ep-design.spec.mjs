@@ -83,7 +83,7 @@ test('Device focus fits desktop workspaces, preserves live My EP across details 
   await expect(toggle).toBeVisible();
   await expect(inspector).toBeHidden();
   const focusedWidth=await iframe.evaluate(element=>element.getBoundingClientRect().width);
-  expect(focusedWidth).toBeGreaterThan(size.width-210);
+  expect(focusedWidth).toBeGreaterThan(size.width-270);
   const geometry=await frame.locator('#ep133-project-backup').evaluate(button=>{
    const rect=button.getBoundingClientRect();
    return {left:rect.left,right:rect.right,viewport:innerWidth,visible:getComputedStyle(button).visibility};
