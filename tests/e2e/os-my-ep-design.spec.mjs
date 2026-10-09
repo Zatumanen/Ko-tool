@@ -31,6 +31,14 @@ test('Studio and Classic skin real My EP components without changing connection 
  console.log('THEME E2E D: opened projects');
  await expect(embedded.locator('.ep-project-row')).toHaveCount(2,{timeout:10000});
  await expect(embedded.locator('.ep-project-inspector')).toBeVisible();
+ const rects=await embedded.locator('#ep133-project-backup').evaluate(button=>{
+  const box=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};};
+  return {viewport:{w:innerWidth,h:innerHeight},button:box(button),toolbar:box(button.closest('.ep-project-toolbar')),
+   actions:box(button.parentElement),browser:box(document.querySelector('.ep-project-browser')),
+   frameBody:box(document.body),visible:getComputedStyle(button).visibility,
+   toolbarFlow:getComputedStyle(button.closest('.ep-project-toolbar')).flexDirection};
+ });
+ console.log('THEME GEOMETRY',JSON.stringify(rects));
  await embedded.locator('#ep133-project-backup').click({timeout:8000});
  console.log('THEME E2E E: clicked backup');
  await expect(embedded.locator('#ep133-backup-dialog')).toBeVisible();
