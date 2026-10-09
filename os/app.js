@@ -13,7 +13,7 @@ export const PAGES=Object.freeze({
   title:'Samples',subtitle:'Prepare sounds, reduce memory usage, then move them using the trusted tools.',
   heading:'Less waiting. More sound.',description:'The new Sample Workspace is being integrated. Until then, the existing converter and My EP retain all working operations — including the verified x2 processing path.',
   tiles:[
-   {eyebrow:'WORKING NOW / ORIGINAL APP',title:'Audio Converter',copy:'Process audio with the current tested pipeline. Your files are handled locally in the browser.',action:'OPEN CONVERTER ↗',href:'../index.html'},
+   {eyebrow:'WORKING NOW / ORIGINAL APP',title:'Converter / Waveform / Chop',copy:'Convert with the tested x2 pipeline. Use the current waveform editor, trim tools and chop export locally in the original app.',action:'OPEN CONVERTER ↗',href:'../index.html'},
    {eyebrow:'WORKING NOW / DEVICE TOOL',title:'Sample Library + Transfer',copy:'View device slots and use the existing guarded transfer, waveform and backup workflows.',action:'OPEN MY EP ↗',href:'../index.html#my-ep'},
    {eyebrow:'DESIGN PREVIEW / UPCOMING',title:'Space Saver on Import',copy:'The new one-switch UI is being designed. No new or unverified pitch settings are applied by this preview.'},
    {eyebrow:'DESIGN PREVIEW / UPCOMING',title:'Unified Sample Pool',copy:'Your sounds, saved collections and community packs will become one searchable workspace. No online service is connected yet.'}
@@ -34,6 +34,7 @@ export const PAGES=Object.freeze({
   heading:'Real hardware. No guesses.',description:'This shell does not connect or request USB-MIDI access. For live memory, diagnostics and transfer use My EP; all safety guards remain in the original tool.',
   tiles:[
    {eyebrow:'CONNECT THROUGH ORIGINAL MY EP',title:'KO II Device Manager',copy:'MIDI / SysEx support, firmware-aware capabilities, transfer verification and recovery are all handled by the existing app.',action:'OPEN DEVICE MANAGER ↗',href:'../index.html#my-ep'},
+   {eyebrow:'WORKING NOW / MY EP',title:'Storage, Backup / Restore',copy:'Inspect hardware sample memory, create project backups and access the existing guarded recovery workflows.',action:'OPEN DEVICE STORAGE ↗',href:'../index.html#my-ep'},
    {eyebrow:'ROADMAP / ZAT-17',title:'Persistent Global Status',copy:'The OS top bar will later subscribe to authoritative runtime events. Disconnected, connected, working and recovery-needed must never be confused.'}
   ]
  },
@@ -66,6 +67,7 @@ export const PAGES=Object.freeze({
   heading:'Your instrument, your setup.',description:'This preview only saves a local appearance preference. There are no subscription gates and no donation/payment processor configured.',
   tiles:[
    {eyebrow:'WORKING NOW',title:'Studio / Classic',copy:'Switch the full OS design without changing device permissions or audio settings.',action:'SWITCH APPEARANCE',actionName:'toggle-theme'},
+   {eyebrow:'WORKING NOW / LEGACY',title:'Diagnostics / Recovery',copy:'View existing processing errors and guarded device recovery using the original application.',action:'OPEN DIAGNOSTICS ↗',href:'../index.html#my-ep'},
    {eyebrow:'FREE CORE / SUPPORT',title:'Support the Project',copy:'Voluntary donations are planned. A recipient and compliant checkout have not yet been configured.',action:'SUPPORT DETAILS',actionName:'support-info'}
   ]
  }
