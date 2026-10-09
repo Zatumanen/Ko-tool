@@ -113,6 +113,7 @@ function init(){
    return false;
   }
   state.page=target;
+  document.body.dataset.osView=state.page;
   if(state.page==='device')deviceDock.open();
   const model=PAGES[state.page];
   title.textContent=model.title;desc.textContent=model.subtitle;
