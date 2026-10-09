@@ -40,9 +40,12 @@ test('OS preview keeps direct access to the current converter and My EP',async({
   await expect(page.locator('#audio-upload')).toBeAttached();
 
   await page.goto('/os/index.html');
-  await page.locator('#launch-my-ep').click();
-  await expect(page).toHaveURL(/\/index\.html#my-ep$/);
-  await expect(page.locator('#my-ep-icon')).toBeAttached();
+  const [deviceTab]=await Promise.all([page.context().waitForEvent('page'),page.locator('#launch-my-ep').click()]);
+  await deviceTab.waitForLoadState();
+  await expect(deviceTab).toHaveURL(/\/index\.html#my-ep$/);
+  await expect(deviceTab.locator('#my-ep-icon')).toBeAttached();
+  await expect(page).toHaveURL(/\/os\/index\.html$/);
+  await deviceTab.close();
 });
 
 test('OS layout avoids horizontal document overflow on small screens',async({page})=>{
