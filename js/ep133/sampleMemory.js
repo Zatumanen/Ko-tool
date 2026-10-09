@@ -296,6 +296,10 @@ export function createSampleMemory({
   const render=()=>{
     updateSearchPresentation();
     if(!listEl)return;
+    // Preserve focus across live metadata/progress/preview rerenders of list options.
+    const activeElement=listEl.ownerDocument?.activeElement;
+    const focusedId=activeElement?.matches?.('.ep133-sample-row')&&listEl.contains?.(activeElement)
+      ?Number(activeElement.dataset.slot):null;
     const visibleSlots=visible();
     listEl.classList.toggle('search-active',!!query());
     if(query()&&!visibleSlots.length){
@@ -456,6 +460,9 @@ export function createSampleMemory({
         try{await onDrop?.(slot,event);}catch(error){onUserError?.('COULD NOT UPLOAD SAMPLE.',error);}
       });
     });
+    if(focusedId&&editingId===null){
+      listEl.querySelector('[data-slot="'+focusedId+'"]')?.focus?.({preventScroll:true});
+    }
   };
 
   const clearSlotInternal=id=>{
