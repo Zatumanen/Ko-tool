@@ -1,3 +1,4 @@
+import {startEpStatusReceiver,describeEpStatus} from '../js/ep133/runtimeStatusTelemetry.js';
 import {createSampleWorkspaceController} from './sampleWorkspace.js';
 import {createSequencerSketch} from './sequencerSketch.js';
 /**
@@ -33,11 +34,11 @@ export const PAGES=Object.freeze({
  },
  device:{
   title:'Device',subtitle:'See the real KO II status and operate safely.',
-  heading:'Real hardware. No guesses.',description:'This shell does not connect or request USB-MIDI access. For live memory, diagnostics and transfer use My EP; all safety guards remain in the original tool.',
+  heading:'Real hardware. No guesses.',description:'This shell does not connect or request USB-MIDI access. Live session status arrives read-only from My EP in another tab; transfers remain in the guarded device manager.',
   tiles:[
    {eyebrow:'CONNECT THROUGH ORIGINAL MY EP',title:'KO II Device Manager',copy:'MIDI / SysEx support, firmware-aware capabilities, transfer verification and recovery are all handled by the existing app.',action:'OPEN DEVICE MANAGER ↗',href:'../index.html#my-ep'},
    {eyebrow:'WORKING NOW / MY EP',title:'Storage, Backup / Restore',copy:'Inspect hardware sample memory, create project backups and access the existing guarded recovery workflows.',action:'OPEN DEVICE STORAGE ↗',href:'../index.html#my-ep'},
-   {eyebrow:'ROADMAP / ZAT-17',title:'Persistent Global Status',copy:'The OS top bar will later subscribe to authoritative runtime events. Disconnected, connected, working and recovery-needed must never be confused.'}
+   {eyebrow:'LIVE / ZAT-17',title:'Persistent Global Status',copy:'This header now listens to authoritative My EP state in another same-origin tab. The status becomes unavailable when the live session stops reporting.'}
   ]
  },
  sequencer:{
@@ -78,7 +79,7 @@ export function renderPage(page){
   const safe=normalizeWorkspace(page);
   const model=PAGES[safe];
   const tiles=model.tiles.map(tile=>{
-    const btn=tile.href?'<a class="button" href="'+tile.href+'">'+tile.action+'</a>':
+    const btn=tile.href?'<a class="button" href="'+tile.href+'"'+(tile.href.includes('#my-ep')?' target="_blank" rel="noopener"':'')+'>'+tile.action+'</a>':
       tile.actionName?'<button class="button secondary" type="button" data-action="'+tile.actionName+'">'+tile.action+'</button>':'';
     return '<article class="os-tile"><div class="eyebrow">'+tile.eyebrow+'</div><h3>'+tile.title+'</h3><p>'+tile.copy+'</p>'+btn+'</article>';
   }).join('');
@@ -86,7 +87,7 @@ export function renderPage(page){
 }
 function init(){
  const $=id=>document.getElementById(id);
- const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash)};
+ const state={theme:normalizeTheme(readSavedTheme()),page:normalizeWorkspace(location.hash),live:null};
  const sampleWorkspace=createSampleWorkspaceController();
  const sequencerSketch=createSequencerSketch();
  const meters=startDemoMeters();
@@ -108,6 +109,7 @@ function init(){
   sampleWorkspace.dispose();
   sequencerSketch.dispose();
   view.innerHTML=renderPage(state.page);
+  if(state.page==='device')view.insertAdjacentHTML('afterbegin',\`<section class="os-runtime-diagnostics" id="os-runtime-diagnostics" aria-label="Live device diagnostics"><div class="eyebrow">LIVE SESSION / READ ONLY</div><h2 id="os-diag-heading">Waiting for My EP</h2><div class="os-diagnostic-fields"><div>CONNECTION <strong id="os-diag-connection">UNAVAILABLE</strong></div><div>MODEL <strong id="os-diag-model">—</strong></div><div>FIRMWARE <strong id="os-diag-firmware">—</strong></div><div>SESSION OWNERSHIP <strong id="os-diag-owner">—</strong></div><div>ACTIVE OPERATION <strong id="os-diag-operation">—</strong></div><div>RECOVERY <strong id="os-diag-recovery">—</strong></div></div><p id="os-diag-reason">Open the legacy My EP interface in another tab to start its device session. No permissions are requested by this view.</p><a href="../index.html#my-ep" target="_blank" rel="noopener" class="button secondary">OPEN LIVE MY EP SESSION ↗</a></section>\`);
   if(state.page==='samples')sampleWorkspace.mount(view,meters);
   if(state.page==='sequencer')sequencerSketch.mount(view);
   document.querySelectorAll('#os-navigation [data-view]').forEach(button=>{
@@ -120,6 +122,43 @@ function init(){
    state.page==='visualizers'?'This dock displays an intentionally synthetic signal. Device audio requires a separate audio input.':
    'This is a visual preview. No EP operations are issued by the new shell.';
   $('assistant-heading').textContent=state.page==='device'?'Connection is delegated':state.page==='visualizers'?'Demo meters are active':'Safe preview mode';
+  renderLiveState();
+ }
+ function renderLiveState(){
+  const d=state.live,info=describeEpStatus(d);
+  const label=$('os-runtime-label'),subtitle=$('os-runtime-subtitle'),led=$('os-runtime-led'),trigger=$('os-runtime-trigger');
+  if(label)label.textContent=d?info.label:'NO DEVICE SESSION';
+  if(subtitle)subtitle.textContent=d?info.detail:'OPEN MY EP IN ANOTHER TAB';
+  if(led)led.className='led os-led-'+info.tone;
+  if(trigger){
+   trigger.dataset.state=d?.status||'unavailable';
+   trigger.title=d?'Device status: '+info.label+' — open diagnostics':'No live device status — open diagnostics';
+   trigger.setAttribute('aria-label',trigger.title);
+  }
+  const displayState=$('os-ko-display-state'),displayFw=$('os-ko-display-firmware');
+  if(displayState)displayState.textContent=d?.status?.toUpperCase()||'NO SESSION';
+  if(displayFw)displayFw.textContent=d?.firmware?'FW '+d.firmware:'FW —';
+  const inspector=$('os-inspector-status');
+  if(inspector)inspector.textContent=d?info.detail:'No live My EP publisher found. Device status is not available; no connection has been inferred.';
+  const values={
+   'os-diag-heading':d?info.label:'No verified live session',
+   'os-diag-connection':d?d.status.toUpperCase():'UNAVAILABLE',
+   'os-diag-model':d?.sku||'—',
+   'os-diag-firmware':d?.firmware||'—',
+   'os-diag-owner':d?.ownership?.toUpperCase()||'—',
+   'os-diag-operation':d?.operation||d?.phase?.toUpperCase()||'—',
+   'os-diag-recovery':d?(d.status==='recovery-required'?'REQUIRED':d.safety==='unsafe'?'UNSAFE':d.recoveryHydrated?'CHECKED':'NOT YET CHECKED'):'UNKNOWN',
+   'os-diag-reason':d?.reason||(!d?'No active My EP status publisher. Open My EP in a second tab and connect explicitly; disconnected or expired status is never treated as safe.':d.status==='ready'?'Identity and ownership verified; recovery scan completed in the active session. Device operations still require explicit action in My EP.':'Read-only status from the active My EP session. See My EP for recovery, errors and safe actions.')
+  };
+  for(const [id,value]of Object.entries(values)){const el=$(id);if(el)el.textContent=value;}
+  if(d&&['unsafe','recovery-required','blocked'].includes(d.status)){
+   $('assistant-heading').textContent=d.status==='recovery-required'?'Device recovery needed':'Device access restricted';
+   $('assistant-copy').textContent=d.reason||'Device is not ready for write operations. Inspect live My EP diagnostics before proceeding.';
+  }
+  if(!d&&state.page==='device'){
+   $('assistant-heading').textContent='No live session';
+   $('assistant-copy').textContent='Open My EP in another tab to connect and keep this interface updated. The OS shell never requests MIDI permissions itself.';
+  }
  }
  function navigate(page){
   updatePage(page);
@@ -132,10 +171,14 @@ function init(){
   if(action==='toggle-theme')updateTheme(state.theme==='studio'?'classic':'studio');
   if(action==='support-info')toast('Support is planned, but payment links are not configured. Essential tools stay free.');
  });
+ $('os-runtime-trigger').addEventListener('click',()=>{navigate('device');$('os-runtime-diagnostics')?.scrollIntoView?.({behavior:'smooth',block:'start'});});
+ $('os-open-diagnostics').addEventListener('click',()=>navigate('device'));
  $('os-theme').addEventListener('click',()=>updateTheme(state.theme==='studio'?'classic':'studio'));
  $('support-info').addEventListener('click',()=>toast('Support and donation links will be added only after the recipient is verified.'));
  window.addEventListener('hashchange',()=>updatePage(location.hash));
  updateTheme(state.theme);updatePage(state.page);
+ const statusReceiver=startEpStatusReceiver({onChange:live=>{state.live=live;renderLiveState();}});
+ window.addEventListener('pagehide',()=>statusReceiver.dispose(),{once:true});
 }
 function readSavedTheme(){try{return localStorage.getItem('speeduppercut-os-theme');}catch{return null;}}
 function startDemoMeters(){
