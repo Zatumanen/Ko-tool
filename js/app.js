@@ -174,6 +174,10 @@ const lazyOpenMyEp=async()=>{
 };
 myEpIcon?.addEventListener('keydown',lazyMyEpKeydown);
 myEpIcon?.addEventListener('click',()=>{void lazyOpenMyEp();},{once:true});
+const embeddedLaunch=document.getElementById('os-embedded-launch-button');
+if(document.documentElement.classList.contains('os-embedded')){
+  embeddedLaunch?.addEventListener('click',()=>myEpIcon?.click());
+}
 // Explicit deep link used by the isolated OS shell. No automatic browser permission request on ordinary page loads.
 if(window.location.hash==='#my-ep')queueMicrotask(()=>myEpIcon?.click());
 window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});status('Ready to process files');});
