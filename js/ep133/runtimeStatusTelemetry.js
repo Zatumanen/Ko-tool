@@ -124,8 +124,8 @@ export function startEpStatusReceiver({
  };
  channel.addEventListener('message',onMessage);
  const timer=setIntervalFn(refresh,1000);
- channel.postMessage({version:EP_STATUS_VERSION,type:'request'});
  onChange(null);
+ channel.postMessage({version:EP_STATUS_VERSION,type:'request'});
  return Object.freeze({supported:true,getSnapshot:()=>current,dispose(){
   if(closed)return;closed=true;clearIntervalFn(timer);channel.removeEventListener('message',onMessage);channel.close();sources.clear();current=null;
  }});
