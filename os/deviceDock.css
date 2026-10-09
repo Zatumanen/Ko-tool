@@ -9,6 +9,7 @@
 .os-device-dock-top h2{font-size:25px;letter-spacing:-.8px;margin:9px 0 5px}
 .os-device-dock-top p{font-size:12px;line-height:1.5;margin:0;color:var(--quiet)}
 .os-device-dock-top .button{flex-shrink:0}
+.os-device-dock-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;min-width:0}
 .os-device-embed-note{display:flex;align-items:center;gap:9px;padding:9px 11px;font:11px/1.5 'Courier New',monospace;color:var(--quiet);border:1px solid var(--edge);background:var(--chrome);margin-bottom:11px}
 .os-device-frame-shell{border:1px solid var(--edge);background:#151c20;box-shadow:inset 0 2px 5px #111a20;min-width:0;height:clamp(460px,65vh,860px);overflow:hidden;border-radius:3px}
 #os-embedded-my-ep{display:block;border:none;width:100%;height:100%;background:#121a1d;min-height:0}
@@ -49,4 +50,29 @@ body[data-os-view="device"] .os-device-frame-shell{
  body[data-os-view="device"] .os-device-dock{margin:4px 6px 0;padding:6px}
  body[data-os-view="device"] .os-device-dock-top{gap:8px}
  body[data-os-view="device"] .os-device-frame-shell{height:75vh;min-height:470px}
+}
+
+/* Device workspace is for operating the real sampler, not demo meters.
+   Default focus layout widens the My EP frame; the owner can reveal the
+   read-only context/assistant sidebar without recreating the iframe. */
+body[data-os-view="device"] .os-meters{display:none}
+body[data-os-view="device"][data-os-device-layout="focus"] .os-inspector{display:none}
+@media(min-width:901px){
+ body[data-os-view="device"] .os-app{
+  height:100dvh;min-height:600px;grid-template-rows:62px minmax(0,1fr)
+ }
+ body[data-os-view="device"] .os-main{min-height:0}
+ body[data-os-view="device"][data-os-device-layout="focus"] .os-body{
+  grid-template-columns:160px minmax(0,1fr)
+ }
+ body[data-os-view="device"] .os-device-frame-shell{
+  height:max(470px,calc(100dvh - 265px))
+ }
+}
+@media(max-width:850px){
+ .os-device-dock-actions{justify-content:flex-start;width:100%}
+}
+@media(max-width:620px){
+ body[data-os-view="device"] .os-device-dock-actions{gap:6px}
+ body[data-os-view="device"] .os-device-dock-actions .button{padding:9px 10px;font-size:10px}
 }
