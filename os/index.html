@@ -40,9 +40,22 @@
     <main class="os-main" id="os-main" tabindex="-1">
       <div class="os-hero"><span>THE SAMPLE OPERATING SYSTEM / CONCEPT BUILD</span><h1 id="os-view-title">Samples</h1><p id="os-view-description">Discover, prepare and transfer — with the existing, proven tools.</p></div>
       <div id="os-view" class="os-view" aria-live="polite"></div>
+      <section id="os-device-dock" class="os-device-dock" aria-label="Embedded My EP device manager" hidden>
+        <header class="os-device-dock-top">
+          <div><div class="eyebrow">HARDWARE / MY EP • ORIGINAL RUNTIME</div>
+            <h2>Device workspace</h2><p>Original sample library, project tools, transfers, and recovery — embedded here.</p></div>
+          <button type="button" id="os-device-hide" class="button secondary">BACK TO SAMPLES</button>
+        </header>
+        <div class="os-device-embed-note"><span class="led os-led-idle" aria-hidden="true"></span>
+          Connection is always opt-in. Activate My EP inside the panel; device safety and confirmations are unchanged.
+        </div>
+        <div class="os-device-frame-shell">
+          <iframe id="os-embedded-my-ep" title="My EP — real sample and project manager" referrerpolicy="same-origin"></iframe>
+        </div>
+      </section>
     </main>
     <aside class="os-inspector" aria-label="Device and assistant">
-      <section class="side-panel" id="device-card"><div class="panel-kicker">DEVICE / SESSION</div><div class="device-frame"><div class="ko-top">K.O. II <small>サンプラー</small></div><div class="ko-grille" aria-hidden="true"></div><div class="ko-display"><span id="os-ko-display-state">NO SESSION</span><span id="os-ko-display-firmware">FW —</span></div><div class="ko-pads" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p id="os-inspector-status">Waiting for a live My EP session. No device access is requested here.</p><a class="side-action" href="../index.html#my-ep" id="launch-my-ep" target="_blank" rel="noopener">OPEN MY EP IN NEW TAB ↗</a><button class="device-diagnostics-link" type="button" id="os-open-diagnostics">VIEW DIAGNOSTICS →</button></section>
+      <section class="side-panel" id="device-card"><div class="panel-kicker">DEVICE / SESSION</div><div class="device-frame"><div class="ko-top">K.O. II <small>サンプラー</small></div><div class="ko-grille" aria-hidden="true"></div><div class="ko-display"><span id="os-ko-display-state">NO SESSION</span><span id="os-ko-display-firmware">FW —</span></div><div class="ko-pads" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p id="os-inspector-status">Waiting for a live My EP session. No device access is requested here.</p><button class="side-action" type="button" id="launch-my-ep">OPEN DEVICE WORKSPACE →</button><button class="device-diagnostics-link" type="button" id="os-open-diagnostics">VIEW DIAGNOSTICS →</button></section>
       <section class="side-panel assistant-card" id="assistant-card"><div class="panel-kicker">ASSISTANT / CONTEXT</div><div class="assistant-avatar" aria-hidden="true"><span>SU</span><i></i></div><h2 id="assistant-heading">You're in preview mode</h2><p id="assistant-copy">Explore the new navigation safely. Hardware actions remain in the original application until they have been integrated and tested.</p></section>
       <section class="side-panel support-card"><div class="panel-kicker">COMMUNITY / SUPPORT</div><h2>Make something good.</h2><p>Sample packs, project sharing and voluntary creator support are being designed. Nothing is locked behind a paywall here.</p><button type="button" id="support-info">ABOUT SUPPORT ↗</button></section>
     </aside>
