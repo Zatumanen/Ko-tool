@@ -99,6 +99,7 @@ function init(){
  function updateTheme(value){
   state.theme=normalizeTheme(value);
   root.dataset.osTheme=state.theme;
+  deviceDock.setTheme(state.theme);
   const button=$('os-theme');
   button.textContent=state.theme==='studio'?'CLASSIC THEME':'STUDIO THEME';
   button.setAttribute('aria-pressed',String(state.theme==='classic'));
