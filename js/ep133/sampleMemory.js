@@ -387,7 +387,7 @@ export function createSampleMemory({
 
       row.addEventListener('keydown',event=>{
         // Preserve the original global arrow-preview and page-group shortcuts.
-        if(event.target!==row||event.altKey||event.ctrlKey||event.metaKey)return;
+        if(event.target!==row||event.ctrlKey||event.metaKey)return;
         if(event.key==='F2'&&beginRenameFromKeyboard){beginRenameFromKeyboard(event);return;}
         if(event.key==='Enter'){
           event.preventDefault();selectClick(slot,event);
