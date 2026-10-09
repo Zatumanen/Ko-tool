@@ -40,12 +40,16 @@ test('OS preview keeps direct access to the current converter and My EP',async({
   await expect(page.locator('#audio-upload')).toBeAttached();
 
   await page.goto('/os/index.html');
-  const [deviceTab]=await Promise.all([page.context().waitForEvent('page'),page.locator('#launch-my-ep').click()]);
-  await deviceTab.waitForLoadState();
-  await expect(deviceTab).toHaveURL(/\/index\.html#my-ep$/);
-  await expect(deviceTab.locator('#my-ep-icon')).toBeAttached();
-  await expect(page).toHaveURL(/\/os\/index\.html$/);
-  await deviceTab.close();
+  await page.locator('#launch-my-ep').click();
+  await expect(page).toHaveURL(/\/os\/index\.html#os-device$/);
+  await expect(page.locator('#os-device-dock')).toBeVisible();
+  const frame=page.frameLocator('#os-embedded-my-ep');
+  await expect(frame.locator('#os-embedded-launch-button')).toBeVisible();
+  await expect(frame.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
+  await expect(page.locator('#os-runtime-label')).toHaveText('NO DEVICE SESSION');
+  await page.locator('#os-device-hide').click();
+  await expect(page.locator('#os-device-dock')).toBeHidden();
+  await expect(page.locator('#os-runtime-label')).toHaveText('NO DEVICE SESSION');
 });
 
 test('OS layout avoids horizontal document overflow on small screens',async({page})=>{
