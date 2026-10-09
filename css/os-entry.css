@@ -1,0 +1,5 @@
+/* Preview-only legacy desktop entry point. The classic UI remains unchanged. */
+a.app-icon.os-preview-icon{left:208px;top:8px;display:block;color:#fff;text-decoration:none}
+a.app-icon.os-preview-icon i{display:block;font-size:31px;margin-bottom:5px}
+a.app-icon.os-preview-icon:hover,a.app-icon.os-preview-icon:focus-visible{background:rgba(255,255,255,.25);outline:2px solid #fff;outline-offset:2px}
+@media(max-width:375px){a.app-icon.os-preview-icon{left:6px;top:104px}}
