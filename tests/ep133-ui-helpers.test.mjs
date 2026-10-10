@@ -268,6 +268,44 @@ test('sample library bootstrap streams complete 29-item batches before FILE_LIST
   assert.equal(synchronized.at(-1),true);
 });
 
+test('sample library superseded read cannot overwrite fresh metadata after reconnect',async()=>{
+  const sampleStore=createSampleStore();
+  const memory={getSelected:()=>null,getActiveTab:()=>0,setTabs(){}};
+  let finishStale,notifyStale;
+  const staleReply=new Promise(resolve=>{finishStale=resolve;});
+  const stalePending=new Promise(resolve=>{notifyStale=resolve;});
+  let metadataCalls=0;
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'same-test-session',
+    assertBatchSession:token=>assert.equal(token,'same-test-session'),
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleStore,
+    withFileTransaction:(_label,operation)=>operation({
+      listDirectory:async nodeId=>nodeId===0
+        ?[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}]
+        :[{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:80}],
+      getFileMetadata:async()=>({tabs:[{name:'ALL',range:[1,999]}]})
+    }),
+    getFileMetadata:async()=>{
+      metadataCalls++;
+      if(metadataCalls===1){notifyStale();return staleReply;}
+      return{name:'fresh',channels:1,samplerate:46875,format:'s16'};
+    },
+    setSynchronized(){},setMetadataHydrating(){},updateMutationAvailability(){},
+    closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},renderDeviceStats(){},
+    setStatus(){},reportError(label,error){throw new Error(label+' '+error.message);},
+    logTechnical(){},scheduleHide:callback=>callback()
+  });
+  const oldRead=controller.readDevice();
+  await stalePending;
+  await controller.readDevice();
+  assert.equal(sampleStore.getSlot(7).meta.name,'fresh');
+  finishStale({name:'obsolete',channels:1,samplerate:46875,format:'s16'});
+  await oldRead;
+  assert.equal(sampleStore.getSlot(7).meta.name,'fresh');
+});
+
 test('sample library partial 29-item preview rolls back after later FILE_LIST failure',async()=>{
   const sampleStore=createSampleStore();
   const statuses=[],errors=[];
