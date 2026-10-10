@@ -108,3 +108,14 @@ test('U1 secondary nav remains usable without horizontal document overflow on mo
  await expect(page.locator('#os-open-original-waveform')).toBeVisible();
  expect(await overflow()).toBeLessThanOrEqual(2);
 });
+
+test('U1 Settings diagnostics opens read-only Device status, not an unrelated legacy page',async({page})=>{
+ await page.goto('/os/index.html#os-settings');
+ await page.getByRole('button',{name:'OPEN DEVICE DIAGNOSTICS'}).click();
+ await expect(page).toHaveURL(/#os-device$/);
+ await expect(page.locator('#os-runtime-diagnostics')).toBeVisible();
+ await expect(page.locator('#os-diag-heading')).toHaveText('Device status unavailable');
+ const frame=page.frameLocator('#os-embedded-my-ep');
+ await expect(frame.locator('#os-embedded-launch-button')).toBeVisible();
+ await expect(frame.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
+});
