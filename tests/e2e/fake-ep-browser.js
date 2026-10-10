@@ -107,9 +107,9 @@
     let position=0,found=false;
     while(position+512<=data.length){
       const header=data.subarray(position,position+512);
-      const name=decoder.decode(header.subarray(0,100)).split('\\0')[0];
+      const name=decoder.decode(header.subarray(0,100)).split(String.fromCharCode(0))[0];
       if(!name)break;
-      const sizeText=decoder.decode(header.subarray(124,136)).replace(/\\0/g,'').trim();
+      const sizeText=decoder.decode(header.subarray(124,136)).replaceAll(String.fromCharCode(0),'').trim();
       const size=parseInt(sizeText,8)||0;
       if(name==='settings'){
         if(size<8)throw new Error('Fake project settings are too short');
