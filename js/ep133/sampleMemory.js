@@ -339,7 +339,13 @@ export function createSampleMemory({
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
           return true;
         };
-        nameInput.addEventListener('click',event=>{event.stopPropagation();});
+        nameInput.addEventListener('click',event=>{
+          // Readonly names cover most of the row. Let a regular mouse click
+          // select that slot, while keeping editable-name clicks isolated.
+          event.stopPropagation();
+          if(nameInput.readOnly&&(selectedId!==slot.id||selectedIds.size!==1||event.ctrlKey||event.metaKey||event.shiftKey))
+            selectClick(slot,event);
+        });
         nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
           nameInput.readOnly=false;
