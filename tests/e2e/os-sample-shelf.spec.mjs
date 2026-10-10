@@ -56,7 +56,8 @@ test('offline shelf deduplicates by content, supports folder paths and searches 
   input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));
  },nested);
  await expect(shelfRows(page)).toHaveCount(2);
- await expect(page.locator('.os-shelf-entry-main')).toContainText(['kick-offline.wav','hat <unsafe>.wav']);
+ await expect(page.locator('.os-shelf-entry-main').filter({hasText:'kick-offline.wav'})).toHaveCount(1);
+ await expect(page.locator('.os-shelf-entry-main').filter({hasText:'hat <unsafe>.wav'})).toHaveCount(1);
  await expect(page.locator('#os-shelf-list img')).toHaveCount(0);
  await page.locator('#os-shelf-search').fill('nested');
  await expect(shelfRows(page)).toHaveCount(1);
