@@ -9,6 +9,7 @@
 #os-shelf-search{width:100%;min-width:0;min-height:38px;border:1px solid var(--edge);border-radius:4px;background:var(--chrome);color:var(--text);padding:8px 11px;font-size:12px}
 #os-shelf-search:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .os-shelf-explain{margin:0;padding:0 14px 11px;color:var(--quiet);font:11px/1.5 'Courier New',monospace}
+.os-shelf-storage{margin:0;padding:0 14px 10px;color:var(--signal);font:10px 'Courier New',monospace}
 .os-shelf-list{max-height:248px;min-height:65px;overflow:auto;border-block:1px solid var(--edge)}
 .os-shelf-entry{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid var(--edge)}
 .os-shelf-entry:last-child{border-bottom:0}
