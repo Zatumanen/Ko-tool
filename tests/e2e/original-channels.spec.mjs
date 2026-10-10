@@ -72,7 +72,7 @@ test('Original selector keeps mono and stereo layout separately within one proce
  ]);
  const zip=await fs.readFile(await download.path());
  expect(zipWavChannels(zip)).toEqual([
-  {name:'Mono.wav',channels:1,rate:46875},
-  {name:'Stereo.wav',channels:2,rate:46875}
+  {name:'001 Mono_x2.wav',channels:1,rate:46875},
+  {name:'002 Stereo_x2.wav',channels:2,rate:46875}
  ]);
 });

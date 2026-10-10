@@ -1,15 +1,13 @@
 /**
- * A three-digit slot number followed by whitespace is a filename label,
- * not part of the exported sample name. Preserve the rest verbatim.
- * Other files keep the longstanding _x2 suffix.
+ * Converter exports retain the entire source basename, including leading
+ * 001–999 labels. Prefix removal is exclusive to the My EP upload path.
  */
 export function outputFileName(name){
  const base=String(name||'output.wav').replace(/\.[^.]+$/,'');
- const numbered=base.match(/^(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})[ \t]+(\S.*)$/);
- return (numbered?numbered[1]:base+'_x2')+'.wav';
+ return base+'_x2.wav';
 }
 
-/** Avoid losing one file when stripping different indices creates duplicate ZIP paths. */
+/** Keep every ZIP entry when different source filenames resolve to the same output path. */
 export function uniqueOutputPath(path,usedPaths){
  let candidate=String(path),copy=2;
  const key=value=>value.toLocaleLowerCase('en-US');
