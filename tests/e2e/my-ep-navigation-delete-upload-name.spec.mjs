@@ -30,14 +30,21 @@ test('mouse selects rows through readonly names, and guarded deletion still work
  await expect(page.locator('[data-slot="8"]')).toHaveClass(/selected/);
  await page.locator('[data-slot="7"] [data-name-input]').click();
  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
- await page.locator('[data-slot="7"] [data-delete-row]').click();
+ // Project P01 uses slots 007/008/009: deleting those is correctly blocked
+ // by the sample-dependency guard. Move a test sample into unreferenced 010.
+ await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(true);
+ await page.locator('[data-slot="10"]').click();
+ await page.locator('[data-slot="10"] [data-delete-row]').click();
  await expect(page.locator('#ep133-confirm-dialog')).not.toHaveAttribute('hidden','');
  await page.locator('#ep133-confirm-cancel').click();
- await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===7))).toBe(true);
- await page.locator('[data-slot="7"] [data-delete-row]').click();
+ await expect(page.locator('#ep133-confirm-dialog')).toHaveAttribute('hidden','');
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(true);
+ await page.locator('[data-slot="10"] [data-delete-row]').click();
+ await expect(page.locator('#ep133-confirm-dialog')).not.toHaveAttribute('hidden','');
  await page.locator('#ep133-confirm-ok').click();
- await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===7))).toBe(false);
- await expect(page.locator('[data-slot="7"]')).toHaveClass(/empty/);
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(false);
+ await expect(page.locator('[data-slot="10"]')).toHaveClass(/empty/);
  await page.locator('#ep133-view-projects').click();
  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:15000});
  await expect(page.locator('#ep133-project-inspector')).toContainText('READ ONLY');
