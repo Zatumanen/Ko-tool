@@ -173,7 +173,17 @@ export function createEpWorkspace({
       projectEditorController?.setProject(null);
       projectSequencerController?.setProject(null);
     },
-    isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError
+    isConnected,setStatus,setGlobalProgress,hideGlobalProgress,reportError,
+    getDeviceSession:getDeviceSessionToken,
+    canAutoRefresh:()=>!!(
+      isConnected()&&synchronized&&runtimeReady()&&!mutating&&!metadataHydrating&&
+      panel.style.display!=='none'&&documentRef?.visibilityState!=='hidden'&&
+      projectEditorDialog?.hidden!==false&&sequencerDialog?.hidden!==false&&
+      backupDialog?.hidden!==false&&confirmDialog?.hidden!==false
+    ),
+    logAutoError:logTechnical,
+    setIntervalFn:windowRef?.setInterval?.bind(windowRef),
+    clearIntervalFn:windowRef?.clearInterval?.bind(windowRef)
   });
 
   projectEditorController=createVerifiedProjectEditorController({
@@ -411,7 +421,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({
