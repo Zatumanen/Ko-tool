@@ -109,13 +109,14 @@ async function process(files,isFolder,{ignored=0}={}){
     })){
       const url=URL.createObjectURL(r.blob);
       state.urls.add(url);
-      const item={file:f,result:r,url,fidelity,channels,playmode};
+      const item={file:f,result:r,url,fidelity,channels,playmode:r.playmode};
       batch.push(item);
       if(isFolder)state.folderResults.push(item);
       else{state.fileResults.push(item);renderFileResult(item);}
       $('log-tab').insertAdjacentHTML('beforeend',
         '<div><i class="fas fa-check-circle"></i> '+esc(f.name)+' → x2 · '+p.label+' '+p.sampleRate+
-        ' Hz · 16-bit PCM · WAV · '+(r.channels===1?'mono':'stereo')+(channels==='original'?' (original)':'')+' · '+playmode+'</div>');
+        ' Hz · 16-bit PCM · WAV · '+(r.channels===1?'mono':'stereo')+(channels==='original'?' (original)':'')+' · '+
+         (playmode==='original'?'original → '+r.playmode+(r.sourcePlaymodeDetected?'':' (no source mode; default)'):playmode)+'</div>');
     }
     updateStats();
     // Preserve an exportable ZIP containing only successfully decoded inputs.
