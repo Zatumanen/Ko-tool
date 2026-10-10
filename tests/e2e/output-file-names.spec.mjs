@@ -25,21 +25,21 @@ function zipPaths(buffer){
  return paths;
 }
 
-test('a numbered input saves only the name following its three-digit label',async({page})=>{
+test('a numbered input retains its complete basename during converter download',async({page})=>{
  await page.goto('/');
  await page.locator('#audio-upload').setInputFiles({
   name:'056 Classic Kick.wav',mimeType:'audio/wav',buffer:sineWav()
  });
  await expect(page.locator('#results-list .result-item')).toHaveCount(1,{timeout:60000});
- await expect(page.locator('#results-list .result-name')).toHaveText('Classic Kick.wav');
+ await expect(page.locator('#results-list .result-name')).toHaveText('056 Classic Kick_x2.wav');
  await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
  const [download]=await Promise.all([
   page.waitForEvent('download'),page.locator('#results-list .result-item .download').last().click()
  ]);
- expect(download.suggestedFilename()).toBe('Classic Kick.wav');
+ expect(download.suggestedFilename()).toBe('056 Classic Kick_x2.wav');
 });
 
-test('batch ZIP strips numeric labels, preserves other names, and never duplicates entry paths',async({page})=>{
+test('batch ZIP retains numeric labels, preserves other names, and never duplicates entry paths',async({page})=>{
  await page.goto('/');
  const wave=Array.from(sineWav());
  await page.locator('#drop-zone').evaluate((drop,wave)=>{
@@ -64,5 +64,5 @@ test('batch ZIP strips numeric labels, preserves other names, and never duplicat
 });
 
 function assertZip(paths){
- expect(paths).toEqual(['Kick.wav','Snare.wav','Kick (2).wav','Loose_x2.wav']);
+ expect(paths).toEqual(['001 Kick_x2.wav','056 Snare_x2.wav','002 Kick_x2.wav','Loose_x2.wav']);
 }
