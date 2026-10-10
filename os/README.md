@@ -206,3 +206,33 @@ the temporary *processed WAV queue* and from the physical EP sample memory:
 
 Remaining ZAT-26 follow-ups: improve quota-pressure recovery/large-library
 performance and integration contract with the future 12-pad Kit Builder.
+
+
+## U1 / ZAT-18 — device and recovery copy
+
+The outer OS shell now derives **human-readable guidance** from the existing
+read-only live status in `os/deviceStatusCopy.js`. It never infers a connection
+or grants authority to modify device data.
+
+- Unknown/stale publisher: no verified session; connect explicitly within My EP.
+- Disconnected/connecting/reading/writing/verifying: describe whether the
+  process is still active and where to see live progress. Verification is not
+  described as successful before My EP confirms it.
+- Blocked/recovery-required/unsafe: distinguish the states, explain that
+  no write should be retried blindly, and route the user to existing My EP
+  recovery without promising unavailable rollback/retry actions.
+- **Primary UX**: status heading, a short explanation and a safe next
+  action in Device diagnostics and contextual assistant; no raw
+  FID/CRC/internal transport reason is displayed in primary copy.
+- **Technical evidence** remains available when the user opens
+  `TECHNICAL REASON / DETAILS` in Device diagnostics. The reason uses
+  `textContent`, not HTML, and comes solely from the passive publisher.
+- A contradictory `ready` display falls back to blocked if known
+  connection/ownership/recovery evidence is insufficient; safety-unsafe
+  and recovery-required status take precedence.
+- Browser E2E covers status changes and technical detail disclosure;
+  unit tests cover the conservative copy mapping. No Sysex, transport,
+  upload or recovery controller was changed.
+
+The status copy does **not** itself certify hardware behavior: ZAT-9
+remains necessary for real EP write/recovery validation.
