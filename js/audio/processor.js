@@ -64,6 +64,15 @@ function makeBuffer(length,sampleRate,channels){if(typeof AudioBuffer==='undefin
 function checkCancel(hooks){if(hooks?.shouldCancel?.())throw Object.assign(new Error('Processing cancelled'),{name:'AbortError'});}
 const yieldControl=()=>new Promise(resolve=>setTimeout(resolve,0));
 export async function trimSilence(buffer,thresholdDb=-60,minSilenceDuration=.1,hooks={}){if(!buffer?.length)return buffer;const threshold=10**(thresholdDb/20),sr=buffer.sampleRate,ch=buffer.numberOfChannels,d=Array.from({length:ch},(_,i)=>buffer.getChannelData(i));let start=0,end=buffer.length;while(start<end){checkCancel(hooks);let loud=false;for(let c=0;c<ch&&!loud;c++)loud=Math.abs(d[c][start])>threshold;if(loud)break;start++;if(start%10000===0)await yieldControl();}while(end>start){checkCancel(hooks);let loud=false;for(let c=0;c<ch&&!loud;c++)loud=Math.abs(d[c][end-1])>threshold;if(loud)break;end--;if(end%10000===0)await yieldControl();}const min=Math.floor(minSilenceDuration*sr);if(start<min)start=0;if(buffer.length-end<min)end=buffer.length;if(!start&&end===buffer.length)return buffer;if(end<=start)return buffer;const out=makeBuffer(end-start,sr,ch);for(let c=0;c<ch;c++){const src=d[c],dst=out.getChannelData(c);for(let i=0;i<src.length&&i<dst.length;i++){if(i%50000===0){checkCancel(hooks);await yieldControl();}dst[i]=src[i+start];}}return out;}
+/** Original keeps each source's mono/stereo layout, including in a mixed batch. */
+export function resolveOutputChannels(sourceChannels,mode='stereo'){
+  if(mode==='mono')return 1;
+  if(mode==='stereo')return 2;
+  if(mode!=='original')throw new Error('Unsupported output channels setting: '+mode);
+  if(sourceChannels!==1&&sourceChannels!==2)
+    throw new Error('Original channels supports only mono or stereo sources.');
+  return sourceChannels;
+}
 export async function convertChannels(buffer,target,hooks={}){if(buffer.numberOfChannels===target)return buffer;const out=makeBuffer(buffer.length,buffer.sampleRate,target),src=Array.from({length:buffer.numberOfChannels},(_,c)=>buffer.getChannelData(c));if(target===1){const d=out.getChannelData(0),scale=1/src.length;for(let i=0;i<buffer.length;i++){if(i%50000===0){checkCancel(hooks);await yieldControl();}let x=0;for(const s of src)x+=s[i];d[i]=x*scale;}}else{const l=out.getChannelData(0),r=out.getChannelData(1);if(src.length===1){for(let i=0;i<buffer.length;i++){if(i%50000===0){checkCancel(hooks);await yieldControl();}l[i]=src[0][i];r[i]=src[0][i];}}else{for(let i=0;i<buffer.length;i++){if(i%50000===0){checkCancel(hooks);await yieldControl();}l[i]=src[0][i];r[i]=src[1][i];}}}return out;}
 export async function speedAndResample(buffer,speed=2,targetSampleRate=44100,hooks={}){if(!(speed>0))throw Error('Speed must be greater than zero.');checkCancel(hooks);const out=await resampleAudioBufferReference(buffer,{speed,targetSampleRate,module:hooks.referenceModule,moduleProvider:hooks.referenceModuleProvider});checkCancel(hooks);return out;}
 export async function quantizeBuffer(buffer,bits,hooks={}){if(bits!==8&&bits!==12&&bits!==16)throw Error(`Unsupported bit depth: ${bits}`);const out=makeBuffer(buffer.length,buffer.sampleRate,buffer.numberOfChannels),levels=bits===8?127:bits===12?2047:32767;for(let c=0;c<buffer.numberOfChannels;c++){const s=buffer.getChannelData(c),d=out.getChannelData(c);for(let i=0;i<s.length;i++){if(i%20000===0){checkCancel(hooks);await yieldControl();}const x=Math.max(-1,Math.min(1,s[i]));d[i]=x<0?Math.round(x*(levels+1))/(levels+1):Math.round(x*levels)/levels;}}return out;}
@@ -106,7 +115,7 @@ export async function processAudio(input,{
     buffer=await trimSilence(buffer,-60,.1,hooks);
   }
   stage(2,.35,'Channels');
-  buffer=await convertChannels(buffer,channels==='mono'?1:2,hooks);
+  buffer=await convertChannels(buffer,resolveOutputChannels(buffer.numberOfChannels,channels),hooks);
   stage(3,.55,'Speed ×2 · reference resampler');
   buffer=await speedAndResample(buffer,EP_REPITCH_FACTOR,preset.sampleRate,hooks);
   stage(4,.82,'Normalize');
@@ -121,7 +130,7 @@ export async function processAudio(input,{
   hooks.progress?.(1,'Done');
   return{
     buffer,blob,metadata,sampleRate:preset.sampleRate,
-    bitDepth:EP_OUTPUT_BIT_DEPTH,channels:channels==='mono'?1:2,
+    bitDepth:EP_OUTPUT_BIT_DEPTH,channels:buffer.numberOfChannels,
     repitchFactor:EP_REPITCH_FACTOR,pitchCompensation:EP_REPITCH_COMPENSATION,
     sourceEpStorage:sourceStorage,epStorage,outputFormat:'wav'
   };

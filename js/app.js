@@ -115,7 +115,7 @@ async function process(files,isFolder,{ignored=0}={}){
       else{state.fileResults.push(item);renderFileResult(item);}
       $('log-tab').insertAdjacentHTML('beforeend',
         '<div><i class="fas fa-check-circle"></i> '+esc(f.name)+' → x2 · '+p.label+' '+p.sampleRate+
-        ' Hz · 16-bit PCM · WAV · '+channels+' · '+playmode+'</div>');
+        ' Hz · 16-bit PCM · WAV · '+(r.channels===1?'mono':'stereo')+(channels==='original'?' (original)':'')+' · '+playmode+'</div>');
     }
     updateStats();
     // Preserve an exportable ZIP containing only successfully decoded inputs.
