@@ -82,7 +82,7 @@ const harness=choice=>{
   syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},
   logTechnical(){},showError(){},setTimeoutFn:()=>1,
   prepareSample:async()=>({data:new Uint8Array(12),channels:1,samplerate:46875,format:'s16',metadata:{}}),
-  chooseUploadTargets:async options=>{chosenOptions=options;return choice;}
+  chooseUploadTargets:async options=>{chosenOptions=options;return typeof choice==='function'?choice(options):choice;}
  });
  return{controller,store,created,sampleNames,get mutations(){return mutations;},
   get preflight(){return preflight;},get chosenOptions(){return chosenOptions;}};
@@ -113,4 +113,18 @@ test('next free choice preserves current slot-first semantics even with numbered
  assert.deepEqual(result.successes,[9]);
  assert.deepEqual(h.preflight,[9]);
  assert.deepEqual(h.sampleNames,['Snare.wav']);
+});
+
+test('a second drag or paste cannot mutate while numbered target dialog is unresolved',async()=>{
+ let dismiss;
+ const h=harness(()=>new Promise(resolve=>{dismiss=resolve;}));
+ const pending=h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('056 Snare.wav')]);
+ await assert.rejects(
+  ()=>h.controller.uploadFilesToSlot(h.store.getSlot(10),[file('Loose.wav')]),
+  /Finish or cancel the open upload destination choice/
+ );
+ assert.equal(h.mutations,0);
+ dismiss(null);
+ assert.equal((await pending).cancelled,true);
+ assert.deepEqual(h.created,[]);
 });
