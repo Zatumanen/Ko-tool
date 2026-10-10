@@ -13,7 +13,7 @@ import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
 import{PROJECT_RUNTIME_SETTLE_MS,createProjectRuntimeGate}from '../js/ep133/projectRuntime.js';
 import{outputFileName}from '../js/output-name.js';
-import{normalizeFileName}from '../js/ep133/sampleFilesystem.js';
+import{normalizeFileName,stripSampleUploadPrefix}from '../js/ep133/sampleFilesystem.js';
 import{pickerTypesForFile}from '../js/save-file.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -2999,4 +2999,12 @@ test('device upload strips 001–999 numeric prefixes but preserves 000, longer 
     assert.equal(normalizeFileName(input,true),expected,input);
   }
   assert.equal(normalizeFileName('056 Big Snare.wav'), '056 big snare');
+});
+
+test('device upload keeps the original extension until transport normalization, including long names',()=>{
+  assert.equal(stripSampleUploadPrefix('056 Super Long Drum Loop.wav'),'Super Long Drum Loop.wav');
+  assert.equal(stripSampleUploadPrefix('000 Drum Loop.wav'),'000 Drum Loop.wav');
+  assert.equal(stripSampleUploadPrefix('056.wav'),'056.wav');
+  assert.equal(normalizeFileName(stripSampleUploadPrefix('056 Super Long Drum Loop.wav')),
+    normalizeFileName('Super Long Drum Loop.wav'));
 });
