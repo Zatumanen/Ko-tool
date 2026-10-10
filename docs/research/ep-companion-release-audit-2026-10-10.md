@@ -80,7 +80,7 @@
 - Не переписывать protocol/MIDI/SysEx/device ownership по материалам конкурентов.
 - Всегда учитывать model/firmware, protected slots, memory delta, replacement impact, подтверждение overwrite, возможность recovery.
 - Проверять EP-133 и особенности EP-1320 / EP-40 (multi-samples, Supertone) отдельно.
-- Новые навигационные страницы не плодить; Samples содержит библиотеку, редактор, converter, kit; Device содержит transfer, backup/recovery; Projects содержит scenes/sequencer and imports.
+- Новые навигационные страницы не плодить: Samples содержит библиотеку, редактор, converter, kit и UX подготовки/очереди Sample Transfer; фактическое безопасное выполнение переноса и backup/recovery остаётся внутри My EP в Device; Projects содержит scenes/sequencer и импорт проектов.
 - Любая заявленная hardware-функция получает proof by fake-device tests + отдельно реальный HIL.
 - UI концепции можно переосмыслить, но нельзя копировать чужие фирменные assets, код или claim независимого софта как официального TE.
 
