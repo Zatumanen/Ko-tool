@@ -13,7 +13,7 @@ class TestAudioBuffer{
 }
 globalThis.AudioBuffer=TestAudioBuffer;
 
-const {PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,EP_STORAGE_BYTES_PER_SAMPLE,EP_MAX_SAMPLE_RATE,estimateDirectEpStorage,measureEpStorage,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
+const {resolveOutputChannels,processAudioInputs,PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,EP_STORAGE_BYTES_PER_SAMPLE,EP_MAX_SAMPLE_RATE,estimateDirectEpStorage,measureEpStorage,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
 const {prepareEp133Sample,parseWavAudioMeta}=await import('../js/ep133/audio.js');
 
 function buffer(length=8,channels=1,sampleRate=44100){
@@ -227,3 +227,51 @@ test('normalize reaches digital full scale without changing silence',async()=>{
 
 
 test('SpeedUpperCut production resampling delegates to the shared reference AudioEngine',async()=>{const fs=await import('node:fs/promises');const source=await fs.readFile(new URL('../js/audio/processor.js',import.meta.url),'utf8');assert.match(source,/resampleAudioBufferReference/);assert.match(source,/encodeReferenceEpWav/);assert.doesNotMatch(source,/const pos=i\*srcRate\*speed\/targetSampleRate/);assert.doesNotMatch(source,/mode==='linear'/);});
+
+test('Original channels keeps mono WAV mono and stereo WAV stereo all the way to EP-ready output',async()=>{
+ for(const channels of [1,2]){
+  const src=buffer(4800,channels,48000);
+  for(let i=0;i<src.length;i++){
+   src.getChannelData(0)[i]=Math.sin(i*.06)*.4;
+   if(channels===2)src.getChannelData(1)[i]=Math.cos(i*.09)*.22;
+  }
+  const input=await (await encodeWav(src,16,{},'oneshot')).arrayBuffer();
+  const result=await processAudio(input,{
+   fidelity:'mid',channels:'original',playmode:'oneshot',autoTrim:false
+  },{referenceModuleProvider});
+  assert.equal(result.channels,channels);
+  assert.equal(result.buffer.numberOfChannels,channels);
+  assert.equal(result.epStorage.channels,channels);
+  const bytes=new DataView(await result.blob.arrayBuffer());
+  assert.equal(bytes.getUint16(22,true),channels);
+  assert.equal(bytes.getUint16(34,true),16);
+  assert.equal(bytes.getUint32(24,true),32000);
+  assert.equal(result.metadata['sound.pitch'],-12);
+  assert.ok(result.buffer.length>0);
+  if(channels===2)
+   assert.notDeepEqual([...result.buffer.getChannelData(0)],[...result.buffer.getChannelData(1)]);
+ }
+});
+
+test('Original resolves per file in a mixed batch and does not change existing force-mono/stereo modes',async()=>{
+ const mono=buffer(480,1,48000),stereo=buffer(480,2,48000);
+ for(let i=0;i<480;i++){
+  mono.getChannelData(0)[i]=Math.sin(i*.08)*.3;
+  stereo.getChannelData(0)[i]=Math.sin(i*.1)*.3;
+  stereo.getChannelData(1)[i]=Math.cos(i*.2)*.25;
+ }
+ const a=await (await encodeWav(mono)).arrayBuffer();
+ const b=await (await encodeWav(stereo)).arrayBuffer();
+ const files=[{name:'mono.wav',arrayBuffer:async()=>a.slice(0)},{name:'stereo.wav',arrayBuffer:async()=>b.slice(0)}];
+ const result=[];
+ for await(const output of processAudioInputs(files,{channels:'original',autoTrim:false},{referenceModuleProvider}))
+  result.push({name:output.file.name,channels:output.result.channels,bytes:output.result.epStorage.bytes});
+ assert.deepEqual(result.map(x=>[x.name,x.channels]),[['mono.wav',1],['stereo.wav',2]]);
+ assert.equal(result[1].bytes,2*result[0].bytes);
+ assert.equal(resolveOutputChannels(1,'stereo'),2);
+ assert.equal(resolveOutputChannels(2,'mono'),1);
+ assert.equal(resolveOutputChannels(1,'original'),1);
+ assert.equal(resolveOutputChannels(2,'original'),2);
+ assert.throws(()=>resolveOutputChannels(3,'original'),/mono or stereo/);
+ assert.throws(()=>resolveOutputChannels(1,'unrecognized'),/Unsupported output channels/);
+});
