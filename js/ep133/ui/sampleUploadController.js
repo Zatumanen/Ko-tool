@@ -1,6 +1,7 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
 import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
 import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20261001-1';
+import{numberedSampleSlot,planSampleUploadTargets}from './sampleUploadPlan.js?v=20261001-1';
 
 export function createSampleUploadController({
   sampleStore,getMemory,
@@ -16,6 +17,7 @@ export function createSampleUploadController({
   markUploadPending,clearUploadPending,
   waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
   logTechnical,showError,
+  chooseUploadTargets=async()=> 'sequential',
   prepareSample=prepareEp133Sample,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
 }={}){
@@ -52,17 +54,29 @@ export function createSampleUploadController({
     ));
     if(!audioFiles.length)throw new Error('No supported audio files were found.');
 
-    const targets=[];
-    let searchFrom=slot.id;
-    for(const file of audioFiles){
-      const destinationId=sampleStore.findNextFree(searchFrom);
-      if(destinationId===-1)break;
-      targets.push({file,slot:sampleStore.getSlot(destinationId)});
-      searchFrom=destinationId+1;
+    // No device writes, permissions or mutation flags before user choice.
+    // Capture the current session so a disconnected/reconnected device cannot
+    // inherit a plan approved for a different session.
+    const choiceSession=captureBatchSession();
+    const numberedCount=audioFiles.filter(file=>numberedSampleSlot(file.name)!=null).length;
+    let mode='sequential';
+    if(numberedCount){
+      let sequentialPlan=null,numberedPlan=null,sequentialError='',numberedError='';
+      try{sequentialPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'sequential'});}
+      catch(error){sequentialError=String(error?.message||error);}
+      try{numberedPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'numbered'});}
+      catch(error){numberedError=String(error?.message||error);}
+      mode=await chooseUploadTargets({
+        files:audioFiles,numberedCount,sequentialPlan,numberedPlan,sequentialError,numberedError
+      });
+      if(mode==null)return{successes:[],failures:[],cancelled:true};
+      if(mode!=='numbered'&&mode!=='sequential')throw new Error('Invalid upload destination selection.');
+      assertBatchSession(choiceSession);
     }
-    if(targets.length<audioFiles.length)
-      throw new Error('Not enough free sample slots above the drop position.');
-
+    // Recompute after the modal: the cached inventory may have changed
+    // while the user was deciding. The strict FILE transaction also checks
+    // all chosen destination slots against live authoritative FILE LIST.
+    const targets=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode}).targets;
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
     setMutating(true);
