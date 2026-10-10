@@ -21,7 +21,7 @@ export function createSampleWorkspaceController(){
  function html(){
   return `<div class="os-samples">
  <section class="os-workflow-heading"><div><div class="eyebrow">SAMPLES / WORKSPACE 01</div><h2>Sample laboratory</h2><p>Real EP-ready WAV conversion · your files remain on this computer</p></div>
- <button type="button" class="button secondary" data-os-open-device>DEVICE TRANSFER →</button></section>
+ <div class="os-workspace-links"><a class="button secondary" id="os-open-original-waveform" href="../index.html" title="Open the original app for full waveform editing and Chop">WAVEFORM / CHOP ↗</a><button type="button" class="button secondary" data-os-open-device>DEVICE TRANSFER →</button></div></section>
  <section class="os-space-saver"><div class="os-toggle-mark">×2</div><div><strong>SPACE SAVER</strong><p>Always prepares audio at x2 speed, with −12 semitone pitch metadata. Confirm playback settings on KO II after import.</p></div><span class="os-fixed-badge">ALWAYS ON</span></section>
  <div id="os-offline-shelf"></div>
  <section class="os-sample-layout">
