@@ -19,6 +19,16 @@ export function createSampleLibrarySyncController({
     const sessionToken=captureBatchSession();
     const preferredSelectedId=memory.getSelected()?.id||null;
     const preferredTabIndex=memory.getActiveTab();
+    let lastListPage=null;
+    const onSoundsPage=progress=>{
+      assertBatchSession(sessionToken);
+      lastListPage=progress;
+      if(progress.done)return;
+      // The reference EP Sample Tool consumes FILE_LIST page-by-page. Keep
+      // the inventory atomic, but make large-library reads visible per page.
+      setGlobalProgress('SOUNDS · '+progress.total+' FILES · PAGE '+(progress.page+1),4);
+      setStatus('READING SAMPLE LIBRARY · '+progress.total+' FILES');
+    };
 
     setSynchronized(false);
     setMetadataHydrating(false);
@@ -41,7 +51,7 @@ export function createSampleLibrarySyncController({
         const soundsParentId=Number(soundsRoot?.nodeId)||0;
         if(!soundsParentId)throw new Error('The /sounds library was not found on the device.');
 
-        const soundEntries=await fileOps.listDirectory(soundsParentId,'/sounds');
+        const soundEntries=await fileOps.listDirectory(soundsParentId,'/sounds',onSoundsPage);
         assertBatchSession(sessionToken);
         const soundsMetadata=await fileOps.getFileMetadata(soundsParentId);
         assertBatchSession(sessionToken);
@@ -102,6 +112,11 @@ export function createSampleLibrarySyncController({
       setGlobalProgress('SYNC',100);
       setStatus('SYNCED · '+occupied.length+' SAMPLES');
     }catch(error){
+      if(lastListPage&&!lastListPage.done)
+        logTechnical('SAMPLE LIBRARY LAST FILE_LIST PAGE',new Error(
+          'Received '+lastListPage.total+' entries through page '+(lastListPage.page+1)+
+          '; next page or /sounds metadata did not finish.'
+        ));
       setMetadataHydrating(false);
       setSynchronized(false);
       updateMutationAvailability();
