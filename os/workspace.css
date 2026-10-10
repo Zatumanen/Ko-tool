@@ -11,6 +11,9 @@ body[data-os-theme=classic] .os-hero h1{color:#fff}
 .os-workflow-heading h2{font-size:28px;letter-spacing:-1px;margin:6px 0 4px}
 .os-workflow-heading p{color:var(--quiet);font-size:12px;margin:0}
 .os-workflow-heading .button{flex-shrink:0}
+.os-workspace-links{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.os-workspace-links .button{white-space:nowrap}
+@media(max-width:620px){.os-workspace-links{width:100%;justify-content:flex-start}.os-workspace-links .button{flex:1 1 auto;text-align:center;font-size:10px;padding:10px}}
 .os-space-saver{display:flex;align-items:center;gap:17px;background:var(--panel);border:1px solid var(--edge);border-left:4px solid var(--signal);padding:13px 16px;border-radius:var(--radius)}
 .os-space-saver strong{letter-spacing:1.7px;font:700 12px 'Courier New',monospace}
 .os-space-saver p{margin:4px 0 0;font-size:11px;color:var(--quiet);max-width:610px;line-height:1.6}
