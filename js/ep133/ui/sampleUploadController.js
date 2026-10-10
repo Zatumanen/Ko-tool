@@ -76,7 +76,9 @@ export function createSampleUploadController({
     // Recompute after the modal: the cached inventory may have changed
     // while the user was deciding. The strict FILE transaction also checks
     // all chosen destination slots against live authoritative FILE LIST.
-    const targets=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode}).targets;
+    // Upload transaction records createdId on each item for rollback tracking.
+    // Keep the preview plan immutable, but hand mutable copies to the writer.
+    const targets=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode}).targets.map(item=>({...item}));
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
     setMutating(true);
