@@ -214,6 +214,129 @@ test('connection lifecycle blocks repeated MIDI permission failures',async()=>{
 });
 
 
+test('sample library bootstrap streams complete 29-item batches before FILE_LIST finishes',async()=>{
+  const sampleStore=createSampleStore();
+  const memory={getSelected:()=>null,getActiveTab:()=>0,setTabs(){}};
+  const soundEntries=Array.from({length:65},(_,index)=>({
+    nodeId:index+1,fileName:'/sounds/S'+String(index+1).padStart(3,'0'),
+    fileType:'file',fileSize:130000
+  }));
+  let releaseList,signalPaused;
+  const pause=new Promise(resolve=>{releaseList=resolve;});
+  const reachedPause=new Promise(resolve=>{signalPaused=resolve;});
+  const synchronized=[];
+  const errors=[];
+  const root=[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}];
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleStore,
+    getFileMetadata:async nodeId=>({
+      name:'S'+nodeId,channels:1,samplerate:46875,format:'s16'
+    }),
+    withFileTransaction:(_label,operation)=>operation({
+      listDirectory:async(nodeId,_path,onPage,onEntry)=>{
+        if(nodeId===0)return root;
+        for(let index=0;index<soundEntries.length;index++){
+          onEntry?.(soundEntries[index]);
+          if(index===28){signalPaused();await pause;}
+        }
+        onPage?.({nodeId:1000,path:'/sounds',page:2,total:65,received:0,done:true});
+        return soundEntries;
+      },
+      getFileMetadata:async nodeId=>nodeId===1000
+        ?{tabs:[{name:'ALL',range:[1,999]}]}
+        :{name:'S'+nodeId,channels:1,samplerate:46875,format:'s16'}
+    }),
+    setSynchronized:value=>synchronized.push(value),setMetadataHydrating(){},
+    updateMutationAvailability(){},closeProperties(){},setGlobalProgress(){},
+    hideGlobalProgress(){},renderDeviceStats(){},setStatus(){},
+    reportError:(label,error)=>errors.push([label,error]),logTechnical(){},
+    scheduleHide:callback=>callback()
+  });
+  const read=controller.readDevice();
+  await reachedPause;
+  assert.equal(sampleStore.countOccupied(),29);
+  assert.equal(sampleStore.getSlot(30).file,null);
+  assert.equal(synchronized.at(-1),false);
+  releaseList();
+  await read;
+  assert.deepEqual(errors,[]);
+  assert.equal(sampleStore.countOccupied(),65);
+  assert.equal(sampleStore.getSlot(65).meta.name,'S65');
+  assert.equal(synchronized.at(-1),true);
+});
+
+test('sample library superseded read cannot overwrite fresh metadata after reconnect',async()=>{
+  const sampleStore=createSampleStore();
+  const memory={getSelected:()=>null,getActiveTab:()=>0,setTabs(){}};
+  let finishStale,notifyStale;
+  const staleReply=new Promise(resolve=>{finishStale=resolve;});
+  const stalePending=new Promise(resolve=>{notifyStale=resolve;});
+  let metadataCalls=0;
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'same-test-session',
+    assertBatchSession:token=>assert.equal(token,'same-test-session'),
+    getMemory:()=>memory,
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleStore,
+    withFileTransaction:(_label,operation)=>operation({
+      listDirectory:async nodeId=>nodeId===0
+        ?[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}]
+        :[{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:80}],
+      getFileMetadata:async()=>({tabs:[{name:'ALL',range:[1,999]}]})
+    }),
+    getFileMetadata:async()=>{
+      metadataCalls++;
+      if(metadataCalls===1){notifyStale();return staleReply;}
+      return{name:'fresh',channels:1,samplerate:46875,format:'s16'};
+    },
+    setSynchronized(){},setMetadataHydrating(){},updateMutationAvailability(){},
+    closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},renderDeviceStats(){},
+    setStatus(){},reportError(label,error){throw new Error(label+' '+error.message);},
+    logTechnical(){},scheduleHide:callback=>callback()
+  });
+  const oldRead=controller.readDevice();
+  await stalePending;
+  await controller.readDevice();
+  assert.equal(sampleStore.getSlot(7).meta.name,'fresh');
+  finishStale({name:'obsolete',channels:1,samplerate:46875,format:'s16'});
+  await oldRead;
+  assert.equal(sampleStore.getSlot(7).meta.name,'fresh');
+});
+
+test('sample library partial 29-item preview rolls back after later FILE_LIST failure',async()=>{
+  const sampleStore=createSampleStore();
+  const statuses=[],errors=[];
+  const controller=createSampleLibrarySyncController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
+    getMemory:()=>({getSelected:()=>null,getActiveTab:()=>0,setTabs(){}}),
+    getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
+    sampleStore,
+    withFileTransaction:(_label,operation)=>operation({
+      listDirectory:async(nodeId,_path,onPage,onEntry)=>{
+        if(nodeId===0)return[{nodeId:1000,fileName:'/sounds',fileType:'folder',fileSize:0}];
+        for(let id=1;id<=32;id++)onEntry?.({nodeId:id,fileName:'/sounds/S'+id,fileType:'file',fileSize:130000});
+        onPage?.({nodeId:1000,path:'/sounds',page:1,total:32,received:3,done:false});
+        assert.equal(sampleStore.countOccupied(),29);
+        throw new Error('Device rejected FILE_LIST page 2');
+      },
+      getFileMetadata:async()=>({})
+    }),
+    setSynchronized(){},setMetadataHydrating(){},updateMutationAvailability(){},
+    closeProperties(){},setGlobalProgress(){},hideGlobalProgress(){},renderDeviceStats(){},
+    setStatus:value=>statuses.push(value),
+    reportError:(label,error)=>errors.push([label,error.message]),
+    logTechnical(){},scheduleHide:callback=>callback()
+  });
+  await controller.readDevice();
+  assert.equal(sampleStore.countOccupied(),0);
+  assert.equal(sampleStore.getSoundsParentId(),0);
+  assert.equal(statuses.at(-1),'SAMPLE LIBRARY READ FAILED');
+  assert.deepEqual(errors,[['COULD NOT READ EP SAMPLE LIBRARY.','Device rejected FILE_LIST page 2']]);
+});
+
 test('sample library sync exposes LIST results before uncached metadata hydration completes',async()=>{
   let synchronized=false,metadataHydrating=false;
   let resolveUncached;

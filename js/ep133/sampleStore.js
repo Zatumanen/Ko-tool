@@ -153,13 +153,20 @@ export function createSampleStore(){
     slots=next;
 
     if(memory){
+      const changed=[];
       for(let id=1;id<=EP_SAMPLE_SLOT_COUNT;id++){
         const oldSlot=previous[id-1];
         const newSlot=slots[id-1];
         const fileChanged=slotFingerprint(oldSlot)!==slotFingerprint(newSlot);
         const metaChanged=JSON.stringify(oldSlot?.meta||null)!==JSON.stringify(newSlot?.meta||null);
-        if(fileChanged||metaChanged)projectSlot(id);
+        if(fileChanged||metaChanged)changed.push(id);
       }
+      // A 500-sample bootstrap arrives in ~18 UI batches. Render once per
+      // batch instead of rebuilding the DOM for every slot in that batch.
+      const view=projection();
+      if(typeof view?.patchSlots==='function'){
+        if(changed.length)view.patchSlots(changed.map(id=>cloneSlot(slots[id-1])));
+      }else for(const id of changed)projectSlot(id);
     }
 
     emit('files-replaced',{count:countOccupied()});

@@ -127,11 +127,30 @@
     [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
-  let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;const requestLog=[];
-  const soundsMeta=()=>({
+  let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
+  let rejectedListPage=null,heldListPage=null;
+  const delayedListResponses=[];
+  const requestLog=[];
+  const listPageSize=24;
+  // Represent full sample-library capacity without allocating 65 MB of audio.
+  const seedSamples=(count,virtualSize=130000,{sparse=false}={})=>{
+    samples.clear();
+    for(let index=0;index<count;index++){
+      const id=sparse?index*2+1:index+1;
+      const name='SAMPLE'+String(id).padStart(4,'0');
+      samples.set(id,{
+        id,name,data:new Uint8Array(64),reportedSize:virtualSize,
+        meta:{name,channels:1,samplerate:46875,format:'s16',crc:id*1001,'sound.playmode':'oneshot','envelope.release':255}
+      });
+    }
+  };
+  const soundsMeta=()=>{
+    const used=[...samples.values()].reduce((n,s)=>n+(s.reportedSize??s.data.length),0);
+    const capacity=used>64000000?128000000:64000000;
+    return{
     name:'sounds',
-    max_capacity:64000000,
-    free_space_in_bytes:64000000-[...samples.values()].reduce((n,s)=>n+s.data.length,0),
+    max_capacity:capacity,
+    free_space_in_bytes:capacity-used,
     formats:[{type:'pcm',formats:[{format:'s16',channels:[1,2],samplerate:{native:46875,range:[8000,46875]}}]}],
     tabs:[
       {name:'KICK',range:[1,99],color:1},
@@ -145,7 +164,7 @@
       {name:'USER 2',range:[800,899],color:2},
       {name:'SFX',range:[900,999],color:3}
     ]
-  });
+  };};
 
   class Input{
     constructor(){this.id='e2e-input';this.type='input';this.state='connected';this.connection='open';this.listeners=new Set();}
@@ -222,15 +241,21 @@
     }
     if(sub===F.LIST){
       const page=u16(raw,1),node=u16(raw,3);
-      if(page>0){emitLater(response(request,Uint8Array.from(be16(page))));return;}
+      if(node===1000&&rejectedListPage===page){
+        emitLater(response(request,enc.encode('LIST page unavailable\\0'),3));return;
+      }
       let body=[];
       if(node===0)body=[
         listEntry(1000,CAP.DIR|CAP.READ|CAP.WRITE,0,'sounds'),
         listEntry(2000,CAP.DIR|CAP.READ,0,'projects')
       ];
-      else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.data.length,s.name));
+      else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.reportedSize??s.data.length,s.name));
       else if(node===2000)body=[...projects.values()].map(project=>listEntry(project.id,CAP.DIR|CAP.READ,project.data.length,project.name));
-      emitLater(response(request,concat(be16(page),...body)));return;
+      const reply=response(request,concat(be16(page),...body.slice(page*listPageSize,(page+1)*listPageSize)));
+      if(node===1000&&heldListPage===page){
+        delayedListResponses.push(()=>emitLater(reply));return;
+      }
+      emitLater(reply);return;
     }
     if(sub===F.METADATA&&raw[1]===2){
       const id=u16(raw,2),page=u16(raw,4);
@@ -332,6 +357,13 @@
     get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
     removeSample:id=>samples.delete(Number(id)),
+    seedSamples,
+    rejectListPage:page=>{rejectedListPage=page==null?null:Number(page);},
+    holdListPage:page=>{heldListPage=page==null?null:Number(page);},
+    releaseListPage:()=>{
+      heldListPage=null;
+      for(const release of delayedListResponses.splice(0))release();
+    },
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
     changeProjectBpm,
     disconnect,reconnect,

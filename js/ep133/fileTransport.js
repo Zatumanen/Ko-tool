@@ -52,7 +52,7 @@ function createFileTransactionLease(){
   const lease=Object.freeze({
     initFileSystem:track(initFileSystemUnlocked),
     listDeviceFiles:track(async onProgress=>{await initRead();return listDeviceFilesUnlocked(onProgress);}),
-    listDirectory:track(async(nodeId=0,path='/')=>{await initRead();return listDirectoryUnlocked(nodeId,path);}),
+    listDirectory:track(async(nodeId=0,path='/',onPage=null,onEntry=null)=>{await ensureFileSystemInitializedUnlocked();return listDirectoryUnlocked(nodeId,path,onPage,onEntry);}),
     getFileMetadata:track(async(nodeId,key=null)=>{await ensureFileSystemInitializedUnlocked();return getMetadataByNodeId(nodeId,key);}),
     getFileInfo:track(async fileId=>{await ensureFileSystemInitializedUnlocked();return getFileInfoUnlocked(fileId);}),
     getFile:track(getFileUnlocked),
@@ -133,23 +133,43 @@ async function getMetadataByNodeId(nodeId,key=null){
 export async function getFileMetadata(nodeId,key=null){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();return getMetadataByNodeId(nodeId,key);});}
 
 export async function listDeviceFiles(onProgress){return runFileOperation(async()=>{await initRead();return listDeviceFilesUnlocked(onProgress);});}
-async function listDirectoryUnlocked(nodeId=0,path='/'){
-  const result=[];
+// Like the official EP Sample Tool's iterNodes(), yield one FILE_LIST entry
+// at a time. onEntry enables its 29-item incremental UI batching without
+// releasing the browser FILE transaction or allowing overlapping MIDI traffic.
+async function* iterDirectoryEntriesUnlocked(nodeId=0,path='/',onPage=null,onEntry=null){
+  let total=0;
   for(let page=0;;page++){
     if(page>0xffff)throw new Error('EP-series FILE_LIST page limit exceeded.');
     const response=await requestRead(TE_SYSEX_FILE,buildFileListPayload(page,nodeId));
     const raw=response.rawData;
-    if(raw.length<=2)break;
+    if(raw.length<=2){
+      onPage?.({nodeId,path,page,received:0,total,done:true});
+      break;
+    }
     const pageNo=u16(raw,0);
-    if(pageNo!==page)throw new Error(`Unexpected page ${pageNo}, expected ${page}`);
-    for(const entry of parseFileListEntries(raw.slice(2))){
-      const full=path==='/'?'/'+entry.fileName:path+'/'+entry.fileName;
-      result.push({...entry,fileName:full});
+    if(pageNo!==page)throw new Error(`Unexpected FILE_LIST page ${pageNo}, expected ${page} for ${path} (received ${total} entries).`);
+    const entries=parseFileListEntries(raw.slice(2));
+    total+=entries.length;
+    onPage?.({nodeId,path,page,received:entries.length,total,done:false});
+    for(const entry of entries){
+      const item={...entry,fileName:path==='/'?'/'+entry.fileName:path+'/'+entry.fileName};
+      onEntry?.(item);
+      yield item;
     }
   }
+}
+async function listDirectoryUnlocked(nodeId=0,path='/',onPage=null,onEntry=null){
+  const result=[];
+  for await(const entry of iterDirectoryEntriesUnlocked(nodeId,path,onPage,onEntry))result.push(entry);
   return result;
 }
-export async function listDirectory(nodeId=0,path='/'){return runFileOperation(async()=>{await initRead();return listDirectoryUnlocked(nodeId,path);});}
+export async function listDirectory(nodeId=0,path='/',onPage=null,onEntry=null){
+  return runFileOperation(async()=>{
+    // Preserve explicit refresh semantics for standalone directory reads.
+    await initRead();
+    return listDirectoryUnlocked(nodeId,path,onPage,onEntry);
+  });
+}
 
 
 async function getFileInfoUnlocked(fileId){const response=await requestRead(TE_SYSEX_FILE,buildFileInfoPayload(fileId));return parseFileInfoResponse(response.rawData);}

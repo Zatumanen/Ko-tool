@@ -557,6 +557,18 @@ export function createSampleMemory({
       activeTab=Math.min(activeTab,Math.max(0,sampleTabs.length-1));
       renderTabs();render();
     },
+    patchSlots(changed){
+      if(!Array.isArray(changed)||!changed.length)return;
+      for(const slot of changed){
+        const id=Number(slot?.id);
+        if(!Number.isInteger(id)||id<1||id>EP_SAMPLE_SLOT_COUNT)continue;
+        slots[id-1]=slot;
+        if(slot.operation)slotOperations.set(id,slot.operation);
+        else slotOperations.delete(id);
+        if(!slot.file&&previewingId===id)previewingId=null;
+      }
+      render();
+    },
     setMetadata(nodeId,meta){applySampleMetadata(slots,nodeId,meta);render();},
     mergeMetadata(nodeId,meta){
       const slot=slots[Number(nodeId)-1];
