@@ -120,6 +120,9 @@ function init(){
    return false;
   }
   state.page=target;
+  // Deep links to experimental tools must reveal the corresponding navigation item.
+  const extras=$('os-nav-extras');
+  if(extras)extras.open=['sequencer','community','visualizers'].includes(target);
   document.body.dataset.osView=state.page;
   if(state.page==='device')deviceDock.open();
   const model=PAGES[state.page];
