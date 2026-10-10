@@ -130,7 +130,7 @@ export async function processAudio(input,{
 /**
  * Shared batch adapter. A one-file import and a folder import both enter the
  * exact same processAudio call with the same options and reference module.
- * Results stream in input order and are never silently skipped.
+ * Results stream in input order. Callers must explicitly opt into skipping\n * failed inputs via onFileError; cancellations and default errors still throw.
  */
 export async function* processAudioInputs(files,options={},hooks={}){
   const sources=Array.from(files||[]),total=sources.length;
@@ -140,13 +140,24 @@ export async function* processAudioInputs(files,options={},hooks={}){
     if(typeof file?.arrayBuffer!=='function')
       throw new TypeError('Audio input must expose arrayBuffer().');
     hooks.onStart?.(file,index,total);
-    const input=await file.arrayBuffer();
-    checkCancel(hooks);
-    const result=await processAudio(input,options,{
-      ...hooks,
-      progress:(value,phase)=>hooks.progress?.(value,phase,index,total,file)
-    });
-    checkCancel(hooks);
+    let result;
+    try{
+      const input=await file.arrayBuffer();
+      checkCancel(hooks);
+      result=await processAudio(input,options,{
+        ...hooks,
+        progress:(value,phase)=>hooks.progress?.(value,phase,index,total,file)
+      });
+      checkCancel(hooks);
+    }catch(error){
+      // An opted-in batch caller may isolate a corrupt or unsupported file.
+      // Never swallow user cancellation or change the strict default contract.
+      if(error?.name==='AbortError'||hooks.shouldCancel?.())throw error;
+      if(typeof hooks.onFileError!=='function')throw error;
+      await hooks.onFileError(error,file,index,total);
+      checkCancel(hooks);
+      continue;
+    }
     yield Object.freeze({file,index,total,result});
   }
 }
