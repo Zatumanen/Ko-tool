@@ -44,7 +44,11 @@ test('unsafe and recovery-needed status are reflected without any OS device writ
  await expect(os.locator('#os-runtime-label')).toContainText('RECOVERY REQUIRED');
  await os.locator('#os-runtime-trigger').click();
  await expect(os.locator('#os-diag-recovery')).toHaveText('REQUIRED');
- await expect(os.locator('#os-diag-reason')).toContainText('Verify interrupted sample transfer');
+ await expect(os.locator('#os-diag-reason')).toContainText('operation that needs review');
+ await expect(os.locator('#os-diag-reason')).not.toContainText('Verify interrupted sample transfer');
+ await expect(os.locator('#os-diag-technical')).toBeHidden();
+ await os.locator('.os-diagnostic-technical summary').click();
+ await expect(os.locator('#os-diag-technical')).toContainText('Verify interrupted sample transfer');
  await ep.evaluate(async()=>{
   const {deviceRuntime}=await import('/js/ep133/deviceRuntime.js');
   deviceRuntime.dispatch({type:'DEVICE_MARKED_UNSAFE',connectionEpoch:deviceRuntime.captureEpoch(),reason:'Session cannot be verified'});
