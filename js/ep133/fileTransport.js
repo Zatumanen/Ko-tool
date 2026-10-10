@@ -163,7 +163,8 @@ async function listDirectoryUnlocked(nodeId=0,path='/',onPage=null){
 }
 export async function listDirectory(nodeId=0,path='/',onPage=null){
   return runFileOperation(async()=>{
-    await ensureFileSystemInitializedUnlocked();
+    // Preserve explicit refresh semantics for standalone directory reads.
+    await initRead();
     return listDirectoryUnlocked(nodeId,path,onPage);
   });
 }
