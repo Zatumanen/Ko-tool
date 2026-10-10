@@ -42,6 +42,8 @@ test('dropping a folder with macOS sidecars and one corrupt WAV still produces a
  const button=page.locator('#folder-download-area button');
  await expect(button).toBeVisible();
  await expect(button).toContainText('BEAT PACK (1 files)');
+ // Exercise the standard browser-download fallback, not the Chromium native Save As picker.
+ await page.evaluate(()=>{window.showSaveFilePicker=undefined;});
  const [download]=await Promise.all([page.waitForEvent('download'),button.click()]);
  expect(download.suggestedFilename()).toBe('BEAT PACK_x2.zip');
  await expect(page.locator('#overlay')).not.toBeVisible();
