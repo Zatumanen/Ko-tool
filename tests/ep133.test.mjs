@@ -2146,10 +2146,11 @@ test('My EP stops the previous preview before starting the newly selected sample
   assert.doesNotMatch(source,/playbackThrottleTimer/);
 });
 
-test('My EP exposes row delete only for a deletable selected sample',async()=>{
+test('My EP renders delete as disabled if hardware has not authorized the selected slot',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
-  assert.match(source,/slot\.node\?\.isDeletable===true\?'<button type="button" data-delete-row/);
+  assert.match(source,/slot\.node\?\.isDeletable===true\?'Delete selected sample/);
+  assert.match(source,/disabled aria-disabled="true"/);
   assert.match(source,/selectedFiles\(\)\.filter\(item=>item\.node\?\.isDeletable===true\)/);
 });
 
