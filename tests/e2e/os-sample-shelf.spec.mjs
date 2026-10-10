@@ -22,6 +22,9 @@ test('offline Sample Shelf retains actual audio after reload and prepares it wit
  await expect(shelfRows(page)).toHaveCount(1,{timeout:15000});
  await expect(page.locator('#os-shelf-count')).toHaveText('1 STORED');
  await expect(page.locator('#os-shelf-message')).toContainText('1 added');
+ await expect(page.locator('#os-shelf-storage')).toContainText('original audio saved');
+ await page.locator('[data-shelf-action="preview"]').click();
+ await expect(page.locator('.os-shelf-entry-main small')).not.toContainText('DURATION UNKNOWN',{timeout:12000});
  await expect(page.locator('.os-file-entry')).toHaveCount(0);
  await page.reload();
  await expect(shelfRows(page)).toHaveCount(1,{timeout:15000});
