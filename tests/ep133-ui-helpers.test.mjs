@@ -232,6 +232,9 @@ test('sample library bootstrap streams complete 29-item batches before FILE_LIST
     getMemory:()=>memory,
     getActiveDeviceProfile:()=>({fallbackTabs:[{name:'ALL',range:[1,999]}]}),
     sampleStore,
+    getFileMetadata:async nodeId=>({
+      name:'S'+nodeId,channels:1,samplerate:46875,format:'s16'
+    }),
     withFileTransaction:(_label,operation)=>operation({
       listDirectory:async(nodeId,_path,onPage,onEntry)=>{
         if(nodeId===0)return root;
