@@ -1,0 +1,34 @@
+/* Offline original-audio shelf: scoped to /os Samples, no impact on My EP. */
+.os-shelf-panel{border:1px solid var(--edge);border-radius:var(--radius);background:var(--panel);min-width:0}
+.os-shelf-actions{display:flex;align-items:end;flex-wrap:wrap;gap:9px;padding:13px 14px 9px}
+.os-shelf-import{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap}
+.os-shelf-import input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.os-shelf-import:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+.os-shelf-import:has(input:disabled){opacity:.5;cursor:not-allowed}
+.os-shelf-search-label{display:grid;gap:5px;flex:1 1 190px;min-width:150px;color:var(--quiet);font:700 10px 'Courier New',monospace}
+#os-shelf-search{width:100%;min-width:0;min-height:38px;border:1px solid var(--edge);border-radius:4px;background:var(--chrome);color:var(--text);padding:8px 11px;font-size:12px}
+#os-shelf-search:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.os-shelf-explain{margin:0;padding:0 14px 11px;color:var(--quiet);font:11px/1.5 'Courier New',monospace}
+.os-shelf-storage{margin:0;padding:0 14px 10px;color:var(--signal);font:10px 'Courier New',monospace}
+.os-shelf-list{max-height:248px;min-height:65px;overflow:auto;border-block:1px solid var(--edge)}
+.os-shelf-entry{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid var(--edge)}
+.os-shelf-entry:last-child{border-bottom:0}
+.os-shelf-entry:hover{background:var(--panel-bright)}
+.os-shelf-entry-main{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.os-shelf-entry-main strong{font:700 12px var(--su-font,Inter,Arial,sans-serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-shelf-entry-main small{font:10px 'Courier New',monospace;color:var(--quiet);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.os-shelf-entry-actions{display:flex;flex:0 0 auto;flex-wrap:wrap;gap:6px}
+.os-shelf-entry-actions button{border:1px solid var(--edge);background:var(--chrome);color:var(--text);padding:8px 10px;min-height:34px;border-radius:3px;font:700 10px 'Courier New',monospace}
+.os-shelf-entry-actions button:hover{border-color:var(--signal)}
+.os-shelf-entry-actions button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.os-shelf-entry-actions button[data-shelf-action=prepare]{background:var(--signal);color:#101719;border-color:var(--signal)}
+.os-shelf-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;color:var(--quiet);font:10px/1.5 'Courier New',monospace;overflow-wrap:anywhere}
+#os-shelf-message[data-error=true]{color:var(--signal)}
+#os-shelf-clear:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:620px){
+ .os-shelf-entry{align-items:flex-start;flex-direction:column;gap:9px}
+ .os-shelf-entry-actions{width:100%}
+ .os-shelf-entry-actions button{flex:1 1 80px}
+ .os-shelf-actions{gap:7px}
+ .os-shelf-actions .button{padding:10px;font-size:10px}
+}

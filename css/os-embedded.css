@@ -1,0 +1,66 @@
+/*
+ * Intentional same-origin My EP integration for /os/.
+ * This affects ONLY index.html?os-embed=1.
+ * All My EP handlers, confirmations, ownership and MIDI gates remain unchanged.
+ */
+html.os-embedded,
+html.os-embedded body{height:100%;width:100%;margin:0;overflow:hidden}
+html.os-embedded body{padding:0;background:#151a1e;background-image:none;color:#eaf1ef}
+html.os-embedded #desktop-apps{height:100dvh;min-height:0}
+html.os-embedded .crt-overlay,
+html.os-embedded #main-window,
+html.os-embedded #app-icon,
+html.os-embedded #my-ep-icon,
+html.os-embedded #os-preview-icon,
+html.os-embedded .taskbar,
+html.os-embedded #start-menu{display:none!important}
+#os-embedded-launch{display:none}
+html.os-embedded #os-embedded-launch{
+ display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+ position:absolute;inset:0;min-height:300px;overflow-y:auto;
+ padding:clamp(20px,5vw,60px);background:
+ linear-gradient(95deg,rgba(15,22,25,.97),rgba(24,29,31,.82)),
+ url('../os/wallpaper.svg') center/cover no-repeat;
+ z-index:1;color:#e9ece7;font-family:Arial,Helvetica,sans-serif;
+}
+html.os-embedded #os-embedded-launch .os-embedded-identifier{
+ color:#f97450;font:700 11px 'Courier New',monospace;letter-spacing:1.6px;
+ margin-bottom:16px;
+}
+html.os-embedded #os-embedded-launch h1{font-size:clamp(25px,4vw,44px);font-weight:900;letter-spacing:-1.6px;line-height:1.1;max-width:540px;margin:0 0 12px}
+html.os-embedded #os-embedded-launch p{font-size:14px;line-height:1.8;color:#c0cecb;max-width:580px;margin:0 0 26px}
+html.os-embedded #os-embedded-launch-button{background:#ff7550;color:#161b1d;border:0;border-radius:4px;padding:18px 24px;cursor:pointer;font:800 13px 'Courier New',monospace;letter-spacing:.6px}
+html.os-embedded #os-embedded-launch-button:hover{background:#ff977c}
+html.os-embedded #os-embedded-launch-button:focus-visible{outline:3px solid #fff;outline-offset:4px}
+html.os-embedded #os-embedded-launch>span{font:10px 'Courier New',monospace;color:#819292;letter-spacing:.5px;margin-top:16px}
+html.os-embedded #ep133-browser[aria-hidden="false"]{
+ display:flex!important;position:fixed!important;inset:0!important;
+ width:100%!important;height:100dvh!important;max-height:none!important;
+ padding:0!important;margin:0!important;pointer-events:auto!important;
+ background:#1a2025;z-index:10001;
+}
+html.os-embedded .ep133-browser-window.my-ep-window{
+ position:relative!important;left:auto!important;top:auto!important;
+ transform:none!important;width:100%!important;max-width:none!important;
+ height:100%!important;max-height:none!important;min-height:0;
+ box-shadow:none!important;margin:0!important;border:0!important;
+}
+html.os-embedded .ep133-browser-window>.title-bar{
+ cursor:default;touch-action:auto;min-height:34px;padding:5px 14px;
+ background:#25353b;
+}
+html.os-embedded .ep133-browser-window>.title-bar span{
+ font:700 13px 'Courier New',monospace;letter-spacing:1px;
+}
+html.os-embedded .ep133-browser-window>.title-bar #ep133-close{
+ cursor:pointer;min-width:30px;min-height:24px;
+}
+html.os-embedded .ep133-browser-body{height:auto;flex:1;min-height:0;padding:12px;overflow:hidden}
+html.os-embedded #ep133-samples-panel,
+html.os-embedded #ep133-projects-panel{min-height:0;flex:1}
+html.os-embedded .ep133-view-tabs{flex:0 0 auto}
+html.os-embedded #ep133-samples-panel .ep133-sample-list{min-height:100px}
+@media(max-width:650px){
+ html.os-embedded .ep133-browser-body{padding:5px}
+ html.os-embedded #os-embedded-launch{padding:20px}
+}

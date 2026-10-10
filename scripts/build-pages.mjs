@@ -3,7 +3,7 @@ import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 
 const VERSIONABLE_TEXT_EXTENSIONS=new Set(['.html','.js','.css']);
-const STATIC_ROOT_ENTRIES=['index.html','css','js'];
+const STATIC_ROOT_ENTRIES=['index.html','css','js','os'];
 const LOCAL_ASSET_REFERENCE=/(["'])((?:(?:\.\.\/)|(?:\.\/)|(?:css\/)|(?:js\/))[^"'?#]+?\.(?:js|css))(?:\?v=[^"'#]*)?(#[^"']*)?\1/g;
 
 export function normalizeBuildVersion(value){

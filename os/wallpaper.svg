@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 480" width="1600" height="480" role="img" aria-labelledby="title">
+<title id="title">Editorial brutalist cityscape — Speeduppercut OS abstract wallpaper</title>
+<defs>
+ <linearGradient id="sky" x1="0" x2=".5" y1="0" y2="1"><stop offset="0" stop-color="#eac4a6"/><stop offset=".4" stop-color="#a29c96"/><stop offset="1" stop-color="#4d5e64"/></linearGradient>
+ <linearGradient id="wall" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#b6ad9f"/><stop offset=".48" stop-color="#746f6b"/><stop offset="1" stop-color="#383f41"/></linearGradient>
+ <pattern id="concrete" width="22" height="29" patternUnits="userSpaceOnUse"><rect x="1" y="7" width="2" height="2" fill="#eef0df" opacity=".18"/><rect x="12" y="15" width="1" height="1" fill="#1f282b" opacity=".5"/><path d="M0 28h22M21 0v29" fill="none" stroke="#111d26" opacity=".09"/></pattern>
+ <linearGradient id="shade"><stop stop-color="#0b1015" stop-opacity="0"/><stop offset="1" stop-color="#0b1015" stop-opacity=".85"/></linearGradient>
+</defs>
+<rect width="1600" height="480" fill="url(#sky)"/>
+<g fill="#f0dfcc" opacity=".36"><path d="M0 72Q160 7 280 76T550 66T870 54T1250 53T1600 70V0H0Z"/><path d="M100 128Q300 60 480 100T850 78T1350 110T1600 98V0H0Z" opacity=".25"/></g>
+<g opacity=".8">
+ <path d="M0 254L125 213 125 119 405 106 438 169 593 148 594 480 0 480Z" fill="#5e6669"/>
+ <path d="M0 267L135 235 135 151 383 140 424 196 551 187 551 480 0 480Z" fill="#4a5357"/>
+ <path d="M240 480V135L430 88 640 133V480Z" fill="url(#wall)"/>
+ <path d="M430 88L675 54 839 109 640 133Z" fill="#6c6b66"/>
+ <path d="M640 133L839 109V480H640Z" fill="#444d4d"/>
+ <path d="M240 135L430 88V480H240Z" fill="#98958b"/>
+ <path d="M240 135L640 133V480H240Z" fill="url(#concrete)"/>
+ <path d="M640 133L839 109V480H640Z" fill="url(#concrete)"/>
+ <path d="M839 207L1024 173 1024 94 1330 74 1412 160 1412 480 839 480Z" fill="#a9a295"/>
+ <path d="M839 207L1024 173 1412 160 1412 480 839 480Z" fill="url(#concrete)"/>
+ <path d="M1024 94L1330 74 1412 160 1024 173Z" fill="#5f6463"/>
+ <path d="M1412 160L1600 119V480H1412Z" fill="#6d7777"/>
+</g>
+<g stroke="#1e262b" fill="#242d32" opacity=".8"><path d="M270 250h36v94h-36zM342 250h36v94h-36zM464 250h36v94h-36zM537 250h36v94h-36z" stroke-width="5"/><path d="M920 260h36v116h-36zM993 260h36v116h-36zM1101 260h36v116h-36zM1170 260h36v116h-36zM1260 260h36v116h-36z" stroke-width="5"/></g>
+<g opacity=".85" fill="#1d2529" font-family="Arial,sans-serif" font-weight="900">
+ <text x="272" y="215" font-size="49" letter-spacing="4" transform="rotate(-3 272 215)">SPEEDUPPERCUT</text>
+ <text x="932" y="235" font-size="31" letter-spacing="3">MORE SAMPLES</text>
+ <text x="932" y="267" font-size="31" letter-spacing="3">LESS LIMITS</text>
+</g>
+<g fill="none" stroke="#202a2d" opacity=".55"><path d="M0 108L1600 98M0 163L1600 149M5 0l8 264M1540 0l-26 198"/><path d="M50 64L250 50 530 25 912 47 1337 31 1600 35"/></g>
+<rect width="1600" height="480" fill="url(#shade)" opacity=".46"/>
+</svg>

@@ -1,5 +1,8 @@
+import{deviceRuntime}from './ep133/deviceRuntime.js';
+import{startEpStatusPublisher}from './ep133/runtimeStatusTelemetry.js';
 import{inspectBrowserCapabilities}from './platformSupport.js?v=20261008-1';
 import{createAudioContext,processAudioInputs,getPreset}from './audio/processor.js?v=20261008-1';
+import{selectAudioImportFiles,describeAudioImportFailure}from './audio/importPolicy.js';
 import{createZip}from './zip.js?v=20260921-7';
 import{outputFileName}from './output-name.js';
 import{pickerTypesForFile}from './save-file.js';
@@ -59,8 +62,89 @@ async function filesFromDropItems(items){
   for(const entry of entries)await walk(entry);
   return out;
 }
-function addFiles(list,fromFolder=false){const files=[...list].filter(f=>/\.(wav|mp3|aac|ogg|flac|m4a)$/i.test(f.name));if(!files.length){showError('No supported audio files were found.');return;}if($('overlay').style.display==='flex'){showError('Finish or cancel the current processing batch before adding more files.');return;}if(fromFolder){state.folderResults=[];state.folderName=getFolderName(files);resetFolderZip();}state.cancelled=false;$('memory-warning').style.display=files.reduce((n,f)=>n+f.size,0)>150*1024*1024?'block':'none';status(`Files selected: ${files.length}`);$('log-tab').insertAdjacentHTML('beforeend',`<div><i class="fas fa-file-import"></i> Added ${files.length} file(s)${fromFolder?' from folder':''}</div>`);process(files,fromFolder);}
-async function process(files,isFolder){if(!files.length||$('overlay').style.display==='flex')return;state.cancelled=false;state.startedAt=performance.now();$('overlay').style.display='flex';try{state.ctx=state.ctx||createAudioContext();const fidelity=selected('fidelity'),channels=selected('channels'),playmode=selectedPlaymode(),p=getPreset(fidelity);const batch=[];for await(const {file:f,result:r,index:i} of processAudioInputs(files,{fidelity,channels,playmode,autoTrim:$('auto-trim').checked,context:state.ctx},{onStart:(f,i,total)=>progress(0,f.name,i+1,total),progress:(v,phase,i,total,f)=>progress(v,`${f.name} · ${phase}`,i+1,total),shouldCancel:()=>state.cancelled})){const url=URL.createObjectURL(r.blob);state.urls.add(url);const item={file:f,result:r,url,fidelity,channels,playmode};batch.push(item);if(isFolder)state.folderResults.push(item);else{state.fileResults.push(item);renderFileResult(item);}$('log-tab').insertAdjacentHTML('beforeend',`<div><i class="fas fa-check-circle"></i> ${esc(f.name)} → x2 · ${p.label} ${p.sampleRate} Hz · 16-bit PCM · WAV · ${channels} · ${playmode}</div>`);}updateStats();if(isFolder&&batch.length&&!state.cancelled)await createFolderZip();if(!isFolder&&batch.length===1&&!state.cancelled){const openPreview=await loadPreview();openPreview(batch[0],{state,saveBlob,esc,createAudioContext});}status(state.cancelled?'Processing cancelled':`Done: ${batch.length} file(s)`);}catch(e){if(e?.name==='AbortError'){status('Processing cancelled');}else{const message=e?.message||e;$('errors-tab').innerHTML+=`<div><i class="fas fa-times-circle"></i> ${esc(message)}</div>`;showError(message);status(`Error: ${message}`);}}finally{$('overlay').style.display='none';}}
+function addFiles(list,fromFolder=false){
+  if($('overlay').style.display==='flex'){
+    showError('Finish or cancel the current processing batch before adding more files.');
+    return;
+  }
+  const {accepted:files,ignored}=selectAudioImportFiles(list);
+  if(!files.length){
+    showError('No usable audio files found. Hidden macOS metadata, empty files and non-audio files are ignored.');
+    return;
+  }
+  if(fromFolder){
+    state.folderResults=[];state.folderName=getFolderName(files);resetFolderZip();
+  }
+  state.cancelled=false;
+  $('memory-warning').style.display=files.reduce((n,f)=>n+f.size,0)>150*1024*1024?'block':'none';
+  status('Selected '+files.length+' audio file(s)'+(ignored?' · ignored '+ignored+' metadata/unsupported file(s)':''));
+  $('log-tab').insertAdjacentHTML('beforeend',
+    '<div><i class="fas fa-file-import"></i> Added '+files.length+' audio file(s)'+(fromFolder?' from folder':'')+
+    (ignored?' · Ignored '+ignored+' unsupported, empty or macOS metadata file(s)':'')+'</div>');
+  void process(files,fromFolder,{ignored});
+}
+async function process(files,isFolder,{ignored=0}={}){
+  if(!files.length||$('overlay').style.display==='flex')return;
+  state.cancelled=false;
+  state.startedAt=performance.now();
+  $('overlay').style.display='flex';
+  const failures=[],batch=[];
+  try{
+    state.ctx=state.ctx||createAudioContext();
+    const fidelity=selected('fidelity'),channels=selected('channels');
+    const playmode=selectedPlaymode(),p=getPreset(fidelity);
+    for await(const {file:f,result:r} of processAudioInputs(files,{
+      fidelity,channels,playmode,autoTrim:$('auto-trim').checked,context:state.ctx
+    },{
+      onStart:(f,i,total)=>progress(0,f.name,i+1,total),
+      progress:(v,phase,i,total,f)=>progress(v,f.name+' · '+phase,i+1,total),
+      shouldCancel:()=>state.cancelled,
+      onFileError:(error,file,index,total)=>{
+        const description=describeAudioImportFailure(error,file);
+        failures.push(description);
+        $('errors-tab').insertAdjacentHTML('beforeend',
+          '<div><i class="fas fa-times-circle"></i> '+esc(description)+'</div>');
+        $('log-tab').insertAdjacentHTML('beforeend',
+          '<div><i class="fas fa-exclamation-triangle"></i> Skipped '+esc(file.webkitRelativePath||file.name)+
+          ' ('+(index+1)+'/'+total+') · See Errors tab</div>');
+      }
+    })){
+      const url=URL.createObjectURL(r.blob);
+      state.urls.add(url);
+      const item={file:f,result:r,url,fidelity,channels,playmode};
+      batch.push(item);
+      if(isFolder)state.folderResults.push(item);
+      else{state.fileResults.push(item);renderFileResult(item);}
+      $('log-tab').insertAdjacentHTML('beforeend',
+        '<div><i class="fas fa-check-circle"></i> '+esc(f.name)+' → x2 · '+p.label+' '+p.sampleRate+
+        ' Hz · 16-bit PCM · WAV · '+channels+' · '+playmode+'</div>');
+    }
+    updateStats();
+    // Preserve an exportable ZIP containing only successfully decoded inputs.
+    if(isFolder&&batch.length&&!state.cancelled)await createFolderZip();
+    if(!isFolder&&batch.length===1&&!state.cancelled&&failures.length===0){
+      const openPreview=await loadPreview();
+      openPreview(batch[0],{state,saveBlob,esc,createAudioContext});
+    }
+    const summary='Processed '+batch.length+'/'+files.length+' audio file(s)'+
+      (failures.length?' · '+failures.length+' could not be decoded/processed':'')+
+      (ignored?' · '+ignored+' non-audio/metadata ignored':'');
+    status(summary);
+    if(failures.length){
+      // Do not silently claim the folder was fully converted. Completed WAVs
+      // and the partial ZIP remain available for download.
+      showError(summary+'. See Errors tab for the filenames and reasons. '+(batch.length?'The successful files are available.':failures[0]));
+    }
+  }catch(error){
+    if(error?.name==='AbortError')status('Processing cancelled; completed files remain available.');
+    else{
+      const message=String(error?.message||error);
+      $('errors-tab').insertAdjacentHTML('beforeend','<div><i class="fas fa-times-circle"></i> '+esc(message)+'</div>');
+      showError(message);
+      status('Error: '+message);
+    }
+  }finally{$('overlay').style.display='none';}
+}
 function updatePlatformNotice(){
   const support=inspectBrowserCapabilities({navigatorRef:navigator,windowRef:window,documentRef:document});
   const messages=[];
@@ -123,7 +207,7 @@ function makeMainWindowDraggable(){
     win.style.top=Math.min(maxY,Math.max(0,parseFloat(win.style.top)||0))+'px';
   });
 }
-window.addEventListener('DOMContentLoaded',()=>{openMain();makeMainWindowDraggable();updatePlatformNotice();const drop=$('drop-zone'),fi=$('audio-upload'),folder=$('folder-upload');drop.setAttribute('role','button');drop.setAttribute('tabindex','0');drop.setAttribute('aria-label','Select or drop audio files and folders');drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}});drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragover');try{const files=e.dataTransfer.items?.length?await filesFromDropItems(e.dataTransfer.items):[...e.dataTransfer.files];const fromFolder=files.some(f=>f.webkitRelativePath)||[...e.dataTransfer.items||[]].some(i=>i.webkitGetAsEntry?.()?.isDirectory);addFiles(files,fromFolder);}catch(err){showError(err?.message||err);}});drop.addEventListener('click',e=>{if(e.target!==fi)fi.click()});fi.addEventListener('change',e=>{addFiles(e.target.files,false);e.target.value=''});folder.addEventListener('change',e=>{addFiles(e.target.files,true);e.target.value=''});$('select-file-button').onclick=()=>fi.click();$('select-folder-button').onclick=()=>folder.click();$('clear-button').onclick=clearAll;$('cancel-button').onclick=()=>{state.cancelled=true;status('Cancelling…')};$('error-ok').onclick=hideError;$('error-close').onclick=hideError;$('app-icon').onclick=openMain;$('app-icon').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMain();}});$('main-window').querySelector('.close').onclick=closeMain;$('main-window').querySelector('.minimize').onclick=closeMain;document.querySelectorAll('.win95-list').forEach(g=>{
+window.addEventListener('DOMContentLoaded',()=>{const embedded=document.documentElement.classList.contains('os-embedded');let epTelemetry=embedded?null:startEpStatusPublisher({runtime:deviceRuntime});window.addEventListener('pagehide',()=>epTelemetry?.dispose(),{once:true});openMain();makeMainWindowDraggable();updatePlatformNotice();const drop=$('drop-zone'),fi=$('audio-upload'),folder=$('folder-upload');drop.setAttribute('role','button');drop.setAttribute('tabindex','0');drop.setAttribute('aria-label','Select or drop audio files and folders');drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}});drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragover');try{const traversed=e.dataTransfer.items?.length?await filesFromDropItems(e.dataTransfer.items):[];const files=traversed.length?traversed:[...e.dataTransfer.files];const fromFolder=files.some(f=>f.webkitRelativePath)||[...e.dataTransfer.items||[]].some(i=>i.webkitGetAsEntry?.()?.isDirectory);addFiles(files,fromFolder);}catch(err){showError(err?.message||err);}});drop.addEventListener('click',e=>{if(e.target!==fi)fi.click()});fi.addEventListener('change',e=>{addFiles(e.target.files,false);e.target.value=''});folder.addEventListener('change',e=>{addFiles(e.target.files,true);e.target.value=''});$('select-file-button').onclick=()=>fi.click();$('select-folder-button').onclick=()=>folder.click();$('clear-button').onclick=clearAll;$('cancel-button').onclick=()=>{state.cancelled=true;status('Cancelling…')};$('error-ok').onclick=hideError;$('error-close').onclick=hideError;$('app-icon').onclick=openMain;$('app-icon').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMain();}});$('main-window').querySelector('.close').onclick=closeMain;$('main-window').querySelector('.minimize').onclick=closeMain;document.querySelectorAll('.win95-list').forEach(g=>{
   const items=[...g.querySelectorAll('.list-item')];
   g.setAttribute('role','listbox');
   items.forEach((item,i)=>{
@@ -172,4 +256,13 @@ const lazyOpenMyEp=async()=>{
 };
 myEpIcon?.addEventListener('keydown',lazyMyEpKeydown);
 myEpIcon?.addEventListener('click',()=>{void lazyOpenMyEp();},{once:true});
+const embeddedLaunch=document.getElementById('os-embedded-launch-button');
+if(document.documentElement.classList.contains('os-embedded')){
+  embeddedLaunch?.addEventListener('click',()=>{
+    if(!epTelemetry)epTelemetry=startEpStatusPublisher({runtime:deviceRuntime});
+    myEpIcon?.click();
+  });
+}
+// Explicit deep link used by the isolated OS shell. No automatic browser permission request on ordinary page loads.
+if(window.location.hash==='#my-ep')queueMicrotask(()=>myEpIcon?.click());
 window.addEventListener('beforeunload',()=>{try{state.ctx?.close?.()}catch(e){}});status('Ready to process files');});

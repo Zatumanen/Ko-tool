@@ -170,6 +170,6 @@ test('reference WASM failures never silently downgrade to a different DSP engine
 
 test('UI single-file and folder flows delegate to the same streaming batch adapter',async()=>{
   const source=await fs.readFile(new URL('../js/app.js',import.meta.url),'utf8');
-  assert.match(source,/for await\(const \{file:f,result:r,index:i\} of processAudioInputs\(files,/);
+  assert.match(source,/for await\s*\(\s*const\s*\{\s*file:f,\s*result:r\s*\}\s*of\s*processAudioInputs\(files,/);
   assert.doesNotMatch(source,/processAudio\(await f\.arrayBuffer\(/);
 });

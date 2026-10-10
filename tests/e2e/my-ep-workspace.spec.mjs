@@ -73,3 +73,27 @@ test('My EP workspace persists safe UI state while live coordinator and recovery
   await expect(page.locator('[data-workspace-operation]')).not.toContainText('MUTATING');
   await expect(page.locator('[data-workspace-recovery]'),{timeout:6000}).toContainText('RECOVERY REQUIRED');
 });
+
+
+test('My EP hides last-operation protocol details behind disclosure and never enables recovery blindly',async({page})=>{
+  await page.addInitScript({path:fakeEpScript});
+  await page.goto('/');
+  await openWorkspace(page);
+  await expect(page.locator('[data-workspace-guidance-title]')).toHaveText('Device connected');
+  await expect(page.locator('[data-workspace-review-recovery]')).toBeHidden();
+  await page.evaluate(()=>{
+    window.__speeduppercutMyEpWorkspace.recordOperation({
+      label:'sample transfer',status:'requires-recovery',at:Date.now(),
+      error:{code:'EP_FILE_OPERATION_FAILED',category:'protocol',recovery:'Technical CRC data requires inspection'}
+    });
+  });
+  await expect(page.locator('[data-workspace-last]')).toContainText('SAMPLE TRANSFER');
+  await expect(page.locator('[data-workspace-last]')).not.toContainText('EP_FILE_OPERATION_FAILED');
+  await expect(page.locator('[data-workspace-guidance]')).not.toContainText('Technical CRC');
+  await expect(page.locator('[data-workspace-details]')).not.toHaveAttribute('open');
+  await expect(page.locator('[data-workspace-technical]')).toBeHidden();
+  await page.locator('[data-workspace-details] summary').click();
+  await expect(page.locator('[data-workspace-technical]')).toContainText('EP_FILE_OPERATION_FAILED');
+  await expect(page.locator('[data-workspace-technical]')).toContainText('Technical CRC data requires inspection');
+  await expect(page.locator('[data-workspace-review-recovery]')).toBeHidden();
+});
