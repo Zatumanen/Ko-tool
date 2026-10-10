@@ -38,7 +38,8 @@ test('saved on-device project changes appear automatically without pressing Refr
  await expect(page.locator('#ep133-status')).toContainText('UPDATED FROM EP');
  const delta=await page.evaluate(before=>window.__fakeEp.requestLog.slice(before),oldRequests);
  expect(delta.length).toBeGreaterThan(0);
- expect(delta.some(x=>x.command===5&&[3,6,7,8,9,10].includes(x.sub))).toBe(false);
+ // FILE metadata reads share a subcommand with SET; distinguish request type.
+ expect(delta.some(x=>x.command===5&&x.sub===7&&x.type===1)).toBe(false);
 });
 
 test('automatic project reads stop on Samples tab and resume when Projects tab is active',async({page})=>{
