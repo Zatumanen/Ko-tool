@@ -2,6 +2,7 @@ import {startEpStatusReceiver,describeEpStatus} from '../js/ep133/runtimeStatusT
 import {createSampleWorkspaceController} from './sampleWorkspace.js';
 import {createSequencerSketch} from './sequencerSketch.js';
 import {createDeviceDockController,isEpSessionBusy} from './deviceDock.js';
+import {describeUserDeviceState} from './deviceStatusCopy.js';
 /**
  * Experimental Speeduppercut OS shell. No WebMIDI requests or device writes.
  * This first ZAT-16 slice only owns navigation, theme preference and visual DEMO meters.
@@ -126,7 +127,7 @@ function init(){
   sampleWorkspace.dispose();
   sequencerSketch.dispose();
   view.innerHTML=renderPage(state.page);
-  if(state.page==='device')view.insertAdjacentHTML('afterbegin',`<section class="os-runtime-diagnostics" id="os-runtime-diagnostics" aria-label="Live device diagnostics"><div class="eyebrow">LIVE SESSION / READ ONLY</div><h2 id="os-diag-heading">Waiting for My EP</h2><div class="os-diagnostic-fields"><div>CONNECTION <strong id="os-diag-connection">UNAVAILABLE</strong></div><div>MODEL <strong id="os-diag-model">—</strong></div><div>FIRMWARE <strong id="os-diag-firmware">—</strong></div><div>SESSION OWNERSHIP <strong id="os-diag-owner">—</strong></div><div>ACTIVE OPERATION <strong id="os-diag-operation">—</strong></div><div>RECOVERY <strong id="os-diag-recovery">—</strong></div></div><p id="os-diag-reason">Open the embedded My EP panel below, then explicitly connect. The OS shell itself never requests MIDI access.</p><button type="button" data-os-open-device class="button secondary">OPEN EMBEDDED MY EP ↓</button></section>`);
+  if(state.page==='device')view.insertAdjacentHTML('afterbegin',`<section class="os-runtime-diagnostics" id="os-runtime-diagnostics" aria-label="Live device diagnostics"><div class="eyebrow">LIVE SESSION / READ ONLY</div><h2 id="os-diag-heading">Waiting for My EP</h2><div class="os-diagnostic-fields"><div>CONNECTION <strong id="os-diag-connection">UNAVAILABLE</strong></div><div>MODEL <strong id="os-diag-model">—</strong></div><div>FIRMWARE <strong id="os-diag-firmware">—</strong></div><div>SESSION OWNERSHIP <strong id="os-diag-owner">—</strong></div><div>ACTIVE OPERATION <strong id="os-diag-operation">—</strong></div><div>RECOVERY <strong id="os-diag-recovery">—</strong></div></div><p id="os-diag-reason">Live status has not yet been verified.</p><p class="os-diagnostic-next" id="os-diag-next">Open My EP and connect explicitly. No MIDI access is requested by the OS shell.</p><details class="os-diagnostic-technical"><summary>TECHNICAL REASON / DETAILS</summary><p id="os-diag-technical">No additional device evidence is available.</p></details><button type="button" data-os-open-device class="button secondary">OPEN EMBEDDED MY EP ↓</button></section>`);
   if(state.page==='samples')sampleWorkspace.mount(view,meters);
   if(state.page==='sequencer')sequencerSketch.mount(view);
   document.querySelectorAll('#os-navigation [data-view]').forEach(button=>{
@@ -142,10 +143,10 @@ function init(){
   renderLiveState();
  }
  function renderLiveState(){
-  const d=state.live,info=describeEpStatus(d);
+  const d=state.live,info=describeEpStatus(d),copy=describeUserDeviceState(d);
   const label=$('os-runtime-label'),subtitle=$('os-runtime-subtitle'),led=$('os-runtime-led'),trigger=$('os-runtime-trigger');
   if(label)label.textContent=d?info.label:'NO DEVICE SESSION';
-  if(subtitle)subtitle.textContent=d?info.detail:'OPEN DEVICE WORKSPACE';
+  if(subtitle)subtitle.textContent=d?copy.title:'OPEN DEVICE WORKSPACE';
   if(led)led.className='led os-led-'+info.tone;
   if(trigger){
    trigger.dataset.state=d?.status||'unavailable';
@@ -156,25 +157,31 @@ function init(){
   if(displayState)displayState.textContent=d?.status?.toUpperCase()||'NO SESSION';
   if(displayFw)displayFw.textContent=d?.firmware?'FW '+d.firmware:'FW —';
   const inspector=$('os-inspector-status');
-  if(inspector)inspector.textContent=d?info.detail:'No live My EP publisher found. Device status is not available; no connection has been inferred.';
+  if(inspector)inspector.textContent=copy.summary+' '+copy.next;
   const values={
-   'os-diag-heading':d?info.label:'No verified live session',
+   'os-diag-heading':copy.title,
    'os-diag-connection':d?d.status.toUpperCase():'UNAVAILABLE',
    'os-diag-model':d?.sku||'—',
    'os-diag-firmware':d?.firmware||'—',
    'os-diag-owner':d?.ownership?.toUpperCase()||'—',
    'os-diag-operation':d?.operation||d?.phase?.toUpperCase()||'—',
    'os-diag-recovery':d?(d.status==='recovery-required'?'REQUIRED':d.safety==='unsafe'?'UNSAFE':d.recoveryHydrated?'CHECKED':'NOT YET CHECKED'):'UNKNOWN',
-   'os-diag-reason':d?.reason||(!d?'No active My EP status publisher. Open the embedded device panel and connect explicitly; stale status is never treated as safe.':d.status==='ready'?'Identity and ownership verified; recovery scan completed in the active session. Device operations still require explicit action in My EP.':'Read-only status from the active My EP session. See My EP for recovery, errors and safe actions.')
+   'os-diag-reason':copy.summary,
+   'os-diag-next':copy.next,
+   'os-diag-technical':d?.reason||'No additional technical reason reported by the current My EP session.'
   };
   for(const [id,value]of Object.entries(values)){const el=$(id);if(el)el.textContent=value;}
-  if(d&&['unsafe','recovery-required','blocked'].includes(d.status)){
-   $('assistant-heading').textContent=d.status==='recovery-required'?'Device recovery needed':'Device access restricted';
-   $('assistant-copy').textContent=d.reason||'Device is not ready for write operations. Inspect live My EP diagnostics before proceeding.';
-  }
-  if(!d&&state.page==='device'){
-   $('assistant-heading').textContent='No live session';
-   $('assistant-copy').textContent='Open the embedded My EP panel and press its Connect button. The outer OS interface never requests MIDI permissions.';
+  const risk=copy.tone==='danger',deviceView=state.page==='device';
+  if(risk||deviceView){
+   $('assistant-heading').textContent=copy.title;
+   $('assistant-copy').textContent=copy.next;
+  }else{
+   $('assistant-heading').textContent=state.page==='visualizers'?'Demo meters are active':'Safe preview mode';
+   $('assistant-copy').textContent=state.page==='samples'?
+    'Import and prepare samples here. Use My EP for transfers and its existing safety checks.':
+    state.page==='visualizers'?
+    'This dock shows an intentionally synthetic signal unless local audio playback is active.':
+    'The OS preview does not issue EP operations. Open Device for real session information.';
   }
  }
  function navigate(page){
