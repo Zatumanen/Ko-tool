@@ -119,6 +119,7 @@ export function createSampleMemory({
   let mutationsEnabled=false;
   let dragSourceId=0;
   let suppressClick=false;
+  let pendingNameClickTimer=null;
   let searchCursorId=null;
   const slotOperations=new Map();
 
@@ -313,7 +314,7 @@ export function createSampleMemory({
         ?'<input class="ep133-sample-name-input" data-name-input="'+slot.id+'" maxlength="16" value="'+escapeHtml(editing?editingValue:name)+'" '+(editing?'':'readonly')+' title="'+escapeHtml(name)+'" aria-label="Sample name">'
         :'<span class="ep133-sample-name"></span>';
       const actionButtons=active&&occupied
-        ?'<span class="ep133-row-actions"><button type="button" data-download-row="'+slot.id+'" title="Download selected sample(s)" aria-label="Download selected sample(s)">↓</button>'+(slot.node?.isDeletable===true?'<button type="button" data-delete-row="'+slot.id+'" title="Delete selected sample(s)" aria-label="Delete selected sample(s)">×</button>':'')+'</span>'
+        ?'<span class="ep133-row-actions"><button type="button" data-download-row="'+slot.id+'" title="Download selected sample(s)" aria-label="Download selected sample(s)">↓</button><button type="button" data-delete-row="'+slot.id+'" title="'+(slot.node?.isDeletable===true?'Delete selected sample(s)':'Delete unavailable: device did not authorize deletion of this sample')+'" aria-label="Delete selected sample(s)"'+(slot.node?.isDeletable===true?'':' disabled aria-disabled="true"')+'>×</button></span>'
         :'';
       const opCell=operationCell(operation);
       const draggable=mutationsEnabled&&occupied&&slot.node?.isReadable===true?' draggable="true"':'';
@@ -339,8 +340,31 @@ export function createSampleMemory({
           editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
           return true;
         };
-        nameInput.addEventListener('click',event=>{event.stopPropagation();});
-        nameInput.addEventListener('dblclick',event=>{beginRename(event);});
+        nameInput.addEventListener('click',event=>{
+          event.stopPropagation();
+          if(!nameInput.readOnly)return;
+          // A click selecting a row rerenders the input. Deferring an ordinary
+          // click briefly keeps it alive for the native dblclick/rename event.
+          // Modifier-assisted multi-selection is immediate.
+          if(pendingNameClickTimer!=null){
+            clearTimeout(pendingNameClickTimer);pendingNameClickTimer=null;
+          }
+          const modifiers={ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey};
+          if(modifiers.ctrlKey||modifiers.metaKey||modifiers.shiftKey){
+            selectClick(slot,modifiers);
+          }else{
+            pendingNameClickTimer=setTimeout(()=>{
+              pendingNameClickTimer=null;
+              if(editingId!==slot.id)selectClick(slot,modifiers);
+            },240);
+          }
+        });
+        nameInput.addEventListener('dblclick',event=>{
+          if(pendingNameClickTimer!=null){
+            clearTimeout(pendingNameClickTimer);pendingNameClickTimer=null;
+          }
+          beginRename(event);
+        });
         if(editingId===slot.id){
           nameInput.readOnly=false;
           nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
@@ -373,7 +397,10 @@ export function createSampleMemory({
       });
       row.querySelector('[data-delete-row]')?.addEventListener('click',async event=>{
         event.preventDefault();event.stopPropagation();
-        if(!mutationsEnabled)return;
+        if(!mutationsEnabled){
+          onUserError?.('CANNOT DELETE SAMPLE YET.',new Error('The EP session is not ready for changes. Wait for synchronization and check device safety/session ownership.'));
+          return;
+        }
         const targets=selectedFiles().filter(item=>item.node?.isDeletable===true);
         if(!targets.length)return;
         try{

@@ -1,4 +1,5 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
+import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
 import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20261001-1';
 
 export function createSampleUploadController({
@@ -84,6 +85,9 @@ export function createSampleUploadController({
           assertBatchSession(sessionToken);
           const item=targets[index];
           const target=item.slot;
+          // Only the device-facing name changes. The audio File and bytes stay intact.
+          // normalizeFileName with stripSlotPrefix=true is limited to 001–999 + space.
+          const deviceSampleName=stripSampleUploadPrefix(item.file.name);
 
           try{
             sampleStore.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
@@ -106,7 +110,8 @@ export function createSampleUploadController({
               channels:prepared.channels,
               samplerate:prepared.samplerate,
               format:prepared.format,
-              ...(prepared.metadata||{})
+              ...(prepared.metadata||{}),
+              name:deviceSampleName
             };
 
             if(remainingFreeSpace!=null&&prepared.data.byteLength>remainingFreeSpace)
@@ -120,7 +125,7 @@ export function createSampleUploadController({
             const fileId=await fileOps.uploadSampleToSlot({
               file:item.file,
               data:prepared.data,
-              filename:item.file.name,
+              filename:deviceSampleName,
               parentId:soundsParentId,
               destinationId:target.id,
               metadata,
@@ -150,7 +155,7 @@ export function createSampleUploadController({
               nodeId:fileId,
               parentId:soundsParentId,
               fileSize:prepared.data.byteLength,
-              fileName:item.file.name
+              fileName:deviceSampleName
             },{
               deviceFiles:sampleStore.getFiles(),
               normalizeFileName
@@ -162,7 +167,7 @@ export function createSampleUploadController({
             });
 
             const localMetadata=prepareSampleLocalMetadata(
-              {...metadata,name:normalizeFileName(item.file.name)},
+              {...metadata,name:deviceSampleName},
               {
                 allowedPlayModes:profile.playModes,
                 allowAdvancedMetadata:profile.advancedSampleMetadataWrites,

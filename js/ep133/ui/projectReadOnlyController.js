@@ -229,7 +229,8 @@ export function createProjectReadOnlyController({
       }
     }catch(error){
       listing=null;selectedProject=null;initialProject=null;renderList();
-      renderEmpty('COULD NOT READ PROJECTS.');
+      renderEmpty('COULD NOT READ PROJECTS. CHECK THE DEVICE STATUS AND PRESS REFRESH TO RETRY.');
+      setStatus('PROJECT LIST READ FAILED · CHECK LOGS');
       reportError('COULD NOT READ PROJECTS.',error);
     }finally{
       loading=false;
@@ -263,7 +264,8 @@ export function createProjectReadOnlyController({
       if(selectedProject===id){
         currentResult=null;
         onProjectCleared();
-        renderEmpty('COULD NOT READ PROJECT P'+id+'.');
+        renderEmpty('COULD NOT READ PROJECT P'+id+'. CHECK THE DEVICE STATUS AND PRESS REFRESH TO RETRY.');
+        setStatus('PROJECT P'+id+' READ FAILED · CHECK LOGS');
         reportError('COULD NOT READ PROJECT P'+id+'.',error);
       }
     }finally{

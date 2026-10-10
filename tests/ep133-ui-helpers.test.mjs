@@ -610,7 +610,7 @@ test('sample upload controller batches one preflight and commits provisional met
     },assertSlotsEmpty:async ids=>{preflights++;assert.deepEqual(ids,[2,4]);},
     refreshSoundsRuntimeMetadata:async()=>{refreshCalls++;return soundsMetadata;},
     uploadSampleToSlot,deleteFile,
-    prepareSampleLocalMetadata:metadata=>({...metadata,local:true}),normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
+    prepareSampleLocalMetadata:metadata=>({...metadata,name:String(metadata.name).replace(/\.wav$/i,'').toLowerCase(),local:true}),normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
     fileItemFromInfo:()=>{throw new Error('hydrate should be deferred');},getFileInfo:async()=>{throw new Error('success path must not read FILE_INFO');},getFileMetadata:async()=>{throw new Error('success path must not read metadata');},
     renderDeviceStats(){},markUploadPending:id=>pending.push(['mark',id]),clearUploadPending:id=>pending.push(['clear',id]),
     waitForMetadataUpdate:()=>Promise.resolve(null),deleteFile:async()=>{},syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},logTechnical(){},showError(){},

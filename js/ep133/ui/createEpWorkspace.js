@@ -89,7 +89,11 @@ export function createEpWorkspace({
   };
   const reportError=(message,error)=>{
     logTechnical(message,error);
-    showError?.(humanError(message));
+    const reason=String(error?.message||'').trim();
+    // Do not hide the reason a guarded action was refused. Show it as plain
+    // text; technical stacks and transport packets remain only in Logs.
+    showError?.(humanError(message)+(reason?'\n'+reason.slice(0,260):'')+
+      '\nCheck the device status and Logs tab before retrying.');
   };
 
   const deviceView=createDeviceView({
@@ -246,7 +250,12 @@ export function createEpWorkspace({
     waitForMetadataUpdate,syncMetadataAfterMutation,assertSlotsDeleted,renderDeviceStats,
     readDevice:()=>readDevice(),logTechnical
   });
-  const deleteSamples=targets=>sampleDeleteController.deleteSamples(targets);
+  // A selected sample may still be auditioning. Stop it before opening a
+  // guarded FILE delete transaction; do not overlap playback and mutation.
+  const deleteSamples=async targets=>{
+    await stopCurrentPreview();
+    return sampleDeleteController.deleteSamples(targets);
+  };
   const fileEventController=createFileEventController({
     isConnected,sampleStore,getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
