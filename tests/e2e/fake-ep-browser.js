@@ -128,13 +128,15 @@
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
   let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
-  let rejectedListPage=null;
+  let rejectedListPage=null,heldListPage=null;
+  const delayedListResponses=[];
   const requestLog=[];
   const listPageSize=24;
   // Represent full sample-library capacity without allocating 65 MB of audio.
-  const seedSamples=(count,virtualSize=130000)=>{
+  const seedSamples=(count,virtualSize=130000,{sparse=false}={})=>{
     samples.clear();
-    for(let id=1;id<=count;id++){
+    for(let index=0;index<count;index++){
+      const id=sparse?index*2+1:index+1;
       const name='SAMPLE'+String(id).padStart(4,'0');
       samples.set(id,{
         id,name,data:new Uint8Array(64),reportedSize:virtualSize,
@@ -249,7 +251,11 @@
       ];
       else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.reportedSize??s.data.length,s.name));
       else if(node===2000)body=[...projects.values()].map(project=>listEntry(project.id,CAP.DIR|CAP.READ,project.data.length,project.name));
-      emitLater(response(request,concat(be16(page),...body.slice(page*listPageSize,(page+1)*listPageSize))));return;
+      const reply=response(request,concat(be16(page),...body.slice(page*listPageSize,(page+1)*listPageSize)));
+      if(node===1000&&heldListPage===page){
+        delayedListResponses.push(()=>emitLater(reply));return;
+      }
+      emitLater(reply);return;
     }
     if(sub===F.METADATA&&raw[1]===2){
       const id=u16(raw,2),page=u16(raw,4);
@@ -353,6 +359,11 @@
     removeSample:id=>samples.delete(Number(id)),
     seedSamples,
     rejectListPage:page=>{rejectedListPage=page==null?null:Number(page);},
+    holdListPage:page=>{heldListPage=page==null?null:Number(page);},
+    releaseListPage:()=>{
+      heldListPage=null;
+      for(const release of delayedListResponses.splice(0))release();
+    },
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
     changeProjectBpm,
     disconnect,reconnect,
