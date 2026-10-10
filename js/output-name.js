@@ -6,7 +6,7 @@
 export function outputFileName(name){
  const base=String(name||'output.wav').replace(/\.[^.]+$/,'');
  const numbered=base.match(/^(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})[ \t]+(\S.*)$/);
- return (numbered?numbered[1]:base+(base?'_x2':''))+'.wav';
+ return (numbered?numbered[1]:base+'_x2')+'.wav';
 }
 
 /** Avoid losing one file when stripping different indices creates duplicate ZIP paths. */
@@ -20,7 +20,8 @@ export function uniqueOutputPath(path,usedPaths){
  const stem=extension>0?filename.slice(0,extension):filename;
  const suffix=extension>0?filename.slice(extension):'';
  while(usedPaths.has(key(candidate))){
-  candidate=folder+stem+' ('+copy+++')'+suffix;
+  candidate=folder+stem+' ('+copy+')'+suffix;
+  copy+=1;
  }
  usedPaths.add(key(candidate));
  return candidate;
