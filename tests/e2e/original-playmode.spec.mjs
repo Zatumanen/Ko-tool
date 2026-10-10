@@ -26,7 +26,10 @@ function readPlaymode(wavBytes){
  const index=wavBytes.indexOf(Buffer.from('TNGE'));
  expect(index).toBeGreaterThan(0);
  const length=wavBytes.readUInt32LE(index+4);
- return JSON.parse(wavBytes.subarray(index+8,index+8+length).toString('utf8'))['sound.playmode'];
+ const raw=wavBytes.subarray(index+8,index+8+length);
+ const terminator=raw.indexOf(0);
+ const json=(terminator<0?raw:raw.subarray(0,terminator)).toString('utf8').trim();
+ return JSON.parse(json)['sound.playmode'];
 }
 
 test('Original Playmode preserves each embedded mode in a mixed batch and identifies the fallback',async({page})=>{
