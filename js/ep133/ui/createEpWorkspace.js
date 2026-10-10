@@ -89,7 +89,11 @@ export function createEpWorkspace({
   };
   const reportError=(message,error)=>{
     logTechnical(message,error);
-    showError?.(humanError(message));
+    const reason=String(error?.message||'').trim();
+    // Do not hide the reason a guarded action was refused. Show it as plain
+    // text; technical stacks and transport packets remain only in Logs.
+    showError?.(humanError(message)+(reason?'\n'+reason.slice(0,260):'')+
+      '\nCheck the device status and Logs tab before retrying.');
   };
 
   const deviceView=createDeviceView({
