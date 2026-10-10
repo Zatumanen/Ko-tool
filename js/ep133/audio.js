@@ -31,7 +31,7 @@ export function parseWavAudioMeta(bytes){
   return{...fmt,dataOffset,dataSize};
 }
 
-function parseKo2Metadata(bytes){
+export function parseKo2Metadata(bytes){
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
   if(view.byteLength<12)return null;
   const text=(offset,length)=>String.fromCharCode(...bytes.slice(offset,offset+length));
