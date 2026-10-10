@@ -2133,8 +2133,11 @@ test('My EP pastes and drops audio into the shared forward-only uploader',async(
   assert.match(ui,/const slot=memory\.getSelected\(\)/);
   assert.match(ui,/uploadFilesToSlot\(slot,files\)/);
   assert.match(ui,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
-  assert.match(uploads,/const destinationId=sampleStore\.findNextFree\(searchFrom\)/);
-  assert.match(uploads,/searchFrom=destinationId\+1/);
+  const plan=await fs.readFile(new URL('../js/ep133/ui/sampleUploadPlan.js',import.meta.url),'utf8');
+  assert.match(uploads,/planSampleUploadTargets\(audioFiles,\{startSlot:slot\.id,sampleStore,mode\}\)/);
+  assert.match(uploads,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\),fileOps\)/);
+  assert.match(plan,/for\(let id=cursor;id<=999;id\+\+\)/);
+  assert.match(plan,/if\(slot&&!slot\.file\)/);
 });
 
 test('My EP stops the previous preview before starting the newly selected sample',async()=>{

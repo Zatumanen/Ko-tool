@@ -22,6 +22,7 @@ import{createSampleLibrarySyncController}from './sampleLibrarySync.js?v=20261001
 import{createSampleReadController}from './sampleReadController.js?v=20261001-1';
 import{createSampleDeleteController}from './sampleDeleteController.js?v=20261001-1';
 import{createSampleUploadController}from './sampleUploadController.js?v=20261001-1';
+import{chooseSampleUploadTargets}from './sampleUploadChoice.js?v=20261001-1';
 import{createSampleMoveController}from './sampleMoveController.js?v=20261001-1';
 import{createSampleCopyController}from './sampleCopyController.js?v=20261001-1';
 import{createSampleRenameController}from './sampleRenameController.js?v=20261001-1';
@@ -284,7 +285,8 @@ export function createEpWorkspace({
     withFileTransaction,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,fileItemFromInfo,getFileInfo,getFileMetadata,
     renderDeviceStats,markUploadPending,clearUploadPending,waitForMetadataUpdate,deleteFile,
-    syncMetadataAfterMutation,assertSlotsDeleted,logTechnical,showError:message=>showError?.(message)
+    syncMetadataAfterMutation,assertSlotsDeleted,logTechnical,showError:message=>showError?.(message),
+    chooseUploadTargets:options=>chooseSampleUploadTargets({documentRef,...options})
   });
   const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const sampleMoveController=createSampleMoveController({

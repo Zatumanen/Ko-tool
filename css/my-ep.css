@@ -801,6 +801,18 @@
   cursor:pointer;
 }
 .ep133-confirm-actions button:active{border-style:inset}
+
+.ep133-upload-choice-dialog{z-index:10080}
+.ep133-upload-choice-window{width:min(550px,calc(100vw - 24px));padding:10px}
+.ep133-upload-choice-window>strong{display:block;font:700 13px "Courier New",monospace;padding:5px}
+.ep133-upload-choice-window p{font:12px/1.4 "Courier New",monospace;margin:0 0 10px}
+.ep133-upload-choice-preview{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;background:#fff;padding:10px;border:2px inset #ccc;font:11px/1.5 "Courier New",monospace}
+.ep133-upload-choice-warning{color:#7d1e1e;font-weight:bold!important}
+.ep133-upload-choice-actions{flex-wrap:wrap;gap:7px}
+.ep133-upload-choice-actions button{white-space:normal;min-width:110px}
+.ep133-upload-choice-actions button[disabled]{opacity:.45;cursor:not-allowed}
+.ep133-upload-choice-actions button:focus-visible{outline:3px solid #152fa0;outline-offset:2px}
+
 .ep133-visually-hidden{
   position:absolute!important;
   width:1px!important;
