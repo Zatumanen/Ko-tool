@@ -17,6 +17,7 @@ test('OS workspaces, theme and honesty guards behave on desktop',async({page})=>
   await page.goto('/os/index.html');
   await expect(page.locator('body')).toHaveAttribute('data-os-theme','studio');
   await expect(page.getByText('DEMO SIGNAL / NOT DEVICE AUDIO')).toBeVisible();
+  await page.locator('#os-nav-extras summary').click();
   await page.locator('[data-view=sequencer]').click();
   await expect(page.getByRole('heading',{name:'Sequencer',exact:true})).toBeVisible();
   await expect(page.getByText('See the whole groove.')).toBeVisible();
@@ -28,6 +29,7 @@ test('OS workspaces, theme and honesty guards behave on desktop',async({page})=>
   await page.reload();
   await expect(page.locator('body')).toHaveAttribute('data-os-theme','classic');
   await expect(page.getByRole('heading',{name:'Device',exact:true})).toBeVisible();
+  await page.locator('#os-nav-extras summary').click();
   await page.locator('[data-view=community]').click();
   await expect(page.getByText('Share sounds, not restrictions.')).toBeVisible();
 });
