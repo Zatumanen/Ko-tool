@@ -1,6 +1,6 @@
 export function normalizeFileName(name,stripSlotPrefix=false){
   let value=String(name||'sample.wav');
-  if(stripSlotPrefix)value=value.replace(/^\d{3}\s/,'');
+  if(stripSlotPrefix)value=value.replace(/^(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})[ \t]+(?=\S)/,'');
   value=value.split('.').slice(0,-1).join('.')||value;
   value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'');
   if(value.length>16)value=value.substring(0,7)+'.'+value.substring(value.length-8);
