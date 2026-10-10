@@ -16,6 +16,7 @@ test('Sequencer step edits remain local, persistent across group selection and n
  await page.locator('#os-seq-play').click();
  await expect(page.locator('#os-seq-play')).toContainText('STOP');
  await page.locator('[data-view=samples]').click();
+ await page.locator('#os-nav-extras summary').click();
  await page.locator('[data-view=sequencer]').click();
  await expect(page.locator('#os-seq-play')).toContainText('PLAYHEAD');
  await expect(page.getByRole('button',{name:'KICK step 1',exact:true})).toHaveAttribute('aria-pressed','false');
