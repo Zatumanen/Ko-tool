@@ -72,7 +72,7 @@ export const PAGES=Object.freeze({
   heading:'Your instrument, your setup.',description:'This preview only saves a local appearance preference. There are no subscription gates and no donation/payment processor configured.',
   tiles:[
    {eyebrow:'WORKING NOW',title:'Studio / Classic',copy:'Switch the full OS design without changing device permissions or audio settings.',action:'SWITCH APPEARANCE',actionName:'toggle-theme'},
-   {eyebrow:'WORKING NOW / LEGACY',title:'Diagnostics / Recovery',copy:'View existing processing errors and guarded device recovery using the original application.',action:'OPEN DIAGNOSTICS ↗',href:'../index.html#my-ep'},
+   {eyebrow:'LIVE / DEVICE',title:'Diagnostics / Recovery',copy:'Inspect the live read-only Device status and technical details. The original My EP handles recovery actions and safety checks.',action:'OPEN DEVICE DIAGNOSTICS →',actionName:'open-diagnostics'},
    {eyebrow:'FREE CORE / SUPPORT',title:'Support the Project',copy:'Voluntary donations are planned. A recipient and compliant checkout have not yet been configured.',action:'SUPPORT DETAILS',actionName:'support-info'}
   ]
  }
@@ -149,11 +149,12 @@ function init(){
   const d=state.live,info=describeEpStatus(d),copy=describeUserDeviceState(d);
   const label=$('os-runtime-label'),subtitle=$('os-runtime-subtitle'),led=$('os-runtime-led'),trigger=$('os-runtime-trigger');
   if(label)label.textContent=d?info.label:'NO DEVICE SESSION';
-  if(subtitle)subtitle.textContent=d?copy.title:'OPEN DEVICE WORKSPACE';
+  const knownFirmware=d?.connection==='connected'&&d?.firmware?' · FW '+d.firmware:'';
+  if(subtitle)subtitle.textContent=d?copy.title+knownFirmware:'OPEN DEVICE WORKSPACE';
   if(led)led.className='led os-led-'+info.tone;
   if(trigger){
    trigger.dataset.state=d?.status||'unavailable';
-   trigger.title=d?'Device status: '+info.label+' — open diagnostics':'No live device status — open diagnostics';
+   trigger.title=d?'Device status: '+info.label+knownFirmware+' — open diagnostics':'No live device status — open diagnostics';
    trigger.setAttribute('aria-label',trigger.title);
   }
   const displayState=$('os-ko-display-state'),displayFw=$('os-ko-display-firmware');
@@ -196,6 +197,7 @@ function init(){
  document.addEventListener('click',event=>{
   const action=event.target.closest('[data-action]')?.dataset.action;
   if(action==='toggle-theme')updateTheme(state.theme==='studio'?'classic':'studio');
+  if(action==='open-diagnostics'){navigate('device');$('os-runtime-diagnostics')?.scrollIntoView?.({behavior:'auto',block:'start'});}
   if(action==='support-info')toast('Support is planned, but payment links are not configured. Essential tools stay free.');
   if(event.target.closest('[data-os-open-device]'))navigate('device');
  });
