@@ -346,8 +346,15 @@ export function createSampleMemory({
           // select that slot, while keeping editable-name clicks isolated.
           event.stopPropagation();
           if(nameInput.readOnly){
+            const now=Date.now();
+            const repeatedClick=!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&
+              lastReadonlyNameClickId===slot.id&&now-lastReadonlyNameClickAt<500;
             lastReadonlyNameClickId=slot.id;
-            lastReadonlyNameClickAt=Date.now();
+            lastReadonlyNameClickAt=now;
+            if(repeatedClick&&beginRename(event)){
+              lastReadonlyNameClickId=null;
+              return;
+            }
             if(selectedId!==slot.id||selectedIds.size!==1||event.ctrlKey||event.metaKey||event.shiftKey)
               selectClick(slot,event);
           }
