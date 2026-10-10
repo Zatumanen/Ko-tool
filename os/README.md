@@ -163,3 +163,46 @@ after checking dependencies rather than resetting shared branch history.
 
 The protected baseline remains available at
 `https://github.com/Zatumanen/Ko-tool/tree/archive/pre-os-redesign-v1`.
+
+
+## Offline Sample Shelf (ZAT-26; browser-local first slice)
+
+The Samples workspace now provides an original-file library, distinct from
+the temporary *processed WAV queue* and from the physical EP sample memory:
+
+- **ADD FILES** or **ADD FOLDER** (Chromium directory picker) imports actual
+  original audio bytes into local IndexedDB. Nested directory paths are
+  descriptive metadata; they are not written to the user's filesystem.
+- Supported import extensions: WAV/WAVE, MP3, AIF/AIFF, FLAC, OGG/OGA,
+  M4A, AAC. Empty files and files larger than **96 MiB each** are rejected.
+  A recognized extension does not guarantee that the current browser can
+  decode it; an unsupported codec is reported at preview or conversion.
+- A SHA-256 digest identifies duplicate **audio contents** even when names
+  differ. The first imported name/path is retained. Imported records include
+  source identity, path, size and import date. Verified duration is saved
+  only when the browser actually reads media metadata.
+- Search matches filename or folder; **PLAY** auditions the original
+  audio without a device; **PREPARE** hands its stored Blob back to the
+  existing canonical x2 conversion engine with the current quality/channel
+  controls. It does not upload to the EP.
+- **REMOVE** deletes one local source; **CLEAR LIBRARY** asks for explicit
+  confirmation before deleting all local sources. Files remain available
+  between page reloads so long as the browser retains this site's IndexedDB.
+  Clearing site data, private browsing eviction, or storage pressure can
+  delete them. **This is not a cloud backup.**
+- The display differentiates total original sample bytes from the
+  *whole site's* browser storage usage/quota when the browser reports it.
+  Storage quota is advisory; quota errors leave already committed imports
+  untouched. **CANCEL IMPORT** stops between file operations, retaining
+  only fully stored entries; no partial IndexedDB record is committed.
+- Unsupported browsers without IndexedDB or a secure-context SubtleCrypto
+  SHA-256 show an actionable shelf-storage error while the original
+  converter continues to work. No new WebMIDI, SysEx, FILE or project
+  write APIs have been introduced.
+- E2E with a real Chromium IndexedDB tests persistence after reload,
+  SHA-256 deduplication, nested folder metadata, unsafe filenames, deletion,
+  cancellation, browser quota display and reprocessing through Space Saver.
+  Browser automation still does not certify hardware behavior.
+
+Remaining ZAT-26 follow-ups: improve quota-pressure recovery/large-library
+performance and integration contract with the future 12-pad Kit Builder.
