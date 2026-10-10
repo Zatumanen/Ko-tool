@@ -1,5 +1,6 @@
 import {processAudioInputs,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION} from '../js/audio/processor.js';
 import {outputFileName} from '../js/output-name.js';
+import {createSampleShelfUI} from './sampleShelfUi.js';
 
 export function formatBytes(value){
  const n=Number(value);
@@ -15,12 +16,14 @@ export function storageDelta(source,prepared){
 }
 export function createSampleWorkspaceController(){
  const state={files:[],active:null,busy:false,token:0,root:null,audio:null,audioUrl:null,meter:null};
+ const shelfUI=createSampleShelfUI();
  const escapeText=value=>String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;',"'":'&#39;'}[ch]));
  function html(){
   return `<div class="os-samples">
  <section class="os-workflow-heading"><div><div class="eyebrow">SAMPLES / WORKSPACE 01</div><h2>Sample laboratory</h2><p>Real EP-ready WAV conversion · your files remain on this computer</p></div>
  <button type="button" class="button secondary" data-os-open-device>DEVICE TRANSFER →</button></section>
  <section class="os-space-saver"><div class="os-toggle-mark">×2</div><div><strong>SPACE SAVER</strong><p>Always prepares audio at x2 speed, with −12 semitone pitch metadata. Confirm playback settings on KO II after import.</p></div><span class="os-fixed-badge">ALWAYS ON</span></section>
+ <div id="os-offline-shelf"></div>
  <section class="os-sample-layout">
   <div class="os-sample-library">
    <div class="os-pane-title"><span>SAMPLE QUEUE</span><span id="os-sample-count" class="tiny-label">0 FILES</span></div>
@@ -169,6 +172,7 @@ export function createSampleWorkspaceController(){
  function mount(root,meter){
   state.root=root;state.meter=meter;
   root.innerHTML=html();
+  shelfUI.mount(rootElement('os-offline-shelf'),{prepare:convert});
   redrawList();
   if(state.active!==null)setActive(state.active);
   const input=rootElement('os-audio-upload');
@@ -184,6 +188,6 @@ export function createSampleWorkspaceController(){
   rootElement('os-download-button').addEventListener('click',download);
   rootElement('os-cancel-process').addEventListener('click',()=>{state.token++;});
  }
- function dispose(){resetPlayback();state.root=null;}
+ function dispose(){shelfUI.dispose();resetPlayback();state.root=null;}
  return Object.freeze({mount,dispose,getFileCount:()=>state.files.length});
 }
