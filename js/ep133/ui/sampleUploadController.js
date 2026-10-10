@@ -21,6 +21,7 @@ export function createSampleUploadController({
   prepareSample=prepareEp133Sample,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
 }={}){
+  let placementChoiceOpen=false;
   const runHydrationTransaction=operation=>typeof withFileTransaction==='function'
     ?withFileTransaction('sample upload hydration',operation)
     :operation({getFileInfo,getFileMetadata});
@@ -44,6 +45,7 @@ export function createSampleUploadController({
     ?withFileTransaction('sample upload batch',operation,{strict:true})
     :operation({uploadSampleToSlot,deleteFile});
   const uploadFilesToSlot=async(slot,files)=>{
+    if(placementChoiceOpen)throw new Error('Finish or cancel the open upload destination choice first.');
     if(!isConnected())throw new Error('EP device is disconnected.');
     if(!isSynchronized()||!getSoundsParentId())throw new Error('Sample library is still synchronizing.');
     if(!slot||!files?.length)return;
@@ -66,9 +68,12 @@ export function createSampleUploadController({
       catch(error){sequentialError=String(error?.message||error);}
       try{numberedPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'numbered'});}
       catch(error){numberedError=String(error?.message||error);}
-      mode=await chooseUploadTargets({
-        files:audioFiles,numberedCount,sequentialPlan,numberedPlan,sequentialError,numberedError
-      });
+      placementChoiceOpen=true;
+      try{
+        mode=await chooseUploadTargets({
+          files:audioFiles,numberedCount,sequentialPlan,numberedPlan,sequentialError,numberedError
+        });
+      }finally{placementChoiceOpen=false;}
       if(mode==null)return{successes:[],failures:[],cancelled:true};
       if(mode!=='numbered'&&mode!=='sequential')throw new Error('Invalid upload destination selection.');
       assertBatchSession(choiceSession);
