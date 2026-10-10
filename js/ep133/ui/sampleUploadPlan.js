@@ -3,7 +3,7 @@
  * still verify EVERY destination with assertSlotsEmpty immediately before PUT.
  */
 export function numberedSampleSlot(name){
- const match=String(name||'').match(/^((?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2}))[ \t]+(?=\S)/);
+ const match=String(name||'').match(/^((?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2}))[ \t]+(?=[^ \t.])/);
  return match?Number(match[1]):null;
 }
 
