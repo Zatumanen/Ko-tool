@@ -13,6 +13,7 @@ import{createProjectSequencer}from '../js/ep133/projectSequencer.js';
 import{auditProjectArchiveBytes}from '../js/ep133/projectHil.js';
 import{PROJECT_RUNTIME_SETTLE_MS,createProjectRuntimeGate}from '../js/ep133/projectRuntime.js';
 import{outputFileName}from '../js/output-name.js';
+import{normalizeFileName}from '../js/ep133/sampleFilesystem.js';
 import{pickerTypesForFile}from '../js/save-file.js';
 const writeTarText=(bytes,offset,length,text)=>{
   for(let i=0;i<length;i++)bytes[offset+i]=0;
@@ -2979,4 +2980,22 @@ test('FILE transport coordinates device operations and external FILE interferenc
   assert.match(project,/'project write transaction'\),'project write transaction',\{mode:'mutation'\}/);
   assert.match(device,/export function onUnexpectedFileTraffic/);
   assert.match(device,/rememberExpiredRequest\(frame\.id\)/);
+});
+
+
+test('device upload strips 001–999 numeric prefixes but preserves 000, longer numbers, and names without spaces',()=>{
+  const cases=[
+    ['001 Kick.wav','kick'],
+    ['056 Big Snare.wav','big snare'],
+    ['999 Hat.wav','hat'],
+    ['000 Kick.wav','000 kick'],
+    ['1000 Kick.wav','1000 kick'],
+    ['056Kick.wav','056kick'],
+    ['056.wav','056'],
+    ['Kick.wav','kick']
+  ];
+  for(const [input,expected] of cases){
+    assert.equal(normalizeFileName(input,true),expected,input);
+  }
+  assert.equal(normalizeFileName('056 Big Snare.wav'), '056 big snare');
 });
