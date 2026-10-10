@@ -46,6 +46,7 @@ test('OS designer view remains safe and usable after theme change and Samples re
  await page.goto('/os/index.html');
  await page.locator('#os-theme').click();
  await expect(page.locator('body')).toHaveAttribute('data-os-theme','classic');
+ await page.locator('#os-nav-extras summary').click();
  await page.locator('[data-view=community]').click();
  await expect(page.getByRole('heading',{name:'Community',exact:true})).toBeVisible();
  await page.locator('[data-view=samples]').click();
