@@ -250,7 +250,15 @@ export function createEpWorkspace({
     captureBatchSession,assertBatchSession,setGlobalProgress,hideGlobalProgress,reportError
   });
   const stopCurrentPreview=()=>sampleReadController.stopPreview();
-  const auditionSample=slot=>sampleReadController.audition(slot);
+  // Partial FILE_LIST rows are visible during bootstrap, but must not queue
+  // playback or downloads behind an incomplete/possibly stale listing.
+  const requireLibraryReady=()=>{
+    if(!synchronized)throw new Error('Wait until the EP sample library has finished reading.');
+  };
+  const auditionSample=slot=>{
+    if(!synchronized)return Promise.reject(new Error('Sample library is still reading.'));
+    return sampleReadController.audition(slot);
+  };
   const sampleDeleteController=createSampleDeleteController({
     sampleStore,getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),isConnected,
@@ -326,8 +334,8 @@ export function createEpWorkspace({
     listEl:list,tabsEl:tabs,searchEl:search,searchClearEl:searchClear,searchCountEl:searchCount,
     onSelect:slot=>{closeProperties();setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'');},
     onPlay:auditionSample,onDelete:deleteSamples,onRename:(slot,value)=>sampleRenameController.rename(slot,value),
-    onDownload:slot=>sampleReadController.downloadOne(slot),
-    onDownloadMany:selectedSlots=>sampleReadController.downloadMany(selectedSlots),onTransfer:transactionalTransfer,
+    onDownload:slot=>{requireLibraryReady();return sampleReadController.downloadOne(slot);},
+    onDownloadMany:selectedSlots=>{requireLibraryReady();return sampleReadController.downloadMany(selectedSlots);},onTransfer:transactionalTransfer,
     onDrop:async(slot,event)=>uploadFilesToSlot(slot,getDroppedFiles(event)),onContext:(slot,event)=>openProperties(slot,event),
     onDragStart:closeProperties,onUserError:(message,error)=>reportError(message,error)
   });
