@@ -96,6 +96,33 @@
     [3002,{id:3002,parent:2000,name:'02',data:projectTarComplete}]
   ]);
 
+  // Simulate a saved change made directly on the hardware, without any
+  // FILE event notification or Speeduppercut-triggered write.
+  const changeProjectBpm=(projectNumber,bpm)=>{
+    const id=3000+Number(projectNumber);
+    const project=projects.get(id);
+    if(!project)throw new Error('Unknown fake project P'+projectNumber);
+    const data=project.data.slice();
+    const decoder=new TextDecoder();
+    let position=0,found=false;
+    while(position+512<=data.length){
+      const header=data.subarray(position,position+512);
+      const name=decoder.decode(header.subarray(0,100)).split(String.fromCharCode(0))[0];
+      if(!name)break;
+      const sizeText=decoder.decode(header.subarray(124,136)).replaceAll(String.fromCharCode(0),'').trim();
+      const size=parseInt(sizeText,8)||0;
+      if(name==='settings'){
+        if(size<8)throw new Error('Fake project settings are too short');
+        new DataView(data.buffer,data.byteOffset+position+516,4).setFloat32(0,Number(bpm),true);
+        found=true;
+        break;
+      }
+      position+=512+Math.ceil(size/512)*512;
+    }
+    if(!found)throw new Error('Settings member missing in fake project');
+    project.data=data;
+  };
+
   const samples=new Map([
     [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
@@ -306,6 +333,7 @@
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
     removeSample:id=>samples.delete(Number(id)),
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
+    changeProjectBpm,
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
     emitDebug:text=>emitLater(debugFrame(text||'err e2e'),0),

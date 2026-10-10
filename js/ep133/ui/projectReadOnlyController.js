@@ -113,11 +113,28 @@ export function createProjectReadOnlyController({
   setStatus=()=>{},
   setGlobalProgress=()=>{},
   hideGlobalProgress=()=>{},
-  reportError=()=>{}
+  reportError=()=>{},
+  // Read-only 20s reconciliation; caller gates unsafe/busy/hidden sessions.
+  canAutoRefresh=()=>false,
+  getDeviceSession=()=>null,
+  logAutoError=()=>{},
+  setIntervalFn=null,
+  clearIntervalFn=null,
+  autoRefreshMs=20000
 }={}){
   if(typeof listProjectArchivesReadOnly!=='function'||typeof readProjectArchiveReadOnly!=='function')
     throw new TypeError('Project read-only controller requires project read APIs.');
   let mode='samples',listing=null,selectedProject=null,loading=false,pendingProject=null,currentResult=null;
+  let generation=0,autoRefreshTimer=null;
+  // Results are parsed from the device archive on every scan: list sizes by
+  // themselves cannot detect changes to a project whose length is unchanged.
+  const visibleSnapshot=(nextListing,result)=>JSON.stringify({
+    projects:nextListing?.projects||[],
+    active:result?.active||false,
+    profile:result?.profile||null,
+    dependencies:result?.dependencies||null,
+    model:result?.model||null
+  });
 
   const renderEmpty=message=>{
     if(projectInspector)projectInspector.innerHTML='<div class="ep-project-empty">'+escapeHtml(message)+'</div>';
@@ -277,6 +294,47 @@ export function createProjectReadOnlyController({
     }
   }
 
+  /** Quiet background reconciliation. No FILE writes, no progress takeover,
+   *  no transient inspector blanking and no error modal on polling failures.
+   *  Manual Refresh remains the explicit immediate retry path.
+   */
+  const refreshIfChanged=async()=>{
+    if(loading||mode!=='projects'||!selectedProject||!isConnected()||!canAutoRefresh())return false;
+    const currentId=selectedProject,oldGeneration=generation;
+    const oldSnapshot=visibleSnapshot(listing,currentResult);
+    const session=getDeviceSession();
+    loading=true;
+    try{
+      const latestListing=await listProjectArchivesReadOnly();
+      if(generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
+        !isConnected()||!canAutoRefresh()||getDeviceSession()!==session)return false;
+      const match=latestListing?.projects?.find(item=>item.project===currentId);
+      if(!match||!['ep133','ep40'].includes(latestListing?.profile?.id))return false;
+      const latest=await readProjectArchiveReadOnly(currentId);
+      if(generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
+        !isConnected()||!canAutoRefresh()||getDeviceSession()!==session)return false;
+      const freshSnapshot=visibleSnapshot(latestListing,latest);
+      if(freshSnapshot===oldSnapshot)return false;
+      listing=latestListing;
+      currentResult=latest;
+      renderList();
+      renderInspector(summarizeProjectReadOnly(latest,{getSampleSlot}));
+      onProjectLoaded(latest);
+      setStatus('PROJECT P'+currentId+' · UPDATED FROM EP');
+      return true;
+    }catch(error){
+      // A busy project runtime, MIDI timeout or a transient archive write may
+      // be normal during device use; keep the last verified snapshot.
+      logAutoError('AUTO PROJECT REFRESH',error);
+      return false;
+    }finally{
+      loading=false;
+      const queued=pendingProject;
+      pendingProject=null;
+      if(queued&&isConnected()&&mode==='projects')void selectProject(queued);
+    }
+  };
+
   const setMode=next=>{
     mode=next==='projects'?'projects':'samples';
     samplesPanel.hidden=mode!=='samples';
@@ -296,6 +354,7 @@ export function createProjectReadOnlyController({
   refreshButton?.addEventListener('click',()=>{if(isConnected())void refresh();});
 
   const reset=()=>{
+    generation++;
     listing=null;selectedProject=null;loading=false;pendingProject=null;currentResult=null;
     onProjectCleared();
     if(projectList)projectList.innerHTML='<div class="ep-project-empty">CONNECT EP SERIES</div>';
@@ -304,8 +363,16 @@ export function createProjectReadOnlyController({
 
   reset();
   setMode('samples');
+  if(typeof setIntervalFn==='function'){
+    autoRefreshTimer=setIntervalFn(()=>{void refreshIfChanged();},Math.max(5000,Number(autoRefreshMs)||20000));
+  }
+  const dispose=()=>{
+    generation++;
+    if(autoRefreshTimer!=null&&typeof clearIntervalFn==='function')clearIntervalFn(autoRefreshTimer);
+    autoRefreshTimer=null;
+  };
   return Object.freeze({
-    setMode,refresh,selectProject,reset,
+    setMode,refresh,selectProject,reset,refreshIfChanged,dispose,
     getCurrentResult:()=>currentResult,
     getState:()=>Object.freeze({
       mode,selectedProject,loading,
