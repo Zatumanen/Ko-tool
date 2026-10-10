@@ -33,9 +33,14 @@
         <button type="button" data-view="samples" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2l2-6 3 12 3-15 3 18 3-9h2"/></svg> SAMPLES</button>
         <button type="button" data-view="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h7l2 3h9v11H3z"/></svg> PROJECTS</button>
         <button type="button" data-view="device"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 13h8M8 18h8"/></svg> DEVICE</button>
-        <button type="button" data-view="sequencer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M3 14h18M9 4v16M15 4v16"/></svg> SEQUENCER</button>
-        <button type="button" data-view="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M2 21v-3c0-6 12-6 12 0v3M14 16c5-2 8 1 8 5"/></svg> COMMUNITY</button>
-        <button type="button" data-view="visualizers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15v5M7 8v12M11 3v17M15 10v10M19 5v15"/></svg> VISUALIZERS</button>
+        <details class="os-nav-extras" id="os-nav-extras">
+          <summary>ADDITIONAL TOOLS <span aria-hidden="true">⌄</span></summary>
+          <div class="os-nav-extra-items">
+            <button type="button" data-view="sequencer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M3 14h18M9 4v16M15 4v16"/></svg> SEQUENCER <small>PREVIEW</small></button>
+            <button type="button" data-view="community"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M2 21v-3c0-6 12-6 12 0v3M14 16c5-2 8 1 8 5"/></svg> COMMUNITY <small>PLANNED</small></button>
+            <button type="button" data-view="visualizers"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15v5M7 8v12M11 3v17M15 10v10M19 5v15"/></svg> VISUALIZERS <small>DEMO</small></button>
+          </div>
+        </details>
         <button type="button" data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg> SETTINGS</button>
       </nav>
       <div class="nav-bottom"><strong>SU.01</strong><span>FOR CREATORS, BY CREATORS<br>GUARDED DEVICE OPERATIONS</span></div>
