@@ -24,7 +24,8 @@ export function filterShelfEntries(entries,query=''){
 }
 const metadata=record=>({
  id:record.id,name:record.name,relativePath:record.relativePath,type:record.type,
- size:record.size,importedAt:record.importedAt,origin:'original-local-file'
+ size:record.size,duration:Number.isFinite(record.duration)?record.duration:null,
+ importedAt:record.importedAt,origin:'original-local-file'
 });
 function errorMessage(error){return String(error?.message||error?.name||error);}
 function requestValue(request){
@@ -78,6 +79,19 @@ export function createSampleShelf({indexedDBImpl=globalThis.indexedDB,cryptoImpl
   const db=await database(),tx=db.transaction(STORE,'readwrite');
   const done=transactionDone(tx);tx.objectStore(STORE).clear();await done;
  }
+ async function setDuration(id,seconds){
+  if(!Number.isFinite(seconds)||seconds<=0)return false;
+  const db=await database(),tx=db.transaction(STORE,'readwrite');
+  const done=transactionDone(tx),store=tx.objectStore(STORE);
+  let found=false;
+  const req=store.get(String(id));
+  req.onsuccess=()=>{
+   if(!req.result)return;
+   found=true;req.result.duration=seconds;store.put(req.result);
+  };
+  await done;
+  return found;
+ }
  async function importFiles(input,{signal,onProgress}={}){
   const files=Array.from(input||[]);
   const result={added:0,duplicates:0,rejected:0,failed:0,cancelled:false,errors:[]};
@@ -122,5 +136,5 @@ export function createSampleShelf({indexedDBImpl=globalThis.indexedDB,cryptoImpl
   }
   return result;
  }
- return Object.freeze({list,get,remove,clear,importFiles});
+ return Object.freeze({list,get,remove,clear,setDuration,importFiles});
 }
