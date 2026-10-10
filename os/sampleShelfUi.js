@@ -1,5 +1,8 @@
 import {createSampleShelf,filterShelfEntries} from './sampleShelf.js';
 
+const formatShelfSize=bytes=>bytes>=1048576?(bytes/1048576).toFixed(1)+' MiB':(bytes/1024).toFixed(1)+' KiB';
+const formatDuration=seconds=>Number.isFinite(seconds)&&seconds>0?seconds.toFixed(2)+'s':'DURATION UNKNOWN';
+
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,ch=>({
  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 })[ch]);
@@ -27,7 +30,8 @@ export function createSampleShelfUI(){
     <label class="os-shelf-search-label">SEARCH LIBRARY<input id="os-shelf-search" type="search" placeholder="Sample name or folder…" aria-label="Search local samples"></label>
     <button id="os-shelf-clear" class="button secondary" type="button">CLEAR LIBRARY</button>
    </div>
-   <p class="os-shelf-explain">Original audio only · saved locally in this browser · no upload or device access. Prepared WAV files remain in the sample queue.</p>
+   <p class="os-shelf-explain">Original audio only · saved locally in this browser · no upload or device access. Browser site data may be cleared or evicted. Prepared WAV files remain in the sample queue.</p>
+   <p id="os-shelf-storage" class="os-shelf-storage">Checking browser storage…</p>
    <div id="os-shelf-list" class="os-shelf-list" aria-label="Locally stored samples"><p class="os-empty">Your offline shelf is empty. Add audio or a folder to keep files across visits.</p></div>
    <div class="os-shelf-footer">
     <span id="os-shelf-message" role="status" aria-live="polite">Local browser storage · clearing browser site data also deletes these files.</span>
@@ -43,7 +47,7 @@ export function createSampleShelfUI(){
   $('os-shelf-list').innerHTML=result.length?result.map(item=>`
    <div class="os-shelf-entry" data-shelf-id="${item.id}">
     <div class="os-shelf-entry-main"><strong title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</strong>
-     <small title="${escapeHtml(item.relativePath)}">${escapeHtml(item.relativePath)} · ${(item.size/1024).toFixed(1)} KiB · ORIGINAL</small></div>
+     <small title="${escapeHtml(item.relativePath)}">${escapeHtml(item.relativePath)} · ${formatShelfSize(item.size)} · ${formatDuration(item.duration)} · ORIGINAL</small></div>
     <div class="os-shelf-entry-actions">
      <button type="button" data-shelf-action="preview" aria-label="Preview ${escapeHtml(item.name)}">${playingId===item.id?'STOP':'PLAY'}</button>
      <button type="button" data-shelf-action="prepare" aria-label="Prepare ${escapeHtml(item.name)}">PREPARE</button>
@@ -57,6 +61,14 @@ export function createSampleShelfUI(){
    const all=await shelf.list();
    if(active!==generation||!root)return;
    items=all;render();
+   const bytes=items.reduce((sum,item)=>sum+item.size,0);
+   const storage=$('os-shelf-storage');
+   if(storage)storage.textContent=formatShelfSize(bytes)+' original audio saved · browser quota not reported';
+   try{
+    const estimate=await navigator.storage?.estimate?.();
+    if(active!==generation||!root||!storage||!estimate?.quota)return;
+    storage.textContent=formatShelfSize(bytes)+' original audio saved · site storage '+formatShelfSize(estimate.usage||0)+' / '+formatShelfSize(estimate.quota)+' quota';
+   }catch{/* Quota may be unavailable in privacy modes; actual imports still report errors. */}
   }catch(error){if(active===generation)message('Offline library unavailable: '+String(error?.message||error),true);}
  }
  async function importAudio(list){
@@ -96,6 +108,11 @@ export function createSampleShelfUI(){
   const record=await shelf.get(id);
   if(!root||!record?.blob){message('Sample is missing from the local shelf.',true);return;}
   audioUrl=URL.createObjectURL(record.blob);audio=new Audio(audioUrl);playingId=id;
+  audio.addEventListener('loadedmetadata',()=>{
+   const seconds=audio?.duration;
+   if(!Number.isFinite(seconds)||seconds<=0)return;
+   void shelf.setDuration(id,seconds).then(()=>reload()).catch(()=>{});
+  });
   audio.addEventListener('ended',()=>{stopAudio();render();});
   audio.addEventListener('error',()=>{stopAudio();message('This audio cannot be previewed in this browser.',true);render();});
   render();
