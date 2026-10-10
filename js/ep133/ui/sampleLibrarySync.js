@@ -80,6 +80,7 @@ export function createSampleLibrarySyncController({
         assertCurrent();
         return{rootEntries,soundsParentId,soundEntries,soundsMetadata};
       });
+      assertCurrent();
 
       sampleStore.setSoundsParentId(soundsParentId);
       setGlobalProgress('SYNC',4);
@@ -121,6 +122,7 @@ export function createSampleLibrarySyncController({
         assertCurrent();
         try{
           const metadata=await getFileMetadata(slot.nodeId);
+          assertCurrent();
           sampleStore.setMetadata(slot.id,metadata);
         }catch(error){
           logTechnical('METADATA SLOT '+slot.id,error);
@@ -131,6 +133,7 @@ export function createSampleLibrarySyncController({
         if(loaded%8===0)await new Promise(resolve=>setTimeout(resolve,0));
       }
 
+      assertCurrent();
       setMetadataHydrating(false);
       updateMutationAvailability();
       setGlobalProgress('SYNC',100);
