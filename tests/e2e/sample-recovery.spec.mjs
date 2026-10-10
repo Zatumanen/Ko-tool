@@ -30,8 +30,11 @@ test('sample recovery verifies authoritative device state and only clears warnin
     });
   });
   await expect(page.locator('[data-workspace-recovery]'),{timeout:6000}).toContainText('RECOVERY REQUIRED');
-  await page.locator('#ep133-view-projects').click();
-  await page.locator('#ep133-project-recovery').click();
+  await expect(page.locator('[data-workspace-guidance-title]')).toHaveText('Recovery needs review');
+  await expect(page.locator('[data-workspace-guidance-next]')).toContainText('Open Recovery');
+  await expect(page.locator('[data-workspace-review-recovery]')).toBeVisible();
+  await page.locator('[data-workspace-review-recovery]').click();
+  await expect(page.locator('#ep133-view-projects')).toHaveAttribute('aria-selected','true');
   await expect(page.locator('#ep133-sample-recovery-section')).toBeVisible();
   await expect(page.locator('#ep133-sample-recovery-list .ep-sample-recovery-row')).toHaveCount(1);
   await page.locator('#ep133-sample-recovery-verify').click();
@@ -42,6 +45,7 @@ test('sample recovery verifies authoritative device state and only clears warnin
   await page.locator('#ep133-sample-recovery-ack').click();
   await expect(page.locator('#ep133-sample-recovery-detail')).toContainText('ACKNOWLEDGED');
   await expect(page.locator('[data-workspace-recovery]'),{timeout:6000}).toHaveText('RECOVERY · NONE');
+  await expect(page.locator('[data-workspace-review-recovery]')).toBeHidden();
   const mutations=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(item=>
     item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
   ),before);
