@@ -20,3 +20,17 @@ button.os-device[data-state="unsafe"] #os-runtime-label,button.os-device[data-st
 @media(max-width:1200px){button.os-device{max-width:300px}button.os-device .os-device-note{display:none}}
 @media(max-width:740px){.os-diagnostic-fields{grid-template-columns:repeat(2,minmax(0,1fr))}button.os-device{max-width:none}}
 @media(max-width:480px){.os-diagnostic-fields{grid-template-columns:minmax(0,1fr)}.os-runtime-diagnostics{padding:15px}}
+
+/* ZAT-18: user decision appears before any raw runtime reason. The expanded
+   section is purely informational; no operation or permission is delegated. */
+.os-runtime-diagnostics .os-diagnostic-next{
+ color:var(--text);border-left:3px solid var(--signal);
+ padding:10px 13px;background:var(--chrome);font-weight:700
+}
+.os-diagnostic-technical{min-width:0;border:1px solid var(--edge);background:var(--chrome)}
+.os-diagnostic-technical summary{cursor:pointer;padding:11px 13px;
+ color:var(--quiet);font:700 11px 'Courier New',monospace}
+.os-diagnostic-technical summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.os-diagnostic-technical[open] summary{border-bottom:1px solid var(--edge)}
+.os-diagnostic-technical p{padding:10px 13px;overflow-wrap:anywhere;
+ white-space:pre-wrap;font:11px/1.55 'Courier New',monospace}
