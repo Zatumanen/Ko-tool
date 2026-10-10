@@ -250,7 +250,12 @@ export function createEpWorkspace({
     waitForMetadataUpdate,syncMetadataAfterMutation,assertSlotsDeleted,renderDeviceStats,
     readDevice:()=>readDevice(),logTechnical
   });
-  const deleteSamples=targets=>sampleDeleteController.deleteSamples(targets);
+  // A selected sample may still be auditioning. Stop it before opening a
+  // guarded FILE delete transaction; do not overlap playback and mutation.
+  const deleteSamples=async targets=>{
+    await stopCurrentPreview();
+    return sampleDeleteController.deleteSamples(targets);
+  };
   const fileEventController=createFileEventController({
     isConnected,sampleStore,getSoundsParentId:()=>sampleStore.getSoundsParentId(),
     getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
