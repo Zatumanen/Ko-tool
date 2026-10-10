@@ -1,4 +1,5 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
+import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
 import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20261001-1';
 
 export function createSampleUploadController({
@@ -86,7 +87,7 @@ export function createSampleUploadController({
           const target=item.slot;
           // Only the device-facing name changes. The audio File and bytes stay intact.
           // normalizeFileName with stripSlotPrefix=true is limited to 001–999 + space.
-          const deviceSampleName=normalizeFileName(item.file.name,true);
+          const deviceSampleName=stripSampleUploadPrefix(item.file.name);
 
           try{
             sampleStore.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
