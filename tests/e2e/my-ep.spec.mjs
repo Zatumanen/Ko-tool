@@ -47,6 +47,43 @@ const wav16Mono=(sampleRate=46875,frames=64)=>{
   return [...buffer];
 };
 
+test('My EP reads 500 samples (~65 MB) through ordered paginated FILE_LIST requests',async({page})=>{
+  await installFake(page);
+  await page.goto('/');
+  await page.evaluate(()=>window.__fakeEp.seedSamples(500,130000));
+  await page.locator('#my-ep-icon').click();
+
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED · 500 SAMPLES',{timeout:20000});
+  const records=await page.evaluate(()=>window.__fakeEp.requestLog);
+  const directoryPages=records.filter(record=>
+    record.command===5&&record.sub===4&&((record.raw[3]<<8)|record.raw[4])===1000
+  ).map(record=>(record.raw[1]<<8)|record.raw[2]);
+
+  // 24 files/page + one final empty page. No skipped/repeated directory pages.
+  expect(directoryPages).toEqual(Array.from({length:Math.ceil(500/24)+1},(_,index)=>index));
+  // Official EP Sample Tool initializes the FILE session once before listing.
+  expect(records.filter(record=>record.command===5&&record.sub===1)).toHaveLength(1);
+  await expect(page.locator('[data-slot="1"]')).toHaveCount(1);
+  await expect(page.locator('[data-slot="99"]')).toHaveCount(1);
+  await page.locator('[data-tab="5"]').click();
+  await expect(page.locator('[data-slot="500"]')).toHaveCount(1);
+});
+
+test('My EP reports a failed later FILE_LIST page without committing partial inventory',async({page})=>{
+  await installFake(page);
+  await page.goto('/');
+  await page.evaluate(()=>{
+    window.__fakeEp.seedSamples(500,130000);
+    window.__fakeEp.rejectListPage(2);
+  });
+  await page.locator('#my-ep-icon').click();
+
+  await expect(page.locator('#log-tab')).toContainText('COULD NOT READ EP SAMPLE LIBRARY.',{timeout:15000});
+  await expect(page.locator('#log-tab')).toContainText('SAMPLE LIBRARY LAST FILE_LIST PAGE');
+  await expect(page.locator('[data-workspace-operation]')).toContainText('READY');
+  expect(await page.evaluate(()=>document.querySelector('#ep133-status')?.textContent||'')).not.toContain('SYNCED');
+});
+
 test('My EP connects, syncs, searches, renames, uploads, moves and deletes through the real DOM',async({page})=>{
   await installFake(page);
   await openMyEp(page);
