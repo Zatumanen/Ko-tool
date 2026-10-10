@@ -119,8 +119,7 @@ export function createSampleMemory({
   let mutationsEnabled=false;
   let dragSourceId=0;
   let suppressClick=false;
-  let lastReadonlyNameClickId=null;
-  let lastReadonlyNameClickAt=0;
+  let pendingNameClickTimer=null;
   let searchCursorId=null;
   const slotOperations=new Map();
 
@@ -342,24 +341,30 @@ export function createSampleMemory({
           return true;
         };
         nameInput.addEventListener('click',event=>{
-          // Readonly names cover most of the row. Let a regular mouse click
-          // select that slot, while keeping editable-name clicks isolated.
           event.stopPropagation();
-          if(nameInput.readOnly){
-            const now=Date.now();
-            const repeatedClick=!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&
-              lastReadonlyNameClickId===slot.id&&now-lastReadonlyNameClickAt<500;
-            lastReadonlyNameClickId=slot.id;
-            lastReadonlyNameClickAt=now;
-            if(repeatedClick&&beginRename(event)){
-              lastReadonlyNameClickId=null;
-              return;
-            }
-            if(selectedId!==slot.id||selectedIds.size!==1||event.ctrlKey||event.metaKey||event.shiftKey)
-              selectClick(slot,event);
+          if(!nameInput.readOnly)return;
+          // A click selecting a row rerenders the input. Deferring an ordinary
+          // click briefly keeps it alive for the native dblclick/rename event.
+          // Modifier-assisted multi-selection is immediate.
+          if(pendingNameClickTimer!=null){
+            clearTimeout(pendingNameClickTimer);pendingNameClickTimer=null;
+          }
+          const modifiers={ctrlKey:event.ctrlKey,metaKey:event.metaKey,shiftKey:event.shiftKey};
+          if(modifiers.ctrlKey||modifiers.metaKey||modifiers.shiftKey){
+            selectClick(slot,modifiers);
+          }else{
+            pendingNameClickTimer=setTimeout(()=>{
+              pendingNameClickTimer=null;
+              if(editingId!==slot.id)selectClick(slot,modifiers);
+            },240);
           }
         });
-        nameInput.addEventListener('dblclick',event=>{beginRename(event);});
+        nameInput.addEventListener('dblclick',event=>{
+          if(pendingNameClickTimer!=null){
+            clearTimeout(pendingNameClickTimer);pendingNameClickTimer=null;
+          }
+          beginRename(event);
+        });
         if(editingId===slot.id){
           nameInput.readOnly=false;
           nameInput.addEventListener('input',()=>{editingValue=nameInput.value;});
@@ -466,24 +471,6 @@ export function createSampleMemory({
       });
     });
   };
-
-  // A first click may rerender the selected row and replace the readonly
-  // input. Chrome then targets the nearest stable ancestor for dblclick.
-  // Preserve the pre-existing double-click-to-rename workflow in this case.
-  listEl?.addEventListener('dblclick',event=>{
-    const id=Number(lastReadonlyNameClickId);
-    if(!id||Date.now()-lastReadonlyNameClickAt>900)return;
-    const slot=slots[id-1];
-    if(!mutationsEnabled||!slot?.file||slot.node?.isWritable!==true||selectedId!==id||selectedIds.size!==1)return;
-    const targetSlot=event.target?.closest?.('[data-slot]');
-    if(targetSlot&&Number(targetSlot.dataset.slot)!==id)return;
-    const targetInput=event.target?.closest?.('[data-name-input]');
-    if(targetInput&&Number(targetInput.dataset.nameInput)!==id)return;
-    if(!targetSlot&&event.target!==listEl)return;
-    event.preventDefault();
-    editingId=id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;
-    render();
-  });
 
   const clearSlotInternal=id=>{
     const nodeId=Number(id);
