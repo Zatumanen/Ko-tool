@@ -119,6 +119,8 @@ export function createSampleMemory({
   let mutationsEnabled=false;
   let dragSourceId=0;
   let suppressClick=false;
+  let lastReadonlyNameClickId=null;
+  let lastReadonlyNameClickAt=0;
   let searchCursorId=null;
   const slotOperations=new Map();
 
@@ -343,8 +345,12 @@ export function createSampleMemory({
           // Readonly names cover most of the row. Let a regular mouse click
           // select that slot, while keeping editable-name clicks isolated.
           event.stopPropagation();
-          if(nameInput.readOnly&&(selectedId!==slot.id||selectedIds.size!==1||event.ctrlKey||event.metaKey||event.shiftKey))
-            selectClick(slot,event);
+          if(nameInput.readOnly){
+            lastReadonlyNameClickId=slot.id;
+            lastReadonlyNameClickAt=Date.now();
+            if(selectedId!==slot.id||selectedIds.size!==1||event.ctrlKey||event.metaKey||event.shiftKey)
+              selectClick(slot,event);
+          }
         });
         nameInput.addEventListener('dblclick',event=>{beginRename(event);});
         if(editingId===slot.id){
@@ -453,6 +459,24 @@ export function createSampleMemory({
       });
     });
   };
+
+  // A first click may rerender the selected row and replace the readonly
+  // input. Chrome then targets the nearest stable ancestor for dblclick.
+  // Preserve the pre-existing double-click-to-rename workflow in this case.
+  listEl?.addEventListener('dblclick',event=>{
+    const id=Number(lastReadonlyNameClickId);
+    if(!id||Date.now()-lastReadonlyNameClickAt>900)return;
+    const slot=slots[id-1];
+    if(!mutationsEnabled||!slot?.file||slot.node?.isWritable!==true||selectedId!==id||selectedIds.size!==1)return;
+    const targetSlot=event.target?.closest?.('[data-slot]');
+    if(targetSlot&&Number(targetSlot.dataset.slot)!==id)return;
+    const targetInput=event.target?.closest?.('[data-name-input]');
+    if(targetInput&&Number(targetInput.dataset.nameInput)!==id)return;
+    if(!targetSlot&&event.target!==listEl)return;
+    event.preventDefault();
+    editingId=id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;
+    render();
+  });
 
   const clearSlotInternal=id=>{
     const nodeId=Number(id);
