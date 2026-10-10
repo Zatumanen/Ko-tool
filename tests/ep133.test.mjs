@@ -569,7 +569,7 @@ test('My EP loads sample-bank tabs from /sounds metadata like the reference tool
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleLibrarySync.js',import.meta.url),'utf8');
   assert.match(source,/withFileTransaction\('sample library bootstrap',operation\)/);
   assert.match(source,/fileOps\.listDirectory\(0,'\/'\)/);
-  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds',onSoundsPage\)/);
   assert.match(source,/const soundsMetadata=await fileOps\.getFileMetadata\(soundsParentId\)/);
   assert.match(source,/const activeTabs=Array\.isArray\(soundsMetadata\?\.tabs\)[\s\S]*activeDeviceProfile\.fallbackTabs/);
   assert.match(source,/memory\.setTabs\(activeTabs\)/);
@@ -2547,7 +2547,7 @@ test('My EP initial sample sync lists only root and the direct \/sounds director
   ]);
   assert.match(source,/runBootstrap\(async fileOps=>\{/);
   assert.match(source,/fileOps\.listDirectory\(0,'\/'\)/);
-  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds'\)/);
+  assert.match(source,/fileOps\.listDirectory\(soundsParentId,'\/sounds',onSoundsPage\)/);
   assert.doesNotMatch(source,/listDeviceFiles/);
   assert.doesNotMatch(source,/listDirectory\([^)]*\/projects/);
   assert.match(ui,/withFileTransaction,listDirectory,getFileMetadata/);
