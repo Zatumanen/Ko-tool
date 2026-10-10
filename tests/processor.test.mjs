@@ -275,3 +275,51 @@ test('Original resolves per file in a mixed batch and does not change existing f
  assert.throws(()=>resolveOutputChannels(3,'original'),/mono or stereo/);
  assert.throws(()=>resolveOutputChannels(1,'unrecognized'),/Unsupported output channels/);
 });
+
+test('Original playmode preserves embedded oneshot, loop, key and legato through the exported WAV',async()=>{
+ const source=buffer(480,1,48000);
+ for(let i=0;i<source.length;i++)source.getChannelData(0)[i]=Math.sin(i*.1)*.3;
+ for(const mode of ['oneshot','loop','key','legato']){
+  const input=await (await encodeWav(source,16,{},mode)).arrayBuffer();
+  const result=await processAudio(input,{fidelity:'mid',playmode:'original',autoTrim:false},{referenceModuleProvider});
+  assert.equal(result.playmode,mode);
+  assert.equal(result.sourcePlaymodeDetected,true);
+  assert.equal(result.metadata['sound.playmode'],mode);
+  const output=parseWavAudioMeta(new Uint8Array(await result.blob.arrayBuffer()));
+  assert.equal(output.rate,32000);
+  const wav=new Uint8Array(await result.blob.arrayBuffer());
+  const {inspectEpReadyWav}=await import('../js/ep133/audio.js');
+  const prepared=inspectEpReadyWav(wav,{targetSampleRate:32000});
+  assert.equal(prepared.metadata['sound.playmode'],mode);
+  assert.equal(prepared.metadata['sound.pitch'],-12);
+ }
+});
+
+test('Original playmode uses One Shot when source WAV has no embedded playmode',async()=>{
+ const samples=480,source=new ArrayBuffer(44+samples*2),view=new DataView(source);
+ const ascii=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));};
+ ascii(0,'RIFF');view.setUint32(4,source.byteLength-8,true);ascii(8,'WAVEfmt ');
+ view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+ view.setUint32(24,48000,true);view.setUint32(28,96000,true);
+ view.setUint16(32,2,true);view.setUint16(34,16,true);
+ ascii(36,'data');view.setUint32(40,samples*2,true);
+ const result=await processAudio(source,{playmode:'original',autoTrim:false},{referenceModuleProvider});
+ assert.equal(result.playmode,'oneshot');
+ assert.equal(result.sourcePlaymodeDetected,false);
+ assert.equal(result.metadata['sound.playmode'],'oneshot');
+});
+
+test('Original playmode is resolved for each batch file, while explicit selection overrides source',async()=>{
+ const source=buffer(480,1,48000);
+ for(let i=0;i<source.length;i++)source.getChannelData(0)[i]=Math.cos(i*.1)*.2;
+ const loop=await (await encodeWav(source,16,{},'loop')).arrayBuffer();
+ const key=await (await encodeWav(source,16,{},'key')).arrayBuffer();
+ const files=[{name:'loop.wav',arrayBuffer:async()=>loop.slice(0)},{name:'key.wav',arrayBuffer:async()=>key.slice(0)}];
+ const modes=[];
+ for await(const item of processAudioInputs(files,{playmode:'original',autoTrim:false},{referenceModuleProvider}))
+  modes.push(item.result.playmode);
+ assert.deepEqual(modes,['loop','key']);
+ const forced=await processAudio(loop,{playmode:'oneshot',autoTrim:false},{referenceModuleProvider});
+ assert.equal(forced.playmode,'oneshot');
+ assert.equal(forced.metadata['sound.playmode'],'oneshot');
+});
