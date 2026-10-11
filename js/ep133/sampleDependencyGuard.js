@@ -37,12 +37,12 @@ export function readProjectPadDependencies(input,{profile}={}){
   for(const member of parseProjectArchive(input)){
     const path=String(member.path);
     if(member.type==='5'){
-      if(/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(path))
+      if(/^pads\/[abcd]\/p(?:0[1-9]|1[0-2])$/.test(path))
         throw new Error('Project pad is a directory, not a record: '+path+'.');
       continue;
     }
     if(path!=='pads'&&!path.startsWith('pads/'))continue;
-    if(!/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(path))
+    if(!/^pads\/[abcd]\/p(?:0[1-9]|1[0-2])$/.test(path))
       throw new Error('Unexpected project pad member '+path+'; sample deletion cannot be verified.');
     if(seen.has(path))throw new Error('Duplicate project pad member '+path+'.');
     seen.add(path);
