@@ -95,6 +95,30 @@
     [3001,{id:3001,parent:2000,name:'01',data:projectTar}],
     [3002,{id:3002,parent:2000,name:'02',data:projectTarComplete}]
   ]);
+  // Reproduce native scenes that reference implicit (non-serialized) pattern
+  // members. This must not disable checking pad sample dependencies.
+  const setProjectMissingPattern=(projectNumber)=>{
+    const id=3000+Number(projectNumber),project=projects.get(id);
+    if(!project)throw new Error('Unknown test project '+projectNumber);
+    project.data=makeProjectTar([
+      {path:'pads/a/p01',data:projectPad(7)},
+      {path:'pads/b/p01',data:projectPad(8)},
+      {path:'patterns/a01',data:projectPattern()},
+      {path:'patterns/c01',data:projectPattern()},
+      {path:'patterns/d01',data:projectPattern()},
+      {path:'scenes',data:projectScenes()},
+      {path:'settings',data:projectSettings()},
+      {path:'fx_settings',data:projectFx()}
+    ]);
+  };
+  const setProjectMalformedPad=(projectNumber)=>{
+    const id=3000+Number(projectNumber),project=projects.get(id);
+    if(!project)throw new Error('Unknown test project '+projectNumber);
+    project.data=makeProjectTar([
+      {path:'pads/b/p01',data:new Uint8Array([0,8,0])},
+      {path:'scenes',data:projectScenes()}
+    ]);
+  };
 
   // Simulate a saved change made directly on the hardware, without any
   // FILE event notification or Speeduppercut-triggered write.
@@ -365,6 +389,7 @@
       for(const release of delayedListResponses.splice(0))release();
     },
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
+    setProjectMissingPattern,setProjectMalformedPad,
     changeProjectBpm,
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
