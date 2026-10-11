@@ -1,5 +1,6 @@
 import{assertProjectTransportSupported}from './projectProfile.js?v=20261001-1';
-import{readProjectModel}from './projectReader.js?v=20261001-1';
+import{parseProjectArchive}from './projectArchive.js?v=20261001-1';
+import{readProjectPad}from './projectReader.js?v=20261001-1';
 import{buildSampleDependencyIndex,assertSampleSlotsUnreferenced}from './projectDependencies.js?v=20261001-1';
 
 const normalizeSlots=values=>[...new Set(
@@ -14,6 +15,48 @@ export function readSampleDependencyRequest(operation){
   const slots=normalizeSlots(request.slots);
   if(!slots.length)throw new Error('Sample dependency guard request contains no valid source slots.');
   return Object.freeze({slots:Object.freeze(slots),operation:String(request.operation||'modify')});
+}
+
+/**
+ * Read only the on-device pad assignments needed for sample-delete safety.
+ * A firmware-created project may have implicit/absent pattern members even
+ * though its scene table references them. That must not invalidate a reliable
+ * scan of its pads. Keep the strict project validator for project WRITES.
+ *
+ * Fail closed for a malformed TAR, missing/ambiguous pad records or unexpected
+ * pad encodings: otherwise a referenced sample could be deleted accidentally.
+ */
+export function readProjectPadDependencies(input,{profile}={}){
+  if(!profile||!['ep133','ep40'].includes(profile.id))
+    throw new Error('Sample dependency preflight requires a verified EP-133 or EP-40 project profile.');
+  const pads={a:[],b:[],c:[],d:[]};
+  const seen=new Set();
+  const lengths=Array.isArray(profile.acceptedPadRecordSizes)
+    ?profile.acceptedPadRecordSizes
+    :[profile.padRecordSize];
+  for(const member of parseProjectArchive(input)){
+    const path=String(member.path);
+    if(member.type==='5'){
+      if(/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(path))
+        throw new Error('Project pad is a directory, not a record: '+path+'.');
+      continue;
+    }
+    if(path!=='pads'&&!path.startsWith('pads/'))continue;
+    if(!/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(path))
+      throw new Error('Unexpected project pad member '+path+'; sample deletion cannot be verified.');
+    if(seen.has(path))throw new Error('Duplicate project pad member '+path+'.');
+    seen.add(path);
+    if(!lengths.includes(member.data.length))
+      throw new Error(path+' has unsupported pad-record size '+member.data.length+'.');
+    const pad=readProjectPad(member,{profile});
+    const maxSlot=profile.supportsSupertone?1009:999;
+    if(pad.storedSlot>maxSlot)
+      throw new Error(path+' references slot/symbol '+pad.storedSlot+' outside 0..'+maxSlot+'.');
+    pads[pad.group].push({
+      path:pad.path,group:pad.group,pad:pad.pad,sampleSlot:pad.sampleSlot
+    });
+  }
+  return{pads};
 }
 
 export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
@@ -44,7 +87,7 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
       results.push({
         project:node.fileName.slice(-2),
         nodeId:node.nodeId,
-        model:readProjectModel(archive.data,{profile})
+        model:readProjectPadDependencies(archive.data,{profile})
       });
     }
     return buildSampleDependencyIndex(results);
