@@ -73,11 +73,11 @@ const sampleTar=(members)=>{
     const payload=data instanceof Uint8Array?data:Uint8Array.from(data);
     const header=new Uint8Array(512);
     write(header,0,100,path);
-    write(header,100,8,'0000644\\0');
-    if(payload.length)write(header,124,12,payload.length.toString(8)+'\\0');
+    write(header,100,8,'0000644\0');
+    if(payload.length)write(header,124,12,payload.length.toString(8)+'\0');
     header[156]=48;header.fill(0x20,148,156);
     let sum=0;for(const byte of header)sum+=byte;
-    const octal=sum.toString(8)+'\\0';
+    const octal=sum.toString(8)+'\0';
     write(header,148,8,octal);
     header.fill(0x20,148+octal.length,156);
     blocks.push(header);
@@ -111,7 +111,7 @@ test('delete dependency scan tolerates missing scene pattern while still blockin
     {path:'pads/b/p02',data:padData(9)},
     {path:'scenes',data:sceneWithMissingPattern()}
   ]);
-  assert.throws(()=>readProjectModel(archive,{profile:ep133Profile}),/missing patterns\\/a01/);
+  assert.throws(()=>readProjectModel(archive,{profile:ep133Profile}),/missing patterns\/a01/);
   const model=readProjectPadDependencies(archive,{profile:ep133Profile});
   const index=buildSampleDependencyIndex([{project:'02',nodeId:3002,model}]);
   assert.deepEqual(index.slots,[7,9]);
@@ -148,7 +148,7 @@ test('dependency preflight fails closed on corrupt or ambiguous pad records',()=
     {path:'pads/a/p01',data:padData(10)}
   ]),/Duplicate project pad member/);
   assert.throws(()=>parse([{path:'pads/a/custom',data:padData(7)}]),/Unexpected project pad member/);
-  assert.throws(()=>parse([{path:'pads/a/p01',data:padData(1200)}]),/outside 0\\.\\.999/);
+  assert.throws(()=>parse([{path:'pads/a/p01',data:padData(1200)}]),/outside 0\.\.999/);
   const corrupted=sampleTar([{path:'pads/a/p01',data:padData(7)}]);
   corrupted[148]=0;
   assert.throws(()=>readProjectPadDependencies(corrupted,{profile:ep133Profile}),/checksum mismatch/i);
@@ -166,5 +166,5 @@ test('Riddim EP-40 dependency reader handles native 29-byte pads and excludes su
   assert.deepEqual(index.slots,[42]);
   assert.throws(()=>readProjectPadDependencies(sampleTar([
     {path:'pads/a/p01',data:padData(1009+1,29)}
-  ]),{profile}),/outside 0\\.\\.1009/);
+  ]),{profile}),/outside 0\.\.1009/);
 });
