@@ -739,7 +739,7 @@ test('sample upload controller verifies each sample inside its own FILE transact
       return op({
         uploadSampleToSlot:async options=>{
           uploaded.push(options.destinationId);
-          written.set(options.destinationId,{name:String(options.filename).replace(/\\.wav$/i,'').toLowerCase(),size:options.data.length});
+          written.set(options.destinationId,{name:String(options.filename).replace(/\.wav$/i,'').toLowerCase(),size:options.data.length});
           options.onCreated?.(options.destinationId);
           return options.destinationId;
         },
@@ -750,7 +750,7 @@ test('sample upload controller verifies each sample inside its own FILE transact
     },
     assertSlotsEmpty:async ids=>preflights.push([...ids]),
     refreshSoundsRuntimeMetadata:async()=>{refreshCalls++;return soundsMetadata;},
-    prepareSampleLocalMetadata:x=>x,normalizeFileName:name=>String(name).replace(/\\.wav$/i,'').toLowerCase(),
+    prepareSampleLocalMetadata:x=>x,normalizeFileName:name=>String(name).replace(/\.wav$/i,'').toLowerCase(),
     fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileSize:info.fileSize,isReadable:true,isWritable:true,isDeletable:true,isPlayable:true}),
     getFileInfo:async()=>null,getFileMetadata:async()=>null,
     renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
