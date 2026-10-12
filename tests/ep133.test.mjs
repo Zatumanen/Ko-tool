@@ -2127,7 +2127,7 @@ test('My EP pastes and drops audio into the shared forward-only uploader',async(
   assert.match(ui,/onDrop:async\(slot,event\)=>uploadFilesToSlot\(slot,getDroppedFiles\(event\)\)/);
   const plan=await fs.readFile(new URL('../js/ep133/ui/sampleUploadPlan.js',import.meta.url),'utf8');
   assert.match(uploads,/planSampleUploadTargets\(audioFiles,\{startSlot:slot\.id,sampleStore,mode\}\)/);
-  assert.match(uploads,/await assertSlotsEmpty\(targets\.map\(item=>item\.slot\.id\),fileOps\)/);
+  assert.match(uploads,/await assertSlotsEmpty\(\[target\.id\],fileOps\)/);
   assert.match(plan,/for\(let id=cursor;id<=999;id\+\+\)/);
   assert.match(plan,/if\(slot&&!slot\.file\)/);
 });
@@ -2291,7 +2291,7 @@ test('EP sample rename uses one strict METADATA SET/readback transaction',async(
   assert.match(source,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
   assert.match(source,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
   assert.match(source,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
-  assert.match(source,/sampleStore\.setMetadata\(canonical\.id,readback\|\|\{name\},\{verification:'verified'\}\)/);
+  assert.match(source,/sampleStore\.setMetadata\(canonical\.id,readback,\{verification:'verified'\}\)/);
   assert.doesNotMatch(source,/await setFileMetadata\(/);
   assert.doesNotMatch(source,/await getFileMetadata\(/);
 });
