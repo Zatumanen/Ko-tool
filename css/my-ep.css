@@ -105,6 +105,8 @@
 .ep133-sample-row:hover{background:#dbe8ff}
 .ep133-sample-row.empty{color:#777}
 .ep133-sample-row.occupied .ep133-sample-number{color:#222}
+/* An occupied selected slot must not keep its dark number on the blue background. */
+.ep133-sample-row.occupied.selected .ep133-sample-number{color:#fff}
 .ep133-sample-row.multi-selected{background:#dbe8ff}
 .ep133-sample-row.selected{background:var(--primary-blue);color:#fff}
 .ep133-sample-row.dragover{outline:2px dashed #000;outline-offset:-2px;background:#c0c0c0}

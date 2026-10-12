@@ -64,5 +64,5 @@ test('batch ZIP retains numeric labels, preserves other names, and never duplica
 });
 
 function assertZip(paths){
- expect(paths).toEqual(['001 Kick_x2.wav','056 Snare_x2.wav','002 Kick_x2.wav','Loose_x2.wav']);
+ expect(paths).toEqual(['Drum Kit_x2/001 Kick.wav','Drum Kit_x2/056 Snare.wav','Drum Kit_x2/002 Kick.wav','Drum Kit_x2/Loose.wav']);
 }

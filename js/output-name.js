@@ -7,6 +7,13 @@ export function outputFileName(name){
  return base+'_x2.wav';
 }
 
+/** Folder exports retain the source leaf name and convert its extension to WAV.
+ * _x2 belongs only to the enclosing ZIP and top-level folder.
+ */
+export function folderOutputFileName(name){
+  return String(name||'output.wav').replace(/\.[^.]+$/,'')+'.wav';
+}
+
 /** Keep every ZIP entry when different source filenames resolve to the same output path. */
 export function uniqueOutputPath(path,usedPaths){
  let candidate=String(path),copy=2;

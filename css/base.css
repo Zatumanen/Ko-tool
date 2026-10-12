@@ -406,3 +406,8 @@
   .waveform-chop-modes button{flex:1}
   .waveform-chop-controls>button{flex:1 1 110px}
 }
+
+/* Ctrl/Cmd and Shift selection of converted WAVs for My EP drag/drop. */
+#results-list .result-item.selected{background:var(--primary-blue);color:#fff;outline:1px solid var(--primary-blue);outline-offset:-1px}
+#results-list .result-item.selected .result-name{color:#fff}
+#results-list .result-item.dragging{opacity:.55}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {outputFileName,uniqueOutputPath} from '../js/output-name.js';
+import {outputFileName,folderOutputFileName,uniqueOutputPath} from '../js/output-name.js';
 
 test('converter retains numbered prefixes 001–999 in filenames',()=>{
  for(const [source,expected] of [
@@ -30,4 +30,14 @@ test('ZIP paths reserve case-insensitive duplicates instead of silently overwrit
  assert.equal(uniqueOutputPath('KIT/kick.WAV',used),'KIT/kick (3).WAV');
  assert.equal(uniqueOutputPath('B/Kick.wav',used),'B/Kick.wav');
  assert.equal(used.size,4);
+});
+
+test('folder files keep original source stems but convert extension to WAV',()=>{
+  for(const [source,expected] of [
+    ['001 Kick.wav','001 Kick.wav'],
+    ['056 Snare.mp3','056 Snare.wav'],
+    ['Hi Hat.flac','Hi Hat.wav'],
+    ['Sound.aiff','Sound.wav'],
+    ['Loose.wav','Loose.wav']
+  ])assert.equal(folderOutputFileName(source),expected);
 });

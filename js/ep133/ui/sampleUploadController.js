@@ -1,6 +1,5 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
 import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
-import{buildProvisionalUploadedFileItem}from './fileModel.js?v=20261001-1';
 import{numberedSampleSlot,planSampleUploadTargets}from './sampleUploadPlan.js?v=20261001-1';
 
 export function createSampleUploadController({
@@ -91,21 +90,22 @@ export function createSampleUploadController({
     const failures=[];
 
     try{
-      await runUploadTransaction(async fileOps=>{
-        await assertSlotsEmpty(targets.map(item=>item.slot.id),fileOps);
-
-        let currentSoundsMetadata=getSoundsMetadata();
-        let remainingFreeSpace=Number(currentSoundsMetadata?.free_space_in_bytes);
-        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0){
-          const latestSounds=await refreshSoundsRuntimeMetadata(fileOps);
-          remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
-        }
-        if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
-
-        for(let index=0;index<targets.length;index++){
-          assertBatchSession(sessionToken);
-          const item=targets[index];
-          const target=item.slot;
+      // One independent guarded FILE transaction per sample. Other uploads
+      // cannot run until this sample's device readback has been verified.
+      // Failures stay attached to their own queue row and do not abort later
+      // files unless the FILE session itself is unsafe.
+      let currentSoundsMetadata=getSoundsMetadata();
+      let remainingFreeSpace=Number(currentSoundsMetadata?.free_space_in_bytes);
+      for(let index=0;index<targets.length;index++){
+        assertBatchSession(sessionToken);
+        const item=targets[index];
+        const target=item.slot;
+        try{
+          await runUploadTransaction(async fileOps=>{
+              await assertSlotsEmpty([target.id],fileOps);
+              const latestSounds=await refreshSoundsRuntimeMetadata(fileOps);
+              remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
+              if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
           // Only the device-facing name changes. The audio File and bytes stay intact.
           // normalizeFileName with stripSlotPrefix=true is limited to 001–999 + space.
           const deviceSampleName=stripSampleUploadPrefix(item.file.name);
@@ -172,30 +172,27 @@ export function createSampleUploadController({
             if(Number(fileId)!==Number(target.id))
               throw new Error('The device wrote a sample to an unexpected slot.');
 
-            const fileItem=buildProvisionalUploadedFileItem({
-              nodeId:fileId,
-              parentId:soundsParentId,
-              fileSize:prepared.data.byteLength,
-              fileName:deviceSampleName
-            },{
-              deviceFiles:sampleStore.getFiles(),
-              normalizeFileName
-            });
+            // Confirm the device's actual FILE record and metadata before
+            // advancing the queue or telling the user this file completed.
+            const info=await fileOps.getFileInfo(fileId);
+            const actual=await fileOps.getFileMetadata(fileId);
+            const fileItem=fileItemFromInfo(info);
+            if(!fileItem||Number(fileItem.nodeId)!==Number(target.id)||
+              !fileItem.fileName.startsWith('/sounds/')||fileItem.fileName.slice(8).includes('/'))
+              throw new Error('Uploaded sample did not appear in the expected /sounds slot.');
+            if(Number(fileItem.fileSize)!==prepared.data.byteLength)
+              throw new Error('Uploaded sample size differs from device readback.');
+            if(String(actual?.name||'')!==normalizeFileName(deviceSampleName))
+              throw new Error('Uploaded sample name differs from device metadata readback.');
+            if(Number(actual?.channels)!==Number(prepared.channels)||
+              Number(actual?.samplerate)!==Number(prepared.samplerate))
+              throw new Error('Uploaded sample audio parameters differ from device readback.');
             sampleStore.upsertFile(fileItem,{
-              state:'provisional',
-              verification:'provisional',
+              state:'ready',
+              verification:'verified',
               preserveMetadata:false
             });
-
-            const localMetadata=prepareSampleLocalMetadata(
-              {...metadata,name:deviceSampleName},
-              {
-                allowedPlayModes:profile.playModes,
-                allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
-                barWriteMode:'omit'
-              }
-            );
-            sampleStore.setMetadata(target.id,localMetadata,{verification:'provisional'});
+            sampleStore.setMetadata(target.id,actual,{verification:'verified'});
 
             if(remainingFreeSpace!=null){
               remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
@@ -229,10 +226,15 @@ export function createSampleUploadController({
               }
             }
 
-            if(isDeviceUnsafe())break;
-          }
+            }
+          });
+        }catch(error){
+          failures.push({file:item.file,error});
+          sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+          logTechnical('UPLOAD QUEUE '+item.file.name,error);
         }
-      });
+        if(isDeviceUnsafe())break;
+      }
 
       renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
 

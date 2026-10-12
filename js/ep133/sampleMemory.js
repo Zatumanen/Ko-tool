@@ -260,6 +260,24 @@ export function createSampleMemory({
     });
   };
 
+  const startRename=slot=>{
+    if(!slot?.file||selectedIds.size>1)return false;
+    if(!mutationsEnabled){
+      onUserError?.('SAMPLE RENAME UNAVAILABLE.',new Error('Wait until the sample library finishes synchronizing and no FILE operation is active.'));
+      return false;
+    }
+    if(slot.node?.isWritable!==true){
+      onUserError?.('SAMPLE RENAME UNAVAILABLE.',new Error('The EP has not granted write access to this sample.'));
+      return false;
+    }
+    if(selectedId!==slot.id||selectedIds.size!==1)
+      setSelection([slot.id],slot.id,{preview:false});
+    editingId=slot.id;
+    editingOriginalName=slotName(slot);
+    editingValue=editingOriginalName;
+    render();
+    return true;
+  };
   const finishRename=async(slot,{save=true}={})=>{
     if(editingId!==slot?.id||renamePending)return;
     const original=editingOriginalName;
@@ -333,12 +351,8 @@ export function createSampleMemory({
       const nameInput=row.querySelector('[data-name-input]');
       if(nameInput){
         const beginRename=event=>{
-          if(!mutationsEnabled||!slot.file||slot.node?.isWritable!==true||selectedIds.size>1)return false;
           event.preventDefault();event.stopPropagation();
-          if(selectedId!==slot.id||selectedIds.size!==1)
-            setSelection([slot.id],slot.id,{preview:false});
-          editingId=slot.id;editingOriginalName=slotName(slot);editingValue=editingOriginalName;render();
-          return true;
+          return startRename(slot);
         };
         nameInput.addEventListener('click',event=>{
           event.stopPropagation();
@@ -514,6 +528,13 @@ export function createSampleMemory({
   };
   const keyDown=event=>{
     if(!keyboardActive())return;
+    if(event.key==='F2'){
+      if(selectedId&&selectedIds.size===1&&slots[selectedId-1]?.file){
+        event.preventDefault();
+        startRename(slots[selectedId-1]);
+      }
+      return;
+    }
     if(event.key==='ArrowUp'||event.key==='ArrowDown'){
       event.preventDefault();moveSelection(event.key==='ArrowUp'?-1:1);return;
     }

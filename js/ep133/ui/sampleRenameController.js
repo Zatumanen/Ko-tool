@@ -19,9 +19,11 @@ export function createSampleRenameController({
       await fileOps.setFileMetadata(canonical.nodeId||canonical.id,{name});
       return fileOps.getFileMetadata(canonical.nodeId||canonical.id);
     });
+    if(String(readback?.name||'')!==name)
+      throw new Error('The EP did not confirm the requested sample name. Readback: '+String(readback?.name||'<missing>')+'.');
 
-    sampleStore.setMetadata(canonical.id,readback||{name},{verification:'verified'});
-    return String(readback?.name||name);
+    sampleStore.setMetadata(canonical.id,readback,{verification:'verified'});
+    return String(readback.name);
   };
 
   return{rename};
