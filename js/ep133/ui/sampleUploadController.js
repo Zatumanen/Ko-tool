@@ -102,7 +102,6 @@ export function createSampleUploadController({
         const target=item.slot;
         try{
           await runUploadTransaction(async fileOps=>{
-            try{
               await assertSlotsEmpty([target.id],fileOps);
               const latestSounds=await refreshSoundsRuntimeMetadata(fileOps);
               remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
