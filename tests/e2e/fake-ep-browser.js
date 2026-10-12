@@ -152,6 +152,7 @@
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
   let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
+  const rejectedUploadSlots=new Set();
   let rejectedListPage=null,heldListPage=null;
   const delayedListResponses=[];
   const requestLog=[];
@@ -326,7 +327,16 @@
     }
     if(sub===F.PUT&&raw[1]===0){
       const flags=raw[2],id=u16(raw,3),parent=u16(raw,5),size=u32(raw,7),name=zstr(raw,11);
-      currentPut={id,parent,size,name,flags,pages:[]};
+      if(rejectedUploadSlots.has(id)){
+        rejectedUploadSlots.delete(id);
+        emitLater(response(request,enc.encode('upload rejected\\0'),3));
+        return;
+      }
+      const end=raw.indexOf(0,11);
+      const text=end<0?'':new TextDecoder().decode(raw.slice(end+1));
+      let meta={};
+      try{if(text)meta=JSON.parse(text);}catch{}
+      currentPut={id,parent,size,name,flags,pages:[],meta};
       emitLater(response(request,Uint8Array.from(be16(id))));return;
     }
     if(sub===F.PUT&&raw[1]===1){
@@ -344,7 +354,7 @@
       }
       const sample={
         id:currentPut.id,name:currentPut.name,data,
-        meta:{name:currentPut.name,channels:1,samplerate:46875,format:'s16',crc:currentPut.id*1001,'sound.playmode':'oneshot','envelope.release':255}
+        meta:{name:currentPut.name,channels:1,samplerate:46875,format:'s16',crc:currentPut.id*1001,'sound.playmode':'oneshot','envelope.release':255,...currentPut.meta}
       };
       samples.set(sample.id,sample);currentPut=null;
       emitLater(response(request));emitAdded(sample);return;
@@ -382,6 +392,7 @@
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
     removeSample:id=>samples.delete(Number(id)),
     seedSamples,
+    rejectUploadSlot:id=>rejectedUploadSlots.add(Number(id)),
     rejectListPage:page=>{rejectedListPage=page==null?null:Number(page);},
     holdListPage:page=>{heldListPage=page==null?null:Number(page);},
     releaseListPage:()=>{
