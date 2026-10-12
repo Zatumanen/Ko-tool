@@ -179,7 +179,7 @@ export function createSampleUploadController({
             const actual=await fileOps.getFileMetadata(fileId);
             const fileItem=fileItemFromInfo(info);
             if(!fileItem||Number(fileItem.nodeId)!==Number(target.id)||
-              !/^\\/sounds\\/[^/]+$/.test(fileItem.fileName))
+              !fileItem.fileName.startsWith('/sounds/')||fileItem.fileName.slice(8).includes('/'))
               throw new Error('Uploaded sample did not appear in the expected /sounds slot.');
             if(Number(fileItem.fileSize)!==prepared.data.byteLength)
               throw new Error('Uploaded sample size differs from device readback.');
