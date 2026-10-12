@@ -214,13 +214,26 @@ export function createEpWorkspace({
   const sampleVerification=createSampleVerificationController({sampleStore,listDirectory});
   const{assertSlotsEmpty,assertSlotsDeleted}=sampleVerification;
   const getDroppedFiles=event=>{
-    const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
-    if(resultId){
-      const sourceWindows=[windowRef,windowRef?.opener].filter(Boolean);
-      const item=sourceWindows.map(w=>w.__speedUpperCutFiles?.get(resultId)).find(Boolean);
-      if(item?.result?.blob){
-        return[new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'})];
-      }
+    const sourceWindows=[windowRef,windowRef?.opener].filter(Boolean);
+    const multi=event.dataTransfer?.getData('application/x-speeduppercut-results');
+    let ids=[];
+    if(multi){
+      try{
+        const parsed=JSON.parse(multi);
+        if(Array.isArray(parsed))ids=parsed.filter(id=>typeof id==='string');
+      }catch{}
+    }
+    if(!ids.length){
+      const resultId=event.dataTransfer?.getData('application/x-speeduppercut-result');
+      if(resultId)ids=[resultId];
+    }
+    if(ids.length){
+      const files=[...new Set(ids)].map(id=>
+        sourceWindows.map(w=>w.__speedUpperCutFiles?.get(id)).find(Boolean)
+      ).filter(item=>item?.result?.blob instanceof Blob).map(item=>
+        new File([item.result.blob],item.outputName||outputFileName(item.file.name),{type:'audio/wav'})
+      );
+      if(files.length)return files;
     }
     return Array.from(event.dataTransfer?.files||[]);
   };
