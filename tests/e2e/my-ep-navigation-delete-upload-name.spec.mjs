@@ -68,3 +68,66 @@ test('device upload from 056-prefixed source writes stripped filename and local 
  await expect(page.locator('[data-slot="9"] [data-name-input]')).toHaveValue('vinyl clap');
  await expect(page.locator('#ep133-status')).not.toContainText('COULD NOT');
 });
+
+test('sample names can be changed by F2 or double click and are confirmed by device readback',async({page})=>{
+  await open(page);
+  await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('kick808');
+  await page.locator('[data-slot="7"]').click();
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveAttribute('readonly','');
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('[data-slot="7"] [data-name-input]').readOnly)).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>!document.querySelector('#ep133-browser').classList.contains('busy'))).toBe(true);
+  await page.keyboard.press('F2');
+  await expect(page.locator('[data-slot="7"] [data-name-input]')).not.toHaveAttribute('readonly','');
+  await page.locator('[data-slot="7"] [data-name-input]').fill('new kick');
+  await page.keyboard.press('Enter');
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===7)?.meta?.name)).toBe('new kick');
+  await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('new kick');
+  await page.locator('[data-slot="7"] [data-name-input]').dblclick();
+  await expect(page.locator('[data-slot="7"] [data-name-input]')).not.toHaveAttribute('readonly','');
+  await page.locator('[data-slot="7"] [data-name-input]').fill('kick 2');
+  await page.keyboard.press('Enter');
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===7)?.meta?.name)).toBe('kick 2');
+});
+
+test('multiple converted outputs are dragged to My EP and uploaded with per-file device verification',async({page})=>{
+  await page.addInitScript({path:fakeEpScript});
+  await page.goto('/');
+  const wav=Buffer.from(wav16());
+  await page.locator('#audio-upload').setInputFiles([
+    {name:'Kick.wav',mimeType:'audio/wav',buffer:wav},
+    {name:'Snare.wav',mimeType:'audio/wav',buffer:wav}
+  ]);
+  await expect(page.locator('#results-list .result-item')).toHaveCount(2,{timeout:90000});
+  await page.locator('#results-list .result-item').first().click();
+  await page.locator('#results-list .result-item').last().click({modifiers:['Control']});
+  await expect(page.locator('#results-list .result-item.selected')).toHaveCount(2);
+  await page.locator('#my-ep-icon').click();
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED',{timeout:12000});
+  await page.evaluate(()=>{
+    const source=document.querySelector('#results-list .result-item');
+    const row=document.querySelector('[data-slot="9"]');
+    const transfer=new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+    row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+    row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+    source.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:transfer}));
+  });
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id)),{timeout:25000}).toEqual([9,10]);
+  const log=await page.evaluate(()=>window.__fakeEp.requestLog);
+  const puts=log.map((entry,index)=>entry.command===5&&entry.sub===2&&entry.raw[1]===0?index:-1).filter(index=>index>=0);
+  expect(puts).toHaveLength(2);
+  expect(log.slice(puts[0]+1,puts[1]).some(entry=>entry.command===5&&entry.sub===11)).toBe(true);
+  await expect(page.locator('[data-slot="9"] [data-name-input]')).toHaveValue('kick_x2');
+  await expect(page.locator('[data-slot="10"] [data-name-input]')).toHaveValue('snare_x2');
+});
+
+test('selected occupied sample slot number remains readable',async({page})=>{
+  await open(page);
+  await page.locator('[data-slot="7"]').click();
+  const style=await page.locator('[data-slot="7"] [data-name-input]').evaluate(el=>{
+    const number=el.closest('[data-slot]').querySelector('.ep133-sample-number');
+    return{number:getComputedStyle(number).color,row:getComputedStyle(number.closest('[data-slot]')).color};
+  });
+  expect(style.number).toBe(style.row);
+});
