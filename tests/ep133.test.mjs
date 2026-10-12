@@ -320,11 +320,11 @@ import{parseMetadataResponse,calculateMaxPayloadLength,buildFilePutInitPayload,b
 test('My EP upload records are verified by the connected EP before showing success',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
-  assert.match(source,/await fileOps\\.getFileInfo\\(fileId\\)/);
-  assert.match(source,/await fileOps\\.getFileMetadata\\(fileId\\)/);
-  assert.match(source,/sampleStore\\.upsertFile\\(fileItem,[\\s\\S]*state:'ready'[\\s\\S]*verification:'verified'/);
-  assert.match(source,/sampleStore\\.setMetadata\\(target\\.id,actual,\\{verification:'verified'\\}\\)/);
-  assert.match(source,/void hydrateUploadedFileItem\\(id\\)/);
+  assert.match(source,/await fileOps\.getFileInfo\(fileId\)/);
+  assert.match(source,/await fileOps\.getFileMetadata\(fileId\)/);
+  assert.match(source,/sampleStore\.upsertFile\(fileItem,[\s\S]*state:'ready'[\s\S]*verification:'verified'/);
+  assert.match(source,/sampleStore\.setMetadata\(target\.id,actual,\{verification:'verified'\}\)/);
+  assert.match(source,/void hydrateUploadedFileItem\(id\)/);
 });
 
 test('local uploaded sample metadata keeps transport fields needed by My EP rows',()=>{
@@ -411,10 +411,10 @@ test('SpeedUpperCut lazy-loads the My EP dependency graph',async()=>{
 test('My EP checks device file size, name and PCM metadata before advancing the upload queue',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
-  assert.match(source,/for\\(let index=0;index<targets\\.length;index\\+\\+\\)/);
-  assert.match(source,/await runUploadTransaction\\(async fileOps=>\\{/);
-  assert.match(source,/await assertSlotsEmpty\\(\\[target\\.id\\],fileOps\\)/);
-  assert.match(source,/Number\\(fileItem\\.fileSize\\)!==prepared\\.data\\.byteLength/);
+  assert.match(source,/for\(let index=0;index<targets\.length;index\+\+\)/);
+  assert.match(source,/await runUploadTransaction\(async fileOps=>\{/);
+  assert.match(source,/await assertSlotsEmpty\(\[target\.id\],fileOps\)/);
+  assert.match(source,/Number\(fileItem\.fileSize\)!==prepared\.data\.byteLength/);
   assert.match(source,/Uploaded sample name differs from device metadata readback/);
   assert.match(source,/Uploaded sample audio parameters differ from device readback/);
 });
@@ -2069,15 +2069,15 @@ test('My EP queues separately protected sample transfers without overlapping FIL
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   const block=source.slice(source.indexOf('const uploadFilesToSlot=async'));
-  assert.match(source,/withFileTransaction\\('sample upload batch',operation,\\{strict:true\\}\\)/);
-  assert.match(block,/for\\(let index=0;index<targets\\.length;index\\+\\+\\)\\{/);
-  assert.match(block,/await runUploadTransaction\\(async fileOps=>\\{/);
-  assert.match(block,/await assertSlotsEmpty\\(\\[target\\.id\\],fileOps\\)/);
-  assert.match(block,/await fileOps\\.uploadSampleToSlot\\(\\{/);
-  assert.match(block,/await fileOps\\.getFileInfo\\(fileId\\)/);
-  assert.match(block,/await fileOps\\.getFileMetadata\\(fileId\\)/);
-  assert.match(block,/if\\(isDeviceUnsafe\\(\\)\\)break/);
-  assert.doesNotMatch(block,/verifyPcmReadback\\(fileId,prepared\\.data/);
+  assert.match(source,/withFileTransaction\('sample upload batch',operation,\{strict:true\}\)/);
+  assert.match(block,/for\(let index=0;index<targets\.length;index\+\+\)\{/);
+  assert.match(block,/await runUploadTransaction\(async fileOps=>\{/);
+  assert.match(block,/await assertSlotsEmpty\(\[target\.id\],fileOps\)/);
+  assert.match(block,/await fileOps\.uploadSampleToSlot\(\{/);
+  assert.match(block,/await fileOps\.getFileInfo\(fileId\)/);
+  assert.match(block,/await fileOps\.getFileMetadata\(fileId\)/);
+  assert.match(block,/if\(isDeviceUnsafe\(\)\)break/);
+  assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
 });
 
 test('sample mutation controllers reserve strict FILE transaction leases',async()=>{
