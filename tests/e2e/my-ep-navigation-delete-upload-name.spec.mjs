@@ -131,3 +131,25 @@ test('selected occupied sample slot number remains readable',async({page})=>{
   });
   expect(style.number).toBe(style.row);
 });
+
+test('failed sample upload is marked FAILED and the next queued sample still uploads',async({page})=>{
+  await open(page);
+  await page.evaluate(()=>window.__fakeEp.rejectUploadSlot(9));
+  const bytes=wav16();
+  await page.evaluate(bytes=>{
+    const transfer=new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(bytes)],'First.wav',{type:'audio/wav'}));
+    transfer.items.add(new File([new Uint8Array(bytes)],'Second.wav',{type:'audio/wav'}));
+    const row=document.querySelector('[data-slot="9"]');
+    row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+    row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+  },bytes);
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10)),{timeout:25000}).toBe(true);
+  const result=await page.evaluate(()=>({
+    slots:window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id),
+    puts:window.__fakeEp.requestLog.filter(r=>r.command===5&&r.sub===2&&r.raw[1]===0)
+      .map(r=>r.raw[3]+(r.raw[4]<<8))
+  }));
+  expect(result.slots).toEqual([10]);
+  expect(result.puts).toEqual([9,10]);
+});
