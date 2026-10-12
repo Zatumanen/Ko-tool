@@ -125,6 +125,7 @@ test('multiple converted outputs are dragged to My EP and uploaded with per-file
 test('selected occupied sample slot number remains readable',async({page})=>{
   await open(page);
   await page.locator('[data-slot="7"]').click();
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
   const style=await page.locator('[data-slot="7"] [data-name-input]').evaluate(el=>{
     const number=el.closest('[data-slot]').querySelector('.ep133-sample-number');
     return{number:getComputedStyle(number).color,row:getComputedStyle(number.closest('[data-slot]')).color};
@@ -148,7 +149,7 @@ test('failed sample upload is marked FAILED and the next queued sample still upl
   const result=await page.evaluate(()=>({
     slots:window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id),
     puts:window.__fakeEp.requestLog.filter(r=>r.command===5&&r.sub===2&&r.raw[1]===0)
-      .map(r=>r.raw[3]+(r.raw[4]<<8))
+      .map(r=>r.raw[4]+(r.raw[3]<<8))
   }));
   expect(result.slots).toEqual([10]);
   expect(result.puts).toEqual([9,10]);
