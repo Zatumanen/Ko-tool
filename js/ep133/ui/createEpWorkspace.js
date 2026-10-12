@@ -26,6 +26,7 @@ import{chooseSampleUploadTargets}from './sampleUploadChoice.js?v=20261001-1';
 import{createSampleMoveController}from './sampleMoveController.js?v=20261001-1';
 import{createSampleCopyController}from './sampleCopyController.js?v=20261001-1';
 import{createSampleRenameController}from './sampleRenameController.js?v=20261001-1';
+import{createDevicePadSelectionController}from './devicePadSelectionController.js?v=20261012-1';
 import{createSampleTransferCoordinator}from './sampleTransferCoordinator.js?v=20261001-1';
 import{createSampleVerificationController}from './sampleVerification.js?v=20261001-1';
 import{createDeviceView}from './deviceView.js?v=20261001-1';
@@ -377,7 +378,15 @@ export function createEpWorkspace({
     confirmAction,setStatus,setGlobalProgress,hideGlobalProgress,reportError
   });
 
-  onFileEvent(event=>{void fileEventController.handleFileEvent(event);});
+  const devicePadSelectionController=createDevicePadSelectionController({
+    isConnected,isSynchronized:()=>synchronized,getMemory:()=>memory,
+    sampleStore,withFileTransaction,getFileInfo,getFileMetadata,listDirectory,
+    captureBatchSession,assertBatchSession,logTechnical
+  });
+  onFileEvent(event=>{
+    void fileEventController.handleFileEvent(event);
+    devicePadSelectionController.handleFileEvent(event);
+  });
 
   const renderConnection=state=>{
     legacyConnectionUnsafe=!!state?.unsafe;
@@ -396,6 +405,7 @@ export function createEpWorkspace({
       panel.classList.remove('device-disconnected');setConnectionOverlay('');setStatus('CONNECTED');return;
     }
     metadataHydrating=false;synchronized=false;updateMutationAvailability();
+    devicePadSelectionController.reset();
     void stopCurrentPreview();closeProperties();hideGlobalProgress();panel.classList.add('device-disconnected');
     const hadConnection=deviceView.hasEverConnected();
     setConnectionOverlay(hadConnection?'DEVICE DISCONNECTED':'CONNECT EP SERIES');
@@ -442,7 +452,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({
