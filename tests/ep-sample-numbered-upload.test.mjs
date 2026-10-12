@@ -54,7 +54,8 @@ test('duplicate numeric prefixes and insufficient empty slots fail BEFORE any wr
 });
 
 const harness=choice=>{
- const store=withFiles([7,8]);let mutations=0,chosenOptions=null,preflight=null;
+ const store=withFiles([7,8]);let mutations=0,chosenOptions=null;
+ const preflights=[],uploadedNames=new Map();
  const created=[],sampleNames=[];
  const memory={selectSlots(){}};
  const controller=createSampleUploadController({
@@ -68,15 +69,18 @@ const harness=choice=>{
    uploadSampleToSlot:async options=>{
     created.push(options.destinationId);
     sampleNames.push(options.filename);
+     uploadedNames.set(options.destinationId,options.filename.replace(/\.wav$/i,'').toLowerCase());
     options.onCreated?.(options.destinationId);
     return options.destinationId;
-   },deleteFile:async()=>{throw new Error('Should not delete existing samples');}
+   },getFileInfo:async id=>({nodeId:id,parentId:1000,fileSize:12,fileName:uploadedNames.get(id)}),
+    getFileMetadata:async id=>({name:uploadedNames.get(id),channels:1,samplerate:46875,format:'s16'}),
+    deleteFile:async()=>{throw new Error('Should not delete existing samples');}
   }),
-  assertSlotsEmpty:async chosen=>{preflight=chosen;},
+  assertSlotsEmpty:async chosen=>{preflights.push([...chosen]);},
   refreshSoundsRuntimeMetadata:async()=>({free_space_in_bytes:500}),
   prepareSampleLocalMetadata:x=>({...x,name:x.name.replace(/\.wav$/i,'').toLowerCase()}),
   normalizeFileName:x=>x.replace(/\.wav$/i,'').toLowerCase(),
-  fileItemFromInfo:()=>null,getFileInfo:async()=>null,getFileMetadata:async()=>null,
+  fileItemFromInfo:info=>({nodeId:info.nodeId,fileName:'/sounds/'+info.fileName,fileSize:info.fileSize,isWritable:true,isDeletable:true,isReadable:true,isPlayable:true}),getFileInfo:async()=>null,getFileMetadata:async()=>null,
   renderDeviceStats(){},markUploadPending(){},clearUploadPending(){},
   waitForMetadataUpdate:async()=>null,deleteFile:async()=>{},
   syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},
@@ -85,7 +89,7 @@ const harness=choice=>{
   chooseUploadTargets:async options=>{chosenOptions=options;return typeof choice==='function'?choice(options):choice;}
  });
  return{controller,store,created,sampleNames,get mutations(){return mutations;},
-  get preflight(){return preflight;},get chosenOptions(){return chosenOptions;}};
+  get preflights(){return preflights;},get chosenOptions(){return chosenOptions;}};
 };
 test('cancelled numbered upload sends no FILE mutation and does not set busy',async()=>{
  const h=harness(null);
@@ -101,7 +105,7 @@ test('numbered selection preflights exact destinations and cleans names without 
  const files=[file('056 Snare.wav'),file('001 Kick.wav')];
  const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),files);
  assert.deepEqual(result.successes,[56,1]);
- assert.deepEqual(h.preflight,[56,1]);
+ assert.deepEqual(h.preflights,[[56],[1]]);
  assert.deepEqual(h.created,[56,1]);
  assert.deepEqual(h.sampleNames,['Snare.wav','Kick.wav']);
  assert.equal(files[0].name,'056 Snare.wav');
@@ -111,7 +115,7 @@ test('next free choice preserves current slot-first semantics even with numbered
  const h=harness('sequential');
  const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('056 Snare.wav')]);
  assert.deepEqual(result.successes,[9]);
- assert.deepEqual(h.preflight,[9]);
+ assert.deepEqual(h.preflights,[[9]]);
  assert.deepEqual(h.sampleNames,['Snare.wav']);
 });
 
