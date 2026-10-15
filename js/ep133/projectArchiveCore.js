@@ -80,9 +80,11 @@ export function parseProjectArchive(input){
 const u16le=(bytes,offset)=>bytes[offset]|(bytes[offset+1]<<8);
 const signed8=value=>value>127?value-256:value;
 
-function validatePad(member,profile){
+function validatePad(member,profile,{readOnly=false}={}){
   const data=member.data;
-  const accepted=Array.isArray(profile.acceptedPadRecordSizes)?profile.acceptedPadRecordSizes:[profile.padRecordSize].filter(Boolean);
+  const accepted=readOnly&&Array.isArray(profile.readablePadRecordSizes)
+    ?profile.readablePadRecordSizes
+    :Array.isArray(profile.acceptedPadRecordSizes)?profile.acceptedPadRecordSizes:[profile.padRecordSize].filter(Boolean);
   if(!accepted.includes(data.length))
     throw new Error(member.path+' has pad-record size '+data.length+' but '+profile.id+' requires '+accepted.join(' or ')+' bytes.');
   if(data[0]!==0)throw new Error(member.path+' has a nonzero validity byte.');
@@ -204,7 +206,7 @@ function validateLive(member,profile){
   for(const value of member.data)if(value!==0&&value!==1)throw new Error('live contains a value other than 0 or 1.');
 }
 
-export function validateProjectArchive(input,{profile}={}){
+export function validateProjectArchive(input,{profile,readOnly=false}={}){
   profile=profileOrDefault(profile);
   if(profile.patternDialect==='unverified')throw new Error('Project archive validation is not verified for '+profile.id+'.');
   const members=parseProjectArchive(input);
@@ -218,7 +220,7 @@ export function validateProjectArchive(input,{profile}={}){
     if(member.type==='5'){directories+=1;continue;}
     files+=1;
     let match=member.path.match(/^pads\/[abcd]\/p(0[1-9]|1[0-2])$/);
-    if(match){validatePad(member,profile);pads+=1;continue;}
+    if(match){validatePad(member,profile,{readOnly});pads+=1;continue;}
     match=member.path.match(/^patterns\/([abcd])(0[1-9]|[1-9][0-9])$/);
     if(match){
       if(scenesPosition>=0)throw new Error('Project TAR serializes '+member.path+' after scenes; firmware will not register that pattern.');
