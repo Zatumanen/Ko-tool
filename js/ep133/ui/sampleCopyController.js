@@ -79,6 +79,8 @@ export function createSampleCopyController({
         const fileId=await fileOps.uploadSampleToSlot({
           data:bytes,
           filename:transferName,
+          // Device metadata already contains an extensionless EP sample name.
+          metadataNameIsPrepared:true,
           parentId:soundsParentId,
           destinationId:target.id,
           metadata:expectedMetadata,
@@ -117,7 +119,7 @@ export function createSampleCopyController({
         const localMetadata=prepareSampleLocalMetadata(expectedMetadata,{
           allowedPlayModes:profile.playModes,
           allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
-          barWriteMode:'preserve'
+          barWriteMode:'preserve',nameIsPrepared:true
         });
         sampleStore.setMetadata(target.id,localMetadata,{verification:'expected'});
 
