@@ -86,6 +86,7 @@ class FakeMidiOutput{
 
 export function createFakeEpMidi({
   sku='TE032AS006',
+  baseSku=sku,
   osVersion='2.5.1',
   serial='FAKE-EP-0001',
   identityCode=null,
@@ -116,7 +117,7 @@ export function createFakeEpMidi({
   const handleRequest=async request=>{
     if(request.command===TE_SYSEX_GREET){
       const payload=new TextEncoder().encode(
-        `base_sku:${sku};os_version:${osVersion};serial:${serial};`
+        `base_sku:${baseSku};os_version:${osVersion};serial:${serial};`
       );
       emitLater(responseFrame(request,{identityCode:resolvedIdentityCode,payload}));
       return;
