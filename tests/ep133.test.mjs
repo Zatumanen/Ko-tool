@@ -865,7 +865,8 @@ test('EP slot transfer uses a temporary filesystem name and rolls back created d
   const fs=await import('node:fs/promises');
   const sampleSource=await fs.readFile(new URL('../js/ep133/sampleFilesystem.js',import.meta.url),'utf8');
   const copySource=await fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8');
-  assert.match(sampleSource,/const displayName=normalizeFileName\(metadata\?\.name\|\|name\)/);
+  assert.match(sampleSource,/const displayName=metadataNameIsPrepared/);
+  assert.match(sampleSource,/nameIsPrepared:true/);
   assert.match(sampleSource,/filename:wireName/);
   assert.match(copySource,/const transferName=createTransferFileName\(source\.id,target\.id\)/);
   assert.match(copySource,/if\(!created\.includes\(createdId\)\)created\.push\(createdId\)/);
