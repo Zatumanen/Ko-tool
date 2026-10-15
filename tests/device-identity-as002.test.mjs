@@ -4,12 +4,13 @@ import{createFakeEpMidi}from './helpers/fake-ep-midi.mjs';
 import{isDiscoverableEpIdentitySku,isSupportedEpSku}from '../js/ep133/sysex.js';
 import{getEpDeviceProfile}from '../js/ep133/deviceProfile.js';
 import{getEpProjectProfile}from '../js/ep133/projectProfile.js';
+// Reuse a single device runtime instance across the simulated connect/disconnects.
+const device=await import('../js/ep133/device.js?as002-identity-tests');
 
 /** Connect through the production identity -> GREET path, without FILE writes. */
 async function withFakeDevice({sku,baseSku=sku,osVersion='2.5.1'},verify){
   const fake=createFakeEpMidi({sku,baseSku,osVersion,identityCode:sku==='TE032AS006'?0x3c:0x33});
   fake.install();
-  const device=await import('../js/ep133/device.js?as002-identity-'+sku+'-'+baseSku+'-'+osVersion);
   try{
     return await verify(device,fake);
   }finally{
