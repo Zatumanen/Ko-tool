@@ -62,8 +62,8 @@ test('27-byte EP-133 project pads permit unreferenced sample delete but block as
   const projectRow=page.locator('.ep-project-row').first();
   await projectRow.click();
   await expect(page.locator('#ep133-project-inspector')).toContainText('P01',{timeout:15000});
-  await expect(page.locator('#ep133-project-editor-open')).toBeDisabled();
-  await expect(page.locator('#ep133-project-sequencer-open')).toBeDisabled();
+  await expect(page.locator('#ep133-project-edit')).toBeDisabled();
+  await expect(page.locator('#ep133-project-sequencer')).toBeDisabled();
 
   const result=await page.evaluate(async()=>{
     const fs=await import('./js/ep133/filesystem.js?v=20261001-1');
