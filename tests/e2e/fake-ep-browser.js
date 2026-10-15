@@ -111,6 +111,25 @@
       {path:'fx_settings',data:projectFx()}
     ]);
   };
+  // Official Sample Tool can emit 27-byte EP-133 pad entries. Keep their
+  // sample-slot bytes unchanged, with fractional pitch appended at byte 26.
+  const setProject27BytePads=(projectNumber)=>{
+    const id=3000+Number(projectNumber),project=projects.get(id);
+    if(!project)throw new Error('Unknown test project '+projectNumber);
+    const pad27=slot=>Uint8Array.from([...projectPad(slot),50]);
+    project.data=makeProjectTar([
+      {path:'pads/a/p01',data:pad27(7)},
+      {path:'pads/b/p01',data:pad27(8)},
+      {path:'pads/c/p01',data:pad27(9)},
+      {path:'patterns/a01',data:projectPattern()},
+      {path:'patterns/b01',data:projectPattern()},
+      {path:'patterns/c01',data:projectPattern()},
+      {path:'patterns/d01',data:projectPattern()},
+      {path:'scenes',data:projectScenes()},
+      {path:'settings',data:projectSettings()},
+      {path:'fx_settings',data:projectFx()}
+    ]);
+  };
   const setProjectMalformedPad=(projectNumber)=>{
     const id=3000+Number(projectNumber),project=projects.get(id);
     if(!project)throw new Error('Unknown test project '+projectNumber);
@@ -400,7 +419,7 @@
       for(const release of delayedListResponses.splice(0))release();
     },
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
-    setProjectMissingPattern,setProjectMalformedPad,
+    setProjectMissingPattern,setProjectMalformedPad,setProject27BytePads,
     changeProjectBpm,
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
