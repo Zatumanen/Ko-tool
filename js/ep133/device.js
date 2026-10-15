@@ -1,5 +1,5 @@
 import{IDENTITY_SYSEX,TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_PUT,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_SET,TE_SYSEX_FILE_METADATA_GET,TE_SYSEX_FILE_METADATA_SET_PAGED,TE_SYSEX_FILE_DELETE,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_MOVED,TE_SYSEX_FILE_EVENT_METADATA_UPDATED,TE_SYSEX_FILE_EVENT_FILE_ADDED,TE_SYSEX_FILE_EVENT_FILE_UPDATED,TE_SYSEX_FILE_EVENT_FILE_DELETED,TE_SYSEX_FILE_EVENT_FILE_MOVED,STATUS_OK}from './constants.js';
-import{parseIdentityResponse,isSupportedEpSku,buildTeSysex,parseTeSysex}from './sysex.js';
+import{parseIdentityResponse,isSupportedEpSku,isDiscoverableEpIdentitySku,buildTeSysex,parseTeSysex}from './sysex.js';
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 import{assertDeviceIdentity,assertFileMetadata}from './coreContracts.js?v=20261008-1';
 import{assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
@@ -318,7 +318,7 @@ export async function connectEp133(){
       const identity=await Promise.race([identityPromise,new Promise(r=>setTimeout(()=>r(null),2200))]);
       if(identity){
         const parsed=parseIdentityResponse(identity.data);
-        if(parsed&&isSupportedEpSku(parsed.sku)){found={out,parsed,input:identity.inputPort};break;}
+        if(parsed&&isDiscoverableEpIdentitySku(parsed.sku)){found={out,parsed,input:identity.inputPort};break;}
       }
     }catch{}
   }
@@ -337,11 +337,22 @@ export async function connectEp133(){
     'device GREET metadata'
   );
   const baseSku=String(metadata?.base_sku||'').toUpperCase();
-  const effectiveSku=isSupportedEpSku(baseSku)?baseSku:found.parsed.sku;
+  const identitySku=found.parsed.sku;
+  // TE032AS002 is an observed EP-133 identity variant, NOT a separately
+  // hardware-verified SKU. Only its GREET base_sku=TE032AS001 may select
+  // the verified EP-133 profile. Other/missing base_sku stays AS002 and
+  // therefore has no registry-backed write capabilities.
+  const effectiveSku=identitySku==='TE032AS002'
+    ?(baseSku==='TE032AS001'?baseSku:identitySku)
+    :(isSupportedEpSku(baseSku)?baseSku:identitySku);
   const identity=assertDeviceIdentity({
     sku:effectiveSku,firmware:metadata?.os_version||'',midiId:found.parsed.midiId
   });
-  validateFirmware(identity.sku,metadata);
+  if(identity.sku==='TE032AS002'){
+    // Accept read-only discovery for unconfirmed base_sku, while enforcing
+    // the conservative EP-133 firmware floor. Do not alias capability evidence.
+    validateFirmware('TE032AS001',metadata);
+  }else validateFirmware(identity.sku,metadata);
   initialized=true;
   deviceInfo={sku:identity.sku,identitySku:found.parsed.sku,baseSku:baseSku||null,metadata};
   publishRuntimeEvent({type:'DEVICE_CONNECTED',connectionEpoch,device:deviceRuntimeSummary(deviceInfo)});
