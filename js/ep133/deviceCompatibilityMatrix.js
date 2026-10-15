@@ -62,11 +62,13 @@ const ui=(id,title,name,modes,tabs)=>Object.freeze({
   sampleBarWriteValues:Object.freeze([])
 });
 const project=(id,{
-  padRecordSize=null,acceptedPadRecordSizes=[],patternDialect='unverified',
+  padRecordSize=null,acceptedPadRecordSizes=[],readablePadRecordSizes=null,patternDialect='unverified',
   patternHeaderSize=null,settingsSizes=[],fxSettingsSizes=[],scenesSize=null,
   supportsLoop=false,supportsSupertone=false,supportsLive=false,reason=''
 }={})=>Object.freeze({
   id,padRecordSize,acceptedPadRecordSizes:Object.freeze([...acceptedPadRecordSizes]),
+  // Reading a native/official-Tool archive is not evidence that it is safe to WRITE.
+  readablePadRecordSizes:Object.freeze([...(readablePadRecordSizes||acceptedPadRecordSizes)]),
   patternDialect,patternHeaderSize,settingsSizes:Object.freeze([...settingsSizes]),
   fxSettingsSizes:Object.freeze([...fxSettingsSizes]),scenesSize,
   supportsLoop,supportsSupertone,supportsLive,
@@ -83,7 +85,7 @@ export const DEVICE_COMPATIBILITY_MATRIX=Object.freeze({
     beta:'0.100.38',production:'2.0.5'
   },ui('ep133','MY EP-133','K.O. II',COMMON_MODES,EP133_TABS),
   project('ep133',{
-    padRecordSize:26,acceptedPadRecordSizes:[26],patternDialect:'ep133',patternHeaderSize:4,
+    padRecordSize:26,acceptedPadRecordSizes:[26],readablePadRecordSizes:[26,27],patternDialect:'ep133',patternHeaderSize:4,
     settingsSizes:SETTINGS_SIZES,fxSettingsSizes:FX_SIZES,scenesSize:712
   })),
   TE032AS005:record('TE032AS005','EP-1320',{

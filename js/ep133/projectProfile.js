@@ -15,6 +15,7 @@ const clone=(profile,firmware='')=>{
   return{
     ...profile,evidence,
     acceptedPadRecordSizes:[...profile.acceptedPadRecordSizes],
+    readablePadRecordSizes:[...profile.readablePadRecordSizes],
     settingsSizes:[...profile.settingsSizes],
     fxSettingsSizes:[...profile.fxSettingsSizes],
     projectTransport:canReadCapability(projectTransport),

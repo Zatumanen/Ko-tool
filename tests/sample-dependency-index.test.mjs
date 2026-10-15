@@ -140,9 +140,44 @@ test('dependency guard scans every project and never deletes slots used by impli
   await assert.rejects(guard.assertOperationSafe(fileOps,used),/slot 015 is used by P02 D04/);
 });
 
+test('read-only EP-133 dependency scan accepts 26/27-byte pads without bypassing project references',async()=>{
+  const native=sampleTar([{path:'pads/a/p01',data:padData(7,26)}]);
+  const variantPad=padData(9,27);variantPad[26]=50;
+  const variant=sampleTar([
+    {path:'pads/b/p02',data:variantPad},
+    {path:'pads/c/p03',data:padData(0,27)}
+  ]);
+  const guard=createSampleDependencyGuard({
+    getConnectedDeviceInfo:()=>({sku:'TE032AS001',metadata:{os_version:'2.5.1'}})
+  });
+  const fileOps={
+    listDirectory:async node=>node===0
+      ?[{nodeId:2000,fileName:'/projects',fileType:'folder'}]
+      :[{nodeId:3001,fileName:'/projects/01',fileType:'folder'},
+        {nodeId:3002,fileName:'/projects/02',fileType:'folder'}],
+    getFile:async node=>({data:node===3001?native:variant})
+  };
+  const operation=(slots,kind='delete')=>{
+    const task=()=>{};
+    Object.defineProperty(task,'sampleDependencyGuard',{value:{slots,operation:kind}});
+    return task;
+  };
+  const index=await guard.assertOperationSafe(fileOps,operation([10]));
+  assert.equal(index.projectsScanned,2);
+  assert.deepEqual(index.slots,[7,9]);
+  await assert.rejects(guard.assertOperationSafe(fileOps,operation([9])),
+    /slot 009 is used by P02 B02/);
+  await assert.rejects(guard.assertOperationSafe(fileOps,operation([7])),
+    /slot 007 is used by P01 A01/);
+  assert.equal(readProjectPadDependencies(variant,{profile:ep133Profile}).pads.c[0].sampleSlot,null);
+});
+
 test('dependency preflight fails closed on corrupt or ambiguous pad records',()=>{
   const parse=members=>readProjectPadDependencies(sampleTar(members),{profile:ep133Profile});
   assert.throws(()=>parse([{path:'pads/a/p01',data:new Uint8Array([0,7,0])}]),/unsupported pad-record size 3/);
+  assert.throws(()=>parse([{path:'pads/a/p01',data:padData(7,28)}]),/unsupported pad-record size 28/);
+  const badValidity=padData(7,27);badValidity[0]=1;
+  assert.throws(()=>parse([{path:'pads/a/p01',data:badValidity}]),/nonzero validity byte/);
   assert.throws(()=>parse([
     {path:'pads/a/p01',data:padData(7)},
     {path:'pads/a/p01',data:padData(10)}

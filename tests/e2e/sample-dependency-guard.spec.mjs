@@ -47,6 +47,45 @@ test('missing native scene pattern no longer prevents deleting an unreferenced s
   expect(result.sample10Exists).toBe(false);
 });
 
+test('27-byte EP-133 project pads permit unreferenced sample delete but block assigned slots',async({page})=>{
+  await page.addInitScript({path:fakeEpScript});
+  await page.goto('/');
+  await page.evaluate(()=>{
+    window.__fakeEp.seedSamples(15);
+    window.__fakeEp.setProject27BytePads(1);
+  });
+  await page.locator('#my-ep-icon').click();
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED · 15 SAMPLES',{timeout:12000});
+
+  await page.locator('#ep133-view-projects').click();
+  await expect(page.locator('.ep-project-row')).toHaveCount(2,{timeout:15000});
+  const projectRow=page.locator('.ep-project-row').first();
+  await projectRow.click();
+  await expect(page.locator('#ep133-project-inspector')).toContainText('P01',{timeout:15000});
+  await expect(page.locator('#ep133-project-edit')).toBeDisabled();
+  await expect(page.locator('#ep133-project-sequencer')).toBeDisabled();
+
+  const result=await page.evaluate(async()=>{
+    const fs=await import('./js/ep133/filesystem.js?v=20261001-1');
+    const run=async id=>{
+      const start=window.__fakeEp.requestLog.length;
+      const action=async ops=>ops.deleteFile(id);
+      Object.defineProperty(action,'sampleDependencyGuard',{value:{slots:[id],operation:'delete'}});
+      let error=null;
+      try{await fs.withFileTransaction('27-byte guard',action,{strict:true});}
+      catch(e){error=String(e?.message||e);}
+      return{error,deleted:window.__fakeEp.requestLog.slice(start).some(x=>x.command===5&&x.sub===6)};
+    };
+    return{used:await run(7),unused:await run(10),stillThere:window.__fakeEp.snapshot().some(s=>s.id===7),deleted10:!window.__fakeEp.snapshot().some(s=>s.id===10)};
+  });
+  expect(result.used.error).toMatch(/slot 007 is used by P01 A01/i);
+  expect(result.used.deleted).toBe(false);
+  expect(result.stillThere).toBe(true);
+  expect(result.unused.error).toBeNull();
+  expect(result.unused.deleted).toBe(true);
+  expect(result.deleted10).toBe(true);
+});
+
 test('missing scene pattern still blocks deleting a pad-referenced sample',async({page})=>{
   await page.addInitScript({path:fakeEpScript});
   await page.goto('/');
