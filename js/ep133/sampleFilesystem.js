@@ -1,13 +1,24 @@
 export function stripSampleUploadPrefix(name){
   return String(name||'sample.wav').replace(/^(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})[ \t]+(?=\S)/,'');
 }
+/**
+ * An EP sample name is already extensionless. The official EP name format
+ * may contain a dot inserted at the 8th character for 16-character names.
+ * Never mistake that dot for a file extension during a second normalization.
+ */
+export function normalizeSampleName(name){
+  let value=String(name||'sample');
+  value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'');
+  if(value.length>16)value=value.substring(0,7)+'.'+value.substring(value.length-8);
+  return value.toLowerCase()||'sample';
+}
+
+/** Convert an original filename (with optional extension) to an EP name once. */
 export function normalizeFileName(name,stripSlotPrefix=false){
   let value=String(name||'sample.wav');
   if(stripSlotPrefix)value=stripSampleUploadPrefix(value);
   value=value.split('.').slice(0,-1).join('.')||value;
-  value=value.replace(/\//g,'').trim().normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^\x20-\x7F]/g,'?').replace(/[\\"]/g,'');
-  if(value.length>16)value=value.substring(0,7)+'.'+value.substring(value.length-8);
-  return value.toLowerCase()||'sample';
+  return normalizeSampleName(value);
 }
 
 const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
@@ -17,9 +28,9 @@ const SAMPLE_WRITABLE_METADATA_KEYS=new Set([
 ]);
 const SAMPLE_TRANSPORT_METADATA_KEYS=new Set(['channels','samplerate','format','crc']);
 
-export function prepareSampleCreateMetadata(metadata={}){
+export function prepareSampleCreateMetadata(metadata={},options={}){
   const result={};
-  if(metadata?.name!=null)result.name=normalizeFileName(metadata.name);
+  if(metadata?.name!=null)result.name=options?.nameIsPrepared?normalizeSampleName(metadata.name):normalizeFileName(metadata.name);
   const channels=Number(metadata?.channels);
   const samplerate=Number(metadata?.samplerate);
   const format=String(metadata?.format||'');
@@ -52,7 +63,7 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
   if(!['preserve','verified','omit'].includes(barWriteMode))throw new Error('Unknown sample bar write mode: '+barWriteMode);
   const allowAdvancedMetadata=options?.allowAdvancedMetadata!==false;
   for(const[key,value]of Object.entries(metadata||{})){
-    if(key==='name'){result.name=normalizeFileName(value);continue;}
+    if(key==='name'){result.name=options?.nameIsPrepared?normalizeSampleName(value):normalizeFileName(value);continue;}
     if(SAMPLE_TRANSPORT_METADATA_KEYS.has(key))continue;
     if(!allowAdvancedMetadata)continue;
     if(!SAMPLE_WRITABLE_METADATA_KEYS.has(key)){result[key]=value;continue;}
@@ -125,7 +136,7 @@ export function prepareSampleWritableMetadata(metadata={},options={}){
 
 export function prepareSampleLocalMetadata(metadata={},options={}){
   return{
-    ...prepareSampleCreateMetadata(metadata),
+    ...prepareSampleCreateMetadata(metadata,options),
     ...prepareSampleWritableMetadata(metadata,options)
   };
 }
@@ -172,6 +183,7 @@ export function createTransferFileName(sourceId,targetId){
 export async function uploadSampleToSlotWithTransport({
   file,data,filename,parentId,destinationId,metadata={},
   allowedPlayModes=null,allowAdvancedMetadata=true,allowedBarValues=null,barWriteMode='preserve',
+  metadataNameIsPrepared=false,
   onProgress,onCreated
 },{
   putFile,setFileMetadata,initFileSystem
@@ -183,13 +195,15 @@ export async function uploadSampleToSlotWithTransport({
   if(bytes.byteLength===0)throw new Error('Cannot upload an empty sample.');
   const name=filename||file?.name||'sample.wav';
   const wireName=normalizeFileName(name);
-  const displayName=normalizeFileName(metadata?.name||name);
+  const displayName=metadataNameIsPrepared
+    ?normalizeSampleName(metadata?.name||name)
+    :normalizeFileName(metadata?.name||name);
   const uploadMetadata={...metadata,name:displayName};
-  const createMetadata=prepareSampleCreateMetadata(uploadMetadata);
+  const createMetadata=prepareSampleCreateMetadata(uploadMetadata,{nameIsPrepared:true});
   if(!createMetadata.name||!createMetadata.channels||!createMetadata.samplerate||createMetadata.format!=='s16')
     throw new Error('EP-series upload metadata is incomplete or unsupported.');
   const writableMetadata=prepareSampleWritableMetadata(uploadMetadata,{
-    allowedPlayModes,allowAdvancedMetadata,allowedBarValues,barWriteMode
+    allowedPlayModes,allowAdvancedMetadata,allowedBarValues,barWriteMode,nameIsPrepared:true
   });
   const fileId=await putFile({
     data:bytes,filename:wireName,parentId,destinationId,metadata:createMetadata,onProgress
