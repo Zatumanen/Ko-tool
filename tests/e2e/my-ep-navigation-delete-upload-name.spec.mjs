@@ -59,8 +59,8 @@ test('device upload from 056-prefixed source writes stripped filename and local 
   row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
   row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
  },wav16());
- // A single unnumbered file uploads to the next free slot immediately.
- await expect(page.locator('.ep133-upload-choice-dialog')).toHaveCount(0);
+ await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+ await page.locator('[data-upload-mode="sequential"]').click();
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===9)?.meta?.name),{
   message:'Actual device metadata should omit numeric prefix on upload',timeout:20000
  }).toBe('vinyl clap');
@@ -78,8 +78,8 @@ test('long WAV filenames preserve the original 16-character EP name through devi
    row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
    row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
  },wav16());
- await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
- await page.locator('[data-upload-mode="sequential"]').click();
+ // A single unnumbered file uploads to the next free slot immediately.
+ await expect(page.locator('.ep133-upload-choice-dialog')).toHaveCount(0);
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===9)?.meta?.name),{
    timeout:25000,message:'EP should preserve the normalized name through PUT and METADATA_SET'
  }).toBe('biggie .nz intro');
