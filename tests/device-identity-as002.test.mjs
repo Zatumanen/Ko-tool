@@ -6,11 +6,21 @@ import{getEpDeviceProfile}from '../js/ep133/deviceProfile.js';
 import{getEpProjectProfile}from '../js/ep133/projectProfile.js';
 // Reuse a single device runtime instance across the simulated connect/disconnects.
 const device=await import('../js/ep133/device.js?as002-identity-tests');
+let activeMidiAccess=null;
 
 /** Connect through the production identity -> GREET path, without FILE writes. */
 async function withFakeDevice({sku,baseSku=sku,osVersion='2.5.1'},verify){
   const fake=createFakeEpMidi({sku,baseSku,osVersion,identityCode:sku==='TE032AS006'?0x3c:0x33});
   fake.install();
+  // Browser MIDIAccess is persistent. USB reconnect changes its live port maps,
+  // it does not create a new access object for each physical device.
+  if(!activeMidiAccess)activeMidiAccess=fake.access;
+  else{
+    activeMidiAccess.inputs.clear();
+    activeMidiAccess.outputs.clear();
+    for(const[id,port]of fake.access.inputs)activeMidiAccess.inputs.set(id,port);
+    for(const[id,port]of fake.access.outputs)activeMidiAccess.outputs.set(id,port);
+  }
   try{
     return await verify(device,fake);
   }finally{
