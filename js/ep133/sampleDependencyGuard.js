@@ -31,9 +31,10 @@ export function readProjectPadDependencies(input,{profile}={}){
     throw new Error('Sample dependency preflight requires a verified EP-133 or EP-40 project profile.');
   const pads={a:[],b:[],c:[],d:[]};
   const seen=new Set();
-  const lengths=Array.isArray(profile.acceptedPadRecordSizes)
-    ?profile.acceptedPadRecordSizes
-    :[profile.padRecordSize];
+  const lengths=Array.isArray(profile.readablePadRecordSizes)
+    ?profile.readablePadRecordSizes
+    :Array.isArray(profile.acceptedPadRecordSizes)
+      ?profile.acceptedPadRecordSizes:[profile.padRecordSize];
   for(const member of parseProjectArchive(input)){
     const path=String(member.path);
     if(member.type==='5'){
@@ -48,6 +49,8 @@ export function readProjectPadDependencies(input,{profile}={}){
     seen.add(path);
     if(!lengths.includes(member.data.length))
       throw new Error(path+' has unsupported pad-record size '+member.data.length+'.');
+    if(member.data[0]!==0)
+      throw new Error(path+' has a nonzero validity byte; sample deletion cannot be verified.');
     const pad=readProjectPad(member,{profile});
     const maxSlot=profile.supportsSupertone?1009:999;
     if(pad.storedSlot>maxSlot)
