@@ -392,7 +392,9 @@ test('EP connection uses GREET base_sku for the effective device profile',async(
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/device.js',import.meta.url),'utf8');
   assert.match(source,/const baseSku=String\(metadata\?\.base_sku\|\|''\)\.toUpperCase\(\)/);
-  assert.match(source,/const effectiveSku=isSupportedEpSku\(baseSku\)\?baseSku:found\.parsed\.sku/);
+  assert.match(source,/const effectiveSku=identitySku==='TE032AS002'/);
+  assert.match(source,/baseSku==='TE032AS001'\?baseSku:identitySku/);
+  assert.match(source,/isDiscoverableEpIdentitySku\(parsed\.sku\)/);
   assert.match(source,/const identity=assertDeviceIdentity\(\{/);
   assert.match(source,/validateFirmware\(identity\.sku,metadata\)/);
   assert.match(source,/deviceInfo=\{sku:identity\.sku,identitySku:found\.parsed\.sku,baseSku:baseSku\|\|null,metadata\}/);
