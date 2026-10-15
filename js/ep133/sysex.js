@@ -15,6 +15,16 @@ function requestId(outputId){
 
 export function isSupportedEpSku(sku){return isKnownEpSku(sku);}
 
+/**
+ * Identity-only discovery allowance for the EP-133 variant observed reporting
+ * TE032AS002. Discoverability does NOT authorize FILE writes or register a
+ * hardware-verified device profile. GREET must supply the canonical base_sku.
+ */
+export function isDiscoverableEpIdentitySku(sku){
+  const normalized=String(sku||'').toUpperCase();
+  return isSupportedEpSku(normalized)||normalized==='TE032AS002';
+}
+
 export function parseIdentityResponse(bytes){
   if(!(bytes instanceof Uint8Array)||bytes.length!==17||bytes[0]!==0xF0||bytes[1]!==0x7E||bytes[3]!==0x06||bytes[4]!==0x02||bytes[5]!==TE_MIDI_ID[0]||bytes[6]!==TE_MIDI_ID[1]||bytes[7]!==TE_MIDI_ID[2]||bytes[16]!==0xF7)return null;
   for(let i=2;i<16;i++)if(bytes[i]>0x7f)return null;
