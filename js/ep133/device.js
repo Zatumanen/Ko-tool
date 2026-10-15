@@ -396,6 +396,10 @@ export function requestFile(command,payload=new Uint8Array(),timeout=2000){
   const subcommand=payload[0];
   if(!WRITE_SUBCOMMANDS.has(subcommand))return Promise.reject(new Error(`EP-series unsupported FILE subcommand: ${subcommand}`));
   if(subcommand===TE_SYSEX_FILE_METADATA&&payload[1]!==TE_SYSEX_FILE_METADATA_SET&&payload[1]!==TE_SYSEX_FILE_METADATA_SET_PAGED)return Promise.reject(new Error(`EP-series write METADATA subcommand rejected: ${payload[1]}`));
+  // An unverified GREET base_sku may browse via FILE_INIT and read commands,
+  // but must never send FILE_PUT, METADATA_SET, DELETE, MOVE or PLAYBACK.
+  if(deviceInfo&&!isSupportedEpSku(deviceInfo.sku)&&subcommand!==TE_SYSEX_FILE_INIT)
+    return Promise.reject(new Error('EP identity '+deviceInfo.identitySku+' has no verified base_sku; FILE writes are disabled.'));
   return sendRequest(command,payload,timeout);
 }
 
