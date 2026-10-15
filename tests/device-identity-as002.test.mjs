@@ -45,7 +45,7 @@ test('EP-133 identity AS002 with GREET base_sku AS001 connects to the canonical 
 
 test('AS002 with unconfirmed or wrong GREET base_sku remains read-only, not an EP-40 alias',async()=>{
   for(const baseSku of ['TE032AS002','TE032AS006','']){
-    await withFakeDevice({sku:'TE032AS002',baseSku},async device=>{
+    await withFakeDevice({sku:'TE032AS002',baseSku},async(device,fake)=>{
       const connected=await device.connectEp133();
       assert.equal(connected.sku,'TE032AS002');
       assert.equal(connected.identitySku,'TE032AS002');
@@ -56,6 +56,18 @@ test('AS002 with unconfirmed or wrong GREET base_sku remains read-only, not an E
       const projectProfile=getEpProjectProfile(connected.sku,connected.metadata.os_version);
       assert.equal(projectProfile.projectAuthoring,false);
       assert.equal(projectProfile.projectTransport,false);
+      // Even when FILE flags advertise writable slots, transport is the
+      // final safety gate. No mutating command must reach the hardware.
+      const before=fake.requests.length;
+      await assert.rejects(
+        device.requestFile(5,Uint8Array.from([6,0,7])),
+        /FILE writes are disabled/
+      );
+      await assert.rejects(
+        device.requestFile(5,Uint8Array.from([7,1,0,7])),
+        /FILE writes are disabled/
+      );
+      assert.equal(fake.requests.length,before);
     });
   }
 });
