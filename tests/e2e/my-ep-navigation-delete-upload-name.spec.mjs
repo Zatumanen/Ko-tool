@@ -69,6 +69,29 @@ test('device upload from 056-prefixed source writes stripped filename and local 
  await expect(page.locator('#ep133-status')).not.toContainText('COULD NOT');
 });
 
+test('long WAV filenames preserve the original 16-character EP name through device readback',async({page})=>{
+ await open(page);
+ await page.evaluate(bytes=>{
+   const transfer=new DataTransfer();
+   transfer.items.add(new File([new Uint8Array(bytes)],'biggie loop codeinedemonz intro.wav',{type:'audio/wav'}));
+   const row=document.querySelector('[data-slot="9"]');
+   row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+   row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+ },wav16());
+ // A single unnumbered file uploads to the next free slot immediately.
+ await expect(page.locator('.ep133-upload-choice-dialog')).toHaveCount(0);
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===9)?.meta?.name),{
+   timeout:25000,message:'EP should preserve the normalized name through PUT and METADATA_SET'
+ }).toBe('biggie .nz intro');
+ await expect(page.locator('[data-slot="9"] [data-name-input]')).toHaveValue('biggie .nz intro');
+ const report=await page.evaluate(()=>({
+   slot:window.__fakeEp.snapshot().find(s=>s.id===9),
+   errors:document.querySelector('#errors-tab')?.innerText||''
+ }));
+ expect(report.slot.name).toBe('biggie .nz intro');
+ expect(report.errors).not.toContain('Uploaded sample name differs from device metadata readback');
+});
+
 test('sample names can be changed by F2 or double click and are confirmed by device readback',async({page})=>{
   await open(page);
   await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('kick808');
