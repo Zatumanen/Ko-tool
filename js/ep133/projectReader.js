@@ -265,7 +265,7 @@ const isKnownProjectFile=path=>
 export function readProjectModel(input,{profile}={}){
   profile=requireReaderProfile(profile);
   const sourceArchive=cloneBytes(input);
-  validateProjectArchive(sourceArchive,{profile});
+  validateProjectArchive(sourceArchive,{profile,readOnly:true});
   const members=parseProjectArchive(sourceArchive);
   const pads={a:[],b:[],c:[],d:[]};
   const patterns=[];
@@ -285,11 +285,17 @@ export function readProjectModel(input,{profile}={}){
     if(member.path==='live'){live=readProjectLive(member,{profile});continue;}
     if(!isKnownProjectFile(member.path))unknownMembers.push(memberIdentity(member));
   }
+  // Any 27-byte EP-133 pad makes the source read-only for project authoring.
+  // Keep original bytes for display/export; never silently rewrite to 26 bytes.
+  const nativePadRecordsWritable=GROUPS.every(group=>
+    pads[group].every(pad=>profile.acceptedPadRecordSizes.includes(pad.rawData.length))
+  );
   for(const group of GROUPS)pads[group].sort((a,b)=>a.pad-b.pad);
   patterns.sort((a,b)=>a.group.localeCompare(b.group)||a.pattern-b.pattern);
   return{
     profile:{...profile},
     sourceArchive,
+    nativePadRecordsWritable,
     sourceMemberOrder:members.map(member=>member.path),
     pads,
     patterns,
