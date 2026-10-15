@@ -20,6 +20,8 @@ export function getProjectSequencerAvailability(result){
   if(!result?.model)return{enabled:false,reason:'LOAD A PROJECT FIRST'};
   if(!result.model.profile?.projectAuthoring)
     return{enabled:false,reason:'AUTHORING NOT VERIFIED FOR THIS FIRMWARE'};
+  if(result.model.nativePadRecordsWritable===false)
+    return{enabled:false,reason:'27-BYTE PAD RECORDS ARE READ-ONLY (PROJECT WRITE UNSAFE)'};
   if(result.active)
     return{enabled:false,reason:'ACTIVE PROJECT CANNOT BE SEQUENCED'};
   if(result.dependencies?.allSamplesAvailable===false)
