@@ -19,7 +19,7 @@ export function readSampleDependencyRequest(operation){
   return Object.freeze({
     slots:Object.freeze(slots),
     operation:String(request.operation||'modify'),
-    confirmReferencedDelete:request.confirmReferencedDelete||null
+    ...(request.confirmReferencedDelete?{confirmReferencedDelete:request.confirmReferencedDelete}:{})
   });
 }
 
