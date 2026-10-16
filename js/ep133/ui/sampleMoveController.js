@@ -48,13 +48,19 @@ export function createSampleMoveController({
         if(target.file)throw new Error('Target sample slot is no longer empty.');
 
         const sourceNodeId=Number(source.nodeId||source.id);
+        // Only device-verified metadata tied to the current source slot may
+        // shortcut the pre-MOVE CRC request. Cached/expected values never do.
+        const trustedCrc=source.verification?.file==='verified'&&source.verification?.metadata==='verified'
+          ?source.meta?.crc:null;
+        const expectedSourceCrc=Number.isInteger(Number(trustedCrc))&&trustedCrc!==null&&trustedCrc!==undefined&&Number(trustedCrc)>=0&&Number(trustedCrc)<=0xffffffff
+          ?Number(trustedCrc):null;
         sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
         setGlobalProgress('MOVE',(index/plan.length)*100);
 
         const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
         let moved;
         try{
-          moved=await fileOps.moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true});
+          moved=await fileOps.moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true,expectedSourceCrc});
         }catch(error){
           clearNativeMoveSuppression(sourceNodeId,target.id);
           throw error;
