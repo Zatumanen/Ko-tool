@@ -57,7 +57,7 @@ test('Option-drag duplicates a sample into an empty slot without moving the sour
  await expect(target).toHaveClass(/empty/);
  const original=await page.evaluate(()=>{
    const sample=window.__fakeEp.snapshot().find(s=>s.id===7);
-   return{data:sample.data,name:sample.meta.name};
+   return{bytes:window.__fakeEp.sampleBytes(7),name:sample.meta.name,size:sample.size};
  });
  await page.keyboard.down('Alt');
  try{
@@ -72,11 +72,12 @@ test('Option-drag duplicates a sample into an empty slot without moving the sour
    const samples=window.__fakeEp.snapshot();
    const pick=id=>{
      const sample=samples.find(s=>s.id===id);
-     return sample?{data:sample.data,name:sample.meta.name}:null;
+     return sample?{bytes:window.__fakeEp.sampleBytes(id),name:sample.meta.name,size:sample.size}:null;
    };
    return{source:pick(7),copy:pick(10),moved:!samples.some(s=>s.id===7),
      log:window.__fakeEp.requestLog.filter(x=>x.command===5).map(x=>x.sub)};
  });
+ expect(original.bytes.length).toBeGreaterThan(0);
  expect(after.source).toEqual(original);
  expect(after.copy).toEqual(original);
  expect(after.moved).toBe(false);
