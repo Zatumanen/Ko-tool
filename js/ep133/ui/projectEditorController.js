@@ -27,6 +27,8 @@ export function getVerifiedProjectEditorAvailability(result){
     return{enabled:false,reason:'AUTHORING NOT VERIFIED FOR THIS FIRMWARE'};
   if(result.model.nativePadRecordsWritable===false)
     return{enabled:false,reason:'27-BYTE PAD RECORDS ARE READ-ONLY (PROJECT WRITE UNSAFE)'};
+  if(result.model.missingPatternReferences?.length)
+    return{enabled:false,reason:'SCENE REFERENCES MISSING PATTERNS (READ ONLY)'};
   if(result.active)
     return{enabled:false,reason:'ACTIVE PROJECT CANNOT BE EDITED'};
   if(result.dependencies?.allSamplesAvailable===false)
