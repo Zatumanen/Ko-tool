@@ -107,7 +107,7 @@ export function createSampleUploadController({
               remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
               if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
           // Only the device-facing name changes. The audio File and bytes stay intact.
-          // normalizeFileName with stripSlotPrefix=true is limited to 001–999 + space.
+          // The shared slot prefix parser accepts 1–999 + whitespace or underscore.
           const deviceSampleName=stripSampleUploadPrefix(item.file.name);
 
           try{

@@ -1,10 +1,11 @@
+import{parseSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
+
 /**
  * Plan only. No device calls or writes. The actual FILE transaction must
  * still verify EVERY destination with assertSlotsEmpty immediately before PUT.
  */
 export function numberedSampleSlot(name){
- const match=String(name||'').match(/^((?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2}))[ \t]+(?=[^ \t.])/);
- return match?Number(match[1]):null;
+ return parseSampleUploadPrefix(name)?.slot??null;
 }
 
 export function planSampleUploadTargets(files,{startSlot,sampleStore,mode='sequential'}={}){

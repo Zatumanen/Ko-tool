@@ -49,6 +49,29 @@ test('numbered modal appears before FILE write; cancel leaves device unchanged',
  expect((await snapshot(page)).some(x=>x.id===9)).toBe(false);
 });
 
+test('EP-133 accepts 1_micro kick.wav for slot 001 and removes prefix from on-device name',async({page})=>{
+ await open(page);
+ await drop(page,['1_micro kick.wav']);
+ await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+ await expect(page.locator('.ep133-upload-choice-preview')).toContainText('001 ← 1_micro kick.wav');
+ await expect(page.locator('[data-upload-mode="numbered"]')).toBeEnabled();
+ const before=await snapshot(page);
+ await page.locator('[data-upload-mode="numbered"]').click();
+ await expect.poll(async()=> (await snapshot(page)).find(x=>x.id===1)?.meta?.name,{timeout:12000}).toBe('micro kick');
+ await expect(page.locator('[data-slot="1"]')).toHaveClass(/occupied/);
+ expect((await snapshot(page)).some(x=>x.id===9)).toBe(false);
+ expect(before.some(x=>x.id===1)).toBe(false);
+});
+
+test('EP-133 may ignore a short number and place its cleanly named WAV in next free slot',async({page})=>{
+ await open(page);
+ await drop(page,['12_soft snare.wav']);
+ await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+ await page.locator('[data-upload-mode="sequential"]').click();
+ await expect.poll(async()=> (await snapshot(page)).find(x=>x.id===9)?.meta?.name,{timeout:12000}).toBe('soft snare');
+ expect((await snapshot(page)).some(x=>x.id===12)).toBe(false);
+});
+
 test('user can choose legacy next-free mode even when a filename contains 999',async({page})=>{
  await open(page);
  await drop(page,['999 Snare.wav']);

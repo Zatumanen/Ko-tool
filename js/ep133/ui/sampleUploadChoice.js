@@ -27,7 +27,7 @@ export function chooseSampleUploadTargets({
   const body=doc.createElement('div');
   body.className='ep133-confirm-body';
   const explanation=doc.createElement('p');
-  explanation.textContent=numberedCount+' of '+files.length+' file(s) have a 001–999 prefix. Choose where to upload before anything is written.';
+  explanation.textContent=numberedCount+' of '+files.length+' file(s) have a 1–999 slot prefix. Choose where to upload before anything is written.';
   const preview=doc.createElement('pre');
   preview.className='ep133-upload-choice-preview';
   const mappings=(numberedPlan?.targets||sequentialPlan?.targets||[]).slice(0,7);
