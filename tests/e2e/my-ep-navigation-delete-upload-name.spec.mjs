@@ -113,6 +113,31 @@ test('sample names can be changed by F2 or double click and are confirmed by dev
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===7)?.meta?.name)).toBe('kick 2');
 });
 
+test('selected sample name remains legible during F2 and double-click rename',async({page})=>{
+ await open(page);
+ const name=page.locator('[data-slot="7"] [data-name-input]');
+ const readableEditor=async()=>{
+   const style=await name.evaluate(input=>({
+     foreground:getComputedStyle(input).color,
+     background:getComputedStyle(input).backgroundColor
+   }));
+   expect(style).toEqual({
+     foreground:'rgb(0, 0, 0)',
+     background:'rgb(255, 255, 255)'
+   });
+ };
+ await name.dblclick();
+ await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+ await expect(name).not.toHaveAttribute('readonly','');
+ await readableEditor();
+ await name.press('Escape');
+ await expect(name).toHaveAttribute('readonly','');
+ await page.keyboard.press('F2');
+ await expect(name).not.toHaveAttribute('readonly','');
+ await readableEditor();
+ await name.press('Escape');
+});
+
 test('multiple converted outputs are dragged to My EP and uploaded with per-file device verification',async({page})=>{
   await page.addInitScript({path:fakeEpScript});
   await page.goto('/');
