@@ -67,6 +67,11 @@
   font:700 8px "Courier New",monospace;
   cursor:pointer;
 }
+.ep-project-toolbar button[aria-pressed="true"]{background:#e9edff;border-style:inset}
+.ep-project-warning{
+  margin-bottom:7px;padding:7px;border:1px solid #9b3124;
+  background:#fff0e8;color:#702016;font:700 9px "Courier New",monospace;
+}
 .ep-project-list{
   min-height:0;
   flex:1 1 auto;
