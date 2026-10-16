@@ -17,13 +17,18 @@ const withFiles=(ids=[])=>{
 };
 const ids=plan=>plan.targets.map(item=>item.slot.id);
 
-test('001–999 prefixes require three digits followed by a nonempty filename',()=>{
- for(const [name,expected] of [
-  ['001 Kick.wav',1],['056  Snare.wav',56],['999 Bass.wav',999],
-  ['008\tClap.wav',8],['000 Kick.wav',null],['1000 Kick.wav',null],
-  ['056.wav',null],['56 Hat.wav',null],['055_808.wav',null],
-  ['056 .wav',null],['other 056 Kick.wav',null]
- ])assert.equal(numberedSampleSlot(name),expected,name);
+test('1–999 sample prefixes accept spaces or underscore before a nonempty name',()=>{
+ for(const [name,slot] of [
+  ['1_micro kick.wav',1],['2 snare.wav',2],['9\tHat.wav',9],
+  ['10_snare.wav',10],['12 Kick.wav',12],['99_Bass.wav',99],
+  ['01 Kick.wav',1],['099_bass.wav',99],
+  ['001 Kick.wav',1],['056  Snare.wav',56],['055_808.wav',55],
+  ['999 Bass.wav',999],['008\tClap.wav',8],
+  ['000 Kick.wav',null],['0_Kick.wav',null],['1000 Kick.wav',null],
+  ['056.wav',null],['1.wav',null],['1_.wav',null],
+  ['056 .wav',null],['other 056 Kick.wav',null],
+  ['1-Kick.wav',null],['1Kick.wav',null],['1234_Kick.wav',null]
+ ])assert.equal(numberedSampleSlot(name),slot,name);
 });
 test('explicit numbered mode ignores drop slot for valid named sources but does not overwrite',()=>{
  const store=withFiles([7,8]);
@@ -111,6 +116,37 @@ test('numbered selection preflights exact destinations and cleans names without 
  assert.equal(files[0].name,'056 Snare.wav');
  assert.equal(h.mutations,1);
 });
+test('1_micro kick target is slot 001 and its upload name has no prefix',async()=>{
+ const h=harness('numbered');
+ const original=file('1_micro kick.wav');
+ const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[original]);
+ assert.deepEqual(ids(h.chosenOptions.numberedPlan),[1]);
+ assert.deepEqual(result.successes,[1]);
+ assert.deepEqual(h.created,[1]);
+ assert.deepEqual(h.preflights,[[1]]);
+ assert.deepEqual(h.sampleNames,['micro kick.wav']);
+ assert.equal(original.name,'1_micro kick.wav');
+});
+test('1_micro kick can instead upload to the next free slot, still without prefix',async()=>{
+ const h=harness('sequential');
+ const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('1_micro kick.wav')]);
+ assert.deepEqual(result.successes,[9]);
+ assert.deepEqual(h.preflights,[[9]]);
+ assert.deepEqual(h.sampleNames,['micro kick.wav']);
+});
+test('short and padded prefixes targeting same slot are rejected before FILE write',()=>{
+ const store=withFiles([]);
+ assert.throws(
+   ()=>planSampleUploadTargets([file('1_kick.wav'),file('001 Snare.wav')],{startSlot:9,sampleStore:store,mode:'numbered'}),
+   /Multiple files specify slot 001/
+ );
+ const occupied=withFiles([1]);
+ assert.throws(
+   ()=>planSampleUploadTargets([file('1_kick.wav')],{startSlot:9,sampleStore:occupied,mode:'numbered'}),
+   /Slot 001 already contains a sample/
+ );
+});
+
 test('next free choice preserves current slot-first semantics even with numbered files',async()=>{
  const h=harness('sequential');
  const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('056 Snare.wav')]);
