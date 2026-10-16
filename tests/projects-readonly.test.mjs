@@ -157,6 +157,30 @@ test('project read-only summary reports BPM, scenes, patterns, pads, FX and used
   assert.equal(summary.fx.parameter2,.75);
 });
 
+test('missing B01 and C01 scene references load read-only, warn, and block editing',async()=>{
+  const archive=makeProjectTar([
+    {path:'pads/a/p01',data:padRecord(7)},
+    {path:'patterns/a01',data:pattern()},
+    {path:'patterns/d01',data:pattern()},
+    {path:'scenes',data:scenes()},
+    {path:'settings',data:settings()},
+    {path:'fx_settings',data:fx()}
+  ]);
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  assert.throws(()=>validateProjectArchive(archive,{profile}),/references missing patterns\\/b01/);
+  const {filesystem,calls}=harness(archive);
+  const result=await filesystem.readProjectArchiveReadOnly('01');
+  assert.deepEqual(result.model.missingPatternReferences,['patterns/b01','patterns/c01']);
+  assert.deepEqual(summarizeProjectReadOnly(result).missingPatternReferences,['patterns/b01','patterns/c01']);
+  const inactive={...result,active:false};
+  assert.equal(getVerifiedProjectEditorAvailability(inactive).enabled,false);
+  assert.match(getVerifiedProjectEditorAvailability(inactive).reason,/MISSING.*PATTERN/);
+  assert.equal(getProjectSequencerAvailability(inactive).enabled,false);
+  assert.equal(calls.get,1);
+  assert.equal(calls.put,0);
+  assert.equal(calls.set,0);
+});
+
 test('27-byte EP-133 projects load read-only with fractional pitch, but all project write paths remain blocked',async()=>{
   const pad=Uint8Array.from([...padRecord(7),50]);
   const archive=makeProjectTar([{path:'pads/a/p01',data:pad}]);
