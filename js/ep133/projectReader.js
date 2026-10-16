@@ -265,7 +265,7 @@ const isKnownProjectFile=path=>
 export function readProjectModel(input,{profile}={}){
   profile=requireReaderProfile(profile);
   const sourceArchive=cloneBytes(input);
-  validateProjectArchive(sourceArchive,{profile,readOnly:true});
+  const validation=validateProjectArchive(sourceArchive,{profile,readOnly:true});
   const members=parseProjectArchive(sourceArchive);
   const pads={a:[],b:[],c:[],d:[]};
   const patterns=[];
@@ -296,6 +296,7 @@ export function readProjectModel(input,{profile}={}){
     profile:{...profile},
     sourceArchive,
     nativePadRecordsWritable,
+    missingPatternReferences:validation.missingPatternReferences||[],
     sourceMemberOrder:members.map(member=>member.path),
     pads,
     patterns,
