@@ -118,6 +118,8 @@ export function createSampleMemory({
   let renamePending=false;
   let mutationsEnabled=false;
   let dragSourceId=0;
+  let optionHeld=false;
+  let copyAtDragStart=false;
   let suppressClick=false;
   let pendingNameClickTimer=null;
   let searchCursorId=null;
@@ -442,6 +444,9 @@ export function createSampleMemory({
           onSelect?.(slot);
         }
         dragSourceId=slot.id;
+        // Chrome on macOS may omit Alt from drop events after Option-drag.
+        // Preserve the copy intent captured before the native drag began.
+        copyAtDragStart=optionHeld||event.altKey||event.ctrlKey||event.metaKey;
         suppressClick=true;
         onDragStart?.();
         const files=selectedFiles();
@@ -452,28 +457,55 @@ export function createSampleMemory({
       });
       row.addEventListener('dragend',()=>{
         listEl.querySelectorAll('.ep133-sample-row.dragging').forEach(item=>item.classList.remove('dragging'));
+        listEl.querySelectorAll('.ep133-sample-row.dragover').forEach(item=>{
+          item.classList.remove('dragover','drag-blocked');
+          delete item.dataset.transferAction;
+          delete item.dataset.transferLabel;
+        });
         render();
-        setTimeout(()=>{suppressClick=false;dragSourceId=0;},0);
+        setTimeout(()=>{suppressClick=false;dragSourceId=0;copyAtDragStart=false;},0);
       });
       row.addEventListener('dragover',event=>{
         event.preventDefault();
         const internal=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||0);
-        event.dataTransfer.dropEffect=internal&&(event.ctrlKey||event.metaKey)?'copy':internal?'move':'copy';
+        if(internal){
+          const copy=!!(optionHeld||copyAtDragStart||event.altKey||event.ctrlKey||event.metaKey);
+          const sources=selectedFiles().length&&selectedIds.has(internal)?selectedFiles():[slots[internal-1]].filter(Boolean);
+          const plan=planSampleTransferTargets(slots,sources.map(item=>item.id),internal,slot.id);
+          const valid=plan.length===sources.length&&sources.length>0;
+          const action=valid?(copy?'copy':'move'):'blocked';
+          row.dataset.transferAction=action;
+          row.dataset.transferLabel=valid?(copy?'COPY':'MOVE'):'NO SLOT';
+          row.classList.toggle('drag-blocked',!valid);
+          event.dataTransfer.dropEffect=valid?action:'none';
+        }else{
+          delete row.dataset.transferAction;
+          delete row.dataset.transferLabel;
+          row.classList.remove('drag-blocked');
+          event.dataTransfer.dropEffect='copy';
+        }
         row.classList.add('dragover');
       });
       row.addEventListener('dragleave',event=>{
         if(event.relatedTarget&&row.contains(event.relatedTarget))return;
-        row.classList.remove('dragover');
+        row.classList.remove('dragover','drag-blocked');
+        delete row.dataset.transferAction;
+        delete row.dataset.transferLabel;
       });
       row.addEventListener('drop',async event=>{
-        event.preventDefault();event.stopPropagation();row.classList.remove('dragover');
+        event.preventDefault();event.stopPropagation();
+        const hoveredAction=row.dataset.transferAction;
+        row.classList.remove('dragover','drag-blocked');
+        delete row.dataset.transferAction;
+        delete row.dataset.transferLabel;
         if(!mutationsEnabled)return;
         const sourceId=dragSourceId||Number(event.dataTransfer?.getData('application/x-speeduppercut-slot')||event.dataTransfer?.getData('text/plain')||0);
         const source=sourceId?slots[sourceId-1]:null;
         if(source?.file){
           const sources=selectedFiles().length&&selectedIds.has(source.id)?selectedFiles():[source];
-          const copy=!!(event.ctrlKey||event.metaKey||event.dataTransfer?.dropEffect==='copy');
-          if(!copy&&sources.some(item=>item.id===slot.id))return;
+          // Never silently turn an Option-drag into a destructive move.
+          const copy=!!(optionHeld||copyAtDragStart||event.altKey||event.ctrlKey||event.metaKey||hoveredAction==='copy');
+          if(hoveredAction==='blocked'||(!copy&&sources.some(item=>item.id===slot.id)))return;
           try{
             const result=await onTransfer?.(sources,slot,{copy,draggedId:source.id});
             const ids=Array.isArray(result?.targetIds)?result.targetIds:[];
@@ -527,6 +559,7 @@ export function createSampleMemory({
     }catch(error){onUserError?.('COULD NOT DELETE SAMPLE.',error);}
   };
   const keyDown=event=>{
+    if(event.key==='Alt')optionHeld=true;
     if(!keyboardActive())return;
     if(event.key==='F2'){
       if(selectedId&&selectedIds.size===1&&slots[selectedId-1]?.file){
@@ -546,6 +579,7 @@ export function createSampleMemory({
     }
   };
   document.addEventListener('keydown',keyDown);
+  document.addEventListener('keyup',event=>{if(event.key==='Alt')optionHeld=false;});
 
   searchEl?.addEventListener('input',syncSearch);
   searchEl?.addEventListener('keydown',event=>{
