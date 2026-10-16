@@ -629,6 +629,8 @@
   color:#fff;
 }
 .ep133-sample-row.selected .ep133-sample-name-input{color:#fff}
+/* The selected row stays blue, but its editable name field is white with dark text. */
+.ep133-sample-row.selected .ep133-sample-name-input:not([readonly]){color:#000}
 .ep133-sample-row.search-match:not(.selected):not(.multi-selected){
   box-shadow:inset 3px 0 #000080;
   background:#f0f2ff;
