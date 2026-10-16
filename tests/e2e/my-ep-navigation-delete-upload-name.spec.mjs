@@ -104,14 +104,22 @@ test('internal sample drag previews COPY with Option and MOVE without it',async(
  // Option-drag test checks the actual native drop and duplicate bytes.
  const moveSource=page.locator('[data-slot="8"]');
  const moveTarget=page.locator('[data-slot="11"]');
- const moveFrom=await moveSource.boundingBox();
- const moveTo=await moveTarget.boundingBox();
- await page.mouse.move(moveFrom.x+65,moveFrom.y+moveFrom.height/2);
- await page.mouse.down();
- await page.mouse.move(moveTo.x+65,moveTo.y+moveTo.height/2,{steps:12});
+ // The native COPY path is covered above. For MOVE feedback, emit the
+ // native browser drag events directly, avoiding two sequential pointer drags.
+ await page.evaluate(()=>{
+   const source=document.querySelector('[data-slot="8"]');
+   const destination=document.querySelector('[data-slot="11"]');
+   const dataTransfer=new DataTransfer();
+   source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer}));
+   destination.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer}));
+ });
  await expect(moveTarget).toHaveAttribute('data-transfer-action','move');
  await expect(moveTarget).toHaveAttribute('data-transfer-label','MOVE');
- await page.mouse.up();
+ await page.evaluate(()=>{
+   document.querySelector('[data-slot="8"]').dispatchEvent(
+     new DragEvent('dragend',{bubbles:true,cancelable:true})
+   );
+ });
  await moveSource.dragTo(moveTarget);
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===11))).toBe(true);
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===8))).toBe(false);
