@@ -55,7 +55,7 @@ function makeHarness(){
 }
 test('project polling is opt-in, off initially, and manual refresh remains available',async()=>{
  const h=makeHarness();
- assert.equal(h.e.autoRefreshButton.checked,false);
+ assert.equal(h.controller.getState().autoRefreshEnabled,false);
  assert.match(h.e.autoRefreshButton.textContent,/OFF/);
  await h.controller.refresh();
  h.controller.setMode('projects');
@@ -63,12 +63,12 @@ test('project polling is opt-in, off initially, and manual refresh remains avail
  assert.equal(await h.controller.refreshIfChanged(),false);
  assert.deepEqual(h.count(),before);
  h.e.autoRefreshButton.click();
- assert.equal(h.e.autoRefreshButton.checked,true);
+ assert.equal(h.controller.getState().autoRefreshEnabled,true);
  assert.match(h.e.autoRefreshButton.textContent,/ON/);
  assert.equal(await h.controller.refreshIfChanged(),false);
  assert.ok(h.count().reads>before.reads);
  h.e.autoRefreshButton.click();
- assert.equal(h.e.autoRefreshButton.checked,false);
+ assert.equal(h.controller.getState().autoRefreshEnabled,false);
  const after=h.count();
  assert.equal(await h.controller.refreshIfChanged(),false);
  assert.deepEqual(h.count(),after);
