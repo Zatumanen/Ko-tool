@@ -63,6 +63,7 @@ test('automatic project reads stop on Samples tab and resume when Projects tab i
 
 test('auto refresh retains last known project on transient MIDI read failures',async({page})=>{
  await setup(page);
+ await page.locator('#ep133-project-auto-refresh').click();
  await page.evaluate(()=>window.__fakeEp.disconnect());
  await page.evaluate(()=>window.__projectAutoRefreshTick());
  await expect(page.locator('#ep133-project-inspector')).not.toContainText('COULD NOT READ PROJECT');
