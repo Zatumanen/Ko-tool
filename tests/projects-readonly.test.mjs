@@ -181,6 +181,40 @@ test('missing B01 and C01 scene references load read-only, warn, and block editi
   assert.equal(calls.set,0);
 });
 
+test('P03-shaped native archive with no pattern members loads as read-only without losing pads',async()=>{
+  // Synthetic structural reproduction from an EP-133 2.5.1 hardware archive:
+  // scene 1 points to A01/B01/C01/D01, but /patterns has no file members.
+  // No private device project bytes or sample names are included in this fixture.
+  const padMembers=['a','b','c'].flatMap((group,index)=>
+    Array.from({length:12},(_,pad)=>({
+      path:'pads/'+group+'/p'+String(pad+1).padStart(2,'0'),
+      data:padRecord(index*12+pad+1)
+    }))
+  );
+  const archive=makeProjectTar([...padMembers,{path:'scenes',data:scenes()}]);
+  const profile=getEpProjectProfile('TE032AS001','2.5.1');
+  assert.throws(()=>validateProjectArchive(archive,{profile}),
+    error=>String(error.message).includes('references missing patterns/a01'));
+  const{filesystem,calls}=harness(archive);
+  const result=await filesystem.readProjectArchiveReadOnly('01');
+  assert.deepEqual(result.model.missingPatternReferences,[
+    'patterns/a01','patterns/b01','patterns/c01','patterns/d01'
+  ]);
+  assert.equal(result.model.patterns.length,0);
+  const summary=summarizeProjectReadOnly(result);
+  assert.equal(summary.scenes.used,1);
+  assert.equal(summary.pads.assigned,36);
+  assert.equal(summary.patterns.total,0);
+  assert.equal(summary.bpm,null);
+  assert.equal(summary.missingPatternReferences.length,4);
+  const inactive={...result,active:false};
+  assert.equal(getVerifiedProjectEditorAvailability(inactive).enabled,false);
+  assert.equal(getProjectSequencerAvailability(inactive).enabled,false);
+  assert.equal(calls.get,1);
+  assert.equal(calls.put,0);
+  assert.equal(calls.set,0);
+});
+
 test('27-byte EP-133 projects load read-only with fractional pitch, but all project write paths remain blocked',async()=>{
   const pad=Uint8Array.from([...padRecord(7),50]);
   const archive=makeProjectTar([{path:'pads/a/p01',data:pad}]);
