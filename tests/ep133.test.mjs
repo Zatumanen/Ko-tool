@@ -993,6 +993,22 @@ test('EP native MOVE can verify source and destination CRC without downloading P
   assert.doesNotMatch(block,/getFileUnlocked\(/);
 });
 
+test('EP MOVE reuses a verified source CRC without skipping destination CRC verification',async()=>{
+  const fs=await import('node:fs/promises');
+  const transport=await fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8');
+  const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
+  const section=transport.slice(transport.indexOf('async function moveFileUnlocked'),
+    transport.indexOf('export async function moveFile'));
+  assert.match(section,/expectedSourceCrc/);
+  assert.match(section,/sourceCrc=normalizeCrc\\(expectedSourceCrc\\)/);
+  assert.match(section,/if\\(sourceCrc===null\\)\\{[\\s\\S]*?getMetadataByNodeId\\(fileId\\)/);
+  assert.match(section,/metadata=await getMetadataByNodeId\\(moved\\.newFileId\\)/);
+  assert.match(section,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
+  assert.match(move,/source\\.verification\\?\\.metadata==='verified'/);
+  assert.match(move,/expectedSourceCrc/);
+  assert.match(move,/verifyCrc:true/);
+});
+
 test('EP sample reorder uses one native FILE_MOVE transaction and resolves the authoritative destination',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
