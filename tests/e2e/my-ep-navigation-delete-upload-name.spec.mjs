@@ -83,7 +83,7 @@ test('Option-drag duplicates a sample into an empty slot without moving the sour
  expect(after.moved).toBe(false);
 });
 
-test('internal sample drag previews COPY with Option and MOVE without it',async({page})=>{
+test('internal sample drag previews COPY while Option is held',async({page})=>{
  await open(page);
  const source=page.locator('[data-slot="7"]');
  const target=page.locator('[data-slot="10"]');
@@ -100,8 +100,10 @@ test('internal sample drag previews COPY with Option and MOVE without it',async(
  }finally{
    await page.keyboard.up('Alt');
  }
- // The manual pointer gesture is only for preview feedback. The separate
- // Option-drag test checks the actual native drop and duplicate bytes.
+});
+
+test('plain internal drag previews MOVE and moves the sample',async({page})=>{
+ await open(page);
  const moveSource=page.locator('[data-slot="8"]');
  const moveTarget=page.locator('[data-slot="11"]');
  // The native COPY path is covered above. For MOVE feedback, emit the
