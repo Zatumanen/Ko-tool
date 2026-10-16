@@ -50,6 +50,61 @@ test('mouse selects rows through readonly names, and guarded deletion still work
  await expect(page.locator('#ep133-project-inspector')).toContainText('READ ONLY');
 });
 
+test('Option-drag duplicates a sample into an empty slot without moving the source',async({page})=>{
+ await open(page);
+ const source=page.locator('[data-slot="7"]');
+ const target=page.locator('[data-slot="10"]');
+ await expect(target).toHaveClass(/empty/);
+ const original=await page.evaluate(()=>{
+   const sample=window.__fakeEp.snapshot().find(s=>s.id===7);
+   return{data:sample.data,name:sample.meta.name};
+ });
+ await page.keyboard.down('Alt');
+ try{
+   await source.dragTo(target);
+ }finally{
+   await page.keyboard.up('Alt');
+ }
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===10)?.meta?.name),{
+   timeout:20000
+ }).toBe(original.name);
+ const after=await page.evaluate(()=>{
+   const samples=window.__fakeEp.snapshot();
+   const pick=id=>{
+     const sample=samples.find(s=>s.id===id);
+     return sample?{data:sample.data,name:sample.meta.name}:null;
+   };
+   return{source:pick(7),copy:pick(10),moved:!samples.some(s=>s.id===7),
+     log:window.__fakeEp.requestLog.filter(x=>x.command===5).map(x=>x.sub)};
+ });
+ expect(after.source).toEqual(original);
+ expect(after.copy).toEqual(original);
+ expect(after.moved).toBe(false);
+});
+
+test('internal sample drag previews COPY with Option and MOVE without it',async({page})=>{
+ await open(page);
+ const source=page.locator('[data-slot="7"]');
+ const target=page.locator('[data-slot="10"]');
+ const from=await source.boundingBox();
+ const to=await target.boundingBox();
+ await page.keyboard.down('Alt');
+ try{
+   await page.mouse.move(from.x+65,from.y+from.height/2);
+   await page.mouse.down();
+   await page.mouse.move(to.x+65,to.y+to.height/2,{steps:12});
+   await expect(target).toHaveAttribute('data-transfer-action','copy');
+   await expect(target).toHaveAttribute('data-transfer-label','COPY');
+   await page.mouse.up();
+ }finally{
+   await page.keyboard.up('Alt');
+ }
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(true);
+ await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="11"]'));
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===11))).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===8))).toBe(false);
+});
+
 test('device upload from 056-prefixed source writes stripped filename and local device metadata',async({page})=>{
  await open(page);
  await page.evaluate(bytes=>{
