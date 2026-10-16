@@ -137,6 +137,8 @@ test('My EP warns about project pad references and deletes only after explicit s
   const deleteCommands=()=>page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
     item.command===5&&item.sub===6&&((item.raw[1]<<8)|item.raw[2])===7).length);
   const initial=await deleteCommands();
+  await slot.click();
+  await expect(slot).toHaveClass(/selected/);
   await slot.locator('[data-delete-row]').click();
   await expect(page.locator('#ep133-confirm-message')).toContainText('DELETE');
   await page.locator('#ep133-confirm-ok').click();
@@ -148,6 +150,7 @@ test('My EP warns about project pad references and deletes only after explicit s
   expect(await deleteCommands()).toBe(initial);
   expect(await page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===7))).toBe(true);
 
+  await slot.click();
   await slot.locator('[data-delete-row]').click();
   await page.locator('#ep133-confirm-ok').click();
   await expect(page.locator('#ep133-confirm-ok')).toHaveText('DELETE ANYWAY');
