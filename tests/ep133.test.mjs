@@ -1015,7 +1015,7 @@ test('EP sample reorder uses one native FILE_MOVE transaction and resolves the a
   const fs=await import('node:fs/promises');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
   const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
-  assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
+  assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true,expectedSourceCrc\}\)/);
   assert.match(move,/completed\.push\(\{[\s\S]*sourceId:source\.id,[\s\S]*targetId:target\.id,[\s\S]*crc:moved\.sourceCrc/);
   assert.match(move,/if\(moved\.crcVerified!==true\)/);
   assert.match(move,/applyNativeMoveLocally\(source,target,moved\)/);
