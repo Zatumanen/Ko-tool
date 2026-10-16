@@ -111,7 +111,8 @@ test('delete dependency scan tolerates missing scene pattern while still blockin
     {path:'pads/b/p02',data:padData(9)},
     {path:'scenes',data:sceneWithMissingPattern()}
   ]);
-  assert.throws(()=>readProjectModel(archive,{profile:ep133Profile}),/missing patterns\/a01/);
+  assert.deepEqual(readProjectModel(archive,{profile:ep133Profile}).missingPatternReferences,
+    ['patterns/a01','patterns/b01','patterns/c01','patterns/d01']);
   const model=readProjectPadDependencies(archive,{profile:ep133Profile});
   const index=buildSampleDependencyIndex([{project:'02',nodeId:3002,model}]);
   assert.deepEqual(index.slots,[7,9]);

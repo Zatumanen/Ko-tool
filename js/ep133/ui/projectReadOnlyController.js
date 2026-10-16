@@ -98,13 +98,14 @@ export function summarizeProjectReadOnly(result,{getSampleSlot}={}){
         ?{length:fx.sidechain.length,shapeObserved:fx.sidechain.shapeObserved}
         :null
     }:null,
+    missingPatternReferences:[...(model.missingPatternReferences||[])],
     unknownMembers:model.unknownMembers?.length||0
   });
 }
 
 export function createProjectReadOnlyController({
   samplesPanel,projectsPanel,samplesButton,projectsButton,
-  projectList,projectInspector,refreshButton,
+  projectList,projectInspector,refreshButton,autoRefreshButton,
   listProjectArchivesReadOnly,readProjectArchiveReadOnly,
   getSampleSlot=()=>null,
   onProjectLoaded=()=>{},
@@ -125,7 +126,15 @@ export function createProjectReadOnlyController({
   if(typeof listProjectArchivesReadOnly!=='function'||typeof readProjectArchiveReadOnly!=='function')
     throw new TypeError('Project read-only controller requires project read APIs.');
   let mode='samples',listing=null,selectedProject=null,loading=false,pendingProject=null,currentResult=null;
-  let generation=0,autoRefreshTimer=null;
+  let generation=0,autoRefreshTimer=null,autoRefreshEnabled=false;
+  const updateAutoRefreshButton=()=>{
+    if(!autoRefreshButton)return;
+    autoRefreshButton.textContent=autoRefreshEnabled?'AUTO: ON':'AUTO: OFF';
+    autoRefreshButton.setAttribute('aria-pressed',String(autoRefreshEnabled));
+    autoRefreshButton.title=autoRefreshEnabled
+      ?'Automatic project reads every 20 seconds. Turn off before playing EP pads.'
+      :'Background project reads are off to avoid interrupting EP pad performance.';
+  };
   // Results are parsed from the device archive on every scan: list sizes by
   // themselves cannot detect changes to a project whose length is unchanged.
   const visibleSnapshot=(nextListing,result)=>JSON.stringify({
@@ -187,7 +196,11 @@ export function createProjectReadOnlyController({
         '<b>'+entry.status.toUpperCase()+'</b></div>'
       ).join('')
       :'<div class="ep-project-empty">NO SAMPLE DEPENDENCIES</div>';
+    const missingPatterns=(summary.missingPatternReferences||[])
+      .map(path=>String(path).replace(/^patterns\//,'').toUpperCase());
     projectInspector.innerHTML=[
+      missingPatterns.length?'<div class="ep-project-warning" role="status">SCENE REFERENCES MISSING PATTERNS: '+
+        escapeHtml(missingPatterns.join(', '))+'. READ ONLY. PROJECT WRITES BLOCKED.</div>':'',
       '<div class="ep-project-inspector-head"><div><strong>P',escapeHtml(summary.project),'</strong>',
       summary.active?'<b>ACTIVE</b>':'',
       '</div><span>READ ONLY · ',escapeHtml(summary.profileId||'EP'),' ',escapeHtml(summary.firmware),'</span></div>',
@@ -299,19 +312,19 @@ export function createProjectReadOnlyController({
    *  Manual Refresh remains the explicit immediate retry path.
    */
   const refreshIfChanged=async()=>{
-    if(loading||mode!=='projects'||!selectedProject||!isConnected()||!canAutoRefresh())return false;
+    if(!autoRefreshEnabled||loading||mode!=='projects'||!selectedProject||!isConnected()||!canAutoRefresh())return false;
     const currentId=selectedProject,oldGeneration=generation;
     const oldSnapshot=visibleSnapshot(listing,currentResult);
     const session=getDeviceSession();
     loading=true;
     try{
       const latestListing=await listProjectArchivesReadOnly();
-      if(generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
+      if(!autoRefreshEnabled||generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
         !isConnected()||!canAutoRefresh()||getDeviceSession()!==session)return false;
       const match=latestListing?.projects?.find(item=>item.project===currentId);
       if(!match||!['ep133','ep40'].includes(latestListing?.profile?.id))return false;
       const latest=await readProjectArchiveReadOnly(currentId);
-      if(generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
+      if(!autoRefreshEnabled||generation!==oldGeneration||mode!=='projects'||selectedProject!==currentId||
         !isConnected()||!canAutoRefresh()||getDeviceSession()!==session)return false;
       const freshSnapshot=visibleSnapshot(latestListing,latest);
       if(freshSnapshot===oldSnapshot)return false;
@@ -352,9 +365,16 @@ export function createProjectReadOnlyController({
   samplesButton?.addEventListener('click',()=>setMode('samples'));
   projectsButton?.addEventListener('click',()=>setMode('projects'));
   refreshButton?.addEventListener('click',()=>{if(isConnected())void refresh();});
+  autoRefreshButton?.addEventListener('click',()=>{
+    autoRefreshEnabled=!autoRefreshEnabled;
+    updateAutoRefreshButton();
+  });
+  updateAutoRefreshButton();
 
   const reset=()=>{
     generation++;
+    autoRefreshEnabled=false;
+    updateAutoRefreshButton();
     listing=null;selectedProject=null;loading=false;pendingProject=null;currentResult=null;
     onProjectCleared();
     if(projectList)projectList.innerHTML='<div class="ep-project-empty">CONNECT EP SERIES</div>';
@@ -375,7 +395,7 @@ export function createProjectReadOnlyController({
     setMode,refresh,selectProject,reset,refreshIfChanged,dispose,
     getCurrentResult:()=>currentResult,
     getState:()=>Object.freeze({
-      mode,selectedProject,loading,
+      mode,selectedProject,loading,autoRefreshEnabled,
       projectCount:listing?.projects?.length||0,
       hasCurrentResult:!!currentResult
     })

@@ -34,6 +34,11 @@ test('saved on-device project changes appear automatically without pressing Refr
  expect(await page.evaluate(()=>window.__fakeEp.projectSnapshot()[0].size)).toBe(oldSize);
  await expect(page.locator('#ep133-project-inspector')).toContainText('123.5');
  await page.evaluate(()=>window.__projectAutoRefreshTick());
+ await page.waitForTimeout(150);
+ expect(await page.evaluate(()=>window.__fakeEp.requestLog.length)).toBe(oldRequests);
+ await page.locator('#ep133-project-auto-refresh').click();
+ await expect(page.locator('#ep133-project-auto-refresh')).toHaveAttribute('aria-pressed','true');
+ await page.evaluate(()=>window.__projectAutoRefreshTick());
  await expect(page.locator('#ep133-project-inspector')).toContainText('147.25',{timeout:16000});
  await expect(page.locator('#ep133-status')).toContainText('UPDATED FROM EP');
  const delta=await page.evaluate(before=>window.__fakeEp.requestLog.slice(before),oldRequests);
@@ -51,12 +56,14 @@ test('automatic project reads stop on Samples tab and resume when Projects tab i
  await page.waitForTimeout(300);
  expect(await page.evaluate(()=>window.__fakeEp.requestLog.length)).toBe(baseline);
  await page.locator('#ep133-view-projects').click();
+ await page.locator('#ep133-project-auto-refresh').click();
  await page.evaluate(()=>window.__projectAutoRefreshTick());
  await expect(page.locator('#ep133-project-inspector')).toContainText('155',{timeout:16000});
 });
 
 test('auto refresh retains last known project on transient MIDI read failures',async({page})=>{
  await setup(page);
+ await page.locator('#ep133-project-auto-refresh').click();
  await page.evaluate(()=>window.__fakeEp.disconnect());
  await page.evaluate(()=>window.__projectAutoRefreshTick());
  await expect(page.locator('#ep133-project-inspector')).not.toContainText('COULD NOT READ PROJECT');

@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createProjectReadOnlyController}from '../js/ep133/ui/projectReadOnlyController.js';
 
-const element=()=>({
-  hidden:false,innerHTML:'',classList:{toggle(){}},setAttribute(){},
-  addEventListener(){},querySelectorAll:()=>[]
-});
+const element=()=>{
+ const handlers=new Map();
+ return{
+  hidden:false,checked:false,textContent:'',innerHTML:'',classList:{toggle(){}},setAttribute(){},
+  addEventListener(type,handler){handlers.set(type,handler);},
+  click(){handlers.get('click')?.();},querySelectorAll:()=>[]
+ };
+};
 function makeHarness(){
  let connected=true,enabled=true,session='ep-1',bpm=123.5;
  let fails=false,reads=0,lists=0,loaded=0,errors=0,logs=0,progress=0;
@@ -13,7 +17,7 @@ function makeHarness(){
  const e={
   samplesPanel:element(),projectsPanel:element(),samplesButton:element(),
   projectsButton:element(),projectList:element(),projectInspector:element(),
-  refreshButton:element()
+  refreshButton:element(),autoRefreshButton:element()
  };
  const getResult=()=>({
   project:'01',nodeId:3001,active:true,size:4096,
@@ -49,11 +53,36 @@ function makeHarness(){
   setFails:value=>{fails=value},setSession:value=>{session=value},
   count:()=>({reads,lists,loaded,errors,logs,progress})};
 }
+test('project polling is opt-in, off initially, and manual refresh remains available',async()=>{
+ const h=makeHarness();
+ assert.equal(h.controller.getState().autoRefreshEnabled,false);
+ assert.match(h.e.autoRefreshButton.textContent,/OFF/);
+ await h.controller.refresh();
+ h.controller.setMode('projects');
+ const before=h.count();
+ assert.equal(await h.controller.refreshIfChanged(),false);
+ assert.deepEqual(h.count(),before);
+ h.e.autoRefreshButton.click();
+ assert.equal(h.controller.getState().autoRefreshEnabled,true);
+ assert.match(h.e.autoRefreshButton.textContent,/ON/);
+ assert.equal(await h.controller.refreshIfChanged(),false);
+ assert.ok(h.count().reads>before.reads);
+ h.e.autoRefreshButton.click();
+ assert.equal(h.controller.getState().autoRefreshEnabled,false);
+ const after=h.count();
+ assert.equal(await h.controller.refreshIfChanged(),false);
+ assert.deepEqual(h.count(),after);
+ await h.controller.refresh();
+ assert.ok(h.count().reads>after.reads);
+ h.controller.dispose();
+});
+
 test('background reconciler reads saved project changes without blanking inspector, progress or unnecessary redraw',async()=>{
  const h=makeHarness();
  assert.equal(h.period,20000);
  await h.controller.refresh();
  h.controller.setMode('projects');
+ h.e.autoRefreshButton.click();
  assert.match(h.e.projectInspector.innerHTML,/123\.5/);
  const before=h.count();
  assert.equal(await h.controller.refreshIfChanged(),false);
@@ -77,6 +106,7 @@ test('auto polling pauses while hidden, unsafe, disconnected or not in Projects;
  await h.controller.refresh();
  assert.equal(await h.controller.refreshIfChanged(),false);
  h.controller.setMode('projects');
+ h.e.autoRefreshButton.click();
  h.setEnabled(false);
  assert.equal(await h.controller.refreshIfChanged(),false);
  h.setEnabled(true);
@@ -99,6 +129,7 @@ test('stale background project read is discarded on disconnect/reset or changed 
  const h=makeHarness();
  await h.controller.refresh();
  h.controller.setMode('projects');
+ h.e.autoRefreshButton.click();
  // Simulate a new session becoming authoritative after read begins by
  // replacing session token during an awaited backend response.
  const original=h.controller;

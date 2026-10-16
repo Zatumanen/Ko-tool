@@ -141,7 +141,7 @@ function validatePattern(member,profile){
   }
 }
 
-function validateScenes(member,patternPaths,profile){
+function validateScenes(member,patternPaths,profile,{readOnly=false,missingPatternPaths=null}={}){
   const data=member.data;
   const expected=Number(profile.scenesSize)||712;
   if(data.length!==expected)throw new Error('scenes must be exactly '+expected+' bytes.');
@@ -164,7 +164,10 @@ function validateScenes(member,patternPaths,profile){
       if(!pattern)continue;
       if(pattern>99)throw new Error('scenes entry '+(scene+1)+' references pattern '+pattern+' outside 1..99.');
       const path='patterns/'+groups[group]+String(pattern).padStart(2,'0');
-      if(!patternPaths.has(path))throw new Error('scenes entry '+(scene+1)+' references missing '+path+'.');
+      if(!patternPaths.has(path)){
+        if(!readOnly)throw new Error('scenes entry '+(scene+1)+' references missing '+path+'.');
+        missingPatternPaths?.add(path);
+      }
     }
   }
   const trailerOffset=7+99*6;
@@ -210,7 +213,7 @@ export function validateProjectArchive(input,{profile,readOnly=false}={}){
   profile=profileOrDefault(profile);
   if(profile.patternDialect==='unverified')throw new Error('Project archive validation is not verified for '+profile.id+'.');
   const members=parseProjectArchive(input);
-  const seen=new Set(),patternPaths=new Set(),scenesMembers=[];
+  const seen=new Set(),patternPaths=new Set(),scenesMembers=[],missingPatternPaths=new Set();
   let pads=0,patterns=0,files=0,directories=0,unknownFiles=0,live=0;
   let scenesPosition=-1;
   for(let index=0;index<members.length;index++){
@@ -232,12 +235,13 @@ export function validateProjectArchive(input,{profile,readOnly=false}={}){
     if(member.path==='live'){validateLive(member,profile);live+=1;continue;}
     unknownFiles+=1;
   }
-  for(const member of scenesMembers)validateScenes(member,patternPaths,profile);
+  for(const member of scenesMembers)validateScenes(member,patternPaths,profile,{readOnly,missingPatternPaths});
   if(live&&patterns&&!profile.nativeLiveWithPatternsObserved)
     throw new Error('live + populated patterns is not a verified project structure for '+profile.id+'.');
   if(live&&seen.has('fx_settings')&&!profile.nativeLiveWithFxObserved)
     throw new Error('live + fx_settings is not a verified project structure for '+profile.id+'.');
-  return{members:members.length,files,directories,pads,patterns,scenes:scenesMembers.length,live,unknownFiles,profile:profile.id};
+  return{members:members.length,files,directories,pads,patterns,scenes:scenesMembers.length,live,unknownFiles,profile:profile.id,
+    ...(missingPatternPaths.size?{missingPatternReferences:[...missingPatternPaths]}:{})};
 }
 
 
