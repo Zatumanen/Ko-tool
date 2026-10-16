@@ -642,6 +642,22 @@
   outline:0;
 }
 .ep133-sample-row.dragover .ep133-sample-name-input{color:#fff}
+/* Show the exact operation at the destination before releasing the pointer. */
+.ep133-sample-row.dragover[data-transfer-label]::after{
+  content:attr(data-transfer-label);
+  position:absolute;
+  top:0;
+  right:81px;
+  z-index:2;
+  padding:1px 5px;
+  background:#fff;
+  color:#000;
+  border:1px solid #222;
+  font:700 9px/12px "Courier New",monospace;
+  pointer-events:none;
+}
+.ep133-sample-row.dragover.drag-blocked{background:#f1c7c7!important;color:#620000!important}
+.ep133-sample-row.dragover.drag-blocked .ep133-sample-name-input{color:#620000}
 @keyframes ep133-preview-name{
   0%,45%,100%{filter:none}
   55%,90%{background:#000;color:#fff}
