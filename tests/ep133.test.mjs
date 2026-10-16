@@ -993,13 +993,29 @@ test('EP native MOVE can verify source and destination CRC without downloading P
   assert.doesNotMatch(block,/getFileUnlocked\(/);
 });
 
+test('EP MOVE reuses a verified source CRC without skipping destination CRC verification',async()=>{
+  const fs=await import('node:fs/promises');
+  const transport=await fs.readFile(new URL('../js/ep133/fileTransport.js',import.meta.url),'utf8');
+  const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
+  const section=transport.slice(transport.indexOf('async function moveFileUnlocked'),
+    transport.indexOf('export async function moveFile'));
+  assert.match(section,/expectedSourceCrc/);
+  assert.match(section,/sourceCrc=normalizeCrc\(expectedSourceCrc\)/);
+  assert.match(section,/if\(sourceCrc===null\)\{[\s\S]*?getMetadataByNodeId\(fileId\)/);
+  assert.match(section,/metadata=await getMetadataByNodeId\(moved\.newFileId\)/);
+  assert.match(section,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
+  assert.match(move,/source\.verification\?\.metadata==='verified'/);
+  assert.match(move,/expectedSourceCrc/);
+  assert.match(move,/verifyCrc:true/);
+});
+
 test('EP sample reorder uses one native FILE_MOVE transaction and resolves the authoritative destination',async()=>{
   assert.equal(canTransferMoveSample({file:{name:'kick'},node:{isReadable:false,isDeletable:false,isMovable:false}}),true);
   assert.equal(canTransferMoveSample({file:null,node:{isMovable:true}}),false);
   const fs=await import('node:fs/promises');
   const move=await fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8');
   const transfer=await fs.readFile(new URL('../js/ep133/ui/sampleTransferCoordinator.js',import.meta.url),'utf8');
-  assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true\}\)/);
+  assert.match(move,/await fileOps\.moveFile\(sourceNodeId,soundsParentId,target\.id,\{verifyCrc:true,expectedSourceCrc\}\)/);
   assert.match(move,/completed\.push\(\{[\s\S]*sourceId:source\.id,[\s\S]*targetId:target\.id,[\s\S]*crc:moved\.sourceCrc/);
   assert.match(move,/if\(moved\.crcVerified!==true\)/);
   assert.match(move,/applyNativeMoveLocally\(source,target,moved\)/);
@@ -1058,7 +1074,7 @@ test('EP native FILE_MOVE mirrors TE timeout recovery and resolves FILE_INFO aft
   const start=source.indexOf('async function moveFileUnlocked');
   const end=source.indexOf('export async function moveFile',start);
   const block=source.slice(start,end);
-  assert.match(block,/\{timeout=2000,verifyCrc=false\}=\{\}/);
+  assert.match(block,/\{timeout=2000,verifyCrc=false,expectedSourceCrc=null\}=\{\}/);
   assert.match(block,/if\(!isRequestTimeoutError\(error\)\)throw error/);
   assert.match(block,/timedOut=true/);
   assert.match(block,/await initFileSystemUnlocked\(\)/);

@@ -125,6 +125,26 @@ test('plain internal drag previews MOVE without Option',async({page})=>{
  // Native MOVE is verified separately in the My EP transfer E2E.
 });
 
+test('verified EP MOVE skips redundant source CRC MIDI request but checks destination CRC',async({page})=>{
+ await open(page);
+ const countMetadataGets=async id=>page.evaluate(slot=>window.__fakeEp.requestLog.filter(item=>
+   item.command===5&&item.sub===7&&item.type===2&&
+   ((item.raw[2]<<8)|item.raw[3])===slot
+ ).length,id);
+ const sourceBefore=await countMetadataGets(8);
+ const targetBefore=await countMetadataGets(10);
+ await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===8))).toBe(false);
+ await expect(page.locator('[data-slot="10"]')).toHaveClass(/occupied/);
+ await expect.poll(async()=>await countMetadataGets(10)).toBeGreaterThan(targetBefore);
+ // We already read the source CRC in the authoritative device sync. No
+ // repeat METADATA_GET may delay this move; destination is still verified.
+ expect(await countMetadataGets(8)).toBe(sourceBefore);
+ const activity=await page.evaluate(()=>window.__fakeEp.requestLog);
+ expect(activity.some(item=>item.command===5&&item.sub===12)).toBe(true);
+});
+
 test('device upload from 056-prefixed source writes stripped filename and local device metadata',async({page})=>{
  await open(page);
  await page.evaluate(bytes=>{

@@ -228,15 +228,21 @@ async function deleteFileUnlocked(fileId,{timeout=2000}={}){
 export async function deleteFile(fileId,options={}){return runGuardedFileMutation('FILE_DELETE mutation',()=>deleteFileUnlocked(fileId,options));}
 
 const normalizeCrc=value=>{
+  if(value===null||value===undefined||value==='')return null;
   const number=Number(value);
   return Number.isInteger(number)&&number>=0&&number<=0xffffffff?(number>>>0):null;
 };
-async function moveFileUnlocked(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false}={}){
+async function moveFileUnlocked(fileId,parentId,newFileId,{timeout=2000,verifyCrc=false,expectedSourceCrc=null}={}){
     await ensureFileSystemInitializedUnlocked();
     let sourceCrc=null;
     if(verifyCrc){
-      const sourceMetadata=await getMetadataByNodeId(fileId);
-      sourceCrc=normalizeCrc(sourceMetadata?.crc);
+      // A source CRC already verified by the current library session avoids a
+      // redundant MIDI METADATA_GET. Unknown values still use device readback.
+      sourceCrc=normalizeCrc(expectedSourceCrc);
+      if(sourceCrc===null){
+        const sourceMetadata=await getMetadataByNodeId(fileId);
+        sourceCrc=normalizeCrc(sourceMetadata?.crc);
+      }
       if(sourceCrc===null)throw new Error('EP-series source sample CRC is unavailable; native MOVE aborted before mutation.');
     }
     let moved={oldFileId:fileId,parentId,newFileId},timedOut=false;
