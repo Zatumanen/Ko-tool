@@ -100,7 +100,8 @@ test('internal sample drag previews COPY with Option and MOVE without it',async(
  }finally{
    await page.keyboard.up('Alt');
  }
- await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(true);
+ // The manual pointer gesture is only for preview feedback. The separate
+ // Option-drag test checks the actual native drop and duplicate bytes.
  await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="11"]'));
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===11))).toBe(true);
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===8))).toBe(false);
