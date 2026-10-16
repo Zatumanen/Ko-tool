@@ -48,8 +48,10 @@ test('right-click properties menu is anchored to pointer even inside the transfo
 });
 
 test('properties menu flips around the pointer near viewport edges without clipping',async({page})=>{
- await page.setViewportSize({width:850,height:600});
  await open(page);
+ // Open at the default desktop size: at 850px the main converter overlaps
+ // the My EP desktop icon and intercepts the initial click.
+ await page.setViewportSize({width:850,height:600});
  await page.locator('[data-slot="7"]').evaluate(row=>{
    row.dispatchEvent(new MouseEvent('contextmenu',{
      bubbles:true,cancelable:true,button:2,
