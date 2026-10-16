@@ -67,7 +67,7 @@ export function createEpWorkspace({
     properties,propertiesGrid,globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
     confirmDialog,confirmMessage,confirmOk,confirmCancel,
     samplesPanel,projectsPanel,samplesViewButton,projectsViewButton,
-    projectList,projectInspector,projectRefresh,projectEdit,
+    projectList,projectInspector,projectRefresh,projectAutoRefresh,projectEdit,
     projectEditorDialog,projectEditorClose,projectEditorForm,projectEditorSummary,projectEditorSave,projectEditorCancel,
     projectSequencer,sequencerDialog,sequencerClose,sequencerPattern,sequencerBars,sequencerPageLabel,
     sequencerPrevPage,sequencerNextPage,sequencerGrid,sequencerNotes,sequencerAutomation,sequencerPatternSummary,
@@ -163,7 +163,7 @@ export function createEpWorkspace({
   const projectReadOnlyController=createProjectReadOnlyController({
     samplesPanel,projectsPanel,
     samplesButton:samplesViewButton,projectsButton:projectsViewButton,
-    projectList,projectInspector,refreshButton:projectRefresh,
+    projectList,projectInspector,refreshButton:projectRefresh,autoRefreshButton:projectAutoRefresh,
     listProjectArchivesReadOnly,readProjectArchiveReadOnly,
     getSampleSlot:slot=>sampleStore.getSlot(slot),
     onProjectLoaded:result=>{
