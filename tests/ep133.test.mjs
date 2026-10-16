@@ -1000,11 +1000,11 @@ test('EP MOVE reuses a verified source CRC without skipping destination CRC veri
   const section=transport.slice(transport.indexOf('async function moveFileUnlocked'),
     transport.indexOf('export async function moveFile'));
   assert.match(section,/expectedSourceCrc/);
-  assert.match(section,/sourceCrc=normalizeCrc\\(expectedSourceCrc\\)/);
-  assert.match(section,/if\\(sourceCrc===null\\)\\{[\\s\\S]*?getMetadataByNodeId\\(fileId\\)/);
-  assert.match(section,/metadata=await getMetadataByNodeId\\(moved\\.newFileId\\)/);
+  assert.match(section,/sourceCrc=normalizeCrc\(expectedSourceCrc\)/);
+  assert.match(section,/if\(sourceCrc===null\)\{[\s\S]*?getMetadataByNodeId\(fileId\)/);
+  assert.match(section,/metadata=await getMetadataByNodeId\(moved\.newFileId\)/);
   assert.match(section,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
-  assert.match(move,/source\\.verification\\?\\.metadata==='verified'/);
+  assert.match(move,/source\.verification\?\.metadata==='verified'/);
   assert.match(move,/expectedSourceCrc/);
   assert.match(move,/verifyCrc:true/);
 });
@@ -1074,7 +1074,7 @@ test('EP native FILE_MOVE mirrors TE timeout recovery and resolves FILE_INFO aft
   const start=source.indexOf('async function moveFileUnlocked');
   const end=source.indexOf('export async function moveFile',start);
   const block=source.slice(start,end);
-  assert.match(block,/\{timeout=2000,verifyCrc=false\}=\{\}/);
+  assert.match(block,/\{timeout=2000,verifyCrc=false,expectedSourceCrc=null\}=\{\}/);
   assert.match(block,/if\(!isRequestTimeoutError\(error\)\)throw error/);
   assert.match(block,/timedOut=true/);
   assert.match(block,/await initFileSystemUnlocked\(\)/);
