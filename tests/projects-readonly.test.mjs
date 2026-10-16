@@ -167,7 +167,7 @@ test('missing B01 and C01 scene references load read-only, warn, and block editi
     {path:'fx_settings',data:fx()}
   ]);
   const profile=getEpProjectProfile('TE032AS001','2.5.1');
-  assert.throws(()=>validateProjectArchive(archive,{profile}),/references missing patterns\\/b01/);
+  assert.throws(()=>validateProjectArchive(archive,{profile}),error=>String(error.message).includes('references missing patterns/b01'));
   const {filesystem,calls}=harness(archive);
   const result=await filesystem.readProjectArchiveReadOnly('01');
   assert.deepEqual(result.model.missingPatternReferences,['patterns/b01','patterns/c01']);
