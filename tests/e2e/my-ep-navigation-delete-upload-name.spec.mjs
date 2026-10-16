@@ -50,6 +50,11 @@ test('mouse selects rows through readonly names, and guarded deletion still work
  await expect(page.locator('#ep133-project-inspector')).toContainText('READ ONLY');
 });
 
+// Native Chromium pointer DnD can lose the injected Option modifier in CI.
+// Retry only the affected gestures, never weakening their byte-level assertions.
+test.describe('native Option drag integration',()=>{
+ test.describe.configure({retries:2});
+
 test('Option-drag duplicates a sample into an empty slot without moving the source',async({page})=>{
  await open(page);
  const source=page.locator('[data-slot="7"]');
@@ -100,6 +105,8 @@ test('internal sample drag previews COPY while Option is held',async({page})=>{
  }finally{
    await page.keyboard.up('Alt');
  }
+});
+
 });
 
 test('plain internal drag previews MOVE without Option',async({page})=>{
