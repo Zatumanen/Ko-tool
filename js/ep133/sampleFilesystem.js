@@ -1,5 +1,19 @@
+/**
+ * A filename may request EP slot 1–999 with one to three digits (leading
+ * zeroes are allowed) and a space/tab or underscore separator.
+ * Reject a bare number, missing name and slot 000 before any FILE writes.
+ */
+export function parseSampleUploadPrefix(name){
+  const source=String(name||'');
+  const match=/^([0-9]{1,3})(?:[ \t]+|_)(?=[^ \t._])/.exec(source);
+  if(!match)return null;
+  const slot=Number(match[1]);
+  if(slot<1||slot>999)return null;
+  return Object.freeze({slot,name:source.slice(match[0].length)});
+}
 export function stripSampleUploadPrefix(name){
-  return String(name||'sample.wav').replace(/^(?:00[1-9]|0[1-9][0-9]|[1-9][0-9]{2})[ \t]+(?=\S)/,'');
+  const source=String(name||'sample.wav');
+  return parseSampleUploadPrefix(source)?.name??source;
 }
 /**
  * An EP sample name is already extensionless. The official EP name format
