@@ -792,6 +792,8 @@
 .ep133-confirm-dialog[hidden]{display:none!important}
 .ep133-confirm-window{
   width:min(330px,calc(100vw - 24px));
+  max-height:calc(100vh - 24px);
+  overflow-y:auto;
   background:var(--win-gray);
   border:2px outset var(--win-gray);
   box-shadow:5px 5px 12px rgba(0,0,0,.5);

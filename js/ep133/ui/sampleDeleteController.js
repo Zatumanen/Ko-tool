@@ -1,6 +1,13 @@
-const tagDependencyGuard=(operation,slots,action)=>{
+const describeDependencyLocations=blockers=>(blockers||[]).map(entry=>
+  'SLOT '+String(entry.slot).padStart(3,'0')+': '+
+    entry.references.map(ref=>'P'+String(ref.project||'??').padStart(2,'0')+' '+
+      String(ref.group||'?').toUpperCase()+
+      String(ref.pad||0).padStart(2,'0')).join(', ')
+).join('; ');
+
+const tagDependencyGuard=(operation,slots,action,confirmReferencedDelete=null)=>{
   Object.defineProperty(operation,'sampleDependencyGuard',{
-    value:Object.freeze({slots:Object.freeze([...slots]),operation:action}),
+    value:Object.freeze({slots:Object.freeze([...slots]),operation:action,confirmReferencedDelete}),
     configurable:false
   });
   return operation;
@@ -49,7 +56,14 @@ export function createSampleDeleteController({
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
     const runDeleteTransaction=operation=>{
-      tagDependencyGuard(operation,canonicalTargets.map(slot=>slot.id),'delete');
+      tagDependencyGuard(operation,canonicalTargets.map(slot=>slot.id),'delete',async blockers=>{
+        const detail=describeDependencyLocations(blockers);
+        return confirmAction(
+          'WARNING: '+detail+'. THESE PROJECT PADS WILL BE LEFT WITHOUT THEIR SOUND. '+
+          'THE PROJECTS WILL NOT BE REWRITTEN. DELETE ANYWAY?',
+          {confirmLabel:'DELETE ANYWAY'}
+        );
+      });
       return typeof withFileTransaction==='function'
         ?withFileTransaction('sample delete transaction',operation,{strict:true})
         :operation({getFileInfo,getFileMetadata,deleteFile});

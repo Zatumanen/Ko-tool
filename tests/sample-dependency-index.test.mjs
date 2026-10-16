@@ -57,7 +57,7 @@ test('sample delete tags the complete target set before entering the unchanged s
   assert.match(filesystem,/sampleDependencyGuard\.assertOperationSafe\(fileOps,operation\)/);
   assert.match(guard,/const index=await buildIndex\(fileOps\)/);
   assert.match(guard,/assertSampleSlotsUnreferenced\(index,request\.slots/);
-  assert.match(del,/tagDependencyGuard\(operation,canonicalTargets\.map\(slot=>slot\.id\),'delete'\)/);
+  assert.match(del,/tagDependencyGuard\(operation,canonicalTargets\.map\(slot=>slot\.id\),'delete',async blockers=>/);
   assert.match(del,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
   assert.doesNotMatch(move,/sampleDependencyGuard/);
   assert.match(move,/withFileTransaction\('sample move transaction',operation,\{strict:true\}\)/);
@@ -139,6 +139,44 @@ test('dependency guard scans every project and never deletes slots used by impli
   assert.deepEqual(index.slots,[7,15]);
   const used=()=>{};Object.defineProperty(used,'sampleDependencyGuard',{value:{slots:[15],operation:'delete'}});
   await assert.rejects(guard.assertOperationSafe(fileOps,used),/slot 015 is used by P02 D04/);
+});
+
+test('sample dependency override requires explicit confirmation only for delete',async()=>{
+  const archive=sampleTar([{path:'pads/a/p01',data:padData(7)}]);
+  const guard=createSampleDependencyGuard({
+    getConnectedDeviceInfo:()=>({sku:'TE032AS001',metadata:{os_version:'2.5.1'}})
+  });
+  const fileOps={
+    listDirectory:async node=>node===0
+      ?[{nodeId:2000,fileName:'/projects',fileType:'folder'}]
+      :[{nodeId:3001,fileName:'/projects/01',fileType:'folder'}],
+    getFile:async()=>({data:archive})
+  };
+  const makeOperation=(operation,confirmReferencedDelete)=>{
+    const task=()=>{};
+    Object.defineProperty(task,'sampleDependencyGuard',{
+      value:{slots:[7],operation,confirmReferencedDelete}
+    });
+    return task;
+  };
+  let warned=null;
+  const declined=await guard.assertOperationSafe(fileOps,makeOperation('delete',blockers=>{
+    warned=blockers;return false;
+  }));
+  assert.equal(declined,false);
+  assert.equal(warned[0].slot,7);
+  assert.deepEqual(warned[0].references.map(r=>[r.project,r.group,r.pad]),[['01','a',1]]);
+  const accepted=await guard.assertOperationSafe(fileOps,makeOperation('delete',async()=>true));
+  assert.equal(accepted.projectsScanned,1);
+  assert.deepEqual(accepted.slots,[7]);
+  await assert.rejects(
+    guard.assertOperationSafe(fileOps,makeOperation('move',async()=>true)),
+    /slot 007 is used by P01 A01/
+  );
+  await assert.rejects(
+    guard.assertOperationSafe(fileOps,makeOperation('delete',null)),
+    /slot 007 is used by P01 A01/
+  );
 });
 
 test('read-only EP-133 dependency scan accepts 26/27-byte pads without bypassing project references',async()=>{

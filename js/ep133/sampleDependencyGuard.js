@@ -1,7 +1,7 @@
 import{assertProjectTransportSupported}from './projectProfile.js?v=20261001-1';
 import{parseProjectArchive}from './projectArchive.js?v=20261001-1';
 import{readProjectPad}from './projectReader.js?v=20261001-1';
-import{buildSampleDependencyIndex,assertSampleSlotsUnreferenced}from './projectDependencies.js?v=20261001-1';
+import{buildSampleDependencyIndex,assertSampleSlotsUnreferenced,getSampleDependencyBlockers}from './projectDependencies.js?v=20261001-1';
 
 const normalizeSlots=values=>[...new Set(
   Array.from(values||[],Number).filter(value=>Number.isInteger(value)&&value>=1&&value<=999)
@@ -14,7 +14,13 @@ export function readSampleDependencyRequest(operation){
     throw new Error('Invalid sample dependency guard request.');
   const slots=normalizeSlots(request.slots);
   if(!slots.length)throw new Error('Sample dependency guard request contains no valid source slots.');
-  return Object.freeze({slots:Object.freeze(slots),operation:String(request.operation||'modify')});
+  if(request.confirmReferencedDelete!=null&&typeof request.confirmReferencedDelete!=='function')
+    throw new Error('Invalid referenced-sample delete confirmation.');
+  return Object.freeze({
+    slots:Object.freeze(slots),
+    operation:String(request.operation||'modify'),
+    ...(request.confirmReferencedDelete?{confirmReferencedDelete:request.confirmReferencedDelete}:{})
+  });
 }
 
 /**
@@ -100,6 +106,15 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
     const request=readSampleDependencyRequest(operation);
     if(!request)return null;
     const index=await buildIndex(fileOps);
+    const blockers=getSampleDependencyBlockers(index,request.slots);
+    if(!blockers.length)return index;
+    if(request.operation==='delete'&&request.confirmReferencedDelete){
+      // Project pads remain unchanged. The user must explicitly accept that
+      // the referenced sound will disappear. Unknown/malformed projects have
+      // already failed closed during buildIndex.
+      const confirmed=await request.confirmReferencedDelete(blockers);
+      return confirmed===true?index:false;
+    }
     assertSampleSlotsUnreferenced(index,request.slots,{operation:request.operation});
     return index;
   };

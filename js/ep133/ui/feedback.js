@@ -25,7 +25,7 @@ export function createFeedbackController({
     if(globalProgressText)globalProgressText.textContent='0%';
   };
 
-  const confirmAction=message=>new Promise(resolve=>{
+  const confirmAction=(message,{confirmLabel='OK',cancelLabel='CANCEL'}={})=>new Promise(resolve=>{
     if(!confirmDialog||!confirmMessage||!confirmOk||!confirmCancel){
       resolve(window.confirm(message));
       return;
@@ -33,6 +33,8 @@ export function createFeedbackController({
     if(confirmResolver)confirmResolver(false);
     confirmResolver=resolve;
     confirmMessage.textContent=message;
+    confirmOk.textContent=String(confirmLabel);
+    confirmCancel.textContent=String(cancelLabel);
     confirmDialog.hidden=false;
     confirmOk.focus();
   });

@@ -131,6 +131,38 @@ test('malformed pad in any project still blocks sample deletion before MIDI FILE
   expect(result.present).toBe(true);
 });
 
+test('My EP warns about project pad references and deletes only after explicit second consent',async({page})=>{
+  await openMyEp(page);
+  const slot=page.locator('[data-slot="7"]');
+  const deleteCommands=()=>page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>
+    item.command===5&&item.sub===6&&((item.raw[1]<<8)|item.raw[2])===7).length);
+  const initial=await deleteCommands();
+  await slot.click();
+  await expect(slot).toHaveClass(/selected/);
+  await slot.locator('[data-delete-row]').click();
+  await expect(page.locator('#ep133-confirm-message')).toContainText('DELETE');
+  await page.locator('#ep133-confirm-ok').click();
+  await expect(page.locator('#ep133-confirm-message')).toContainText('P01 A01');
+  await expect(page.locator('#ep133-confirm-message')).toContainText('WITHOUT THEIR SOUND');
+  await expect(page.locator('#ep133-confirm-ok')).toHaveText('DELETE ANYWAY');
+  await page.locator('#ep133-confirm-cancel').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeHidden();
+  expect(await deleteCommands()).toBe(initial);
+  expect(await page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===7))).toBe(true);
+
+  await slot.click();
+  await slot.locator('[data-delete-row]').click();
+  await page.locator('#ep133-confirm-ok').click();
+  await expect(page.locator('#ep133-confirm-ok')).toHaveText('DELETE ANYWAY');
+  await page.locator('#ep133-confirm-ok').click();
+  await expect.poll(async()=>await deleteCommands()).toBe(initial+1);
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===7))).toBe(false);
+  await expect(slot).toHaveClass(/empty/);
+  // Deleting a sample must never silently rewrite its projects.
+  expect(await page.evaluate(()=>window.__fakeEp.requestLog.some(item=>
+    item.command===5&&item.sub===2))).toBe(false);
+});
+
 test('project-referenced sample is blocked before FILE_DELETE and reports project group pad locations',async({page})=>{
   await openMyEp(page);
   const result=await page.evaluate(async()=>{

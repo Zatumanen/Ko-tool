@@ -53,7 +53,10 @@ export function withFileTransaction(label,operation,{strict=false}={}){
   if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
   return withFileTransportTransaction(label,async fileOps=>{
     try{
-      if(strict)await sampleDependencyGuard.assertOperationSafe(fileOps,operation);
+      if(strict){
+        const dependencyCheck=await sampleDependencyGuard.assertOperationSafe(fileOps,operation);
+        if(dependencyCheck===false)return false;
+      }
       const ops=sampleFileOps(fileOps);
       return strict?sampleTransactionRuntime.run({label,operation,fileOps:ops}):operation(ops);
     }catch(error){throw structuredFileError(error,label);}
