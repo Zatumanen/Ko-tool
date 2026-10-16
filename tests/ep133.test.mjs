@@ -2184,7 +2184,9 @@ test('EP library Page Up/Down switches folder tabs while Home/End remain unused'
   const source=await fs.readFile(new URL('../js/ep133/sampleMemory.js',import.meta.url),'utf8');
   assert.match(source,/event\.key==='PageUp'\|\|event\.key==='PageDown'/);
   assert.match(source,/changeTab\(event\.key==='PageUp'\?-1:1\)/);
-  assert.doesNotMatch(source,/event\.altKey/);
+  const pageNavigation=source.split("if(event.key==='PageUp'||event.key==='PageDown'){")[1]?.split('    }')[0]||'';
+  assert.ok(pageNavigation,'Page Up/Down navigation handler must exist');
+  assert.ok(!pageNavigation.includes('event.altKey')&&!pageNavigation.includes("event.key==='Alt'"),'Tab navigation must not require Option');
   assert.doesNotMatch(source,/event\.key==='Home'/);
   assert.doesNotMatch(source,/event\.key==='End'/);
 });

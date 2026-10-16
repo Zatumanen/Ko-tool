@@ -409,6 +409,7 @@
     get requestCount(){return requestCount;},
     get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
     snapshot:()=>[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>({id:s.id,name:s.name,size:s.data.length,meta:{...s.meta}})),
+    sampleBytes:id=>samples.has(Number(id))?[...samples.get(Number(id)).data]:null,
     removeSample:id=>samples.delete(Number(id)),
     seedSamples,
     rejectUploadSlot:id=>rejectedUploadSlots.add(Number(id)),

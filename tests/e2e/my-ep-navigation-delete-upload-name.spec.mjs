@@ -50,6 +50,81 @@ test('mouse selects rows through readonly names, and guarded deletion still work
  await expect(page.locator('#ep133-project-inspector')).toContainText('READ ONLY');
 });
 
+test('Option-drag duplicates a sample into an empty slot without moving the source',async({page})=>{
+ await open(page);
+ const source=page.locator('[data-slot="7"]');
+ const target=page.locator('[data-slot="10"]');
+ await expect(target).toHaveClass(/empty/);
+ const original=await page.evaluate(()=>{
+   const sample=window.__fakeEp.snapshot().find(s=>s.id===7);
+   return{bytes:window.__fakeEp.sampleBytes(7),name:sample.meta.name,size:sample.size};
+ });
+ await page.keyboard.down('Alt');
+ try{
+   await source.dragTo(target);
+ }finally{
+   await page.keyboard.up('Alt');
+ }
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===10)?.meta?.name),{
+   timeout:20000
+ }).toBe(original.name);
+ const after=await page.evaluate(()=>{
+   const samples=window.__fakeEp.snapshot();
+   const pick=id=>{
+     const sample=samples.find(s=>s.id===id);
+     return sample?{bytes:window.__fakeEp.sampleBytes(id),name:sample.meta.name,size:sample.size}:null;
+   };
+   return{source:pick(7),copy:pick(10),moved:!samples.some(s=>s.id===7),
+     log:window.__fakeEp.requestLog.filter(x=>x.command===5).map(x=>x.sub)};
+ });
+ expect(original.bytes.length).toBeGreaterThan(0);
+ expect(after.source).toEqual(original);
+ expect(after.copy).toEqual(original);
+ expect(after.moved).toBe(false);
+});
+
+test('internal sample drag previews COPY while Option is held',async({page})=>{
+ await open(page);
+ const source=page.locator('[data-slot="7"]');
+ const target=page.locator('[data-slot="10"]');
+ const from=await source.boundingBox();
+ const to=await target.boundingBox();
+ await page.keyboard.down('Alt');
+ try{
+   await page.mouse.move(from.x+65,from.y+from.height/2);
+   await page.mouse.down();
+   await page.mouse.move(to.x+65,to.y+to.height/2,{steps:12});
+   await expect(target).toHaveAttribute('data-transfer-action','copy');
+   await expect(target).toHaveAttribute('data-transfer-label','COPY');
+   await page.mouse.up();
+ }finally{
+   await page.keyboard.up('Alt');
+ }
+});
+
+test('plain internal drag previews MOVE without Option',async({page})=>{
+ await open(page);
+ const moveSource=page.locator('[data-slot="8"]');
+ const moveTarget=page.locator('[data-slot="11"]');
+ // The native COPY path is covered above. For MOVE feedback, emit the
+ // native browser drag events directly, avoiding two sequential pointer drags.
+ await page.evaluate(()=>{
+   const source=document.querySelector('[data-slot="8"]');
+   const destination=document.querySelector('[data-slot="11"]');
+   const dataTransfer=new DataTransfer();
+   source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer}));
+   destination.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer}));
+ });
+ await expect(moveTarget).toHaveAttribute('data-transfer-action','move');
+ await expect(moveTarget).toHaveAttribute('data-transfer-label','MOVE');
+ await page.evaluate(()=>{
+   document.querySelector('[data-slot="8"]').dispatchEvent(
+     new DragEvent('dragend',{bubbles:true,cancelable:true})
+   );
+ });
+ // Native MOVE is verified separately in the My EP transfer E2E.
+});
+
 test('device upload from 056-prefixed source writes stripped filename and local device metadata',async({page})=>{
  await open(page);
  await page.evaluate(bytes=>{
