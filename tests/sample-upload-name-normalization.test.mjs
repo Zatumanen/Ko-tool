@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{
-  normalizeFileName,normalizeSampleName,prepareSampleCreateMetadata,
+  normalizeFileName,normalizeSampleName,stripSampleUploadPrefix,prepareSampleCreateMetadata,
   prepareSampleWritableMetadata,prepareSampleLocalMetadata,
   uploadSampleToSlotWithTransport
 }from '../js/ep133/sampleFilesystem.js';
@@ -82,4 +82,23 @@ test('ordinary raw-name metadata formatting remains extension aware',()=>{
   assert.equal(prepareSampleCreateMetadata(raw).name,'long sa.ame here');
   assert.equal(prepareSampleWritableMetadata(raw).name,'long sa.ame here');
   assert.equal(normalizeFileName('001 Kick 808.wav',true),'kick 808');
+});
+test('numeric upload prefixes with spaces and underscores are stripped only for device names',()=>{
+ for(const [original,expected]of [
+  ['1_micro kick.wav','micro kick.wav'],
+  ['9_snare.wav','snare.wav'],
+  ['12 big tom.wav','big tom.wav'],
+  ['99_hi hat.wav','hi hat.wav'],
+  ['001 Kick.wav','Kick.wav'],
+  ['056_808.wav','808.wav'],
+  ['999 Bass.wav','Bass.wav'],
+  ['000 Kick.wav','000 Kick.wav'],
+  ['1000 Kick.wav','1000 Kick.wav'],
+  ['1-Kick.wav','1-Kick.wav'],
+  ['1_.wav','1_.wav']
+ ]){
+  assert.equal(stripSampleUploadPrefix(original),expected,original);
+  assert.equal(normalizeFileName(original,true),normalizeFileName(expected),original);
+ }
+ assert.equal(normalizeFileName('1_micro kick.wav'),'1_micro kick');
 });
