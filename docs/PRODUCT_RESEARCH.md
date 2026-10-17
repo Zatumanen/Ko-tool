@@ -51,7 +51,8 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 - **Layout (owner-approved choice B):** a long, docked **bottom-edge meter strip**, like the owner's on-screen reference; implemented as a K.O. Tool browser-viewport panel, not promised as an OS-wide overlay.
 - **V1 modules (owner-approved choice C):** **Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram**. All seven are selectable, but users may hide modules.
 - **Configuration (separate owner-approved choice C):** rearrange modules by dragging, resize widths, hide/restore panels, select built-in beatmaking/mixing/live-video presets, and save/recall personal strip layouts. Do not imply predefined preset internals, a cloud account or sync have been selected.
-- **Not decided:** exact default order and sizes, layouts of the built-in presets, responsive overflow and persistence implementation, themes, auto-hide/full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
+- **Strip visibility (owner-approved choice C):** visible by default; optionally auto-hide and reveal on pointer approach to the bottom edge, or manually collapse and restore. These actions must not discard the chosen module arrangement.
+- **Not decided:** exact default order and sizes, layouts of the built-in presets, responsive overflow and persistence implementation, themes, hide/reveal transitions, hidden-state audio capture policy, full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
 - **Boundary:** this approval is documentation of a product choice, **not permission to implement or deploy Visuals**.
 
 ## Qualitative community needs (not population statistics)
@@ -108,7 +109,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. Should the configured bottom strip always remain visible, auto-hide, or offer a visibility switch? Exact default order and narrow-screen overflow still need separate design decisions.
+1. How should the seven modules fit when the screen is too narrow for the selected layout? Exact default order, hide/reveal controls and preset contents still need separate design decisions.
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
