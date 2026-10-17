@@ -76,7 +76,15 @@ Use the **validated device identity from My EP's existing connection/session**, 
 - An observed `TE032AS002` identity may only be treated as the EP-133 profile when the existing GREET `base_sku=TE032AS001` rule has actually resolved it to that identity; an unverified alias must not be upgraded by Visuals.
 - The existing matrix also recognizes **EP-1320 Medieval (`TE032AS005`)**. **No EP-1320-specific theme was requested**; never incorrectly label it EP-133 or EP-40. A final fallback/handling decision is still needed and must not silently add a fifth built-in theme.
 - Keep all four themes **manually available** and retain **independent per-module color controls** from the previously approved customizable-themes direction. Changing the theme must not reset selected audio source, module visibility, layout/order/sizes or saved presets.
-- **To decide:** how automatic device-based selection interacts with a *manually chosen* theme, how an unmatched/EP-1320 device or disconnection affects an active theme, and persistence of custom module colors. Do not invent precedence or background device polling until separately approved.
+### Auto Theme versus manual theme — owner choice B (approved)
+
+- **Auto Theme ON by default:** when Visuals is opened without a verified EP identity, use Retro/WIN as the baseline. After My EP has successfully identified a supported EP-133 (`TE032AS001`) or EP-40 (`TE032AS006`) in the current device session, Auto Theme selects the corresponding model theme.
+- **Manual choice takes priority:** choosing any of the four themes manually **turns Auto Theme OFF** and keeps the chosen theme active across subsequent EP connections, disconnections and swaps **until the user deliberately re-enables Auto Theme**. Never overwrite a manual choice on a device event.
+- **Explicit return to automatic:** a discoverable **Auto Theme** toggle/action allows the user to re-enable device-based selection. When turned ON while a confirmed EP-133 or EP-40 session is active, apply its matching theme; with no verified connected identity, use the Retro/WIN baseline. An unsupported/EP-1320 identity remains an open fallback case; do not invent a theme for it.
+- **Separate state:** manual/automatic mode is a theme preference and must not alter the chosen audio input, start/stop sound capture, change a project or issue SysEx/FILE commands. The existing device connection notification may inform visual selection; do not add device polling just to switch themes.
+- **Not decided:** how this preference persists across page reloads/browsers, the auto-mode theme on disconnect after a recognized EP, and the correct theme for EP-1320 / unknown identities. These are distinct from **manual override priority**, which is settled. Keep independent module color controls.
+
+Do not invent automatic precedence over a manual theme or background device polling.
 - Maintain readable scale/labels/status/warnings and visible permission/device provenance for every palette. Neither a model-themed UI nor an attached EP proves that USB Audio capture is available.
 
 **Status:** owner-approved future product behavior, **not implemented** and not permission to change code or deploy.
@@ -150,7 +158,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
 - **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
 - **Resolved (supersedes old themes):** exactly four **Retro/WIN, EP-133, EP-40, Minimal** themes; Visuals starts with the current K.O. Tool Win-like Retro appearance when no supported device has been identified, then selects EP-133/EP-40 styling after validated device recognition. Per-module color customization remains.
-- **Still open:** precedence of automatic themes vs manual choice, behavior for EP-1320/unknown device and disconnection, exact EP-133/EP-40/Minimal palette values, persistence of custom colors, overlay controls, layout preset persistence, and performance-friendly interaction details.
+- **Resolved (owner choice B):** Auto Theme enabled by default; any manual theme choice disables auto device switching until the user explicitly re-enables Auto Theme. Later EP connections/swaps do not override manual selection.
+- **Still open:** fallback for EP-1320/unknown identity, auto-mode theme on disconnect, persistence of the Auto Theme preference across reloads, exact EP-133/EP-40/Minimal palette values, persistence of custom colors, overlay controls, layout preset persistence, and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
