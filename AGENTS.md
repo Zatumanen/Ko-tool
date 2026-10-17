@@ -90,18 +90,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   `TE032AS001` and **EP-40** for `TE032AS006`; rely on
   `js/ep133/deviceCompatibilityMatrix.js` and do not infer models from
   audio-input names. `TE032AS002` is EP-133 only after the existing
-  validated `base_sku` alias resolution. EP-1320 `TE032AS005` has **no
-  owner-approved theme mapping**; do not invent a fifth theme or mislabel
-  the device. **Owner-approved theme precedence (choice B):** Auto Theme is
+  validated `base_sku` alias resolution. **Owner-approved EP-1320 fallback
+  (choice A):** resolved EP-1320 Medieval (`TE032AS005`) maps to existing
+  **Retro/WIN** while Auto Theme is ON; still identify the hardware as EP-1320.
+  Do not invent a fifth theme or claim EP-133/EP-40 hardware. **Owner-approved
+  theme precedence (choice B):** Auto Theme is
   ON by default. Manually selecting any theme turns Auto Theme OFF; retain
   the user's selected theme across device connects, disconnects and model
   swaps until they explicitly turn Auto Theme back ON. If Auto Theme is
   re-enabled with verified EP-133/EP-40 attached, resolve its theme via the
-  existing validated identity. Without verified identity the baseline is
-  Retro/WIN. Do not let device events override manual selection, conflate
+  existing validated identity; for verified EP-1320 use Retro/WIN. Without
+  verified identity the baseline is Retro/WIN. Do not let device events override manual selection, conflate
   theme detection with capture audio input, or start background polling.
-  Auto-mode behavior on disconnect, EP-1320/unknown fallback and preference
-  persistence across page reloads remain undecided. Changing themes must
+  Auto-mode behavior on disconnect, fallback for unknown/ambiguous identities,
+  and preference persistence across page reloads remain undecided. Changing themes must
   not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
