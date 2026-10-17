@@ -52,6 +52,7 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 - **Platform scope (owner-approved choice A):** Visuals must remain **inside the K.O. Tool browser virtual desktop only**. No native macOS/Windows application, OS-level always-on-top overlay over other music programs, or separate future native phase is approved. A dedicated icon means an icon **inside K.O. Tool**, not a computer desktop icon.
 - **V1 modules (owner-approved choice C):** **Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram**. All seven are selectable, but users may hide modules.
 - **Configuration (separate owner-approved choice C):** rearrange modules by dragging, resize widths, hide/restore panels, select built-in beatmaking/mixing/live-video presets, and save/recall personal strip layouts. Do not imply predefined preset internals, a cloud account or sync have been selected.
+- **Strip height (owner-approved choice B):** resize the entire strip freely by dragging its **upper border**, moving it vertically while keeping the bottom edge docked inside K.O. Tool. Do not require the three size modes Compact/Standard/Expanded. Default/min/max heights and whether the height is saved with user layouts are unresolved; keep meters legible and other app controls reachable.
 - **Strip visibility (owner-approved choice C):** visible by default; optionally auto-hide and reveal on pointer approach to the bottom edge, or manually collapse and restore. These actions must not discard the chosen module arrangement.
 - **Responsive layout (owner-approved choice C):** fit visible modules by shrinking to a usable minimum width, then expose horizontal scrolling for overflow. No automatic module hiding or order changes; resizing the viewport must not overwrite saved layout widths.
 - **Default Balanced composition (owner-approved choice C):** large/prominent **Waveform** and **Spectrum**, medium **Spectrogram**, compact **Loudness**, **Stereo Meter**, **Output Meters** and **Oscilloscope**. Show all seven initially, with horizontal overflow if necessary; do not invent a left-to-right order or numerical widths. Workflow presets and user customizations remain available.
@@ -113,7 +114,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. How tall should the K.O. Tool browser-only Visuals strip be at launch, and should users resize its height? Unknown/ambiguous identity handling, exact module order and numerical widths still need separate design decisions.
+1. Where should user-created Visuals layout presets be stored (browser-local, import/export files, or both)? Numeric initial/min/max strip heights, unknown/ambiguous identity handling, exact module order and widths also remain to be decided.
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
