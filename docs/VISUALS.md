@@ -34,7 +34,9 @@ The bottom meter strip is a **customizable modular workspace**:
 - **Show / hide / restore:** temporarily remove individual modules from view without removing their feature or input configuration. Make all seven discoverable and restorable.
 - **Built-in layout presets:** offer starting arrangements for **beatmaking**, **mixing**, and **recording/filming live performances**. Their exact compositions and visual appearance are **proposals requiring later design**; the three workflow purposes are approved.
 - **Custom presets:** save user-configured layouts and recall them without reconstructing the strip manually. A custom preset records at minimum module selection, order and sizes; do not silently overwrite a saved preset when switching to another.
-- **Responsiveness:** if the chosen configuration exceeds available viewport width, use an explicit, navigable overflow/collapse approach rather than silently dropping modules. Exact interaction and size limits remain to be decided.
+- **Responsive sizing (owner-approved choice C):** first proportionally fit visible modules into the current viewport width **down to a comfortable, accessible minimum per module**, while respecting the user's intended relative sizing and arrangement. If the sum of those minimum widths still exceeds the available width, enable **horizontal strip scrolling**. Do not automatically hide modules, reorder them, clip them without access, or squeeze them to an unusable width. User-hidden modules remain intentionally hidden and restorable.
+- **Preset protection:** temporary responsive shrinking must not overwrite the user's stored module widths or custom preset. When the viewport widens, restore the chosen layout to the extent it fits.
+- **Navigation:** the horizontally scrollable strip should have visible/understandable affordances and keyboard/pointer/trackpad access; details of scroll controls, minimum widths and breakpoint thresholds remain engineering/design decisions.
 
 The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
 
@@ -103,7 +105,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** default is a bottom docked meter strip; v1 includes all seven named modules (Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope, Spectrogram).
 - **Resolved:** the bottom strip supports drag-reordering, width adjustments, hide/restore, built-in layouts for beatmaking, mixing and live recording, and saving/reloading custom presets (owner choice C).
 - **Resolved:** strip **always visible by default**, optional pointer-to-bottom-edge auto-hide, and explicit manual collapse/restore (owner choice C).
-- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, min/max panel sizes, narrow-screen overflow behavior, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
+- **Resolved:** responsive choice C — shrink visible modules only to a comfortable minimum, then allow horizontal scrolling; no automatic hiding or reordering, and do not overwrite preset widths on viewport resize.
+- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, numeric min/max panel sizes and breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
 - Still to define: color themes, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
