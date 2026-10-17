@@ -73,8 +73,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   layouts, the current session's strip height or selected audio input.
   Existing module minimums still apply (five-module sum **752 CSS px**
   before spacing/controls); if space is insufficient, use horizontal
-  scrolling. Do NOT invent Beatmaking module width percentages yet;
-  Mixing/Live preset compositions remain undecided.
+  scrolling. **Owner-approved Beatmaking width ratios choice B:**
+  Waveform 35%; Spectrum 30%; Spectrogram 15%; Output Meters 10%; Loudness 10% (100% total) in the five-module Beatmaking order.
+  Keep Balanced's distinct width targets unchanged. This is a preferred
+  proportional distribution where the five already-approved module
+  minimums can hold, not permission to render Spectrogram below 160 CSS px
+  just to honor its 15% target. Use horizontal scrolling when required;
+  do not modify saved layouts or reset the session height/audio input.
+  Mixing/Live module compositions and width ratios remain undecided.
   **Owner-approved default Balanced layout (choice C):**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
