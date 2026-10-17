@@ -121,6 +121,8 @@ Detailed requirements: [SEQUENCER.md](SEQUENCER.md).
 - List permitted browser audio input devices; EP may appear **only** when USB Audio capture is genuinely exposed by the OS/browser. No fake audio path through Web MIDI or SysEx.
 - Confirm permission prompts, permission-denied and missing-device states, switching sources, device disconnect/reconnect, and termination of old media tracks; **no silent fallback** to another microphone.
 - Test HTTPS/localhost and restricted browser permissions, performance on Mac and Windows, and real-device capture separately with model/firmware/browser/OS evidence.
+- **Future layout requirement:** bottom-docked horizontal meter strip within the K.O. Tool browser viewport. Test keeping the strip visible during app use, viewport resizing, and no obstruction of essential My EP controls. Do not claim OS-global always-on-top behavior.
+- **All seven V1 modules are in scope:** Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram. Check for real input-driven output, no false live data, stable performance, stereo limitations on mono inputs and narrow-screen overflow. Exact sizes/order await owner choice.
 - Do not claim a USB Audio HIL pass from a fake-EP E2E suite. See [VISUALS.md](VISUALS.md).
 
 ## Completion checklist
