@@ -81,6 +81,12 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Keep keyboard-accessible restoration and preserve module layout/presets.
   Hidden-state audio capture and transition details are undecided; do not
   invent capture/pause semantics. Full-screen alternatives are not approved.
+  **Owner-approved Visuals appearance choice C:** switchable **Studio, Retro,
+  Neon and Minimal** built-in themes plus **independent per-module color
+  overrides**. Theme switching must not reset layouts, chosen source or module
+  visibility. Do not invent a default theme, exact palettes, custom-theme
+  persistence/sync, or color behavior for layout presets without further owner
+  decisions. Preserve readable scales, status and warning indications.
   A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
   planned, not implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
