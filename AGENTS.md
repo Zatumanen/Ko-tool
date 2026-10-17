@@ -105,15 +105,21 @@ to this project. **Do not replace the stack or copy the template architecture.**
   opposite changes. Other modules retain their intended widths. This is
   separate from the proportional expansion rule after explicitly hiding
   a module. Honor each module's approved minimum width; do not silently
-  reorder/hide other modules or overwrite saved layout presets. Behavior
+  reorder/hide other modules or overwrite saved layout presets.
   **Owner-approved neighbor-minimum choice A:** when expansion would
   shrink the immediately visible right neighbor to/below its approved
   minimum, **clamp and stop the shared divider at that minimum**.
   Never take width from further-right modules, extend the strip's scroll
   width, auto-hide modules or violate the minimum to continue this drag.
   The selected module's own minimum likewise stops contraction.
-  How to resize the rightmost visible module when no right-hand neighbor
-  exists remains undecided; do not invent its behavior.
+  **Owner-approved rightmost-module resize choice A:** resize the last
+  visible module via the **left-hand shared divider** with its immediate
+  visible left neighbor. Dragging this divider changes only that pair's
+  widths by equal/opposite amounts, observing both minimums and stopping
+  at either minimum. No independent right outer-edge drag, cascading
+  changes, scroll expansion, or implicit saved-preset overwrite is implied.
+  If there is only a single visible module, its resize control is still
+  undecided; do not invent a neighbor or an unapproved mechanism.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
