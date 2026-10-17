@@ -38,9 +38,18 @@ The bottom meter strip is a **customizable modular workspace**:
 
 The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
 
+## Strip visibility — owner choice C (approved)
+
+- **Default: always visible.** When Visuals is open, show the docked bottom strip during normal K.O. Tool work and live recording.
+- **Optional auto-hide:** users may explicitly enable a mode that retracts the strip when not interacting with it, and restores it when the pointer moves to the **bottom edge** of the K.O. Tool viewport. The trigger must not unexpectedly prevent access to desktop content.
+- **Manual collapse/expand:** users may deliberately collapse the whole strip and bring it back via a visible, discoverable affordance without closing Visuals.
+- **Accessibility:** hover-only interaction is not sufficient. Provide a focusable keyboard-accessible mechanism for restoring a hidden/collapsed strip; specific touch behavior remains subject to platform/browser feasibility.
+- **Separate concepts:** hiding one meter module in a preset is different from auto-hiding or collapsing **the entire strip**. Do not silently delete a custom layout or reset the seven available modules when changing strip visibility.
+- **Still to specify:** transition duration, reveal target size, manual-collapse vs auto-hide precedence, whether the preference is stored in presets or application settings, and what happens to audio capture/resource usage while hidden. Do not assume hidden means audio capture stops or continues; determine this explicitly before implementation and test permissions/privacy.
+
 **No code has been approved or implemented by this design decision.**
 
-**Browser boundary:** a web page can dock the strip at the **bottom of its own window/viewport**, not automatically create an OS-wide always-on-top strip over arbitrary desktop applications. Any true system-overlay behavior, native app wrapper, or beyond-browser windowing would require separate research and owner approval. Neither a fullscreen performance mode nor auto-hide has been approved.
+**Browser boundary:** a web page can dock the strip at the **bottom of its own window/viewport**, not automatically create an OS-wide always-on-top strip over arbitrary desktop applications. Any true system-overlay behavior, native app wrapper, or beyond-browser windowing would require separate research and owner approval. Auto-hide and manual collapse **are approved as optional strip behaviors**; a fullscreen performance mode has **not** been approved.
 
 ## Audio source policy — owner choice C (approved)
 
@@ -93,7 +102,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 
 - **Resolved:** default is a bottom docked meter strip; v1 includes all seven named modules (Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope, Spectrogram).
 - **Resolved:** the bottom strip supports drag-reordering, width adjustments, hide/restore, built-in layouts for beatmaking, mixing and live recording, and saving/reloading custom presets (owner choice C).
-- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, min/max panel sizes, narrow-screen overflow behavior, visibility vs auto-hide, and any alternate full-screen performance mode.
+- **Resolved:** strip **always visible by default**, optional pointer-to-bottom-edge auto-hide, and explicit manual collapse/restore (owner choice C).
+- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, min/max panel sizes, narrow-screen overflow behavior, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
 - Still to define: color themes, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
