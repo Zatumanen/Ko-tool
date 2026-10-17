@@ -46,7 +46,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Existing read-only project inspector and gated 16-step authoring UI are not
   proof of a full piano roll or live playhead sync. Consult docs/SEQUENCER.md.
 - **Owner-approved placement for future Visuals (2026-10-17):** a **separate
-  desktop app with its own K.O. Tool icon**, not a tab or panel inside My EP.
+  in-browser K.O. Tool virtual-desktop app with its own in-page icon**, not a
+  host-OS desktop program, tab or panel inside My EP.
   Target use is optional audio-reactive visualization for live performances
   and on-camera sessions. This is **planned only**: do not claim an existing
   Visuals app, working capture, or permission to add code. **Owner-approved
@@ -120,8 +121,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Changing themes must not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
-  A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
-  planned, not implemented. See docs/VISUALS.md.
+  **Owner-approved placement scope (choice A):** Visuals' dock is only within
+  the K.O. Tool browser virtual desktop/viewport. Do not introduce a native
+  macOS/Windows wrapper or standalone desktop companion, host-OS always-on-top
+  overlays, multi-application floating bars, or a promised later OS-overlay
+  phase. The MiniMeters reference is about meter-strip design only. Scope
+  the existing always-visible/auto-hide/manual-collapse options to Visuals
+  while open **inside the browser**. Existing `index.html` and
+  `css/base.css` form the current browser desktop; Visuals is not
+  implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
   sample/project library; neither is implemented nor a code-change mandate.
 - **Approved future product contract (not yet implemented):** My EP gets a
