@@ -36,8 +36,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   after hardware/protocol verification. The user chose **both Step Sequencer
   and Piano Roll**, switching between two views of the same saved data.
   **Approved placement: inside My EP → Projects → project → Sequencer,**
-  not a separate desktop app or icon. Preserve the shared project context,
-  existing read-only and firmware evidence gates.
+  not a separate desktop app or icon. **Owner-approved connected-device-only
+  rule:** My EP Projects and Saved/Live Sequencer are accessible only with a
+  physically connected EP and authorized session; do not add an offline
+  local-project-archive viewer/editor. Disconnection must disable device
+  operations and clarify that cached results are stale. This does **not**
+  restrict standalone SpeedUpperCut audio conversion. Preserve the shared
+  project context, existing read-only and firmware evidence gates.
   Existing read-only project inspector and gated 16-step authoring UI are not
   proof of a full piano roll or live playhead sync. Consult docs/SEQUENCER.md.
 - Future possibilities include separate desktop apps for audio visualizers,
