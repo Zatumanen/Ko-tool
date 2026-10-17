@@ -54,7 +54,8 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 - **Strip visibility (owner-approved choice C):** visible by default; optionally auto-hide and reveal on pointer approach to the bottom edge, or manually collapse and restore. These actions must not discard the chosen module arrangement.
 - **Responsive layout (owner-approved choice C):** fit visible modules by shrinking to a usable minimum width, then expose horizontal scrolling for overflow. No automatic module hiding or order changes; resizing the viewport must not overwrite saved layout widths.
 - **Default Balanced composition (owner-approved choice C):** large/prominent **Waveform** and **Spectrum**, medium **Spectrogram**, compact **Loudness**, **Stereo Meter**, **Output Meters** and **Oscilloscope**. Show all seven initially, with horizontal overflow if necessary; do not invent a left-to-right order or numerical widths. Workflow presets and user customizations remain available.
-- **Not decided:** exact default left-to-right order and numerical width ratios, layouts of the other workflow presets, minimum sizes, scrolling interaction and layout persistence implementation, themes, hide/reveal transitions, hidden-state audio capture policy, full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
+- **Visual themes (owner-approved choice C):** user-switchable **Studio, Retro, Neon and Minimal** themes, plus **independent color overrides for each module**. Changing the theme must not reset layout/source/module visibility. Exact palette designs, first-launch default and relation of overrides to saved layout presets are undecided. See [VISUALS.md](VISUALS.md).
+- **Not decided:** exact default left-to-right order and numerical width ratios, layouts of the other workflow presets, minimum sizes, scrolling interaction and layout persistence implementation, **first-launch theme, four palette designs and how color overrides are saved**, hide/reveal transitions, hidden-state audio capture policy, full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
 - **Boundary:** this approval is documentation of a product choice, **not permission to implement or deploy Visuals**.
 
 ## Qualitative community needs (not population statistics)
@@ -111,7 +112,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. What visual theme/palette should Visuals have by default? Exact left-to-right module order, numeric widths and preset contents still need separate design decisions.
+1. Which of the four Visuals themes should be active on the very first launch (Studio, Retro, Neon, Minimal)? Exact left-to-right module order, numeric widths and preset contents still need separate design decisions.
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
