@@ -4,9 +4,9 @@
 
 ## Product role and placement
 
-- **K.O. Tool** is the virtual desktop and product; **Visuals** will be a **separate application with its own desktop icon** (owner choice A).
+- **K.O. Tool** is the **browser-based virtual desktop** and product; **Visuals** will be a **separate app with its own icon inside that virtual desktop** (earlier owner choice A for app placement). It is **not** a native macOS/Windows app or an icon on the host operating system's desktop.
 - Visuals is **not** a tab or panel inside My EP. The sequencer stays at `My EP → Projects → Sequencer` and requires a connected EP for project access.
-- Goal: make live performances and on-camera sessions visually engaging with audio-reactive graphics. **Owner-approved default presentation:** a long, low-profile **meter dock strip along the bottom edge** of the K.O. Tool screen/browser viewport (owner choice B); not a large conventional app window. This resembles the overall arrangement in the owner's supplied concept image, but is not a mandate to copy any existing product. Exact sizing, full-screen alternatives and OS-level windowing are not yet approved.
+- Goal: make live performances and on-camera sessions visually engaging with audio-reactive graphics. **Owner-approved default presentation:** a long, low-profile **meter dock strip along the bottom edge** of the K.O. Tool browser viewport (owner choice B); not a large conventional app window. This resembles the overall arrangement in the owner's supplied concept image, but is not a mandate to copy any existing product. Exact sizing and optional **in-browser** performance views remain separate decisions; host-OS overlays/windowing are **outside the chosen product scope**.
 - Reference for independent design research: [MiniMeters](https://minimeters.app/). Do not copy proprietary branding, code or graphic assets.
 
 ## Bottom meter strip — owner-approved layout and v1 modules
@@ -107,7 +107,15 @@ Do not invent automatic precedence over a manual theme or background device poll
 
 **No code has been approved or implemented by this design decision.**
 
-**Browser boundary:** a web page can dock the strip at the **bottom of its own window/viewport**, not automatically create an OS-wide always-on-top strip over arbitrary desktop applications. Any true system-overlay behavior, native app wrapper, or beyond-browser windowing would require separate research and owner approval. Auto-hide and manual collapse **are approved as optional strip behaviors**; a fullscreen performance mode has **not** been approved.
+## Platform and placement boundary — owner choice A (approved)
+
+**Visuals operates only inside the K.O. Tool browser page / virtual desktop.** Launch it through its **K.O. Tool desktop icon**; its modular strip is **docked to the bottom edge of the application's browser viewport**, not the physical monitor or other OS application windows. The current repository `main` implements its shell as a browser page (`index.html`, `.desktop-apps` desktop container, browser window styling in `css/base.css`). Visuals is not yet present in that shell.
+
+**Explicitly excluded from approved implementation scope:** native macOS or Windows companion app, system-level always-on-top overlay, positioning above Logic/Ableton/other unrelated OS windows, and any planned second desktop-app phase. The MiniMeters reference governs the *strip's appearance and meters*, **not** desktop-overlay capability. Users viewing another OS program or browser tab will not see the K.O. Tool Visuals strip on top of it.
+
+The strip's existing always-visible/auto-hide/manual-collapse decision applies **within the K.O. Tool viewport while the Visuals app is open**. Preserve the ability to interact with SpeedUpperCut and My EP inside K.O. Tool without accidentally obscuring critical controls. Auto-hide and manual collapse remain approved optional behaviors; separate in-browser full-screen performance presentation **has not been approved** and is not implied by this decision.
+
+No application code or native package creation is authorized by this documentation decision.
 
 ## Audio source policy — owner choice C (approved)
 
@@ -163,7 +171,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** strip **always visible by default**, optional pointer-to-bottom-edge auto-hide, and explicit manual collapse/restore (owner choice C).
 - **Resolved:** responsive choice C — shrink visible modules only to a comfortable minimum, then allow horizontal scrolling; no automatic hiding or reordering, and do not overwrite preset widths on viewport resize.
 - **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
-- **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
+- **Resolved (placement choice A):** Visuals exists only within the K.O. Tool browser virtual desktop, using its own internal app icon and a viewport-bottom strip. No native wrapper, OS-global overlay/always-on-top, or follow-up standalone desktop phase is approved.
+- **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate **in-browser** full-screen performance mode.
 - **Resolved (supersedes old themes):** exactly four **Retro/WIN, EP-133, EP-40, Minimal** themes; Visuals starts with the current K.O. Tool Win-like Retro appearance when no supported device has been identified, then selects EP-133/EP-40 styling after validated device recognition. Per-module color customization remains.
 - **Resolved (owner choice B):** Auto Theme enabled by default; any manual theme choice disables auto device switching **for the current Visuals session** until the user explicitly re-enables Auto Theme. Later EP connections/swaps do not override manual selection in that session.
 - **Resolved (owner choice A):** EP-1320 Medieval (`TE032AS005`) maps to existing **Retro/WIN** with Auto Theme ON, while the device identity continues to read EP-1320.
