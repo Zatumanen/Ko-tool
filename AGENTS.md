@@ -75,7 +75,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
   a side effect of viewport resizing. Exact breakpoints and minimum widths
-  remain design decisions.
+  remain design decisions. **Owner-approved strip height choice B:** allow
+  free **vertical resizing of the entire strip** by dragging its top edge
+  up/down while the lower edge stays docked inside the browser viewport.
+  Do not impose Compact/Standard/Expanded height presets. Preserve readable
+  meters, selected modules, usable desktop controls and source/session state.
+  Numeric initial/min/max heights and whether to persist chosen height with
+  layouts are not decided; do not invent these settings.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
