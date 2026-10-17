@@ -49,8 +49,9 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 - **Purpose:** engaging audio-reactive visuals for performances and filming the physical EP on camera. MiniMeters is a **reference for exploring** spectrum, waveform, oscilloscope and flexible layouts, not a source of licensed artwork or code.
 - **Audio source policy (owner-approved option C):** **user-selectable browser audio input**. Prefer EP USB Audio when the connected model/OS/browser really exposes it as a capture input, or use another available audio input (USB/interface/line-in/microphone). Visuals **does not require the EP** if another compatible source is selected. Show the active input, get explicit permission, and never silently fall back on disconnection. See [VISUALS.md](VISUALS.md).
 - **Layout (owner-approved choice B):** a long, docked **bottom-edge meter strip**, like the owner's on-screen reference; implemented as a K.O. Tool browser-viewport panel, not promised as an OS-wide overlay.
-- **V1 modules (owner-approved choice C):** **Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram**. These seven belong to the first-version goal. Exact order and responsive sizing remain undecided.
-- **Not decided:** precise panel order, sizing and overflow, themes, auto-hide/full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
+- **V1 modules (owner-approved choice C):** **Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram**. All seven are selectable, but users may hide modules.
+- **Configuration (separate owner-approved choice C):** rearrange modules by dragging, resize widths, hide/restore panels, select built-in beatmaking/mixing/live-video presets, and save/recall personal strip layouts. Do not imply predefined preset internals, a cloud account or sync have been selected.
+- **Not decided:** exact default order and sizes, layouts of the built-in presets, responsive overflow and persistence implementation, themes, auto-hide/full-screen alternatives, latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
 - **Boundary:** this approval is documentation of a product choice, **not permission to implement or deploy Visuals**.
 
 ## Qualitative community needs (not population statistics)
@@ -107,7 +108,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. How should the seven bottom-strip modules be ordered and sized, and what happens when there is too little horizontal space? Should the strip auto-hide or remain visible?
+1. Should the configured bottom strip always remain visible, auto-hide, or offer a visibility switch? Exact default order and narrow-screen overflow still need separate design decisions.
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
