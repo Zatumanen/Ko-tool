@@ -97,9 +97,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   choice A:** minimum **90 CSS px**, maximum **40% of the K.O. Tool browser
   viewport's CSS height**. Launch at 150 CSS px whenever these bounds
   allow; otherwise respect the 40% cap on shorter but viable viewports.
-  At viewport heights **below 225 CSS px**, the 40% cap falls below 90 px;
-  a safe exception is NOT yet approved, so do not invent a contradictory
-  implementation. **Owner-approved same-session preset-switch choice A:**
+  **Owner-approved very-short viewport choice A:** below **225 CSS px**
+  viewport height, the **90 CSS px minimum overrides the 40% cap**; the
+  strip may occupy more than 40% of the window. Do not force an automatic
+  collapse or shrink below 90 CSS px just to preserve the percentage.
+  Test layout feasibility and accessible controls even for tiny viewports;
+  technical details of a viewport shorter than the strip itself require
+  implementation validation. **Owner-approved same-session preset-switch choice A:**
   preserve the currently adjusted Visuals strip height when switching
   Balanced, Beatmaking, Mixing, Live, or custom presets. Preset switching
   must not reset to 150 CSS px, nor persist/load any preset-specific height;
