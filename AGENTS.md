@@ -63,9 +63,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Oscilloscope and Spectrogram. **Owner-approved configuration choice C:**
   drag to reorder, resize module widths, hide and restore any module,
   built-in beatmaking/mixing/live-video layout presets, and save/reload
-  custom arrangements. All seven modules stay available even when hidden;
-  do not promise all are simultaneously visible. Exact starting order,
-  preset contents and persistence mechanism remain open. **Owner-approved
+  custom arrangements. **Owner-approved default Balanced layout (choice C):**
+  show all seven modules initially; Waveform and Spectrum are large, Spectrogram
+  medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
+  All seven remain available even when users hide some. This is relative
+  emphasis, **not a chosen left-to-right order or exact pixel widths**.
+  Restoring defaults must not overwrite saved custom presets. Starting order,
+  other preset contents and persistence mechanism remain open. **Owner-approved
   responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
