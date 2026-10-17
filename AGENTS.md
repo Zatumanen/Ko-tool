@@ -93,10 +93,19 @@ to this project. **Do not replace the stack or copy the template architecture.**
   **160 CSS px**, and 10% for Waveform must never push it below
   **200 CSS px**. The other approved module minimums and horizontal
   scrolling take precedence over rigid percentages. Mixing's module
-  content/ratio targets are now settled; **Live's composition and
-  width proportions are still undecided**. Preset switching keeps the chosen
+  content/ratio targets are now settled. Preset switching keeps the chosen
   strip height, audio input/capture and separate Auto Theme state; it does
   not overwrite Balanced, Beatmaking or saved custom layouts.
+  **Owner-approved Live composition/order choice B:** selecting Live
+  shows **Waveform → Spectrum → Spectrogram → Oscilloscope → Output Meters**, five modules in that exact left-to-right order.
+  **Stereo Meter and Loudness start hidden in Live only**; both stay
+  available to show explicitly. Their visible minimum CSS px sum is
+  **752** (200 + 200 + 160 + 96 + 96), excluding gaps and controls;
+  do not shrink below module minima or bypass horizontal scrolling.
+  Restoring Live must not overwrite Balanced/Beatmaking/Mixing/custom
+  presets, change audio-input permissions/capture or reset session strip
+  height/Auto Theme. **Live module width percentages are not yet
+  approved**; do not copy another built-in layout's proportions.
   **Owner-approved default Balanced layout (choice C):**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
