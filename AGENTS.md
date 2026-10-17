@@ -249,18 +249,31 @@ to this project. **Do not replace the stack or copy the template architecture.**
   selector. Only selecting one module expands the strip; no auto-enable
   of other meters, audio capture, auto-hide or built-in preset. This
   decision fixes the **all-hidden tab/picker anchor**, not exact sizes,
-  colors, constrained-viewport behavior, focus choreography or the
-  separate populated-strip manual-collapse restore control.
+  colors, focus choreography or the separate populated-strip manual-
+  collapse restore control. **Owner-approved question 54 choice A:** in a
+  short or narrow K.O. Tool browser viewport, keep the selector as a
+  **single vertical list directly above the centered bottom tab**.
+  Constrain its height to the available viewport space above that tab
+  and make **the list itself vertically scrollable** to access all seven
+  modules. Keep the tab fixed and pointer/touch/keyboard-accessible.
+  Do not switch to a multi-column grid, expand a full-screen picker,
+  move the tab, allow the menu outside the browser viewport, or reveal
+  any module/strip without explicit selection. Ensure the first and last
+  options and dismissal can be reached via wheel/trackpad, touch and
+  keyboard. Exact CSS sizing, focus choreography and viewports too small
+  for a usable item require implementation/accessibility verification.
+  Technical references: MDN CSS `overflow-y` and `max-height`.
   The strip remains collapsed until the user **explicitly selects one
   module**; only then expand and show that single module full-width, under
   its approved minimum-width and scrolling rule. Dismissal/cancel keeps
   all seven hidden and the dock collapsed. Keep all other modules'
   intended widths/order/settings intact and avoid implicit writes to
   saved local presets; do not reset session strip height, selected
-  audio source or permissions. Exact tab/picker styling, short-viewport
-  fit and focus mechanics remain undecided; bottom-center all-hidden
-  placement is approved by question 53, and auto-hide precedence is
-  settled by questions 51–52;
+  audio source or permissions. Exact tab/picker styling, focus mechanics
+  and pathological-viewport feasibility remain undecided; the bottom-
+  center anchor is approved by question 53, available-height-bounded
+  internal vertical scrolling by question 54, and auto-hide precedence
+  by questions 51–52;
   capture behavior is now approved by owner question 48, choice C:
   hiding the final visible module **stops active browser audio capture**.
   Restore-picker interactions and selecting a module do **not restart**
@@ -364,10 +377,10 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Hiding fewer modules, ordinary layout switches and height changes do not
   change the capture state by themselves. Preserve selected input preference,
   layouts and presets; never silently fall back to the microphone. Exact
-  controls/picker styling, separate manual-collapse restore-control
-  placement, background-tab behavior and implementation details remain
-  open. The all-hidden restore tab and selector location are settled
-  by question 53. Auto-hide outcomes of explicit manual collapse and
+  controls/picker styling, pathological-viewport focus/feasibility,
+  separate manual-collapse restore-control placement, background-tab
+  behavior and implementation details remain open. The all-hidden tab
+  position and selector scrolling are settled by questions 53–54. Auto-hide outcomes of explicit manual collapse and
   all-hidden automatic collapse are settled by questions 51 and 52. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
