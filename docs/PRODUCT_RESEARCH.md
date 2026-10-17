@@ -38,6 +38,7 @@ The proposed `REPITCH` control is **ON by default** and can be switched OFF. Whe
 - **Phase 1, Saved:** a high-quality safe **read-only** display of archived projects, patterns, pads, notes and scenes.
 - **Phase 1 UI:** **Step Sequencer and Piano Roll**, switchable views backed by the same event data, not two separate editors. Step view favors rhythmic pads and a 16-step grid. Piano Roll shows pitch, timing and note duration.
 - **Placement (owner-approved):** the sequencer lives **inside My EP**, accessed through **My EP → Projects → select project → Sequencer**. No independent desktop icon. It shares the selected project context and My EP safety permissions.
+- **Connected-device-only projects (owner-approved choice B):** browsing projects and Step Sequencer/Piano Roll require a physically connected EP via My EP. Do not offer an offline local-project-archive viewer/editor; on disconnection, clearly invalidate actionable project state and preserve device-write safety. SpeedUpperCut remains usable independently of EP hardware.
 - **Phase 2, Live:** respond to real EP playback and events only after supported MIDI/hardware capabilities are demonstrated on specified firmware; no invented playhead and no faster FILE polling as a substitute.
 
 The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCER` provide starting points, **not proof that a finished read-only piano roll or live sync exists**. See [SEQUENCER.md](SEQUENCER.md).
@@ -96,9 +97,8 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. Should project archives open offline, without a connected EP?
-2. Which audio capture sources and performance view modes are acceptable across Mac and Windows?
-3. Should community sharing begin as downloadable packs before hosted uploads/accounts?
-4. What donation provider, if any, and which (if any) nonessential supporter features?
+1. Which audio capture sources and performance view modes are acceptable across Mac and Windows?
+2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
+3. What donation provider, if any, and which (if any) nonessential supporter features?
 
 Do not edit application code, Linear issues, hardware state, or deploy solely because this research exists.
