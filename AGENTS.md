@@ -60,8 +60,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   presentation is a long meter strip docked along the **bottom edge of the
   K.O. Tool browser viewport** (choice B). **V1 includes all seven modules**
   (choice C): Waveform, Spectrum, Loudness, Stereo Meter, Output Meters,
-  Oscilloscope and Spectrogram. Exact module order, visibility on narrow
-  screens, full-screen alternatives and auto-hide are not decided. A web
+  Oscilloscope and Spectrogram. **Owner-approved configuration choice C:**
+  drag to reorder, resize module widths, hide and restore any module,
+  built-in beatmaking/mixing/live-video layout presets, and save/reload
+  custom arrangements. All seven modules stay available even when hidden;
+  do not promise all are simultaneously visible. Exact starting order,
+  preset contents, responsive overflow, persistence mechanism, full-screen
+  alternatives and auto-hide are not decided. A web
   viewport panel is not an OS-global always-on-top overlay. Visuals remains
   planned, not implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
