@@ -190,10 +190,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   distinct from the already-approved optional pointer auto-hide and
   explicit manual whole-strip collapse; do not change these modes by
   default. Do not reset the preferred session height, audio source or
-  permissions as a side effect. The precise zero-visible restoration
-  flow and interaction/precedence with other collapse states remain
-  undecided; hidden-state audio capture/cleanup is also undecided.
-  No assumption that collapse starts, stops or retains capture is approved.
+  permissions as a side effect. **Owner-approved all-hidden
+  restoration choice A:** activating the collapsed-strip restore affordance
+  opens a **selector listing all seven Visuals modules** without first
+  expanding a blank dock or resetting to the last built-in/custom preset.
+  The strip remains collapsed until the user **explicitly selects one
+  module**; only then expand and show that single module full-width, under
+  its approved minimum-width and scrolling rule. Dismissal/cancel keeps
+  all seven hidden and the dock collapsed. Keep all other modules'
+  intended widths/order/settings intact and avoid implicit writes to
+  saved local presets; do not reset session strip height, selected
+  audio source or permissions. The exact picker UI/placement and
+  interaction/precedence with other collapse modes remain undecided;
+  hidden-state audio capture/cleanup is also undecided. No assumption
+  that collapse starts, stops or retains capture is approved.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
