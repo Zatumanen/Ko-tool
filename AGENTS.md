@@ -172,8 +172,21 @@ to this project. **Do not replace the stack or copy the template architecture.**
   displayed CSS widths may reflow. Enforce each affected module's
   approved minimum width and pairwise stop-at-minimum rule. Never
   silently overwrite browser-local user presets; explicit Save is
-  still required. Drag-pixel-to-intended-ratio mapping under constrained
-  minima needs implementation verification, not guessed semantics.
+  still required. **Owner-approved question 50 choice A:** after a valid
+  shared-divider drag with some modules hidden, use the two edited visible
+  modules' **actual post-drag rendered widths to form their new intended
+  width ratio**. Normalize that ratio into their existing **combined
+  underlying intended-width weight**, keeping every hidden module's and
+  other visible module's intended weight unchanged. E.g. a valid visible
+  Waveform:Spectrogram pair of **440:260** means intended ratio **22:13**,
+  not persistent +40/-40 px applied to base widths or a percentage of the
+  entire strip. Re-showing other modules uses the new underlying pair
+  weights; rendered widths may differ under responsive minimum clamps,
+  without changing their intended ratio or named user presets. Respect
+  the clamped actual drag result and both modules' minima; do not derive
+  intent from a forbidden pointer overshoot. The ratio rule is settled;
+  numeric rounding/subpixel and extremely constrained cases still require
+  implementation verification.
   **Owner-approved manual width resize choice A:** dragging the shared
   right-hand divider changes only the selected module's width and the
   immediately adjacent visible right-hand module's width, with equal and
