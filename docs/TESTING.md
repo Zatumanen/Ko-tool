@@ -115,6 +115,14 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 
 Detailed requirements: [SEQUENCER.md](SEQUENCER.md).
 
+### Future Visuals: selectable live audio source (owner option C)
+
+- **Visuals is an independent desktop app**, not part of My EP, and is not implemented yet. Test without an EP attached using an explicitly selected compatible microphone/audio interface.
+- List permitted browser audio input devices; EP may appear **only** when USB Audio capture is genuinely exposed by the OS/browser. No fake audio path through Web MIDI or SysEx.
+- Confirm permission prompts, permission-denied and missing-device states, switching sources, device disconnect/reconnect, and termination of old media tracks; **no silent fallback** to another microphone.
+- Test HTTPS/localhost and restricted browser permissions, performance on Mac and Windows, and real-device capture separately with model/firmware/browser/OS evidence.
+- Do not claim a USB Audio HIL pass from a fake-EP E2E suite. See [VISUALS.md](VISUALS.md).
+
 ## Completion checklist
 
 - [ ] Inspected actual target-branch code and relevant authoritative contracts.
