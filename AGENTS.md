@@ -49,8 +49,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   desktop app with its own K.O. Tool icon**, not a tab or panel inside My EP.
   Target use is optional audio-reactive visualization for live performances
   and on-camera sessions. This is **planned only**: do not claim an existing
-  Visuals app, working capture, or permission to add code. The audio input
-  selection and device-connection requirement remain undecided.
+  Visuals app, working capture, or permission to add code. **Owner-approved
+  source policy (option C):** the user selects a browser-visible live audio
+  input — EP USB Audio only if exposed as a real audio input, or another
+  compatible input (audio interface/line-in, microphone, etc.). **Do not
+  require an EP connection** for Visuals when another input is chosen. Explicit
+  browser permission, visible selected-source state and honest disconnection
+  behavior are required; never silently fall back to the microphone.
+  USB MIDI/SysEx is not audio. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
   sample/project library; neither is implemented nor a code-change mandate.
 - **Approved future product contract (not yet implemented):** My EP gets a
