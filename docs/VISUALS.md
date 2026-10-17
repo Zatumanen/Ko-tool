@@ -23,7 +23,16 @@
 6. **Oscilloscope** — detailed time-domain trace; distinct display mode from overview waveform.
 7. **Spectrogram** — frequency energy over time.
 
-All seven are **approved as the v1 feature set** and must remain available for selection. **Showing all seven simultaneously is not mandatory:** the owner also approved controls for hiding and restoring modules. Input-channel limitations should be explained honestly (e.g. mono input does not provide stereo spread).
+All seven are **approved as the v1 feature set** and must remain available for selection. **Initial Balanced layout (owner-approved option C)** displays all seven modules when space permits. Users may subsequently hide/restore individual modules. Input-channel limitations should be explained honestly (e.g. mono input does not provide stereo spread).
+
+### Default Balanced composition (owner-approved)
+
+- **Large / prominent:** **Waveform** and **Spectrum** receive the most horizontal emphasis.
+- **Medium:** **Spectrogram** receives moderate space.
+- **Compact:** **Loudness**, **Stereo Meter**, **Output Meters**, and **Oscilloscope** are smaller but readable.
+- The default must preserve the seven-module scope and never violate the responsive sizing rule: on narrow screens, shrink only to usable minimums and then **scroll horizontally**, not hide modules automatically.
+- **Exact left-to-right order, numerical widths and ratios, minimum widths and scrollbar design are not selected.** Do not assume the numbered feature list above defines the visual order.
+- This is the *default starting arrangement*, not a ban on user customizations or replacement of the three separate workflow presets (beatmaking, mixing, live filming). Restoring defaults should recover the Balanced composition without overwriting user-saved presets.
 
 ## Configurable strip and presets — owner choice C (approved)
 
@@ -106,7 +115,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** the bottom strip supports drag-reordering, width adjustments, hide/restore, built-in layouts for beatmaking, mixing and live recording, and saving/reloading custom presets (owner choice C).
 - **Resolved:** strip **always visible by default**, optional pointer-to-bottom-edge auto-hide, and explicit manual collapse/restore (owner choice C).
 - **Resolved:** responsive choice C — shrink visible modules only to a comfortable minimum, then allow horizontal scrolling; no automatic hiding or reordering, and do not overwrite preset widths on viewport resize.
-- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, numeric min/max panel sizes and breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
+- **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
+- **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
 - Still to define: color themes, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
