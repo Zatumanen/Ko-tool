@@ -68,9 +68,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
   All seven remain available even when users hide some. This is relative
-  emphasis, **not a chosen left-to-right order or exact pixel widths**.
-  Restoring defaults must not overwrite saved custom presets. Starting order,
-  other preset contents remain open. **Owner-approved preset storage choice A:**
+  emphasis, **not fixed pixel widths**. **Owner-approved default Balanced
+  module order (choice A), left-to-right: Waveform → Spectrum → Spectrogram → Loudness → Stereo Meter → Output Meters → Oscilloscope.**
+  All seven are visible initially; drag-reordering and separately saved
+  custom arrangements remain supported. Restoring the built-in Balanced
+  defaults must restore this approved order without overwriting saved custom
+  presets. Exact numerical width ratios/minimum widths and other preset
+  contents remain open. **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
   least module visibility, ordering and intended widths. Do NOT add preset
