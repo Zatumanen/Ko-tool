@@ -92,8 +92,17 @@ to this project. **Do not replace the stack or copy the template architecture.**
   audio-input names. `TE032AS002` is EP-133 only after the existing
   validated `base_sku` alias resolution. EP-1320 `TE032AS005` has **no
   owner-approved theme mapping**; do not invent a fifth theme or mislabel
-  the device. Manual-versus-auto precedence and disconnect behavior remain
-  undecided. Changing themes must not reset layout, audio source or modules.
+  the device. **Owner-approved theme precedence (choice B):** Auto Theme is
+  ON by default. Manually selecting any theme turns Auto Theme OFF; retain
+  the user's selected theme across device connects, disconnects and model
+  swaps until they explicitly turn Auto Theme back ON. If Auto Theme is
+  re-enabled with verified EP-133/EP-40 attached, resolve its theme via the
+  existing validated identity. Without verified identity the baseline is
+  Retro/WIN. Do not let device events override manual selection, conflate
+  theme detection with capture audio input, or start background polling.
+  Auto-mode behavior on disconnect, EP-1320/unknown fallback and preference
+  persistence across page reloads remain undecided. Changing themes must
+  not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
   A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
