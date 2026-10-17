@@ -99,6 +99,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   don't force a fit to the viewport. Detailed allocation while modules
   hit their minima, manual width adjustments with hidden modules and other
   workflow preset contents remain undecided.
+  **Owner-approved manual width resize choice A:** dragging the shared
+  right-hand divider changes only the selected module's width and the
+  immediately adjacent visible right-hand module's width, with equal and
+  opposite changes. Other modules retain their intended widths. This is
+  separate from the proportional expansion rule after explicitly hiding
+  a module. Honor each module's approved minimum width; do not silently
+  reorder/hide other modules or overwrite saved layout presets. Behavior
+  when the right neighbor is at its minimum or there is no right neighbor
+  is not yet approved; do not invent cascading or overflow semantics.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
