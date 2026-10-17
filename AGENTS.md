@@ -145,9 +145,19 @@ to this project. **Do not replace the stack or copy the template architecture.**
   temporarily expanded displayed widths. Never overwrite browser-saved
   layout presets because of proportional redistribution. Enforce approved
   per-module minimum widths and horizontal overflow scrolling if necessary;
-  don't force a fit to the viewport. Detailed allocation while modules
-  hit their minima remains undecided; all four built-in workflow preset
-  contents/ratios are already approved separately.
+  don't force a fit to the viewport. **Owner-approved question 49 choice A:** when responsive allocation meets
+  minimum widths, clamp those visible modules to their approved CSS-px
+  minima and allocate the remaining usable module-content width
+  **proportionally among other visible modules according to their
+  underlying intended width ratios**. Recalculate proportionally if
+  additional modules reach their minima. Do not give equal shares or
+  prefer specific meter types. If minimums plus actual spacing/controls
+  cannot fit, keep minimums and scroll horizontally; no auto-hiding,
+  reordering or persistence of temporary displayed widths. This
+  minimum-aware responsive redistribution is **not** an exception to the
+  separate user-driven adjacent-visible-pair-only divider-resize rule.
+  All four built-in workflow preset contents/ratios are approved separately;
+  precise CSS-pixel rounding and breakpoint integration remain for testing.
   **Owner-approved manual resizing with hidden modules choice A:**
   when **at least two modules are visible**, the shared divider acts
   on its **two immediately adjacent visible modules only**, regardless
