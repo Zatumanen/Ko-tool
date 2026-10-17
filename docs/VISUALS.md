@@ -49,6 +49,15 @@ The bottom meter strip is a **customizable modular workspace**:
 
 The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
 
+## Switchable themes and module colors — owner choice C (approved)
+
+- **Four selectable built-in themes:** **Studio**, **Retro**, **Neon**, and **Minimal**. The user can switch between them without changing the selected audio input or the chosen set/order/sizes of the seven meter modules.
+- **Individual module color controls:** users may choose colors for separate modules, rather than being restricted to one global accent. A theme provides a starting visual appearance, and user-selected module colors are optional overrides.
+- **Keep the meters useful:** theme and per-module color settings must not suppress input-state indicators, meter labels/scale readability, selected controls, or meaningful warning/peak indications. Test contrast in real-time and against both light/dark-like theme palettes where applicable.
+- **Separation of concerns:** **visual themes** are not the same as **layout presets** (Balanced, beatmaking, mixing, live filming). Users should be able to change a theme without silently losing their layout; user color overrides should not accidentally alter unrelated module colors.
+- **Not yet decided:** which of the four themes is the first-launch default; exact colors, backgrounds, fonts, gradients, animation styles or theme-specific details; whether custom colors/themes are persisted separately, per layout preset, or exported/shared. Do not invent a palette or promise cloud sync.
+- The owner approved theme choices and per-module customization as **future behavior only**. No implementation or release is authorized here.
+
 ## Strip visibility — owner choice C (approved)
 
 - **Default: always visible.** When Visuals is open, show the docked bottom strip during normal K.O. Tool work and live recording.
@@ -117,7 +126,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** responsive choice C — shrink visible modules only to a comfortable minimum, then allow horizontal scrolling; no automatic hiding or reordering, and do not overwrite preset widths on viewport resize.
 - **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
 - **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
-- Still to define: color themes, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
+- **Resolved:** switchable **Studio / Retro / Neon / Minimal** themes and independent color customization for each module (owner choice C).
+- Still to define: first-launch theme, exact palettes and styling, whether custom colors follow themes/layout presets, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
