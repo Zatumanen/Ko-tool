@@ -108,8 +108,19 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Balanced, Beatmaking, Mixing, Live, or custom presets. Preset switching
   must not reset to 150 CSS px, nor persist/load any preset-specific height;
   keep within the approved viewport bounds where satisfiable. Only a new
-  Visuals launch resets to the 150 CSS px standard. Extremely short-window
-  behavior and viewport height restoration remain undecided.
+  Visuals launch resets to the 150 CSS px standard. **Owner-approved
+  viewport height restoration choice A:** retain the **latest manually
+  selected preferred height only in memory for the current Visuals session**.
+  On viewport shrink, clamp the *rendered* height to allowed bounds without
+  overwriting that preferred value; on viewport growth automatically
+  restore it when allowed. Example: user sets 250px at 800px viewport;
+  at 500px viewport cap display to 200px; returning to 800px shows 250px.
+  A new deliberate manual drag replaces the preferred value. Switching
+  presets does not change it; closing/reopening Visuals or K.O. Tool reload
+  resets it to the 150px launch target. For short viewports below 225px,
+  honor the already approved 90px minimum over 40%, and do not invent OS
+  overlays or browser-persistent height settings. Very tiny-window
+  accessibility/recovery details remain engineering work.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
