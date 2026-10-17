@@ -23,7 +23,22 @@
 6. **Oscilloscope** — detailed time-domain trace; distinct display mode from overview waveform.
 7. **Spectrogram** — frequency energy over time.
 
-All seven are **approved as the v1 feature set**, but their exact order, default widths, simultaneous visibility at small viewport sizes, collapse/overflow behavior, presets and drag/reorder controls are still to be decided. Do not silently drop one from the intended module scope. Input-channel limitations should be explained honestly (e.g. mono input does not provide stereo spread).
+All seven are **approved as the v1 feature set** and must remain available for selection. **Showing all seven simultaneously is not mandatory:** the owner also approved controls for hiding and restoring modules. Input-channel limitations should be explained honestly (e.g. mono input does not provide stereo spread).
+
+## Configurable strip and presets — owner choice C (approved)
+
+The bottom meter strip is a **customizable modular workspace**:
+
+- **Reorder:** drag modules left or right, preserving the user's selected order.
+- **Resize:** change module widths within usable limits; avoid invisible controls or broken layouts.
+- **Show / hide / restore:** temporarily remove individual modules from view without removing their feature or input configuration. Make all seven discoverable and restorable.
+- **Built-in layout presets:** offer starting arrangements for **beatmaking**, **mixing**, and **recording/filming live performances**. Their exact compositions and visual appearance are **proposals requiring later design**; the three workflow purposes are approved.
+- **Custom presets:** save user-configured layouts and recall them without reconstructing the strip manually. A custom preset records at minimum module selection, order and sizes; do not silently overwrite a saved preset when switching to another.
+- **Responsiveness:** if the chosen configuration exceeds available viewport width, use an explicit, navigable overflow/collapse approach rather than silently dropping modules. Exact interaction and size limits remain to be decided.
+
+The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
+
+**No code has been approved or implemented by this design decision.**
 
 **Browser boundary:** a web page can dock the strip at the **bottom of its own window/viewport**, not automatically create an OS-wide always-on-top strip over arbitrary desktop applications. Any true system-overlay behavior, native app wrapper, or beyond-browser windowing would require separate research and owner approval. Neither a fullscreen performance mode nor auto-hide has been approved.
 
@@ -77,8 +92,9 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 ## To be decided in future interviews
 
 - **Resolved:** default is a bottom docked meter strip; v1 includes all seven named modules (Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope, Spectrogram).
-- **Still open:** exact left-to-right arrangement, module resizing/reordering, responsive overflow, always-visible vs auto-hide; any alternate full-screen performance mode.
-- Theme/palette/presets, overlays and performance-friendly controls.
+- **Resolved:** the bottom strip supports drag-reordering, width adjustments, hide/restore, built-in layouts for beatmaking, mixing and live recording, and saving/reloading custom presets (owner choice C).
+- **Still open:** default left-to-right arrangement and widths, precise contents of the three built-in presets, min/max panel sizes, narrow-screen overflow behavior, visibility vs auto-hide, and any alternate full-screen performance mode.
+- Still to define: color themes, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
