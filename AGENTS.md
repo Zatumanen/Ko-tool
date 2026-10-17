@@ -146,8 +146,24 @@ to this project. **Do not replace the stack or copy the template architecture.**
   layout presets because of proportional redistribution. Enforce approved
   per-module minimum widths and horizontal overflow scrolling if necessary;
   don't force a fit to the viewport. Detailed allocation while modules
-  hit their minima, manual width adjustments with hidden modules and other
-  workflow preset contents remain undecided.
+  hit their minima remains undecided; all four built-in workflow preset
+  contents/ratios are already approved separately.
+  **Owner-approved manual resizing with hidden modules choice A:**
+  when **at least two modules are visible**, the shared divider acts
+  on its **two immediately adjacent visible modules only**, regardless
+  of hidden module positions in the underlying order. Change the edited
+  pair's intended widths and preserve those manual edits when hidden
+  modules are revealed later. Hidden modules' intended widths/settings
+  and every other visible module must remain unchanged. Do not discard
+  pair edits merely because the hidden module is restored, and do not
+  mistake temporary hide-induced proportional rendering expansion for
+  an intentional width edit. Re-showing modules recomputes from the
+  edited pair widths plus untouched hidden-module intended values;
+  displayed CSS widths may reflow. Enforce each affected module's
+  approved minimum width and pairwise stop-at-minimum rule. Never
+  silently overwrite browser-local user presets; explicit Save is
+  still required. Drag-pixel-to-intended-ratio mapping under constrained
+  minima needs implementation verification, not guessed semantics.
   **Owner-approved manual width resize choice A:** dragging the shared
   right-hand divider changes only the selected module's width and the
   immediately adjacent visible right-hand module's width, with equal and
