@@ -80,7 +80,16 @@ to this project. **Do not replace the stack or copy the template architecture.**
   minimums can hold, not permission to render Spectrogram below 160 CSS px
   just to honor its 15% target. Use horizontal scrolling when required;
   do not modify saved layouts or reset the session height/audio input.
-  Mixing/Live module compositions and width ratios remain undecided.
+  **Owner-approved Mixing composition/order choice A:** show precisely
+  **Output Meters → Loudness → Spectrum → Stereo Meter → Spectrogram → Waveform** in that order on selecting the built-in Mixing preset.
+  **Oscilloscope starts hidden only in Mixing**, but remains available
+  for manual reveal; do not remove or hide any of the other six modules.
+  Their minimum CSS-px widths total **848** (96+96+200+96+160+200) before
+  gaps/controls; apply per-module minimums and horizontal scroll if needed.
+  Mixing's specific percentage widths and Live's module composition/width
+  proportions are **not yet approved**. Preset switching keeps the chosen
+  strip height, audio input/capture and separate Auto Theme state; it does
+  not overwrite Balanced, Beatmaking or saved custom layouts.
   **Owner-approved default Balanced layout (choice C):**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
