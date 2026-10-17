@@ -106,8 +106,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   separate from the proportional expansion rule after explicitly hiding
   a module. Honor each module's approved minimum width; do not silently
   reorder/hide other modules or overwrite saved layout presets. Behavior
-  when the right neighbor is at its minimum or there is no right neighbor
-  is not yet approved; do not invent cascading or overflow semantics.
+  **Owner-approved neighbor-minimum choice A:** when expansion would
+  shrink the immediately visible right neighbor to/below its approved
+  minimum, **clamp and stop the shared divider at that minimum**.
+  Never take width from further-right modules, extend the strip's scroll
+  width, auto-hide modules or violate the minimum to continue this drag.
+  The selected module's own minimum likewise stops contraction.
+  How to resize the rightmost visible module when no right-hand neighbor
+  exists remains undecided; do not invent its behavior.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
