@@ -81,12 +81,21 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Keep keyboard-accessible restoration and preserve module layout/presets.
   Hidden-state audio capture and transition details are undecided; do not
   invent capture/pause semantics. Full-screen alternatives are not approved.
-  **Owner-approved Visuals appearance choice C:** switchable **Studio, Retro,
-  Neon and Minimal** built-in themes plus **independent per-module color
-  overrides**. Theme switching must not reset layouts, chosen source or module
-  visibility. Do not invent a default theme, exact palettes, custom-theme
-  persistence/sync, or color behavior for layout presets without further owner
-  decisions. Preserve readable scales, status and warning indications.
+  **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
+  exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
+  color overrides. Retro uses the existing `css/base.css` Win-style tokens
+  (teal desktop `#008080`, gray `#c0c0c0`, navy `#000080`). **Retro is
+  the baseline when no model is identified.** After verified My EP device
+  recognition/GREET, automatically select **EP-133** for resolved
+  `TE032AS001` and **EP-40** for `TE032AS006`; rely on
+  `js/ep133/deviceCompatibilityMatrix.js` and do not infer models from
+  audio-input names. `TE032AS002` is EP-133 only after the existing
+  validated `base_sku` alias resolution. EP-1320 `TE032AS005` has **no
+  owner-approved theme mapping**; do not invent a fifth theme or mislabel
+  the device. Manual-versus-auto precedence and disconnect behavior remain
+  undecided. Changing themes must not reset layout, audio source or modules.
+  Color override persistence and precise EP colors still require design.
+  Preserve readable scales, status and warning indications.
   A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
   planned, not implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
