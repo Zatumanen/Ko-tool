@@ -47,7 +47,8 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 
 - **Placement:** a standalone **Visuals** app, launched from its own icon on the K.O. Tool virtual desktop. It must **not** become a My EP tab. The existing desktop `index.html` has icons for SpeedUpperCut and My EP; no Visuals implementation is shipped.
 - **Purpose:** engaging audio-reactive visuals for performances and filming the physical EP on camera. MiniMeters is a **reference for exploring** spectrum, waveform, oscilloscope and flexible layouts, not a source of licensed artwork or code.
-- **Not decided:** audio input selection, whether Visuals requires the connected EP, layout/style, and the scope of any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
+- **Audio source policy (owner-approved option C):** **user-selectable browser audio input**. Prefer EP USB Audio when the connected model/OS/browser really exposes it as a capture input, or use another available audio input (USB/interface/line-in/microphone). Visuals **does not require the EP** if another compatible source is selected. Show the active input, get explicit permission, and never silently fall back on disconnection. See [VISUALS.md](VISUALS.md).
+- **Not decided:** layout/style, the precise capture latency/performance budget and any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
 - **Boundary:** this approval is documentation of a product choice, **not permission to implement or deploy Visuals**.
 
 ## Qualitative community needs (not population statistics)
@@ -104,7 +105,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. Which audio capture sources and performance view modes are acceptable across Mac and Windows?
+1. Should Visuals open as a windowed workspace, a full-screen performance stage, or offer both? How should visualizers be combined?
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
