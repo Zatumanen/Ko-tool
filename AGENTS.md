@@ -228,8 +228,12 @@ to this project. **Do not replace the stack or copy the template architecture.**
   saved presets without silent writes. This user-triggered collapse is
   distinct from the already-approved optional pointer auto-hide and
   explicit manual whole-strip collapse; do not change these modes by
-  default. Do not reset the preferred session height, audio source or
-  permissions as a side effect. **Owner-approved all-hidden
+  default. **Exception: question 51 choice C explicitly makes manual
+  whole-strip collapse turn optional pointer auto-hide OFF** (see below).
+  Automatic all-hidden collapse is not itself that explicit manual
+  whole-strip command; whether it should affect auto-hide preference
+  remains to be decided. Do not reset the preferred session height,
+  audio source or permissions as a side effect. **Owner-approved all-hidden
   restoration choice A:** activating the collapsed-strip restore affordance
   opens a **selector listing all seven Visuals modules** without first
   expanding a blank dock or resetting to the last built-in/custom preset.
@@ -316,6 +320,18 @@ to this project. **Do not replace the stack or copy the template architecture.**
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
   Keep keyboard-accessible restoration and preserve module layout/presets.
+  **Owner-approved question 51 choice C:** when a user **manually
+  collapses the entire strip**, disable optional pointer auto-hide even
+  if it was enabled before collapse. Pointer motion to the bottom edge
+  must **not** reopen a manually collapsed strip. Only an explicit
+  accessible restore/expand action reopens it; the strip then remains
+  **always visible** until the user explicitly re-enables auto-hide.
+  Do not restore the former auto-hide setting implicitly or rewrite
+  layout visibility/order/intended widths, browser presets, source
+  preference or current session height. Manual collapse still stops
+  Visuals audio capture (question 48); restoration must not silently
+  restart it. The **all-hidden automatic-collapse** effect on this
+  auto-hide preference remains an independent open decision.
   **Owner-approved capture lifecycle (question 48, choice C):** when optional
   pointer auto-hide temporarily retracts the strip, preserve an already
   authorized active audio stream while **pausing visual rendering**. Keep an
@@ -328,8 +344,9 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Hiding fewer modules, ordinary layout switches and height changes do not
   change the capture state by themselves. Preserve selected input preference,
   layouts and presets; never silently fall back to the microphone. Exact
-  controls placement, collapse-mode precedence, background-tab behavior and
-  implementation details remain open. Full-screen alternatives are not approved.
+  controls placement, **all-hidden automatic-collapse** precedence, background-tab
+  behavior and implementation details remain open. Explicit manual-collapse
+  precedence is settled by question 51 choice C. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
   color overrides. Retro uses the existing `css/base.css` Win-style tokens
