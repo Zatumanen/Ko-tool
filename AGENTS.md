@@ -361,6 +361,24 @@ to this project. **Do not replace the stack or copy the template architecture.**
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
   Keep keyboard-accessible restoration and preserve module layout/presets.
+  **Owner-approved question 56 choice A:** start **every newly opened
+  Visuals session with optional pointer auto-hide OFF**, including a
+  Visuals close/reopen and a K.O. Tool browser-page reload. When at least
+  one module is visible, the strip starts continuously visible until
+  the user explicitly enables auto-hide in the current session. Do not
+  save/restore auto-hide in browser-local preferences or in Balanced,
+  Beatmaking, Mixing, Live or user-named layout presets; a preset switch
+  inside one Visuals session does not itself toggle auto-hide. This
+  reset is independent of the already-approved Auto Theme reset and the
+  strip's session-only 150 CSS-px launch height. Keep saved module
+  visibility/order/widths, source preference, unrelated customization
+  and browser-local user presets intact; a zero-visible selection still
+  shows the approved collapsed tab/picker and must not auto-enable a
+  module just to appear visible. No capture starts automatically on
+  reopening or because pointer auto-hide resets. Questions 51–52
+  continue to disable auto-hide on both complete-collapse paths.
+  How unsaved layouts are initialized after closing/reloading remains
+  separate from this auto-hide choice.
   **Owner-approved question 51 choice C:** when a user **manually
   collapses the entire strip**, disable optional pointer auto-hide even
   if it was enabled before collapse. Pointer motion to the bottom edge
@@ -393,8 +411,9 @@ to this project. **Do not replace the stack or copy the template architecture.**
   pathological-viewport focus/feasibility, background-tab behavior and
   implementation details remain open. Shared bottom-center tab
   placement/state-dependent restore behavior and picker scrolling are
-  settled by questions 53–55. Auto-hide outcomes of explicit manual collapse and
-  all-hidden automatic collapse are settled by questions 51 and 52. Full-screen alternatives are not approved.
+  settled by questions 53–55. Auto-hide is session-only and resets
+  OFF on fresh Visuals launch (question 56); complete-collapse auto-hide
+  outcomes are settled by questions 51–52. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
   color overrides. Retro uses the existing `css/base.css` Win-style tokens
