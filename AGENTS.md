@@ -300,6 +300,32 @@ to this project. **Do not replace the stack or copy the template architecture.**
   site-data clearing/private mode can lose presets; report failed writes.
   Exact storage API/schema remain undecided. **Strip height is excluded
   from local presets (height memory choice A).** This does not change the
+  **Owner-approved question 57 choice C — restore last working layout:**
+  besides browser-local explicitly named layouts, auto-save the current
+  **working module layout** as a separate site-local snapshot (same
+  browser profile and origin), even if the user has not pressed Save.
+  Include seven-module visibility/selection, manual left-to-right order,
+  and **underlying intended widths/ratios**, including hidden modules.
+  New Visuals sessions (close/reopen or K.O. Tool browser reload) restore
+  the most recent valid working snapshot, NOT always Balanced or only
+  the last selected saved preset. Initial use or missing/invalid/blocked
+  site data falls back to built-in **Balanced**, without falsely claiming
+  prior unsaved edits were recovered. Loading built-in/custom presets
+  updates current working state; subsequent unsaved edits may update
+  this distinct auto-snapshot, but MUST NOT silently rewrite named
+  layouts or approved built-in preset definitions. Only explicit Save
+  creates/updates named presets. Store intended ratios/weights, NOT
+  temporary responsive minimum-clamped or expanded rendered pixels.
+  If the snapshot has **zero** visible modules, reopen collapsed with
+  the bottom-center seven-module restore tab/picker. Otherwise reopen
+  visibly expanded. Do NOT restore the old explicit manual collapsed
+  state, pointer auto-hide, previous manually selected theme, preferred
+  strip height, MediaStream tracks or audio permissions from the layout
+  snapshot: auto-hide starts OFF (question 56), Auto Theme ON, strip
+  height at its approved launch target and capture stopped until an
+  explicit Start. This local draft is not account/cloud sync or export.
+  Exact storage API/schema, snapshot-write timing, failure handling
+  and non-layout module-setting persistence remain technical/open.
   Auto Theme per-launch reset or
   decide persistence of per-module color overrides. **Owner-approved
   responsive choice C:** shrink visible modules proportionally only to a
@@ -377,8 +403,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   module just to appear visible. No capture starts automatically on
   reopening or because pointer auto-hide resets. Questions 51–52
   continue to disable auto-hide on both complete-collapse paths.
-  How unsaved layouts are initialized after closing/reloading remains
-  separate from this auto-hide choice.
+  Question 57 choice C independently requires the latest auto-saved
+  working module layout at launch; it does not restore past auto-hide.
   **Owner-approved question 51 choice C:** when a user **manually
   collapses the entire strip**, disable optional pointer auto-hide even
   if it was enabled before collapse. Pointer motion to the bottom edge
