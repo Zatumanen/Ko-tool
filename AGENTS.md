@@ -73,8 +73,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   All seven are visible initially; drag-reordering and separately saved
   custom arrangements remain supported. Restoring the built-in Balanced
   defaults must restore this approved order without overwriting saved custom
-  presets. Exact numerical width ratios/minimum widths and other preset
-  contents remain open. **Owner-approved preset storage choice A:**
+  presets. **Owner-approved Balanced width proportions (choice A):**
+  Waveform 25%; Spectrum 25%; Spectrogram 18%; Loudness 8%; Stereo Meter 8%; Output Meters 8%; Oscilloscope 8% (total 100%). These are the seven initial relative widths
+  when space allows, **not immutable pixel widths or module minimums**.
+  Preserve user-adjusted widths and custom saved presets; on narrow
+  viewports shrink only to readable module minimums and then scroll
+  horizontally, never hide/reorder automatically. Numerical per-module
+  minimum widths, remaining-space redistribution after manually hiding
+  modules, and other preset contents remain undecided.
+  **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
   least module visibility, ordering and intended widths. Do NOT add preset
