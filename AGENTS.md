@@ -179,8 +179,21 @@ to this project. **Do not replace the stack or copy the template architecture.**
   and browser-saved custom layouts intact; showing another module
   recalculates from intended widths, not from the temporary full-width
   size. Do not reset strip height, change audio capture or otherwise
-  mutate preset data. What happens with **zero visible modules**
-  remains undecided.
+  mutate preset data. **Owner-approved zero-visible-module choice C:**
+  when the user deliberately hides the last visible module, **automatically
+  collapse the whole Visuals dock strip**. Keep Visuals open and a
+  discoverable **keyboard-accessible restoration affordance** available;
+  do not leave an expanded empty strip, forcibly block the last hide
+  or automatically reenable a module/preset. Preserve all seven available
+  modules, their intended widths/order/configuration and browser-local
+  saved presets without silent writes. This user-triggered collapse is
+  distinct from the already-approved optional pointer auto-hide and
+  explicit manual whole-strip collapse; do not change these modes by
+  default. Do not reset the preferred session height, audio source or
+  permissions as a side effect. The precise zero-visible restoration
+  flow and interaction/precedence with other collapse states remain
+  undecided; hidden-state audio capture/cleanup is also undecided.
+  No assumption that collapse starts, stops or retains capture is approved.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
