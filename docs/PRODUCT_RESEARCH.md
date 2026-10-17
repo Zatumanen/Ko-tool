@@ -43,6 +43,13 @@ The proposed `REPITCH` control is **ON by default** and can be switched OFF. Whe
 
 The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCER` provide starting points, **not proof that a finished read-only piano roll or live sync exists**. See [SEQUENCER.md](SEQUENCER.md).
 
+### Visuals — separate desktop application (owner-approved option A)
+
+- **Placement:** a standalone **Visuals** app, launched from its own icon on the K.O. Tool virtual desktop. It must **not** become a My EP tab. The existing desktop `index.html` has icons for SpeedUpperCut and My EP; no Visuals implementation is shipped.
+- **Purpose:** engaging audio-reactive visuals for performances and filming the physical EP on camera. MiniMeters is a **reference for exploring** spectrum, waveform, oscilloscope and flexible layouts, not a source of licensed artwork or code.
+- **Not decided:** audio input selection, whether Visuals requires the connected EP, layout/style, and the scope of any recording/export functionality. Do not assume audio is available over Web MIDI/SysEx; capture permissions and model/OS/browser compatibility need proof.
+- **Boundary:** this approval is documentation of a product choice, **not permission to implement or deploy Visuals**.
+
 ## Qualitative community needs (not population statistics)
 
 Selected community discussions and specific reported pain points, to be validated against current firmware and supported devices:
@@ -79,7 +86,7 @@ Reddit comments and votes here are **qualitative examples**, not a representativ
 
 **P1 — everyday companion.** Smooth input-to-pad path, smarter capacity forecasts, firmware-aware destination checks, consistent shortcut navigation, clear progress, metadata and recovery. REPITCH feature only after explicit separate permission and acceptance tests.
 
-**P2 — creative views.** Safe saved-project Step Sequencer/Piano Roll, followed by researched live sync; optional audio-reactive performance workspace using a real audio input, and a source-backed, context-sensitive help assistant.
+**P2 — creative views.** Safe saved-project Step Sequencer/Piano Roll inside My EP, followed by researched live sync; **separate Visuals desktop app** using an appropriate audio input, and a source-backed, context-sensitive help assistant.
 
 **P3 — community.** Searchable catalog with preview, downloadable sample packs and complete project dependencies; verify content licensing, malicious file handling, author rights, privacy, moderation and hosting cost **before** accepting uploads.
 
