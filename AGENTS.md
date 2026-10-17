@@ -218,8 +218,12 @@ to this project. **Do not replace the stack or copy the template architecture.**
   saved local presets; do not reset session strip height, selected
   audio source or permissions. The exact picker UI/placement and
   interaction/precedence with other collapse modes remain undecided;
-  hidden-state audio capture/cleanup is also undecided. No assumption
-  that collapse starts, stops or retains capture is approved.
+  capture behavior is now approved by owner question 48, choice C:
+  hiding the final visible module **stops active browser audio capture**.
+  Restore-picker interactions and selecting a module do **not restart**
+  capture automatically; a new explicit user action is required.
+  Keep the selected input preference, module state, and local presets;
+  do not silently switch inputs or assume browser permission persists.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
@@ -289,8 +293,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
   Keep keyboard-accessible restoration and preserve module layout/presets.
-  Hidden-state audio capture and transition details are undecided; do not
-  invent capture/pause semantics. Full-screen alternatives are not approved.
+  **Owner-approved capture lifecycle (question 48, choice C):** when optional
+  pointer auto-hide temporarily retracts the strip, preserve an already
+  authorized active audio stream while **pausing visual rendering**. Keep an
+  accessible, discoverable indicator of active capture/selected input and a
+  Stop capture control usable even while the strip is hidden. Auto-hide
+  must not activate capture if previously idle. Explicit manual whole-strip
+  collapse or user hiding the seventh/final visible module **stops** active
+  Visuals audio tracks; restoring the strip or selecting a module never
+  restarts capture without explicit action and any required browser permission.
+  Hiding fewer modules, ordinary layout switches and height changes do not
+  change the capture state by themselves. Preserve selected input preference,
+  layouts and presets; never silently fall back to the microphone. Exact
+  controls placement, collapse-mode precedence, background-tab behavior and
+  implementation details remain open. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
   color overrides. Retro uses the existing `css/base.css` Win-style tokens
