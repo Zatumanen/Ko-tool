@@ -45,10 +45,11 @@ The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCE
 
 ### Visuals — separate desktop application (owner-approved option A)
 
-- **Placement:** a standalone **Visuals** app, launched from its own icon on the K.O. Tool virtual desktop. It must **not** become a My EP tab. The existing desktop `index.html` has icons for SpeedUpperCut and My EP; no Visuals implementation is shipped.
+- **Placement:** a separate **Visuals** application inside the **K.O. Tool browser virtual desktop**, launched from its own **in-page icon**. It must **not** become a My EP tab or a native host-OS desktop application. The existing browser `index.html` has icons for SpeedUpperCut and My EP; no Visuals implementation is shipped.
 - **Purpose:** engaging audio-reactive visuals for performances and filming the physical EP on camera. MiniMeters is a **reference for exploring** spectrum, waveform, oscilloscope and flexible layouts, not a source of licensed artwork or code.
 - **Audio source policy (owner-approved option C):** **user-selectable browser audio input**. Prefer EP USB Audio when the connected model/OS/browser really exposes it as a capture input, or use another available audio input (USB/interface/line-in/microphone). Visuals **does not require the EP** if another compatible source is selected. Show the active input, get explicit permission, and never silently fall back on disconnection. See [VISUALS.md](VISUALS.md).
-- **Layout (owner-approved choice B):** a long, docked **bottom-edge meter strip**, like the owner's on-screen reference; implemented as a K.O. Tool browser-viewport panel, not promised as an OS-wide overlay.
+- **Layout (owner-approved choice B):** a long, docked **bottom-edge meter strip**, like the owner's on-screen reference, inside the K.O. Tool browser viewport.
+- **Platform scope (owner-approved choice A):** Visuals must remain **inside the K.O. Tool browser virtual desktop only**. No native macOS/Windows application, OS-level always-on-top overlay over other music programs, or separate future native phase is approved. A dedicated icon means an icon **inside K.O. Tool**, not a computer desktop icon.
 - **V1 modules (owner-approved choice C):** **Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope and Spectrogram**. All seven are selectable, but users may hide modules.
 - **Configuration (separate owner-approved choice C):** rearrange modules by dragging, resize widths, hide/restore panels, select built-in beatmaking/mixing/live-video presets, and save/recall personal strip layouts. Do not imply predefined preset internals, a cloud account or sync have been selected.
 - **Strip visibility (owner-approved choice C):** visible by default; optionally auto-hide and reveal on pointer approach to the bottom edge, or manually collapse and restore. These actions must not discard the chosen module arrangement.
@@ -112,7 +113,7 @@ The owner is considering **donations** rather than putting essential functionali
 
 ## Questions not yet decided
 
-1. Should the Visuals meter strip be docked only within the K.O. Tool browser window or eventually operate as an OS-level always-on-top panel across other applications? Unknown/ambiguous identity handling, exact module order and numerical widths still need separate design decisions.
+1. How tall should the K.O. Tool browser-only Visuals strip be at launch, and should users resize its height? Unknown/ambiguous identity handling, exact module order and numerical widths still need separate design decisions.
 2. Should community sharing begin as downloadable packs before hosted uploads/accounts?
 3. What donation provider, if any, and which (if any) nonessential supporter features?
 
