@@ -240,14 +240,27 @@ to this project. **Do not replace the stack or copy the template architecture.**
   restoration choice A:** activating the collapsed-strip restore affordance
   opens a **selector listing all seven Visuals modules** without first
   expanding a blank dock or resetting to the last built-in/custom preset.
+  **Owner-approved question 53 choice A:** in the zero-visible-module
+  collapsed state, expose a **small restore tab centered along the bottom
+  edge of the K.O. Tool browser viewport** (not the host OS screen).
+  Its accessible pointer/touch/keyboard activation opens the selector
+  **directly above the tab** while the strip is still collapsed. The
+  tab remains discoverable and focusable after dismissing/canceling the
+  selector. Only selecting one module expands the strip; no auto-enable
+  of other meters, audio capture, auto-hide or built-in preset. This
+  decision fixes the **all-hidden tab/picker anchor**, not exact sizes,
+  colors, constrained-viewport behavior, focus choreography or the
+  separate populated-strip manual-collapse restore control.
   The strip remains collapsed until the user **explicitly selects one
   module**; only then expand and show that single module full-width, under
   its approved minimum-width and scrolling rule. Dismissal/cancel keeps
   all seven hidden and the dock collapsed. Keep all other modules'
   intended widths/order/settings intact and avoid implicit writes to
   saved local presets; do not reset session strip height, selected
-  audio source or permissions. The exact picker UI/placement and
-  interaction/precedence with other collapse modes remain undecided;
+  audio source or permissions. Exact tab/picker styling, short-viewport
+  fit and focus mechanics remain undecided; bottom-center all-hidden
+  placement is approved by question 53, and auto-hide precedence is
+  settled by questions 51–52;
   capture behavior is now approved by owner question 48, choice C:
   hiding the final visible module **stops active browser audio capture**.
   Restore-picker interactions and selecting a module do **not restart**
@@ -351,8 +364,10 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Hiding fewer modules, ordinary layout switches and height changes do not
   change the capture state by themselves. Preserve selected input preference,
   layouts and presets; never silently fall back to the microphone. Exact
-  controls/picker placement, background-tab behavior and implementation
-  details remain open. Auto-hide outcomes of explicit manual collapse and
+  controls/picker styling, separate manual-collapse restore-control
+  placement, background-tab behavior and implementation details remain
+  open. The all-hidden restore tab and selector location are settled
+  by question 53. Auto-hide outcomes of explicit manual collapse and
   all-hidden automatic collapse are settled by questions 51 and 52. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
