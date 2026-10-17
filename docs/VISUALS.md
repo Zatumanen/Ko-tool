@@ -51,7 +51,15 @@ The bottom meter strip is a **customizable modular workspace**:
 - **Preset protection:** temporary responsive shrinking must not overwrite the user's stored module widths or custom preset. When the viewport widens, restore the chosen layout to the extent it fits.
 - **Navigation:** the horizontally scrollable strip should have visible/understandable affordances and keyboard/pointer/trackpad access; details of scroll controls, minimum widths and breakpoint thresholds remain engineering/design decisions.
 
-The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
+### Browser-only saved layouts — owner choice A (approved)
+
+- **Custom layouts are saved locally in the user's browser**, without an account or server. After saving a named arrangement, it becomes available again when Visuals is reopened or K.O. Tool is reloaded in the **same browser profile and site origin**, without requiring an external file.
+- A saved layout records at least module visibility, order and intended widths. Loading it must not silently overwrite other saved presets. Temporary viewport resizing and horizontal scrolling must not change stored widths.
+- **Do not implement Export/Import preset files, cloud accounts, backend storage or cross-device/browser synchronization** as part of this approved choice. The exact browser storage API and record/version schema remain technical decisions to review before implementation.
+- Browser-local data can be lost through clearing site data, browser storage eviction or use of private mode; it is not automatically available in a different browser/profile/origin. Never guarantee recovery or survival after deleting local data. Handle denied/unavailable storage without claiming successful saves.
+- **Not resolved here:** whether the manually adjusted height of the whole strip belongs to a saved layout; whether separate module color overrides or other application settings persist. The independently approved rule that **Auto Theme resets ON at each new Visuals launch** remains in force.
+
+This is future behavior only. No application code has been approved or implemented by this decision.
 
 ## Device-aware themes and module colors — owner-approved revision
 
@@ -177,13 +185,14 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
 - **Resolved (placement choice A):** Visuals exists only within the K.O. Tool browser virtual desktop, using its own internal app icon and a viewport-bottom strip. No native wrapper, OS-global overlay/always-on-top, or follow-up standalone desktop phase is approved.
 - **Resolved (strip height choice B):** free manual resizing of the *whole strip's height* by dragging its top edge up/down, remaining docked to the browser bottom. No mandatory Compact/Standard/Expanded height modes.
+- **Resolved (custom layout storage choice A):** named Visuals layout presets persist locally for reopening in the same browser/profile/origin; no file export/import, backend accounts or cloud synchronization.
 - **Still open:** initial and min/max strip heights, whether adjusted height is saved with layouts, exact left-to-right order, numeric module widths/ratios, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate **in-browser** full-screen performance mode.
 - **Resolved (supersedes old themes):** exactly four **Retro/WIN, EP-133, EP-40, Minimal** themes; Visuals starts with the current K.O. Tool Win-like Retro appearance when no supported device has been identified, then selects EP-133/EP-40 styling after validated device recognition. Per-module color customization remains.
 - **Resolved (owner choice B):** Auto Theme enabled by default; any manual theme choice disables auto device switching **for the current Visuals session** until the user explicitly re-enables Auto Theme. Later EP connections/swaps do not override manual selection in that session.
 - **Resolved (owner choice A):** EP-1320 Medieval (`TE032AS005`) maps to existing **Retro/WIN** with Auto Theme ON, while the device identity continues to read EP-1320.
 - **Resolved (owner choice A):** on real EP disconnection **with Auto Theme ON**, immediately switch the visual theme to **Retro/WIN**, invalidate stale device identity, and leave Auto Theme enabled for future reconnects. With Auto Theme OFF, keep the manually selected theme unchanged.
 - **Resolved (owner choice A):** closing and reopening Visuals or reloading K.O. Tool resets **theme mode to Auto Theme ON**, without restoring last session's manual theme; select from the verified device or Retro/WIN baseline.
-- **Still open:** fallback for *unknown/ambiguous* identities, exact EP-133/EP-40/Minimal palette values, persistence of custom colors, overlay controls, layout preset persistence, and performance-friendly interaction details.
+- **Still open:** fallback for *unknown/ambiguous* identities, exact EP-133/EP-40/Minimal palette values, separate persistence of custom colors, browser storage API/schema/failure handling, overlay controls, and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
