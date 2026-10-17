@@ -78,9 +78,17 @@ to this project. **Do not replace the stack or copy the template architecture.**
   when space allows, **not immutable pixel widths or module minimums**.
   Preserve user-adjusted widths and custom saved presets; on narrow
   viewports shrink only to readable module minimums and then scroll
-  horizontally, never hide/reorder automatically. Numerical per-module
-  minimum widths, remaining-space redistribution after manually hiding
-  modules, and other preset contents remain undecided.
+  horizontally, never hide/reorder automatically. **Owner-approved
+  minimum width choice B:** Waveform **200 CSS px**, Spectrum **200 CSS px**,
+  Spectrogram **160 CSS px**, Loudness / Stereo Meter / Output Meters /
+  Oscilloscope **96 CSS px each**. With all seven visible, sum of module
+  minimums = **944 CSS px**, excluding gaps, borders and controls. Treat
+  these as hard readability lower bounds, which override ideal Balanced
+  percentage shares when needed. When the visible minimums plus UI spacing
+  cannot fit the viewport, expose horizontal scrolling; never forcibly
+  shrink below minimum, auto-hide/reorder, or overwrite saved user widths.
+  Remaining-space redistribution after manually hiding modules and other
+  preset contents remain undecided.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
@@ -94,8 +102,9 @@ to this project. **Do not replace the stack or copy the template architecture.**
   responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
-  a side effect of viewport resizing. Exact breakpoints and minimum widths
-  remain design decisions. **Owner-approved strip height choice B:** allow
+  a side effect of viewport resizing. The minimum widths above are approved;
+  exact breakpoints depend on measured module spacing and controls, which
+  remain engineering/design decisions. **Owner-approved strip height choice B:** allow
   free **vertical resizing of the entire strip** by dragging its top edge
   up/down while the lower edge stays docked inside the browser viewport.
   Do not impose Compact/Standard/Expanded height presets. Preserve readable
