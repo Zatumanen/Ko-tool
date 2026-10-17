@@ -249,8 +249,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   selector. Only selecting one module expands the strip; no auto-enable
   of other meters, audio capture, auto-hide or built-in preset. This
   decision fixes the **all-hidden tab/picker anchor**, not exact sizes,
-  colors, focus choreography or the separate populated-strip manual-
-  collapse restore control. **Owner-approved question 54 choice A:** in a
+  colors or focus choreography. **Owner-approved question 55 choice A:**
+  use the **same bottom-center restore tab** for both the all-hidden
+  collapsed dock and the explicitly manually collapsed **populated** dock.
+  With at least one previously visible module, tab activation **directly
+  reopens the exact previous populated strip** (same visible modules,
+  widths/order and settings), WITHOUT opening the seven-module picker.
+  With zero visible modules, the tab instead opens the seven-module
+  selector directly above it and waits for explicit module selection.
+  Activation must work by pointer, touch and keyboard; do not require
+  a second button or re-clicking the Visuals desktop icon. Neither
+  restore action may restart stopped audio capture, restore auto-hide,
+  reset session height or overwrite saved/unsaved layouts. The shared
+  tab is for **complete collapse**, not the separate temporary pointer
+  auto-hide reveal interaction. **Owner-approved question 54 choice A:** in a
   short or narrow K.O. Tool browser viewport, keep the selector as a
   **single vertical list directly above the centered bottom tab**.
   Constrain its height to the available viewport space above that tab
@@ -377,10 +389,11 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Hiding fewer modules, ordinary layout switches and height changes do not
   change the capture state by themselves. Preserve selected input preference,
   layouts and presets; never silently fall back to the microphone. Exact
-  controls/picker styling, pathological-viewport focus/feasibility,
-  separate manual-collapse restore-control placement, background-tab
-  behavior and implementation details remain open. The all-hidden tab
-  position and selector scrolling are settled by questions 53–54. Auto-hide outcomes of explicit manual collapse and
+  controls/picker styling and state-dependent accessible labels,
+  pathological-viewport focus/feasibility, background-tab behavior and
+  implementation details remain open. Shared bottom-center tab
+  placement/state-dependent restore behavior and picker scrolling are
+  settled by questions 53–55. Auto-hide outcomes of explicit manual collapse and
   all-hidden automatic collapse are settled by questions 51 and 52. Full-screen alternatives are not approved.
   **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
   exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
