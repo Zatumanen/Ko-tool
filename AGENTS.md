@@ -65,7 +65,12 @@ to this project. **Do not replace the stack or copy the template architecture.**
   built-in beatmaking/mixing/live-video layout presets, and save/reload
   custom arrangements. All seven modules stay available even when hidden;
   do not promise all are simultaneously visible. Exact starting order,
-  preset contents, responsive overflow and persistence mechanism remain open.
+  preset contents and persistence mechanism remain open. **Owner-approved
+  responsive choice C:** shrink visible modules proportionally only to a
+  comfortable minimum; then use horizontal strip scrolling when they cannot
+  fit. Never auto-hide/reorder modules or overwrite saved preset widths as
+  a side effect of viewport resizing. Exact breakpoints and minimum widths
+  remain design decisions.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
