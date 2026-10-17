@@ -49,14 +49,37 @@ The bottom meter strip is a **customizable modular workspace**:
 
 The **product contract includes saving and loading layouts**, but persistence implementation and scope (browser-local storage, account sync, import/export, cross-device use) remain undecided. Do not promise cloud synchronization or any particular storage service.
 
-## Switchable themes and module colors — owner choice C (approved)
+## Device-aware themes and module colors — owner-approved revision
 
-- **Four selectable built-in themes:** **Studio**, **Retro**, **Neon**, and **Minimal**. The user can switch between them without changing the selected audio input or the chosen set/order/sizes of the seven meter modules.
-- **Individual module color controls:** users may choose colors for separate modules, rather than being restricted to one global accent. A theme provides a starting visual appearance, and user-selected module colors are optional overrides.
-- **Keep the meters useful:** theme and per-module color settings must not suppress input-state indicators, meter labels/scale readability, selected controls, or meaningful warning/peak indications. Test contrast in real-time and against both light/dark-like theme palettes where applicable.
-- **Separation of concerns:** **visual themes** are not the same as **layout presets** (Balanced, beatmaking, mixing, live filming). Users should be able to change a theme without silently losing their layout; user color overrides should not accidentally alter unrelated module colors.
-- **Not yet decided:** which of the four themes is the first-launch default; exact colors, backgrounds, fonts, gradients, animation styles or theme-specific details; whether custom colors/themes are persisted separately, per layout preset, or exported/shared. Do not invent a palette or promise cloud sync.
-- The owner approved theme choices and per-module customization as **future behavior only**. No implementation or release is authorized here.
+The owner **replaced** the earlier Studio/Retro/Neon/Minimal proposal. The **exactly four** built-in theme names are now:
+
+| Theme | Source of visual identity | Selection |
+| --- | --- | --- |
+| **Retro / WIN** | **K.O. Tool's actual Windows 95-inspired interface**; reuse its palette and classic beveled UI styling | Initial/no-device baseline; also manually selectable |
+| **EP-133** | Design/color language of the physical **EP-133 K.O. II** | Automatically select after verified EP-133 identification |
+| **EP-40** | Design/color language of the physical **EP-40 Riddim** | Automatically select after verified EP-40 identification |
+| **Minimal** | Restrained uncluttered appearance, not specific to an EP model | Manually selectable |
+
+**Source-backed Retro/WIN palette:** current `css/base.css` on `main` defines a teal desktop `#008080`, classic window gray `#c0c0c0`, navy title bars `#000080`, plus white `#fff` and gray `#808080` highlights/borders. These are **existing UI values**, not newly invented colors. The exact meter accent colors, and precise EP-133 / EP-40 / Minimal color tokens, still require dedicated visual study/design. For EP-device inspiration refer to official [EP-133](https://teenage.engineering/products/ep-133) and [EP-40](https://teenage.engineering/products/ep-40) product references, without copying trademarks/artwork/code.
+
+### Automatic mapping after reading the connected device
+
+Use the **validated device identity from My EP's existing connection/session**, not a guessed device name, audio-input label, or MIDI event alone. In `main`, `js/ep133/device.js` performs identity discovery and GREET/metadata validation, and `js/ep133/deviceCompatibilityMatrix.js` defines the supported SKUs:
+
+| Confirmed identity/profile | Theme to open |
+| --- | --- |
+| `TE032AS001` — **EP-133 K.O. II** | **EP-133** |
+| `TE032AS006` — **EP-40 Riddim** | **EP-40** |
+| No verified device identity | **Retro / WIN** baseline; Visuals can still use any separately chosen audio input |
+
+- Trigger device-specific styling **after successful device recognition/read** via My EP. Theme mapping is **visual only**: it does not enable device writes, assert project support, select an audio capture input, or bind Visuals to the EP.
+- An observed `TE032AS002` identity may only be treated as the EP-133 profile when the existing GREET `base_sku=TE032AS001` rule has actually resolved it to that identity; an unverified alias must not be upgraded by Visuals.
+- The existing matrix also recognizes **EP-1320 Medieval (`TE032AS005`)**. **No EP-1320-specific theme was requested**; never incorrectly label it EP-133 or EP-40. A final fallback/handling decision is still needed and must not silently add a fifth built-in theme.
+- Keep all four themes **manually available** and retain **independent per-module color controls** from the previously approved customizable-themes direction. Changing the theme must not reset selected audio source, module visibility, layout/order/sizes or saved presets.
+- **To decide:** how automatic device-based selection interacts with a *manually chosen* theme, how an unmatched/EP-1320 device or disconnection affects an active theme, and persistence of custom module colors. Do not invent precedence or background device polling until separately approved.
+- Maintain readable scale/labels/status/warnings and visible permission/device provenance for every palette. Neither a model-themed UI nor an attached EP proves that USB Audio capture is available.
+
+**Status:** owner-approved future product behavior, **not implemented** and not permission to change code or deploy.
 
 ## Strip visibility — owner choice C (approved)
 
@@ -126,8 +149,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved:** responsive choice C — shrink visible modules only to a comfortable minimum, then allow horizontal scrolling; no automatic hiding or reordering, and do not overwrite preset widths on viewport resize.
 - **Resolved:** default **Balanced** starting layout: large Waveform/Spectrum, medium Spectrogram, compact Loudness/Stereo Meter/Output Meters/Oscilloscope (owner choice C).
 - **Still open:** exact left-to-right order, numeric widths/ratios and minimum sizes, contents of three workflow presets, breakpoint thresholds, scrolling affordances, reveal/collapse details, hidden-state audio capture policy, and any alternate full-screen performance mode.
-- **Resolved:** switchable **Studio / Retro / Neon / Minimal** themes and independent color customization for each module (owner choice C).
-- Still to define: first-launch theme, exact palettes and styling, whether custom colors follow themes/layout presets, overlay controls, preset persistence mechanism (local/cloud/import-export), and performance-friendly interaction details.
+- **Resolved (supersedes old themes):** exactly four **Retro/WIN, EP-133, EP-40, Minimal** themes; Visuals starts with the current K.O. Tool Win-like Retro appearance when no supported device has been identified, then selects EP-133/EP-40 styling after validated device recognition. Per-module color customization remains.
+- **Still open:** precedence of automatic themes vs manual choice, behavior for EP-1320/unknown device and disconnection, exact EP-133/EP-40/Minimal palette values, persistence of custom colors, overlay controls, layout preset persistence, and performance-friendly interaction details.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
