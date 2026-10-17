@@ -87,8 +87,18 @@ to this project. **Do not replace the stack or copy the template architecture.**
   percentage shares when needed. When the visible minimums plus UI spacing
   cannot fit the viewport, expose horizontal scrolling; never forcibly
   shrink below minimum, auto-hide/reorder, or overwrite saved user widths.
-  Remaining-space redistribution after manually hiding modules and other
-  preset contents remain undecided.
+  **Owner-approved manual-hide redistribution choice A:** when a user hides
+  one or more modules, let the remaining visible modules expand to use
+  freed horizontal room **proportionally to their existing intended width
+  ratios**, preserving visible order, without auto-hiding additional modules.
+  Keep hidden modules' intended widths/settings for restoration; re-showing
+  a module recomputes from the underlying intended widths, NOT rounded,
+  temporarily expanded displayed widths. Never overwrite browser-saved
+  layout presets because of proportional redistribution. Enforce approved
+  per-module minimum widths and horizontal overflow scrolling if necessary;
+  don't force a fit to the viewport. Detailed allocation while modules
+  hit their minima, manual width adjustments with hidden modules and other
+  workflow preset contents remain undecided.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
