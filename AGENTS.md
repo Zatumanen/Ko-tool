@@ -93,9 +93,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   session-only; on closing/reopening Visuals or reloading K.O. Tool, use a
   **standard launch height of 150 CSS px (owner choice B)**, **not the
   user's last adjusted height**. Never persist strip height globally or
-  within a locally saved layout preset. Safe min/max heights, handling of
-  unusually short browser viewports, and the effect of switching layout
-  presets on unsaved session height remain undecided.
+  within a locally saved layout preset. **Owner-approved height bounds
+  choice A:** minimum **90 CSS px**, maximum **40% of the K.O. Tool browser
+  viewport's CSS height**. Launch at 150 CSS px whenever these bounds
+  allow; otherwise respect the 40% cap on shorter but viable viewports.
+  At viewport heights **below 225 CSS px**, the 40% cap falls below 90 px;
+  a safe exception is NOT yet approved, so do not invent a contradictory
+  implementation. This edge case and same-session preset-switch behavior
+  remain open.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
