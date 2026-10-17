@@ -102,8 +102,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   existing validated identity; for verified EP-1320 use Retro/WIN. Without
   verified identity the baseline is Retro/WIN. Do not let device events override manual selection, conflate
   theme detection with capture audio input, or start background polling.
-  Auto-mode behavior on disconnect, fallback for unknown/ambiguous identities,
-  and preference persistence across page reloads remain undecided. Changing themes must
+  **Owner-approved disconnect choice A:** upon real EP disconnection while
+  Auto Theme is ON, switch promptly to Retro/WIN, invalidate stale EP
+  identity, and keep Auto Theme enabled for subsequent reconnection. With
+  Auto Theme OFF keep the manual theme unchanged. React to existing
+  `DEVICE_DISCONNECTED`/connection state, not invented FILE polling;
+  theme changes alone do not stop/switch a separately chosen audio capture
+  input or authorize hardware operations. Fallback for unknown/ambiguous
+  identities and preference persistence across page reloads remain undecided. Changing themes must
   not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
