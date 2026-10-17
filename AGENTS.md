@@ -97,7 +97,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   theme precedence (choice B):** Auto Theme is
   ON by default. Manually selecting any theme turns Auto Theme OFF; retain
   the user's selected theme across device connects, disconnects and model
-  swaps until they explicitly turn Auto Theme back ON. If Auto Theme is
+  swaps until they explicitly turn Auto Theme back ON **within the current
+  Visuals session**. If Auto Theme is
   re-enabled with verified EP-133/EP-40 attached, resolve its theme via the
   existing validated identity; for verified EP-1320 use Retro/WIN. Without
   verified identity the baseline is Retro/WIN. Do not let device events override manual selection, conflate
@@ -109,8 +110,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   `DEVICE_DISCONNECTED`/connection state, not invented FILE polling;
   theme changes alone do not stop/switch a separately chosen audio capture
   input or authorize hardware operations. Fallback for unknown/ambiguous
-  identities and preference persistence across page reloads remain undecided. Changing themes must
-  not reset layout, audio source or modules.
+  identities remain undecided. **Owner-approved theme restart choice A:**
+  every newly opened Visuals session, including close/reopen or K.O. Tool
+  reload, starts with **Auto Theme ON**, not the prior session's manual theme.
+  Resolve the currently verified EP-133/EP-40 model, or Retro/WIN for EP-1320
+  or no verified device; never trust stale cached identity. This theme-mode
+  reset does **not** erase saved layout presets, individual color overrides,
+  or unrelated settings; do not imply cloud/browser persistence for them.
+  Changing themes must not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
   A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
