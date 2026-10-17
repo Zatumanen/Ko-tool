@@ -56,7 +56,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   require an EP connection** for Visuals when another input is chosen. Explicit
   browser permission, visible selected-source state and honest disconnection
   behavior are required; never silently fall back to the microphone.
-  USB MIDI/SysEx is not audio. See docs/VISUALS.md.
+  USB MIDI/SysEx is not audio. **Owner-approved Visuals layout:** primary
+  presentation is a long meter strip docked along the **bottom edge of the
+  K.O. Tool browser viewport** (choice B). **V1 includes all seven modules**
+  (choice C): Waveform, Spectrum, Loudness, Stereo Meter, Output Meters,
+  Oscilloscope and Spectrogram. Exact module order, visibility on narrow
+  screens, full-screen alternatives and auto-hide are not decided. A web
+  viewport panel is not an OS-global always-on-top overlay. Visuals remains
+  planned, not implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
   sample/project library; neither is implemented nor a code-change mandate.
 - **Approved future product contract (not yet implemented):** My EP gets a
