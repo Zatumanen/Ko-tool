@@ -24,6 +24,57 @@ const wav16=()=>{
  return [...bytes];
 };
 
+test('right-click properties menu is anchored to pointer even inside the transformed My EP window',async({page})=>{
+ await open(page);
+ const row=page.locator('[data-slot="7"]');
+ const slotRect=await row.boundingBox();
+ const click={x:slotRect.x+18,y:slotRect.y+9};
+ await row.click({button:'right',position:{x:18,y:9}});
+ const menu=page.locator('#ep133-properties');
+ await expect(menu).toBeVisible();
+ const metrics=await menu.evaluate(node=>{
+   const rect=node.getBoundingClientRect();
+   return{x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,
+     viewportWidth:innerWidth,viewportHeight:innerHeight,
+     parentIsBody:node.parentElement===document.body};
+ });
+ expect(metrics.parentIsBody).toBe(true);
+ expect(Math.abs(metrics.x-(click.x+8))).toBeLessThanOrEqual(2);
+ expect(Math.abs(metrics.y-(click.y+8))).toBeLessThanOrEqual(2);
+ expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth-7);
+ expect(metrics.bottom).toBeLessThanOrEqual(metrics.viewportHeight-7);
+ await page.mouse.click(10,10);
+ await expect(menu).toBeHidden();
+});
+
+test('properties menu flips around the pointer near viewport edges without clipping',async({page})=>{
+ await open(page);
+ // Open at the default desktop size: at 850px the main converter overlaps
+ // the My EP desktop icon and intercepts the initial click.
+ await page.setViewportSize({width:850,height:600});
+ await page.locator('[data-slot="7"]').evaluate(row=>{
+   row.dispatchEvent(new MouseEvent('contextmenu',{
+     bubbles:true,cancelable:true,button:2,
+     clientX:innerWidth-3,clientY:innerHeight-3
+   }));
+ });
+ const menu=page.locator('#ep133-properties');
+ await expect(menu).toBeVisible();
+ const bounds=await menu.evaluate(node=>{
+   const rect=node.getBoundingClientRect();
+   return{x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,
+     viewportWidth:innerWidth,viewportHeight:innerHeight};
+ });
+ expect(bounds.x).toBeGreaterThanOrEqual(7);
+ expect(bounds.y).toBeGreaterThanOrEqual(7);
+ expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth-7);
+ expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight-7);
+ expect(bounds.right).toBeLessThan(bounds.viewportWidth-3);
+ expect(bounds.bottom).toBeLessThan(bounds.viewportHeight-3);
+ await page.keyboard.press('Escape');
+ await expect(menu).toBeHidden();
+});
+
 test('mouse selects rows through readonly names, and guarded deletion still works with device permission',async({page})=>{
  await open(page);
  await page.locator('[data-slot="8"] [data-name-input]').click();

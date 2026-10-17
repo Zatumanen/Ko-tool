@@ -52,15 +52,22 @@ export function createSamplePropertiesController({
 
   const position=event=>{
     if(!properties||!event)return;
+    // The translated My EP window creates a containing block for fixed
+    // children. Mount the menu at document level so the click's clientX/Y
+    // stay in the same (viewport) coordinate space as its CSS position.
+    if(documentRef?.body&&properties.parentElement!==documentRef.body)
+      documentRef.body.appendChild(properties);
     properties.hidden=false;
     const gap=8;
     const rect=properties.getBoundingClientRect();
+    const viewportWidth=windowRef.innerWidth;
+    const viewportHeight=windowRef.innerHeight;
     let left=event.clientX+gap;
     let top=event.clientY+gap;
-    if(left+rect.width>windowRef.innerWidth-gap)left=event.clientX-rect.width-gap;
-    if(top+rect.height>windowRef.innerHeight-gap)top=windowRef.innerHeight-rect.height-gap;
-    properties.style.left=Math.max(gap,left)+'px';
-    properties.style.top=Math.max(gap,top)+'px';
+    if(left+rect.width>viewportWidth-gap)left=event.clientX-rect.width-gap;
+    if(top+rect.height>viewportHeight-gap)top=event.clientY-rect.height-gap;
+    properties.style.left=Math.min(Math.max(gap,viewportWidth-rect.width-gap),Math.max(gap,left))+'px';
+    properties.style.top=Math.min(Math.max(gap,viewportHeight-rect.height-gap),Math.max(gap,top))+'px';
   };
 
   const open=(slot,event)=>{
