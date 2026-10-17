@@ -101,7 +101,9 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 
 ### Saved sequencer — both views
 
-- On saved read-only archives, **Step Sequencer and Piano Roll render the same events**. Switching modes never mutates the archive or device.
+- **Owner-approved access rule:** real My EP Projects and Sequencer views require a physically connected, recognized EP with an authorized session. With no EP attached, local project archives must not enable an offline project viewer/editor; show a clear disconnected state. On disconnect while viewing, disable interactions and do not present stale data as live.
+- **Scope:** test fixtures and offline parser unit tests remain valid developer tooling; **SpeedUpperCut audio conversion** must continue to work without an EP.
+- On saved read-only archives obtained through the connected device, **Step Sequencer and Piano Roll render the same events**. Switching modes never mutates the archive or device.
 - Check groups A–D, multiple 16-step pages, variable note lengths, off-grid ticks, melody pitch, velocity, unknown events, missing scene refs, unsupported firmware and 27-byte pad records.
 - Viewing must work safely even when project authoring is forbidden; simulated FILE logs must show no PUT/MOVE/DELETE/METADATA SET.
 
