@@ -219,7 +219,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
   a side effect of viewport resizing. The minimum widths above are approved;
   exact breakpoints depend on measured module spacing and controls, which
-  remain engineering/design decisions. **Owner-approved strip height choice B:** allow
+  remain engineering/design decisions. **Owner-approved horizontal
+  navigation choice B:** rely on **native browser horizontal overflow
+  scrolling and the native scrollbar**, with trackpad horizontal movement,
+  touch swipe and keyboard-operable scrolling via a focusable/accessibly
+  named scroll region or equivalent native mechanism. Do NOT add custom
+  left/right scroll arrow buttons, a minimap/overview rail or replacement
+  custom scrollbar. Platform/OS overlay or automatically hidden native
+  scrollbar rendering is acceptable; all visible modules and controls
+  must remain reachable. Do not intercept normal vertical page scroll
+  merely to force horizontal movement. Preserve drag/reorder/resize
+  operation, module minima, layout order, browser-saved widths, audio
+  source and permissions. Exact focus treatment, compatibility and
+  pixel breakpoints still need technical review.
+  **Owner-approved strip height choice B:** allow
   free **vertical resizing of the entire strip** by dragging its top edge
   up/down while the lower edge stays docked inside the browser viewport.
   Do not impose Compact/Standard/Expanded height presets. Preserve readable
