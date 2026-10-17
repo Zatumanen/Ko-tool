@@ -91,10 +91,11 @@ to this project. **Do not replace the stack or copy the template architecture.**
   meters, selected modules, usable desktop controls and source/session state.
   **Owner-approved height memory choice A:** manual height adjustment is
   session-only; on closing/reopening Visuals or reloading K.O. Tool, use a
-  standard launch height, **not the user's last adjusted height**. Never
-  persist strip height globally or within a locally saved layout preset.
-  Numeric default/min/max heights and the effect of switching layout presets
-  on the unsaved height within the same session remain undecided.
+  **standard launch height of 150 CSS px (owner choice B)**, **not the
+  user's last adjusted height**. Never persist strip height globally or
+  within a locally saved layout preset. Safe min/max heights, handling of
+  unusually short browser viewports, and the effect of switching layout
+  presets on unsaved session height remain undecided.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
