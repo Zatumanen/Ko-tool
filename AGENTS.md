@@ -104,8 +104,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   do not shrink below module minima or bypass horizontal scrolling.
   Restoring Live must not overwrite Balanced/Beatmaking/Mixing/custom
   presets, change audio-input permissions/capture or reset session strip
-  height/Auto Theme. **Live module width percentages are not yet
-  approved**; do not copy another built-in layout's proportions.
+  height/Auto Theme. **Owner-approved Live width proportions choice A:**
+  Waveform 30%; Spectrum 25%; Spectrogram 20%; Oscilloscope 15%; Output Meters 10% (total 100%) in the approved five-module Live order, provided
+  enough usable horizontal space and no manual override. These are
+  Live-specific *initial target proportions*, never substitutes for the
+  already approved Waveform/Spectrum 200, Spectrogram 160, and
+  Oscilloscope/Output Meters 96 CSS px minima. Honor minima even when
+  proportional shares become too small; then scroll horizontally if
+  necessary. Do not silently overwrite saved custom layouts or modify
+  the separately approved Balanced, Beatmaking, or Mixing defaults.
   **Owner-approved default Balanced layout (choice C):**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
