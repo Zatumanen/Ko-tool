@@ -99,8 +99,13 @@ to this project. **Do not replace the stack or copy the template architecture.**
   allow; otherwise respect the 40% cap on shorter but viable viewports.
   At viewport heights **below 225 CSS px**, the 40% cap falls below 90 px;
   a safe exception is NOT yet approved, so do not invent a contradictory
-  implementation. This edge case and same-session preset-switch behavior
-  remain open.
+  implementation. **Owner-approved same-session preset-switch choice A:**
+  preserve the currently adjusted Visuals strip height when switching
+  Balanced, Beatmaking, Mixing, Live, or custom presets. Preset switching
+  must not reset to 150 CSS px, nor persist/load any preset-specific height;
+  keep within the approved viewport bounds where satisfiable. Only a new
+  Visuals launch resets to the 150 CSS px standard. Extremely short-window
+  behavior and viewport height restoration remain undecided.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
