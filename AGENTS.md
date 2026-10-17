@@ -167,8 +167,20 @@ to this project. **Do not replace the stack or copy the template architecture.**
   widths by equal/opposite amounts, observing both minimums and stopping
   at either minimum. No independent right outer-edge drag, cascading
   changes, scroll expansion, or implicit saved-preset overwrite is implied.
-  If there is only a single visible module, its resize control is still
-  undecided; do not invent a neighbor or an unapproved mechanism.
+  **Owner-approved sole-visible-module choice A:** if the user has
+  deliberately hidden every module except one, that **sole visible
+  module automatically fills the usable horizontal module area**;
+  do not offer an independent outer-edge resize drag, standalone width
+  slider or numeric control for that special case. This is *temporary
+  displayed expansion* under the already-approved proportional hide
+  redistribution rule. The module's approved CSS-px minimum still
+  applies; if available width is smaller, scroll horizontally rather
+  than violate its minimum. Keep hidden modules' intended widths/settings
+  and browser-saved custom layouts intact; showing another module
+  recalculates from intended widths, not from the temporary full-width
+  size. Do not reset strip height, change audio capture or otherwise
+  mutate preset data. What happens with **zero visible modules**
+  remains undecided.
   **Owner-approved preset storage choice A:**
   store saved custom module layouts **only in browser-local site storage**,
   available on future Visuals openings in the same profile/origin. Store at
