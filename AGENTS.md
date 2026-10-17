@@ -86,8 +86,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   for manual reveal; do not remove or hide any of the other six modules.
   Their minimum CSS-px widths total **848** (96+96+200+96+160+200) before
   gaps/controls; apply per-module minimums and horizontal scroll if needed.
-  Mixing's specific percentage widths and Live's module composition/width
-  proportions are **not yet approved**. Preset switching keeps the chosen
+  **Owner-approved Mixing width proportions choice B:** Output Meters 20%; Loudness 20%; Spectrum 20%; Stereo Meter 20%; Spectrogram 10%; Waveform 10%
+  (100% total), in the approved six-module Mixing order when space allows.
+  These ratios belong to Mixing only; preserve independent Balanced and
+  Beatmaking targets. 10% for Spectrogram must never push it below
+  **160 CSS px**, and 10% for Waveform must never push it below
+  **200 CSS px**. The other approved module minimums and horizontal
+  scrolling take precedence over rigid percentages. Mixing's module
+  content/ratio targets are now settled; **Live's composition and
+  width proportions are still undecided**. Preset switching keeps the chosen
   strip height, audio input/capture and separate Auto Theme state; it does
   not overwrite Balanced, Beatmaking or saved custom layouts.
   **Owner-approved default Balanced layout (choice C):**
