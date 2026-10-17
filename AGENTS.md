@@ -64,7 +64,18 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Oscilloscope and Spectrogram. **Owner-approved configuration choice C:**
   drag to reorder, resize module widths, hide and restore any module,
   built-in beatmaking/mixing/live-video layout presets, and save/reload
-  custom arrangements. **Owner-approved default Balanced layout (choice C):**
+  custom arrangements. **Owner-approved Beatmaking membership/order
+  choice B:** on selecting the built-in Beatmaking preset show precisely
+  **Waveform → Spectrum → Spectrogram → Output Meters → Loudness**,
+  left-to-right; **Stereo Meter and Oscilloscope start hidden in this
+  preset only** but remain available for explicit reveal/reordering.
+  Restoring Beatmaking must not modify built-in Balanced, user-saved
+  layouts, the current session's strip height or selected audio input.
+  Existing module minimums still apply (five-module sum **752 CSS px**
+  before spacing/controls); if space is insufficient, use horizontal
+  scrolling. Do NOT invent Beatmaking module width percentages yet;
+  Mixing/Live preset compositions remain undecided.
+  **Owner-approved default Balanced layout (choice C):**
   show all seven modules initially; Waveform and Spectrum are large, Spectrogram
   medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
   All seven remain available even when users hide some. This is relative
