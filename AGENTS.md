@@ -45,9 +45,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   project context, existing read-only and firmware evidence gates.
   Existing read-only project inspector and gated 16-step authoring UI are not
   proof of a full piano roll or live playhead sync. Consult docs/SEQUENCER.md.
-- Future possibilities include separate desktop apps for audio visualizers,
-  context-aware onboarding and a community sample/project library. These are
-  **plans**, not implemented features or authority to change code.
+- **Owner-approved placement for future Visuals (2026-10-17):** a **separate
+  desktop app with its own K.O. Tool icon**, not a tab or panel inside My EP.
+  Target use is optional audio-reactive visualization for live performances
+  and on-camera sessions. This is **planned only**: do not claim an existing
+  Visuals app, working capture, or permission to add code. The audio input
+  selection and device-connection requirement remain undecided.
+- Future possibilities also include context-aware onboarding and a community
+  sample/project library; neither is implemented nor a code-change mandate.
 - **Approved future product contract (not yet implemented):** My EP gets a
   `REPITCH` toggle **ON by default**, manually switchable OFF. With ON, parse
   incoming WAV Teenage Engineering `LIST/INFO/TNGE` metadata. An exact
