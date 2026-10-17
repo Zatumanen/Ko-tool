@@ -6,8 +6,26 @@
 
 - **K.O. Tool** is the virtual desktop and product; **Visuals** will be a **separate application with its own desktop icon** (owner choice A).
 - Visuals is **not** a tab or panel inside My EP. The sequencer stays at `My EP → Projects → Sequencer` and requires a connected EP for project access.
-- Goal: make live performances and on-camera sessions visually engaging with audio-reactive graphics (potential spectrum, waveform, oscilloscope, meter, spectrogram). Exact launch views, visual style, controls and exports remain open decisions.
+- Goal: make live performances and on-camera sessions visually engaging with audio-reactive graphics. **Owner-approved default presentation:** a long, low-profile **meter dock strip along the bottom edge** of the K.O. Tool screen/browser viewport (owner choice B); not a large conventional app window. This resembles the overall arrangement in the owner's supplied concept image, but is not a mandate to copy any existing product. Exact sizing, full-screen alternatives and OS-level windowing are not yet approved.
 - Reference for independent design research: [MiniMeters](https://minimeters.app/). Do not copy proprietary branding, code or graphic assets.
+
+## Bottom meter strip — owner-approved layout and v1 modules
+
+**Default layout (owner choice B):** a continuous horizontal **Visuals meter strip across the bottom** of the available K.O. Tool viewport, intended to stay visible while using My EP and for filming hardware performances. The width should follow the available screen/viewport; ensure readability at realistic desktop widths.
+
+**First-version module scope (owner choice C, seven distinct modules):**
+
+1. **Waveform** — incoming time-domain audio shape.
+2. **Spectrum** — frequency-domain energy distribution.
+3. **Loudness** — visible loudness level readout/meter; exact algorithm (e.g. LUFS) requires separate technical specification and verification.
+4. **Stereo Meter** — stereo imaging/correlation visualization, only when input channels provide meaningful stereo data.
+5. **Output Meters** — channel level/peak display for the audio being analyzed; **this does not imply browser capture of the system's output**.
+6. **Oscilloscope** — detailed time-domain trace; distinct display mode from overview waveform.
+7. **Spectrogram** — frequency energy over time.
+
+All seven are **approved as the v1 feature set**, but their exact order, default widths, simultaneous visibility at small viewport sizes, collapse/overflow behavior, presets and drag/reorder controls are still to be decided. Do not silently drop one from the intended module scope. Input-channel limitations should be explained honestly (e.g. mono input does not provide stereo spread).
+
+**Browser boundary:** a web page can dock the strip at the **bottom of its own window/viewport**, not automatically create an OS-wide always-on-top strip over arbitrary desktop applications. Any true system-overlay behavior, native app wrapper, or beyond-browser windowing would require separate research and owner approval. Neither a fullscreen performance mode nor auto-hide has been approved.
 
 ## Audio source policy — owner choice C (approved)
 
@@ -58,8 +76,8 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 
 ## To be decided in future interviews
 
-- Preferred launch layout: windowed meter workspace, full-screen performance stage, or both?
-- Priority visualization types and whether they can be stacked/arranged as panels.
+- **Resolved:** default is a bottom docked meter strip; v1 includes all seven named modules (Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope, Spectrogram).
+- **Still open:** exact left-to-right arrangement, module resizing/reordering, responsive overflow, always-visible vs auto-hide; any alternate full-screen performance mode.
 - Theme/palette/presets, overlays and performance-friendly controls.
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
