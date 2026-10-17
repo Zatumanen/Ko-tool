@@ -76,8 +76,9 @@ to this project. **Do not replace the stack or copy the template architecture.**
   least module visibility, ordering and intended widths. Do NOT add preset
   export/import files, accounts, cloud storage, or cross-device sync. Browser
   site-data clearing/private mode can lose presets; report failed writes.
-  Exact storage API/schema and whether strip height belongs in each preset
-  remain undecided. This does not change the Auto Theme per-launch reset or
+  Exact storage API/schema remain undecided. **Strip height is excluded
+  from local presets (height memory choice A).** This does not change the
+  Auto Theme per-launch reset or
   decide persistence of per-module color overrides. **Owner-approved
   responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
@@ -88,8 +89,12 @@ to this project. **Do not replace the stack or copy the template architecture.**
   up/down while the lower edge stays docked inside the browser viewport.
   Do not impose Compact/Standard/Expanded height presets. Preserve readable
   meters, selected modules, usable desktop controls and source/session state.
-  Numeric initial/min/max heights and whether to persist chosen height with
-  layouts are not decided; do not invent these settings.
+  **Owner-approved height memory choice A:** manual height adjustment is
+  session-only; on closing/reopening Visuals or reloading K.O. Tool, use a
+  standard launch height, **not the user's last adjusted height**. Never
+  persist strip height globally or within a locally saved layout preset.
+  Numeric default/min/max heights and the effect of switching layout presets
+  on the unsaved height within the same session remain undecided.
   **Owner-approved strip visibility choice C:** the entire bottom dock is
   **visible by default**; optional auto-hide reveals it by pointing at the
   lower viewport edge, while manual collapse has an explicit restore control.
