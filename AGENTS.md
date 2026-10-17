@@ -65,9 +65,14 @@ to this project. **Do not replace the stack or copy the template architecture.**
   built-in beatmaking/mixing/live-video layout presets, and save/reload
   custom arrangements. All seven modules stay available even when hidden;
   do not promise all are simultaneously visible. Exact starting order,
-  preset contents, responsive overflow, persistence mechanism, full-screen
-  alternatives and auto-hide are not decided. A web
-  viewport panel is not an OS-global always-on-top overlay. Visuals remains
+  preset contents, responsive overflow and persistence mechanism remain open.
+  **Owner-approved strip visibility choice C:** the entire bottom dock is
+  **visible by default**; optional auto-hide reveals it by pointing at the
+  lower viewport edge, while manual collapse has an explicit restore control.
+  Keep keyboard-accessible restoration and preserve module layout/presets.
+  Hidden-state audio capture and transition details are undecided; do not
+  invent capture/pause semantics. Full-screen alternatives are not approved.
+  A web viewport panel is not an OS-global always-on-top overlay. Visuals remains
   planned, not implemented. See docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
   sample/project library; neither is implemented nor a code-change mandate.
