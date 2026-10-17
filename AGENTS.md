@@ -70,7 +70,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   All seven remain available even when users hide some. This is relative
   emphasis, **not a chosen left-to-right order or exact pixel widths**.
   Restoring defaults must not overwrite saved custom presets. Starting order,
-  other preset contents and persistence mechanism remain open. **Owner-approved
+  other preset contents remain open. **Owner-approved preset storage choice A:**
+  store saved custom module layouts **only in browser-local site storage**,
+  available on future Visuals openings in the same profile/origin. Store at
+  least module visibility, ordering and intended widths. Do NOT add preset
+  export/import files, accounts, cloud storage, or cross-device sync. Browser
+  site-data clearing/private mode can lose presets; report failed writes.
+  Exact storage API/schema and whether strip height belongs in each preset
+  remain undecided. This does not change the Auto Theme per-launch reset or
+  decide persistence of per-module color overrides. **Owner-approved
   responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
@@ -122,8 +130,9 @@ to this project. **Do not replace the stack or copy the template architecture.**
   reload, starts with **Auto Theme ON**, not the prior session's manual theme.
   Resolve the currently verified EP-133/EP-40 model, or Retro/WIN for EP-1320
   or no verified device; never trust stale cached identity. This theme-mode
-  reset does **not** erase saved layout presets, individual color overrides,
-  or unrelated settings; do not imply cloud/browser persistence for them.
+  reset does **not** erase locally saved layout presets, individual color
+  overrides, or unrelated settings. Local-browser persistence is approved
+  **for layouts only**; do not imply color override or cloud persistence.
   Changing themes must not reset layout, audio source or modules.
   Color override persistence and precise EP colors still require design.
   Preserve readable scales, status and warning indications.
