@@ -542,8 +542,16 @@ to this project. **Do not replace the stack or copy the template architecture.**
   palette. Keep the owner's previously approved EP-1320 Medieval
   `TE032AS005` fallback: use **App colors**, still label the device
   EP-1320. For no verified model, use safe **App colors** rather than
-  inventing device-specific colors. Unknown/ambiguous device messaging
-  requires additional source/UI validation; never misidentify hardware.
+  inventing device-specific colors. **Owner final question 65 choice A:**
+  if device identity is unknown, unrecognized, or ambiguous, render
+  **App colors / Под приложение**, not stale EP-133/EP-40 palette,
+  invented device colors, or forced monochrome. Do not falsely identify
+  an unsupported device as a known EP. USB MIDI identity and browser
+  USB Audio availability are separate: a real chosen browser audio
+  input remains usable with proper user/browser permission even if the
+  MIDI device cannot be identified. Never automatically switch to a
+  microphone. Exact unknown-identity status wording/placement still
+  requires accessible UI validation, **not another owner theme choice**.
   **Existing Auto Theme priority is retained:** every new Visuals
   session initializes Auto Theme ON and selects verified device colors
   for EP-133/EP-40, otherwise App colors. A manual selection of one of
@@ -557,9 +565,15 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Do not determine MIDI identity from USB Audio device names, poll FILE,
   change capture/source, initiate SysEx writes or silently start audio.
   Theme changes must not change selected modules, order/widths, named
-  presets, height or audio state. Exact EP and monochrome palettes
-  and keyboard/contrast UI need validation. No application code edits
-  are authorized by this design correction.
+  presets, height or audio state. Exact EP and monochrome palettes,
+  accessible identity status, and contrast UI need validation.
+  **The owner interview ends with question 65; do not keep extending
+  A/B/C questionnaires.** The owner has since suggested auto-capture
+  upon available EP USB Audio connection with browser permission, but
+  the prior documented explicit-start policy and privacy constraints
+  still exist; verify genuine USB Audio exposure, user permissions and
+  implementation behavior before proposing that code change. **No
+  application code edits are authorized by these design decisions.**
   **Owner-approved placement scope (choice A):** Visuals' dock is only within
   the K.O. Tool browser virtual desktop/viewport. Do not introduce a native
   macOS/Windows wrapper or standalone desktop companion, host-OS always-on-top
