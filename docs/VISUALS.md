@@ -102,7 +102,7 @@ The bottom meter strip is a **customizable modular workspace**:
 - **No additional browser unload/navigation warning for failed working-snapshot writes — owner question 61 choice B (approved):** when Visuals has **unsaved in-memory changes and the Q59 “Изменения не сохранены” warning is active**, **do not intercept or block** browser **tab/window close**, **page reload**, or **navigation to another website** on account of those Visuals edits; **do not register/activate a Visuals-specific `beforeunload` dialog or extra custom confirmation**, nor attempt a special last-chance close/reload save or retry as a substitute for Q58–59's completed-edit trigger. Leave the normal, nonmodal Q59 warning visible **while Visuals remains open**; it is the only additional notice about **Visuals working-layout** persistence loss. On leaving the page, latest changes that failed storage may be lost; on return use the **last confirmed persisted valid working snapshot**, or approved Balanced fallback. This does **not** suppress browser-native warnings/errors or confirmations independently required by **other K.O. Tool functions, browser settings or unrelated user work**; Visuals must neither invent nor override those policies. This rule is consistent with Q60's immediate in-app Close and does not override proper audio-track cleanup/privacy or explicit permission rules. The decision applies specifically to **warnings arising solely from unsaved Visuals working-layout changes**, not to unrelated hardware-write safety gates. Browser process crashes/unexpected OS termination still cannot guarantee recovery without a successful prior storage write.
 - **Unsaved-layout warning location — owner question 62 choice A (approved):** display the **single persistent «Изменения не сохранены» / “Changes not saved” status** in the **upper-right corner of the K.O. Tool browser virtual desktop/viewport**, **outside the docked Visuals strip**. Keep it visible and discoverable **through temporary pointer auto-hide, explicit manual collapse of a populated strip, and the zero-visible/all-hidden collapse** whenever the Visuals session has failed to persist its latest working snapshot. **Do not relocate it next to the bottom-center restore tab, inside the scrolling module picker, or into a presumed host-OS desktop/always-on-top overlay**. Avoid covering important K.O. Tool controls; exact offsets, collision behavior in narrow windows and visual styling remain UI/implementation checks. The warning is a **nonmodal status, not a blocking dialog or action button**, and must be readable and announced accessibly without unexpectedly stealing keyboard focus. Show it only while the relevant unsaved/failed persistence condition exists; **clear after confirmed success saving the full current snapshot** (question 59), or naturally remove it when the user closes Visuals (questions 60–61). Keep the fixed placement consistent while the strip reveals/retracts, and avoid duplicate warnings or resetting module layout. This placement is for **unsaved-layout warning only**; it does **not** decide the separately required active audio-capture indicator, selected input label and Stop control position during temporary auto-hide.
 
-This is future behavior only. No application code has been approved or implemented by this decision.
+These choices record design approval, not code authorization by themselves. Visuals v1 was subsequently implemented through the separate PR #133 authorization; see Browser implementation notes for current behavior and remaining verification.
 
 ## Theme-only coloring — owner correction at question 64 (supersedes per-module colors and four independently selectable themes)
 
@@ -210,7 +210,7 @@ Relevant standard web APIs (prospective implementation, **not current code**):
 - Web Audio analysis can consume a granted media stream, but the exact pipeline, latency, quality, DSP visualization and browser support are still design/implementation work.
 - **USB Audio, Web MIDI, and device FILE/SysEx are separate interfaces.** Do not promise cross-OS simultaneous performance or assume device exposure just because My EP connects.
 
-## Proposed UX contract (to validate before implementation)
+## UX contract and remaining validation
 
 - Opening Visuals shows a clear **Select audio input** control and idle state; no permission prompt or audio recording without an explicit user action.
 - After permission is granted, list available browser audio inputs with names when permitted, including the EP if the OS and browser expose it.
@@ -220,7 +220,7 @@ Relevant standard web APIs (prospective implementation, **not current code**):
 - Independently of My EP connection, users should be able to use Visuals with another selected audio interface or microphone, where the browser supports it.
 - Performance graphics should favor smooth response, legibility from a camera, restrained CPU load, and a non-distracting presentation.
 
-## Verification and acceptance plan (future code authorization required)
+## Verification and acceptance plan
 
 | Scenario | Expected |
 | --- | --- |
