@@ -11,7 +11,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   if(!icon||!root)return null;
   let opened=false,layout=makePreset(),named=[],activePreset='Balanced',height=150;
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
-  let status='Источник не выбран',sources=[],drawingFrame=0,audio,draggingId=null,drag=null;
+  let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
   const identity=state=>{
     const info=state?.connected&&!state.unsafe?getConnectedDeviceInfo():null;
@@ -63,10 +63,13 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
-  function tick(){
+  function tick(time){
     drawingFrame=0;
     if(!opened||!audio.active)return;
-    if(!doc.hidden&&!collapsed&&!root.classList.contains('vis-hidden'))drawAll(audio.sample());
+    // 30 FPS cap to keep the seven active canvases inexpensive on older Macs.
+    if(time-lastPaint>=32&&!doc.hidden&&!collapsed&&!root.classList.contains('vis-hidden')){
+      lastPaint=time;drawAll(audio.sample());
+    }
     kick();
   }
   function stop(message){captureArmed=false;audio.stop(message);stopAnimation()}
