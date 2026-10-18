@@ -6,12 +6,13 @@ const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
 const bound=(x,a,b)=>Math.min(b,Math.max(a,x));
-export function initVisualsApp({documentRef=document,windowRef=window,storage=window.localStorage}={}){
+export function initVisualsApp({documentRef=document,windowRef=window,storage=(()=>{try{return window.localStorage}catch{return null}})()}={}){
   const doc=documentRef,win=windowRef,icon=doc.getElementById('visuals-icon'),root=doc.getElementById('visuals-root');
   if(!icon||!root)return null;
   let opened=false,layout=makePreset(),named=[],activePreset='Balanced',height=150;
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,audio,draggingId=null,drag=null;
+  let captureArmed=false,autoConnecting=false;
   const identity=state=>{
     const info=state?.connected&&!state.unsafe?getConnectedDeviceInfo():null;
     sku=info?.sku==='TE032AS002'&&info?.baseSku==='TE032AS001'?'TE032AS001':info?.sku||'';
@@ -35,7 +36,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
   function working(next){
     const normalized=validLayout(next);if(!normalized)return;
     layout=normalized;activePreset='Custom';
-    if(!layout.visible.length){collapsed=true;autoHide=false;audio?.stop('Захват остановлен: все модули скрыты');stopAnimation()}
+    if(!layout.visible.length){collapsed=true;autoHide=false;captureArmed=false;audio?.stop('Захват остановлен: все модули скрыты');stopAnimation()}
     persist();render();
   }
   function usePreset(name){
@@ -43,7 +44,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
     if(!selected)return;
     layout=validLayout(selected);
     activePreset=name;
-    if(!layout.visible.length){collapsed=true;autoHide=false;audio.stop();stopAnimation()}
+    if(!layout.visible.length){collapsed=true;autoHide=false;captureArmed=false;audio.stop();stopAnimation()}
     else collapsed=false;
     persist();render();
   }
@@ -68,10 +69,10 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
     if(!doc.hidden&&!collapsed&&!root.classList.contains('vis-hidden'))drawAll(audio.sample());
     kick();
   }
-  function stop(message){audio.stop(message);stopAnimation()}
+  function stop(message){captureArmed=false;audio.stop(message);stopAnimation()}
   function open(){
     if(opened){root.querySelector('.vis-dock')?.focus();return}
-    opened=true;
+    opened=true;captureArmed=false;autoConnecting=false;
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState});
@@ -87,12 +88,19 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
     if(!opened)return;
     try{
       sources=await audio.inputs();
-      if(audio.active&&audio.selectedId&&!sources.some(item=>item.id===audio.selectedId)){
-        stop('Выбранный аудиовход отключён');
+      const selectedPresent=!!audio.selectedId&&sources.some(item=>item.id===audio.selectedId);
+      if(audio.active&&!selectedPresent){
+        audio.stop('Выбранный аудиовход отключён');stopAnimation();
       }else if(audio.active){
         status='LIVE · '+(sources.find(item=>item.id===audio.selectedId)?.label||'Аудиовход');
-      }else status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';
-    }catch(err){sources=[];if(!audio.active)status=err.message||'Нет доступа к аудиоустройствам';}
+      }else if(captureArmed&&selectedPresent&&!collapsed&&!autoConnecting){
+        // Only resume the SAME source after an earlier explicit START in this open session.
+        // Browser permission may still require a new user gesture; failure disarms retries.
+        autoConnecting=true;
+        const ok=await audio.start();autoConnecting=false;
+        if(!ok)captureArmed=false;
+      }else if(!captureArmed)status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';
+    }catch(err){sources=[];autoConnecting=false;if(!audio.active)status=err.message||'Нет доступа к аудиоустройствам';}
     if(opened)render();
   }
   function labelId(id){return names[id]||id}
@@ -104,7 +112,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
       (current&&!sources.some(s=>s.id===current)?'<option value="'+escapeHtml(current)+'">Выбранный вход отключён</option>':'')+
       sources.map(s=>'<option value="'+escapeHtml(s.id)+'">'+escapeHtml(s.label)+'</option>').join('');
     root.innerHTML='<div class="vis-dock" role="region" aria-label="Visuals: аудиовизуализация" tabindex="-1">'+
-      '<div class="vis-top-resize" data-height-resize title="Потяните для изменения высоты" aria-label="Изменить высоту Visuals"></div>'+
+      '<div class="vis-top-resize" data-height-resize tabindex="0" role="separator" aria-orientation="horizontal" title="Потяните или используйте стрелки для изменения высоты" aria-label="Изменить высоту Visuals"></div>'+
       '<div class="vis-toolbar">'+
       '<strong class="vis-title">VISUALS</strong>'+
       '<select class="vis-source" data-source aria-label="Выберите аудиовход">'+sourceHtml+'</select>'+
@@ -148,7 +156,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
-      if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
+      if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('tabindex','0');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
       const canvas=el('canvas');canvas.setAttribute('aria-label',labelId(id)+' — визуализация входящего аудио');meter.append(canvas);meters.append(meter);
     }
     updateWidths();refreshTheme();drawAll(audio.active?audio.sample():null);
@@ -252,7 +260,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
     const stepButton=e.target.closest('[data-step]');if(stepButton){step(stepButton.dataset.for,Number(stepButton.dataset.step));return}
     const button=e.target.closest('[data-action]');if(!button)return;
     const action=button.dataset.action;
-    if(action==='start'){void audio.start().then(ok=>{if(ok)void refreshInputs()}).catch(err=>{status=err.message;render()})}
+    if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
     if(action==='stop')stop();
     if(action==='refresh')void refreshInputs();
     if(action==='collapse')collapse();
@@ -266,7 +274,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
   });
   root.addEventListener('change',e=>{
     const x=e.target;
-    if(x.matches('[data-source]')){audio.select(x.value);render();return}
+    if(x.matches('[data-source]')){captureArmed=false;audio.select(x.value);render();return}
     if(x.matches('[data-preset]')){usePreset(x.value);return}
     if(x.matches('[data-theme]')){mode=x.value;autoTheme=false;render();return}
     if(x.matches('[data-auto-theme]')){autoTheme=x.checked;render();return}
@@ -279,6 +287,25 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
   root.addEventListener('dragover',e=>{if(draggingId&&e.target.closest('[data-meter]'))e.preventDefault()});
   root.addEventListener('drop',e=>{const panel=e.target.closest('[data-meter]');if(!panel||!draggingId)return;e.preventDefault();const id=draggingId;draggingId=null;working(moveModule(layout,id,panel.dataset.meter))});
   root.addEventListener('dragend',()=>{draggingId=null});
+  root.addEventListener('keydown',e=>{
+    if(!opened||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+    const divider=e.target.closest('[data-divider]');
+    if(divider&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){
+      const left=root.querySelector('[data-meter="'+divider.dataset.left+'"]');
+      const right=root.querySelector('[data-meter="'+divider.dataset.right+'"]');
+      if(!left||!right)return;
+      e.preventDefault();
+      const next=resizePair(layout,divider.dataset.left,divider.dataset.right,
+        left.getBoundingClientRect().width,right.getBoundingClientRect().width,
+        e.key==='ArrowRight'?16:-16);
+      if(JSON.stringify(next.weights)!==JSON.stringify(layout.weights))working(next);
+    }
+    if(e.target.closest('[data-height-resize]')&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
+      e.preventDefault();height=clampHeight(height+(e.key==='ArrowUp'?10:-10),win.innerHeight);
+      root.querySelector('.vis-dock').style.height=height+'px';
+      drawAll(audio.active?audio.sample():null);
+    }
+  });
   root.addEventListener('pointerdown',e=>{
     if(!opened||!e.isPrimary)return;
     const divider=e.target.closest('[data-divider]'),heightHandle=e.target.closest('[data-height-resize]');
