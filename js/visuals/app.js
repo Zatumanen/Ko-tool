@@ -119,6 +119,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       '<div class="vis-toolbar">'+
       '<strong class="vis-title">VISUALS</strong>'+
       '<select class="vis-source" data-source aria-label="Выберите аудиовход">'+sourceHtml+'</select>'+
+      '<button data-action="unlock" title="Запросить разрешение на список аудиовходов. Системный вход откроется на мгновение и сразу остановится.">ACCESS</button>'+ 
       '<button data-action="refresh" title="Обновить список аудиовходов">↻</button>'+
       '<button data-action="start">▶ START</button><button data-action="stop">■ STOP</button>'+
       '<span class="vis-status" data-audio-status role="status" aria-live="polite">'+escapeHtml(status)+'</span>'+
@@ -266,6 +267,11 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
     if(action==='stop')stop();
     if(action==='refresh')void refreshInputs();
+    if(action==='unlock'&&!audio.active){
+      status='Запрос разрешения для списка аудиовходов…';
+      root.querySelector('[data-audio-status]').textContent=status;
+      void audio.unlockInputs().then(()=>refreshInputs()).catch(err=>{status=err?.name==='NotAllowedError'?'Доступ к аудиоустройствам запрещён':(err?.message||String(err));render()});
+    }
     if(action==='collapse')collapse();
     if(action==='restore')restore();
     if(action==='dismiss'){picker=false;render();root.querySelector('[data-action="restore"]')?.focus()}
