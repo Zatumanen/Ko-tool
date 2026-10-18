@@ -1,6 +1,5 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
-import{onConnectionChange,getConnectedDeviceInfo}from '../ep133/index.js?v=20261001-1';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -13,12 +12,22 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
-  const identity=state=>{
-    const info=state?.connected&&!state.unsafe?getConnectedDeviceInfo():null;
-    sku=info?.sku==='TE032AS002'&&info?.baseSku==='TE032AS001'?'TE032AS001':info?.sku||'';
-    refreshTheme();
-  };
-  onConnectionChange(identity); // passive subscription; never requests MIDI access
+  let identityAttached=false;
+  async function attachVerifiedIdentity(){
+    if(identityAttached)return;
+    identityAttached=true;
+    try{
+      // Share My EP's *versioned* singleton only when the user opens Visuals.
+      // Eagerly importing the MIDI workspace on every page load changes its
+      // initialization order and can regress independent My EP restoration.
+      const{onConnectionChange,getConnectedDeviceInfo}=await import('../ep133/index.js?v=20261001-1');
+      onConnectionChange(state=>{
+        const info=state?.connected&&!state.unsafe?getConnectedDeviceInfo():null;
+        sku=info?.sku==='TE032AS002'&&info?.baseSku==='TE032AS001'?'TE032AS001':info?.sku||'';
+        refreshTheme();
+      });
+    }catch(error){identityAttached=false;sku='';refreshTheme()}
+  }
   function currentTheme(){return resolvedPalette(autoTheme?'device':mode,sku)}
   function refreshTheme(){
     if(!opened)return;
@@ -80,6 +89,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState});
     render();
+    void attachVerifiedIdentity();
     void refreshInputs();
   }
   function close(){
