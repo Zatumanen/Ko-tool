@@ -1,6 +1,6 @@
 # K.O. Tool — Visuals (product specification)
 
-**Status:** owner-approved direction, 17 October 2026; owner interview concluded at question 65. **Visuals is not implemented in `main`.** This document is the **canonical detailed Visuals product specification**. `README.md`, `AGENTS.md`, `PRODUCT_RESEARCH.md` and `TESTING.md` summarize its requirements or define verification; do not independently redefine product behavior there. The specification is not authorization to change application code.
+**Status:** owner-approved direction (17 October 2026), interview concluded at question 65. The browser-only Visuals v1 is implemented in [PR #133](https://github.com/Zatumanen/Ko-tool/pull/133); deployment depends on its CI and merge. **Real EP USB Audio verification of the new Visuals flow remains required**, even when simulated Chromium checks pass. This document is the **canonical detailed product specification**; code in `js/visuals/` is the source of truth for current behavior. `README.md`, `AGENTS.md`, `PRODUCT_RESEARCH.md` and `TESTING.md` summarize behavior or verification, not independent product requirements.
 
 ## Product role and placement
 
@@ -137,7 +137,7 @@ Use My EP's **currently validated model identity and session**, never just a USB
 
 **Question 64 owner correction explicitly removes any separate "independent module color persistence" decision from the backlog; there are no such per-module controls to persist.** No application code is approved or changed by this clarification.
 
-**Status:** owner-approved future product behavior, **not implemented** and not permission to change code or deploy.
+**Implementation status:** Visuals UI, layouts, themes and explicit-start USB Audio capture are implemented in PR #133; performance, browser and real-device compatibility require separate verification. Proposed additional behavior is not automatically implemented by this specification.
 
 ## Strip visibility — owner choice C (approved)
 
@@ -152,7 +152,7 @@ Use My EP's **currently validated model identity and session**, never just a USB
 - **Separate concepts:** hiding one meter module in a preset is different from auto-hiding or collapsing **the entire strip**. Do not silently delete a custom layout or reset the seven available modules when changing strip visibility.
 - **Still to specify:** transition duration, reveal target size, **exact sizes/styles and focus details** of the approved bottom-center all-hidden tab and above-tab **vertically scrollable, available-height-bounded** selector, exact capture-indicator/stop-control placement, browser-tab backgrounding and performance/analysis resource details. The question 51 manual-collapse and question 52 all-hidden-collapse rules both disable auto-hide; those outcomes are no longer open. The capture lifecycle for the three approved strip-visibility modes is settled by question 48, choice C; verify permissions/privacy before implementation.
 
-**No code has been approved or implemented by this design decision.**
+**History:** these earlier design choices did not themselves authorize code changes. The owner later explicitly requested the separate PR #133 implementation and conditional merge after checks.
 
 ## Audio capture lifecycle during strip hiding — owner choice C (approved, question 48)
 
@@ -190,9 +190,17 @@ The earlier approved interaction and question 48 lifecycle rules require an **ex
 
 **Implementation gate:** verify EP firmware/OS USB Audio exposure, browser `audioinput` enumeration, `getUserMedia` permission/gesture constraints, reconnect behavior, active-track indication and a usable Stop/disable path; record a user-approved start/restart policy **before implementing any automatic capture**. Until that review, treat explicit Start as the **documented safe baseline** and do not add an unsolicited mic fallback, hidden microphone capture or automatic reopening after a manually/all-hidden stopped state. Avoid presenting the requested automatic behavior as already implemented or as an unconditional hardware guarantee. Capture detection is independent of My EP MIDI model recognition and of the question 65 palette fallback.
 
+## Browser implementation notes (PR #133)
+
+- Files: `js/visuals/layout.js` (approved layouts, proportional minimum-aware allocation, local snapshots), `js/visuals/audio.js` (selected `MediaStream` audio, channel analysis and track cleanup), `js/visuals/app.js` (desktop icon, dock, canvases, interactions), and scoped `css/visuals.css`.
+- Visuals is launched by the third desktop icon. **Seven meters** render only data from the authorized selected input. Waveform/Oscilloscope use time-domain PCM; Spectrum/Spectrogram use frequency-bin magnitudes; Loudness currently reports **RMS dBFS, not calibrated LUFS**; stereo level/correlation depends on a real two-channel track. Output Meters report the **analyzed input channels**, not host system-output audio.
+- **ACCESS** is an explicit, one-shot input-enumeration permission control for browsers that hide available device names/IDs. It may briefly open the OS default audio input only as a result of that click, and immediately stops those temporary tracks after enumerating sources; it never becomes the stream for Visuals or selects a microphone without further user choice.
+- **START** requests the selected `audioinput` via `getUserMedia({audio:{deviceId:{exact:…}}})` and creates a graph whose output gain is zero (no headphone feedback). STOP, manual/full collapse, source switch and close stop the tracks and release audio contexts. An explicitly started stream may attempt to reconnect to **the same device ID** in the current Visuals session if that ID reappears, with browser permission again required where applicable; no general microphone fallback. A new Visuals opening has no active capture until the user starts it again.
+- **Still to verify on real hardware:** exact firmware/OS and browser, stereo capture mapping, levels and latency, track-ended/disconnect signals, protected browsing, long-session resource use, physical device reconnection and usability on narrow screens. An earlier independent browser audio-input test confirmed the user's EP worked externally; this does not certify the new Visuals implementation.
+
 ## Technical boundary and external sources
 
-Current repository `main` contains a SpeedUpperCut audio converter and My EP (Web MIDI/SysEx) but no Visuals app or verified browser audio-capture implementation. It is not valid to infer a supported EP USB-audio stream from a firmware changelog alone.
+The base converter and My EP use separate code paths; PR #133 adds a Visuals Web Audio implementation without altering MIDI/FILE. The existence of that implementation or a firmware changelog **still does not prove live capture on every physical EP/OS/browser combination**.
 
 Relevant standard web APIs (prospective implementation, **not current code**):
 
