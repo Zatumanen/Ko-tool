@@ -85,8 +85,14 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=wi
   }
   async function refreshInputs(){
     if(!opened)return;
-    try{sources=await audio.inputs();status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';}
-    catch(err){sources=[];status=err.message||'Нет доступа к аудиоустройствам';}
+    try{
+      sources=await audio.inputs();
+      if(audio.active&&audio.selectedId&&!sources.some(item=>item.id===audio.selectedId)){
+        stop('Выбранный аудиовход отключён');
+      }else if(audio.active){
+        status='LIVE · '+(sources.find(item=>item.id===audio.selectedId)?.label||'Аудиовход');
+      }else status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';
+    }catch(err){sources=[];if(!audio.active)status=err.message||'Нет доступа к аудиоустройствам';}
     if(opened)render();
   }
   function labelId(id){return names[id]||id}
