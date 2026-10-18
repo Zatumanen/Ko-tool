@@ -300,6 +300,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   site-data clearing/private mode can lose presets; report failed writes.
   Exact storage API/schema remain undecided. **Strip height is excluded
   from local presets (height memory choice A).** This does not change the
+  Auto Theme per-launch reset or decide persistence of per-module color
+  overrides.
   **Owner-approved question 57 choice C — restore last working layout:**
   besides browser-local explicitly named layouts, auto-save the current
   **working module layout** as a separate site-local snapshot (same
@@ -324,11 +326,25 @@ to this project. **Do not replace the stack or copy the template architecture.**
   snapshot: auto-hide starts OFF (question 56), Auto Theme ON, strip
   height at its approved launch target and capture stopped until an
   explicit Start. This local draft is not account/cloud sync or export.
-  Exact storage API/schema, snapshot-write timing, failure handling
-  and non-layout module-setting persistence remain technical/open.
-  Auto Theme per-launch reset or
-  decide persistence of per-module color overrides. **Owner-approved
-  responsive choice C:** shrink visible modules proportionally only to a
+  Exact storage API/schema, failure handling and non-layout module-setting
+  persistence remain technical/open.
+  **Owner-approved question 58 choice A — committed-action writes:**
+  write the **separate current working layout snapshot immediately AFTER
+  each successfully completed layout change**: drop/reorder completion,
+  end of a module divider drag (actual clamped pair ratio only), module
+  hide/show including the seventh final hide or all-hidden module restore,
+  and a completed built-in/named preset selection. Write the full latest
+  visibility, order and underlying intended widths (including hidden
+  modules), not transient responsive rendered widths. **Do not write
+  during pointer moves/partial drags**, for canceled/no-op edits, for
+  browser resizing/scrolling or session-only height, theme, audio/capture
+  and auto-hide changes. No delayed two-second debounce, periodic-only
+  timer or on-close-only persistence should replace action completion.
+  **Only the unnamed working snapshot is auto-updated**; every named
+  preset and built-in preset remains unchanged without explicit Save.
+  Do not claim save succeeded when storage fails; API, failure/retry and
+  cross-tab consistency remain engineering/source-verification details.
+  **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
   a side effect of viewport resizing. The minimum widths above are approved;
