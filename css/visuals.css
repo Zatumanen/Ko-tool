@@ -1,0 +1,48 @@
+/* K.O. Tool Visuals: scoped, self-contained bottom browser desktop dock. */
+#visuals-icon{top:182px;left:8px}
+#visuals-root{--vis-bg:#141a22;--vis-panel:#080e16;--vis-fg:#e9f1f8;--vis-muted:#b4c2ca;--vis-accent:#29dfd5;--vis-grid:#234354;--vis-border:#66858b;font-family:"Courier New",monospace;color:var(--vis-fg)}
+#visuals-root.vis-theme-app{--vis-bg:#c0c0c0;--vis-panel:#001b2b;--vis-fg:#fff;--vis-muted:#b3cbd8;--vis-accent:#28e8d2;--vis-grid:#18466a;--vis-border:#008080}
+#visuals-root.vis-theme-ep133{--vis-bg:#20221f;--vis-panel:#0e1610;--vis-fg:#f4f2d6;--vis-muted:#c7cbb9;--vis-accent:#e0dc45;--vis-grid:#385248;--vis-border:#90a47a}
+#visuals-root.vis-theme-ep40{--vis-bg:#262121;--vis-panel:#130e11;--vis-fg:#fff0d9;--vis-muted:#d9c8c1;--vis-accent:#ff814a;--vis-grid:#503d43;--vis-border:#a9795e}
+#visuals-root.vis-theme-mono{--vis-bg:#202020;--vis-panel:#000;--vis-fg:#fff;--vis-muted:#ddd;--vis-accent:#fff;--vis-grid:#666;--vis-border:#eee}
+#visuals-root button,#visuals-root select,#visuals-root input{font:inherit}
+#visuals-root button{cursor:pointer}
+#visuals-root [hidden]{display:none!important}
+.vis-dock{position:fixed;bottom:36px;left:0;right:0;z-index:470;background:var(--vis-bg);height:150px;border-top:2px solid var(--vis-border);box-shadow:0 -4px 18px #0006;display:flex;flex-direction:column;min-width:0;transition:transform .18s ease}
+.vis-top-resize{height:7px;position:absolute;left:0;right:0;top:-5px;cursor:ns-resize;touch-action:none;z-index:5}
+.vis-toolbar{display:flex;gap:5px;align-items:center;min-height:37px;padding:3px 8px;overflow-x:auto;white-space:nowrap;flex:none;background:var(--vis-bg);color:var(--vis-fg);border-bottom:1px solid var(--vis-border);font-size:11px;scrollbar-width:thin}
+.vis-toolbar button,.vis-toolbar select,.vis-picker button{color:var(--vis-fg);background:var(--vis-panel);border:1px solid var(--vis-border);border-radius:0;padding:4px 6px;max-width:180px}
+.vis-toolbar button:focus-visible,.vis-toolbar select:focus-visible,.vis-tab:focus-visible,.vis-picker button:focus-visible{outline:2px solid var(--vis-accent);outline-offset:2px}
+.vis-toolbar button[aria-pressed="true"]{color:var(--vis-accent);border-color:var(--vis-accent)}
+.vis-toolbar .vis-title{color:var(--vis-accent);font-weight:bold;font-size:12px}
+.vis-toolbar .vis-status{flex:1;min-width:110px;text-overflow:ellipsis;overflow:hidden;color:var(--vis-muted)}
+.vis-toolbar .vis-source{max-width:220px;min-width:126px}
+.vis-toolbar .vis-theme{max-width:130px}
+.vis-toolbar .vis-preset{max-width:124px}
+.vis-toolbar label{color:var(--vis-fg);font-weight:normal;font-size:11px}
+.vis-toolbar input[type=checkbox]{vertical-align:middle;margin:0}
+.vis-meters{display:flex;overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;gap:3px;padding:3px 4px 6px;scrollbar-width:thin;background:var(--vis-bg);touch-action:pan-x pan-y}
+.vis-meter{position:relative;flex:none;min-width:0;background:var(--vis-panel);border:1px solid var(--vis-border);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.vis-meter-title{height:24px;flex:none;display:flex;align-items:center;gap:3px;padding:2px 5px;background:var(--vis-bg);color:var(--vis-fg);white-space:nowrap;font-size:11px}
+.vis-meter-title strong{flex:1;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.vis-meter-title button{background:transparent;color:var(--vis-fg);border:1px solid transparent;padding:1px 3px;font-size:11px}
+.vis-meter-title button:hover{border-color:var(--vis-accent)}
+.vis-meter-title .vis-drag{cursor:grab;touch-action:pan-y}
+.vis-meter canvas{width:100%;height:100%;min-height:0;display:block;flex:1}
+.vis-meter .vis-divider{position:absolute;left:0;top:22px;bottom:0;width:7px;cursor:col-resize;touch-action:none;z-index:4;background:transparent}
+.vis-meter .vis-divider:hover,.vis-meter .vis-divider.vis-active{background:var(--vis-accent);opacity:.55}
+.vis-hidden .vis-dock{transform:translateY(calc(100% - 8px))}
+.vis-hidden .vis-meters,.vis-hidden .vis-toolbar{pointer-events:none}
+.vis-collapsed .vis-dock{display:none}
+.vis-tab{position:fixed;bottom:36px;left:50%;transform:translateX(-50%);z-index:475;padding:5px 13px;border:2px solid var(--vis-border);background:var(--vis-bg);color:var(--vis-fg);font:700 12px "Courier New",monospace}
+.vis-picker{position:fixed;bottom:69px;left:50%;transform:translateX(-50%);z-index:480;max-height:calc(100vh - 82px);max-width:min(320px,95vw);min-width:190px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding:6px;background:var(--vis-bg);border:2px solid var(--vis-border);box-shadow:0 3px 12px #0009}
+.vis-picker strong{font-size:12px;position:sticky;top:0;background:var(--vis-bg)}
+.vis-picker button{text-align:left;min-height:29px;flex:none}
+.vis-picker button[aria-pressed="true"]{color:var(--vis-accent)}
+.vis-unsaved{position:fixed;right:10px;top:10px;z-index:490;background:#2d190d;border:2px solid #f2c755;color:#fff;padding:7px 10px;max-width:min(320px,90vw);font-size:12px}
+.vis-capture-indicator{position:fixed;right:8px;bottom:190px;z-index:472;background:var(--vis-bg);border:1px solid var(--vis-accent);color:var(--vis-fg);font-size:11px;padding:3px 6px}
+.vis-capture-indicator button{background:var(--vis-panel);color:var(--vis-fg);border:1px solid var(--vis-accent);margin-left:5px}
+.vis-top-right{position:fixed;right:8px;top:8px;z-index:490}
+#visuals-root .vis-internal-empty{flex:1;display:grid;place-items:center;color:var(--vis-muted)}
+@media(max-width:600px){#visuals-icon{top:174px}.vis-toolbar{font-size:10px;padding:3px}.vis-toolbar .vis-source{min-width:105px}.vis-dock{bottom:36px}.vis-meter-title{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.vis-dock{transition:none}}
