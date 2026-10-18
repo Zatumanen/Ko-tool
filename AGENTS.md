@@ -49,8 +49,11 @@ to this project. **Do not replace the stack or copy the template architecture.**
   in-browser K.O. Tool virtual-desktop app with its own in-page icon**, not a
   host-OS desktop program, tab or panel inside My EP.
   Target use is optional audio-reactive visualization for live performances
-  and on-camera sessions. This is **planned only**: do not claim an existing
-  Visuals app, working capture, or permission to add code. **Owner-approved
+  and on-camera sessions. **Visuals v1 is implemented in PR #133** with
+  an in-browser dock and Web Audio graph; do not claim real-hardware capture
+  certified before evidence from that exact flow. The owner explicitly
+  authorized implementation on a separate branch with conditional CI merge.
+  **Owner-approved
   source policy (option C):** the user selects a browser-visible live audio
   input — EP USB Audio only if exposed as a real audio input, or another
   compatible input (audio interface/line-in, microphone, etc.). **Do not
@@ -573,7 +576,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   the prior documented explicit-start policy and privacy constraints
   still exist; verify genuine USB Audio exposure, user permissions and
   implementation behavior before proposing that code change. **No
-  application code edits are authorized by these design decisions.**
+  application code edits were authorized by these design decisions alone;
+  later explicit owner implementation authorization is documented in PR #133.**
   **Owner-approved placement scope (choice A):** Visuals' dock is only within
   the K.O. Tool browser virtual desktop/viewport. Do not introduce a native
   macOS/Windows wrapper or standalone desktop companion, host-OS always-on-top
@@ -581,8 +585,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   phase. The MiniMeters reference is about meter-strip design only. Scope
   the existing always-visible/auto-hide/manual-collapse options to Visuals
   while open **inside the browser**. Existing `index.html` and
-  `css/base.css` form the current browser desktop; Visuals is not
-  implemented. **`docs/VISUALS.md` is the canonical detailed Visuals
+  `css/base.css` form the browser desktop; Visuals v1 uses the independent
+  `js/visuals/` module and scoped `css/visuals.css`. **`docs/VISUALS.md` is the canonical detailed Visuals
   specification.** Keep this agent guide, the user README, research
   summary and acceptance tests synchronized to it rather than
   independently expanding duplicate technical requirements. See
