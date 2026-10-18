@@ -361,9 +361,28 @@ to this project. **Do not replace the stack or copy the template architecture.**
   changes survived: use only a valid previously saved snapshot or the
   Balanced fallback. Keep named layout presets and built-in definitions
   untouched; error on this auto-snapshot must not be mistaken for an
-  explicitly saved named preset's status. Exact warning placement/UI,
-  storage API/atomicity and cross-tab coordination remain for design.
+  explicitly saved named preset's status. The warning's **top-right
+  desktop placement** is settled by question 62; exact visual styling,
+  offset/collision implementation, storage API/atomicity and cross-tab
+  coordination remain for design.
   **Owner-approved question 60 choice B — close without confirming:**
+  **Owner-approved question 62 choice A — warning placement:**
+  place the persistent, nonblocking unsaved Visuals working-layout status
+  **«Изменения не сохранены» at the upper-right corner of the K.O. Tool
+  browser virtual desktop/viewport**, outside the bottom-docked Visuals
+  strip. Show one warning while the Visuals session has an unpersisted
+  failed snapshot, **including when the strip is temporarily pointer-
+  auto-hidden, manually collapsed or automatically all-hidden collapsed**.
+  Do not move this warning beside the bottom-center restore tab, hide
+  it inside the module picker, or use a host-OS always-on-top overlay.
+  Preserve accessibility/keyboard discoverability without a modal or
+  forced focus change. Clear after a **confirmed successful save** of
+  the entire current working snapshot (Q59), or when Visuals closes;
+  do not claim a write succeeded if it failed. Keep this status from
+  overlapping essential K.O. Tool controls; exact CSS positioning,
+  styling and narrow-viewport collision handling are engineering tasks.
+  This choice does **not** locate the independent active-capture status,
+  selected input or Stop control required during pointer auto-hide.
   when the user activates **Close Visuals inside the K.O. Tool browser
   virtual desktop**, close the app **immediately even if “Изменения не
   сохранены” is visible**. The pre-existing warning is sufficient;
@@ -391,7 +410,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   independent safety/confirmation rules** or native browser behavior.
   Respect audio capture cleanup/privacy obligations. Q60 still covers
   instant **in-app** Close, whereas Q61 covers page/tab/navigation.
-  Exact warning/Close control placement remains open.
+  Exact warning visual dimensions and Close control placement remain open;
+  the warning's top-right desktop anchor is approved by question 62.
   **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
