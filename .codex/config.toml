@@ -1,0 +1,12 @@
+# Optional roles, selected explicitly. Runtime support/trust is required.
+[agents]
+max_concurrent_threads_per_session = 2
+max_depth = 1
+
+[agents.code-explorer]
+description = "Read-only bounded related-code exploration; use only when independent research saves work."
+config_file = "agents/code-explorer.toml"
+
+[agents.regression-reviewer]
+description = "One independent read-only review for complex/high-impact changes, including applicable EP safety."
+config_file = "agents/regression-reviewer.toml"

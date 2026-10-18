@@ -89,7 +89,7 @@ Before **any** device write, destructive action, firmware test, or deliberately 
 
 Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md) for missing GET/MOVE traces and failure cases. Do not convert synthetic data into “real hardware” evidence.
 
-## Future-feature acceptance, not yet implemented
+## Feature-specific acceptance (implemented and planned)
 
 ### My EP REPITCH (owner-approved behavior)
 
