@@ -94,3 +94,19 @@ test('fake browser-selected stereo input captures without touching Web MIDI; sto
  await expect.poll(()=>page.evaluate(()=>window.__visualsAudioTest.stream.getAudioTracks()[0].readyState)).toBe('ended');
  await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
 });
+
+test('Visuals Auto Theme follows the same verified My EP MIDI session without extra access requests',async({page})=>{
+ const{fileURLToPath}=await import('node:url');
+ await page.addInitScript({path:fileURLToPath(new URL('./fake-ep-browser.js',import.meta.url))});
+ await page.goto('/');
+ await page.locator('#visuals-icon').click();
+ await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-app/);
+ const before=await page.evaluate(()=>window.__fakeEp.midiAccessRequests.length);
+ expect(before).toBe(0);
+ await page.locator('#my-ep-icon').click();
+ await expect(page.locator('#ep133-status')).toContainText('SYNCED',{timeout:15000});
+ await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-ep133/);
+ expect(await page.evaluate(()=>window.__fakeEp.midiAccessRequests.length)).toBe(1);
+ await page.locator('[data-theme]').selectOption('mono');
+ await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-mono/);
+});
