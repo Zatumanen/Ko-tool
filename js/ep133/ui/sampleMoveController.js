@@ -6,7 +6,7 @@ export function createSampleMoveController({
   withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
   isConnected,setMutating,setGlobalProgress,hideGlobalProgress,
   suppressNativeMoveEvent,clearNativeMoveSuppression,
-  moveFile,readDevice,logTechnical
+  readDevice,logTechnical
 }={}){
   const applyNativeMoveLocally=(source,target,moved)=>{
     const oldId=Number(moved.oldFileId);
@@ -26,9 +26,15 @@ export function createSampleMoveController({
     renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
   };
 
-  const runMoveTransaction=operation=>typeof withFileTransaction==='function'
-    ?withFileTransaction('sample move transaction',operation,{strict:true})
-    :operation({moveFile});
+  const runMoveTransaction=(operation,plan)=>{
+    if(typeof withFileTransaction!=='function')
+      throw new Error('MOVE requires a strict FILE transaction with project dependency preflight.');
+    Object.defineProperty(operation,'sampleDependencyGuard',{
+      value:Object.freeze({slots:Object.freeze(plan.map(pair=>pair.sourceId)),operation:'move'}),
+      configurable:false
+    });
+    return withFileTransaction('sample move transaction',operation,{strict:true});
+  };
   const nativeMoveTransfer=async(plan,sourceById)=>{
     const completed=[];
     let needsResync=false;
@@ -120,7 +126,7 @@ export function createSampleMoveController({
       sampleStore.clearOperations();
       throw error;
         }
-      });
+      },plan);
     }catch(error){
       if(needsResync&&isConnected()&&getDeviceSessionToken()===sessionToken){
         try{await readDevice();}

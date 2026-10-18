@@ -195,18 +195,21 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
   }),{message:'WAV drop should complete FILE PUT into slot 9',timeout:10000}).toBe('uploaded');
   await expect(page.locator('[data-slot="9"]')).toHaveClass(/occupied/);
 
-  await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(true);
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===8))).toBe(false);
-  await expect(page.locator('[data-slot="10"]')).toHaveClass(/occupied/);
-  await expect(page.locator('[data-slot="8"]')).toHaveClass(/empty/);
+  // The original slots are project-assigned; MOVE a separate unreferenced sample.
+  await page.evaluate(()=>window.__fakeEp.seedSample(10));
+  await expect(page.locator('[data-slot="10"] [data-name-input]')).toHaveValue('sample10');
+  await page.locator('[data-slot="10"]').dragTo(page.locator('[data-slot="11"]'));
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===11))).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(false);
+  await expect(page.locator('[data-slot="11"]')).toHaveClass(/occupied/);
+  await expect(page.locator('[data-slot="10"]')).toHaveClass(/empty/);
 
-  await page.locator('[data-slot="10"]').click();
-  await page.locator('[data-slot="10"] [data-delete-row]').click();
+  await page.locator('[data-slot="11"]').click();
+  await page.locator('[data-slot="11"] [data-delete-row]').click();
   await expect(page.locator('#ep133-confirm-dialog')).not.toHaveAttribute('hidden','');
   await page.locator('#ep133-confirm-ok').click();
-  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(false);
-  await expect(page.locator('[data-slot="10"]')).toHaveClass(/empty/);
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===11))).toBe(false);
+  await expect(page.locator('[data-slot="11"]')).toHaveClass(/empty/);
 
   expect(await page.evaluate(()=>window.__fakeEp.midiAccessRequests)).toEqual([{sysex:true}]);
 });

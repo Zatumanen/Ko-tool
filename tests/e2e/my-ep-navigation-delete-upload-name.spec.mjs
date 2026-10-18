@@ -81,9 +81,9 @@ test('mouse selects rows through readonly names, and guarded deletion still work
  await expect(page.locator('[data-slot="8"]')).toHaveClass(/selected/);
  await page.locator('[data-slot="7"] [data-name-input]').click();
  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
- // Project P01 uses slots 007/008/009: deleting those is correctly blocked
- // by the sample-dependency guard. Move a test sample into unreferenced 010.
- await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
+ // Keep project assignments intact; use a separate unreferenced sample.
+ await page.evaluate(()=>window.__fakeEp.seedSample(10));
+ await expect(page.locator('[data-slot="10"] [data-name-input]')).toHaveValue('sample10');
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10))).toBe(true);
  await page.locator('[data-slot="10"]').click();
  await page.locator('[data-slot="10"] [data-delete-row]').click();
@@ -185,6 +185,9 @@ test('plain internal drag previews MOVE without Option',async({page})=>{
 
 test('verified EP MOVE skips redundant source CRC MIDI request but checks destination CRC',async({page})=>{
  await open(page);
+ await page.evaluate(()=>window.__fakeEp.seedSample(10));
+ await expect(page.locator('[data-slot="10"] [data-name-input]')).toHaveValue('sample10');
+ await expect(page.locator('[data-slot="10"]')).toHaveAttribute('draggable','true');
  const source=page.locator('[data-slot="8"]');
  await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
  await expect(page.locator('#ep133-global-progress')).toBeHidden();
@@ -201,16 +204,16 @@ test('verified EP MOVE skips redundant source CRC MIDI request but checks destin
    item.command===5&&item.sub===7&&item.type===2&&
    ((item.raw[2]<<8)|item.raw[3])===slot
  ).length,id);
- const sourceBefore=await countMetadataGets(8);
- const targetBefore=await countMetadataGets(10);
- await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
- await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(true);
- await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===8))).toBe(false);
- await expect(page.locator('[data-slot="10"]')).toHaveClass(/occupied/);
- await expect.poll(async()=>await countMetadataGets(10)).toBeGreaterThan(targetBefore);
+ const sourceBefore=await countMetadataGets(10);
+ const targetBefore=await countMetadataGets(11);
+ await page.locator('[data-slot="10"]').dragTo(page.locator('[data-slot="11"]'));
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===11))).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(false);
+ await expect(page.locator('[data-slot="11"]')).toHaveClass(/occupied/);
+ await expect.poll(async()=>await countMetadataGets(11)).toBeGreaterThan(targetBefore);
  // We already read the source CRC in the authoritative device sync. No
  // repeat METADATA_GET may delay this move; destination is still verified.
- expect(await countMetadataGets(8)).toBe(sourceBefore);
+ expect(await countMetadataGets(10)).toBe(sourceBefore);
  const activity=await page.evaluate(()=>window.__fakeEp.requestLog);
  expect(activity.some(item=>item.command===5&&item.sub===12)).toBe(true);
 });

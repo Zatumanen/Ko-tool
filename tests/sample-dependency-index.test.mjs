@@ -59,7 +59,6 @@ test('sample delete tags the complete target set before entering the unchanged s
   assert.match(guard,/assertSampleSlotsUnreferenced\(index,request\.slots/);
   assert.match(del,/tagDependencyGuard\(operation,canonicalTargets\.map\(slot=>slot\.id\),'delete',async blockers=>/);
   assert.match(del,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
-  assert.doesNotMatch(move,/sampleDependencyGuard/);
   assert.match(move,/withFileTransaction\('sample move transaction',operation,\{strict:true\}\)/);
 });
 

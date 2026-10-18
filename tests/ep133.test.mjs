@@ -2805,7 +2805,7 @@ test('sample MOVE and COPY resync only after their FILE transaction lease exits'
     fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8')
   ]);
   for(const source of [move,copy]){
-    const transactionEnd=source.indexOf('});\n    }catch(error){');
+    const transactionEnd=source.search(/\}(?:,plan)?\);\n    \}catch\(error\)\{/);
     const resync=source.indexOf('await readDevice()');
     assert.ok(transactionEnd>=0&&resync>transactionEnd);
   }
