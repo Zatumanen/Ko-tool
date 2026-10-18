@@ -185,6 +185,18 @@ test('plain internal drag previews MOVE without Option',async({page})=>{
 
 test('verified EP MOVE skips redundant source CRC MIDI request but checks destination CRC',async({page})=>{
  await open(page);
+ const source=page.locator('[data-slot="8"]');
+ await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
+ await expect(page.locator('#ep133-global-progress')).toBeHidden();
+ await expect(source).toHaveAttribute('draggable','true');
+ // SYNC completion hides a layout row: wait for stable geometry before drag.
+ await expect.poll(()=>source.evaluate(async row=>{
+   const rect=()=>{const r=row.getBoundingClientRect();return[r.x,r.y,r.width,r.height];};
+   const before=rect();
+   await new Promise(requestAnimationFrame);
+   await new Promise(requestAnimationFrame);
+   return row.isConnected&&rect().every((value,index)=>value===before[index]);
+ })).toBe(true);
  const countMetadataGets=async id=>page.evaluate(slot=>window.__fakeEp.requestLog.filter(item=>
    item.command===5&&item.sub===7&&item.type===2&&
    ((item.raw[2]<<8)|item.raw[3])===slot
