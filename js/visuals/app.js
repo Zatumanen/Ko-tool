@@ -1,6 +1,6 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
-import{onConnectionChange,getConnectedDeviceInfo,isConnected}from '../ep133/device.js';
+import{onConnectionChange,getConnectedDeviceInfo}from '../ep133/index.js?v=20261001-1';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
