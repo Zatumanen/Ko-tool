@@ -300,8 +300,8 @@ to this project. **Do not replace the stack or copy the template architecture.**
   site-data clearing/private mode can lose presets; report failed writes.
   Exact storage API/schema remain undecided. **Strip height is excluded
   from local presets (height memory choice A).** This does not change the
-  Auto Theme per-launch reset or decide persistence of per-module color
-  overrides.
+  Auto Theme per-launch reset; question 64 removes per-module color
+  overrides and their persistence entirely.
   **Owner-approved question 57 choice C — restore last working layout:**
   besides browser-local explicitly named layouts, auto-save the current
   **working module layout** as a separate site-local snapshot (same
@@ -524,46 +524,42 @@ to this project. **Do not replace the stack or copy the template architecture.**
   settled by questions 53–55. Auto-hide is session-only and resets
   OFF on fresh Visuals launch (question 56); complete-collapse auto-hide
   outcomes are settled by questions 51–52. Full-screen alternatives are not approved.
-  **Owner-approved updated Visuals themes (replaces Studio/Retro/Neon/Minimal):**
-  exactly **Retro/WIN, EP-133, EP-40, Minimal**, plus independent per-module
-  color overrides. Retro uses the existing `css/base.css` Win-style tokens
-  (teal desktop `#008080`, gray `#c0c0c0`, navy `#000080`). **Retro is
-  the baseline when no model is identified.** After verified My EP device
-  recognition/GREET, automatically select **EP-133** for resolved
-  `TE032AS001` and **EP-40** for `TE032AS006`; rely on
-  `js/ep133/deviceCompatibilityMatrix.js` and do not infer models from
-  audio-input names. `TE032AS002` is EP-133 only after the existing
-  validated `base_sku` alias resolution. **Owner-approved EP-1320 fallback
-  (choice A):** resolved EP-1320 Medieval (`TE032AS005`) maps to existing
-  **Retro/WIN** while Auto Theme is ON; still identify the hardware as EP-1320.
-  Do not invent a fifth theme or claim EP-133/EP-40 hardware. **Owner-approved
-  theme precedence (choice B):** Auto Theme is
-  ON by default. Manually selecting any theme turns Auto Theme OFF; retain
-  the user's selected theme across device connects, disconnects and model
-  swaps until they explicitly turn Auto Theme back ON **within the current
-  Visuals session**. If Auto Theme is
-  re-enabled with verified EP-133/EP-40 attached, resolve its theme via the
-  existing validated identity; for verified EP-1320 use Retro/WIN. Without
-  verified identity the baseline is Retro/WIN. Do not let device events override manual selection, conflate
-  theme detection with capture audio input, or start background polling.
-  **Owner-approved disconnect choice A:** upon real EP disconnection while
-  Auto Theme is ON, switch promptly to Retro/WIN, invalidate stale EP
-  identity, and keep Auto Theme enabled for subsequent reconnection. With
-  Auto Theme OFF keep the manual theme unchanged. React to existing
-  `DEVICE_DISCONNECTED`/connection state, not invented FILE polling;
-  theme changes alone do not stop/switch a separately chosen audio capture
-  input or authorize hardware operations. Fallback for unknown/ambiguous
-  identities remain undecided. **Owner-approved theme restart choice A:**
-  every newly opened Visuals session, including close/reopen or K.O. Tool
-  reload, starts with **Auto Theme ON**, not the prior session's manual theme.
-  Resolve the currently verified EP-133/EP-40 model, or Retro/WIN for EP-1320
-  or no verified device; never trust stale cached identity. This theme-mode
-  reset does **not** erase locally saved layout presets, individual color
-  overrides, or unrelated settings. Local-browser persistence is approved
-  **for layouts only**; do not imply color override or cloud persistence.
-  Changing themes must not reset layout, audio source or modules.
-  Color override persistence and precise EP colors still require design.
-  Preserve readable scales, status and warning indications.
+  **Owner correction at question 64: theme-based colors ONLY.** Visuals
+  exposes exactly **three whole-strip color modes**: **Device colors /
+  Под устройство**, **App colors / Под приложение**, and **Black & white /
+  Ч/Б**. All seven meter modules inherit the chosen single theme; there
+  are **NO individual module color pickers/overrides or per-layout colors**
+  and hence NO custom module colors to store in local presets.
+  This supersedes the prior four separately selectable Retro/WIN, EP-133,
+  EP-40 and Minimal themes. EP-133 and EP-40 are **device palettes inside
+  Device colors**, not standalone selector entries. App colors uses the
+  existing K.O. Tool Win/Retro CSS tokens (`css/base.css`: teal
+  `#008080`, gray `#c0c0c0`, navy `#000080`); Ч/Б uses only
+  black/white/gray with legible contrast, not an extra color picker.
+  **Device colors uses only currently verified My EP model identity**:
+  resolved `TE032AS001` (or validated `TE032AS002` alias with GREET
+  `base_sku=TE032AS001`) = EP-133 palette; `TE032AS006` = EP-40
+  palette. Keep the owner's previously approved EP-1320 Medieval
+  `TE032AS005` fallback: use **App colors**, still label the device
+  EP-1320. For no verified model, use safe **App colors** rather than
+  inventing device-specific colors. Unknown/ambiguous device messaging
+  requires additional source/UI validation; never misidentify hardware.
+  **Existing Auto Theme priority is retained:** every new Visuals
+  session initializes Auto Theme ON and selects verified device colors
+  for EP-133/EP-40, otherwise App colors. A manual selection of one of
+  the three color modes turns Auto Theme OFF for that session until
+  deliberately re-enabled. Manual App colors and Ч/Б remain fixed through
+  device connect/disconnect; manually chosen Device colors renders only
+  a verified EP palette, otherwise safely falls back to App colors
+  without pretending a device is known. With Auto Theme ON a real
+  device disconnection returns to App colors, invalidates stale identity,
+  retains Auto Theme ON and re-resolves upon validated reconnection.
+  Do not determine MIDI identity from USB Audio device names, poll FILE,
+  change capture/source, initiate SysEx writes or silently start audio.
+  Theme changes must not change selected modules, order/widths, named
+  presets, height or audio state. Exact EP and monochrome palettes
+  and keyboard/contrast UI need validation. No application code edits
+  are authorized by this design correction.
   **Owner-approved placement scope (choice A):** Visuals' dock is only within
   the K.O. Tool browser virtual desktop/viewport. Do not introduce a native
   macOS/Windows wrapper or standalone desktop companion, host-OS always-on-top
