@@ -27,6 +27,15 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     const devices=await navigatorRef.mediaDevices.enumerateDevices();
     return devices.filter(d=>d.kind==='audioinput').map(d=>({id:d.deviceId,label:d.label||'Аудиовход (название скрыто до разрешения)'}));
   }
+  // Explicit permission discovery when labels/IDs are hidden before a grant.
+  // May briefly open the OS default input ONLY after a user's ACCESS click.
+  // Release immediately; this is not a fallback stream for Visuals.
+  async function unlockInputs(){
+    if(!navigatorRef.mediaDevices?.getUserMedia)throw Error('В этом браузере нельзя запросить доступ к аудио.');
+    const temporary=await navigatorRef.mediaDevices.getUserMedia({audio:true,video:false});
+    try{return await inputs()}
+    finally{for(const t of temporary.getTracks())t.stop()}
+  }
   async function start(){
     if(!selectedId)throw Error('Сначала выберите аудиовход.');
     if(!navigatorRef.mediaDevices?.getUserMedia||!AudioContextClass)throw Error('В этом браузере аудиозахват недоступен.');
@@ -80,5 +89,5 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       leftPeak:peak(leftTime),rightPeak:peak(rightTime),correlation,
       db:20*Math.log10(Math.max(r,1e-7)),sampleRate:context.sampleRate,channelCount};
   }
-  return{inputs,start,stop,select,sample,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
+  return{inputs,unlockInputs,start,stop,select,sample,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
 }
