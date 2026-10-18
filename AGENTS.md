@@ -1,0 +1,727 @@
+# K.O. Tool — agent instructions
+
+These rules apply to the existing `Zatumanen/Ko-tool` repository. They adapt the
+working agreement of [`di-sukharev/vibe`](https://github.com/di-sukharev/vibe)
+to this project. **Do not replace the stack or copy the template architecture.**
+
+## Working agreement
+
+- The owner decides product behavior and approves changes. A question, source
+  review, issue audit, or request for recommendations does **not** authorize code
+  edits. Obtain explicit approval for code or configuration changes. A request
+  to prepare documentation covers documentation only, not deployment.
+- Talk with the owner in Russian. The root README serves both users and
+  developers: lead with product usage in Russian, then explain engineering
+  details. Keep agent instructions and technical references in concise English
+  unless the owner chooses another documentation language.
+- Before proposing a change, inspect its **current implementation on the target
+  branch**, connected callers, relevant tests, and authoritative documents.
+  Commit titles and Linear status alone are not implementation proof.
+- Choose the smallest safe, reversible solution. Explain the scope, observable
+  behavior, regression risk, and evidence before making significant changes.
+- Do not turn the paused Speeduppercut OS preview into the active implementation
+  without a new owner decision. The classic `main` app is the active product;
+  PR #110 is paused Draft at the time these rules were drafted.
+
+## Product identity and owner-approved direction
+
+- **K.O. Tool** is the product and virtual desktop. **SpeedUpperCut** is the
+  audio optimization application; **My EP** is the physical EP companion.
+  Do not rebrand the entire repository or desktop as SpeedUpperCut.
+- Core values: reduce sample storage usage, make sample transfers effortless,
+  augment the physical device, visualize sequencer data, aim for parity with
+  the official EP Sample Tool, and build a joyful musician-first experience.
+- **Owner-approved sequencer direction (2026-10-17):** first a safe read-only
+  visualization of saved projects, then a separate real-time device view only
+  after hardware/protocol verification. The user chose **both Step Sequencer
+  and Piano Roll**, switching between two views of the same saved data.
+  **Approved placement: inside My EP → Projects → project → Sequencer,**
+  not a separate desktop app or icon. **Owner-approved connected-device-only
+  rule:** My EP Projects and Saved/Live Sequencer are accessible only with a
+  physically connected EP and authorized session; do not add an offline
+  local-project-archive viewer/editor. Disconnection must disable device
+  operations and clarify that cached results are stale. This does **not**
+  restrict standalone SpeedUpperCut audio conversion. Preserve the shared
+  project context, existing read-only and firmware evidence gates.
+  Existing read-only project inspector and gated 16-step authoring UI are not
+  proof of a full piano roll or live playhead sync. Consult docs/SEQUENCER.md.
+- **Owner-approved placement for future Visuals (2026-10-17):** a **separate
+  in-browser K.O. Tool virtual-desktop app with its own in-page icon**, not a
+  host-OS desktop program, tab or panel inside My EP.
+  Target use is optional audio-reactive visualization for live performances
+  and on-camera sessions. This is **planned only**: do not claim an existing
+  Visuals app, working capture, or permission to add code. **Owner-approved
+  source policy (option C):** the user selects a browser-visible live audio
+  input — EP USB Audio only if exposed as a real audio input, or another
+  compatible input (audio interface/line-in, microphone, etc.). **Do not
+  require an EP connection** for Visuals when another input is chosen. Explicit
+  browser permission, visible selected-source state and honest disconnection
+  behavior are required; never silently fall back to the microphone.
+  USB MIDI/SysEx is not audio. **Owner-approved Visuals layout:** primary
+  presentation is a long meter strip docked along the **bottom edge of the
+  K.O. Tool browser viewport** (choice B). **V1 includes all seven modules**
+  (choice C): Waveform, Spectrum, Loudness, Stereo Meter, Output Meters,
+  Oscilloscope and Spectrogram. **Owner-approved configuration choice C:**
+  drag to reorder, resize module widths, hide and restore any module,
+  built-in beatmaking/mixing/live-video layout presets, and save/reload
+  custom arrangements. **Owner-approved Beatmaking membership/order
+  choice B:** on selecting the built-in Beatmaking preset show precisely
+  **Waveform → Spectrum → Spectrogram → Output Meters → Loudness**,
+  left-to-right; **Stereo Meter and Oscilloscope start hidden in this
+  preset only** but remain available for explicit reveal/reordering.
+  Restoring Beatmaking must not modify built-in Balanced, user-saved
+  layouts, the current session's strip height or selected audio input.
+  Existing module minimums still apply (five-module sum **752 CSS px**
+  before spacing/controls); if space is insufficient, use horizontal
+  scrolling. **Owner-approved Beatmaking width ratios choice B:**
+  Waveform 35%; Spectrum 30%; Spectrogram 15%; Output Meters 10%; Loudness 10% (100% total) in the five-module Beatmaking order.
+  Keep Balanced's distinct width targets unchanged. This is a preferred
+  proportional distribution where the five already-approved module
+  minimums can hold, not permission to render Spectrogram below 160 CSS px
+  just to honor its 15% target. Use horizontal scrolling when required;
+  do not modify saved layouts or reset the session height/audio input.
+  **Owner-approved Mixing composition/order choice A:** show precisely
+  **Output Meters → Loudness → Spectrum → Stereo Meter → Spectrogram → Waveform** in that order on selecting the built-in Mixing preset.
+  **Oscilloscope starts hidden only in Mixing**, but remains available
+  for manual reveal; do not remove or hide any of the other six modules.
+  Their minimum CSS-px widths total **848** (96+96+200+96+160+200) before
+  gaps/controls; apply per-module minimums and horizontal scroll if needed.
+  **Owner-approved Mixing width proportions choice B:** Output Meters 20%; Loudness 20%; Spectrum 20%; Stereo Meter 20%; Spectrogram 10%; Waveform 10%
+  (100% total), in the approved six-module Mixing order when space allows.
+  These ratios belong to Mixing only; preserve independent Balanced and
+  Beatmaking targets. 10% for Spectrogram must never push it below
+  **160 CSS px**, and 10% for Waveform must never push it below
+  **200 CSS px**. The other approved module minimums and horizontal
+  scrolling take precedence over rigid percentages. Mixing's module
+  content/ratio targets are now settled. Preset switching keeps the chosen
+  strip height, audio input/capture and separate Auto Theme state; it does
+  not overwrite Balanced, Beatmaking or saved custom layouts.
+  **Owner-approved Live composition/order choice B:** selecting Live
+  shows **Waveform → Spectrum → Spectrogram → Oscilloscope → Output Meters**, five modules in that exact left-to-right order.
+  **Stereo Meter and Loudness start hidden in Live only**; both stay
+  available to show explicitly. Their visible minimum CSS px sum is
+  **752** (200 + 200 + 160 + 96 + 96), excluding gaps and controls;
+  do not shrink below module minima or bypass horizontal scrolling.
+  Restoring Live must not overwrite Balanced/Beatmaking/Mixing/custom
+  presets, change audio-input permissions/capture or reset session strip
+  height/Auto Theme. **Owner-approved Live width proportions choice A:**
+  Waveform 30%; Spectrum 25%; Spectrogram 20%; Oscilloscope 15%; Output Meters 10% (total 100%) in the approved five-module Live order, provided
+  enough usable horizontal space and no manual override. These are
+  Live-specific *initial target proportions*, never substitutes for the
+  already approved Waveform/Spectrum 200, Spectrogram 160, and
+  Oscilloscope/Output Meters 96 CSS px minima. Honor minima even when
+  proportional shares become too small; then scroll horizontally if
+  necessary. Do not silently overwrite saved custom layouts or modify
+  the separately approved Balanced, Beatmaking, or Mixing defaults.
+  **Owner-approved default Balanced layout (choice C):**
+  show all seven modules initially; Waveform and Spectrum are large, Spectrogram
+  medium; Loudness, Stereo Meter, Output Meters, and Oscilloscope compact.
+  All seven remain available even when users hide some. This is relative
+  emphasis, **not fixed pixel widths**. **Owner-approved default Balanced
+  module order (choice A), left-to-right: Waveform → Spectrum → Spectrogram → Loudness → Stereo Meter → Output Meters → Oscilloscope.**
+  All seven are visible initially; drag-reordering and separately saved
+  custom arrangements remain supported. Restoring the built-in Balanced
+  defaults must restore this approved order without overwriting saved custom
+  presets. **Owner-approved Balanced width proportions (choice A):**
+  Waveform 25%; Spectrum 25%; Spectrogram 18%; Loudness 8%; Stereo Meter 8%; Output Meters 8%; Oscilloscope 8% (total 100%). These are the seven initial relative widths
+  when space allows, **not immutable pixel widths or module minimums**.
+  Preserve user-adjusted widths and custom saved presets; on narrow
+  viewports shrink only to readable module minimums and then scroll
+  horizontally, never hide/reorder automatically. **Owner-approved
+  minimum width choice B:** Waveform **200 CSS px**, Spectrum **200 CSS px**,
+  Spectrogram **160 CSS px**, Loudness / Stereo Meter / Output Meters /
+  Oscilloscope **96 CSS px each**. With all seven visible, sum of module
+  minimums = **944 CSS px**, excluding gaps, borders and controls. Treat
+  these as hard readability lower bounds, which override ideal Balanced
+  percentage shares when needed. When the visible minimums plus UI spacing
+  cannot fit the viewport, expose horizontal scrolling; never forcibly
+  shrink below minimum, auto-hide/reorder, or overwrite saved user widths.
+  **Owner-approved manual-hide redistribution choice A:** when a user hides
+  one or more modules, let the remaining visible modules expand to use
+  freed horizontal room **proportionally to their existing intended width
+  ratios**, preserving visible order, without auto-hiding additional modules.
+  Keep hidden modules' intended widths/settings for restoration; re-showing
+  a module recomputes from the underlying intended widths, NOT rounded,
+  temporarily expanded displayed widths. Never overwrite browser-saved
+  layout presets because of proportional redistribution. Enforce approved
+  per-module minimum widths and horizontal overflow scrolling if necessary;
+  don't force a fit to the viewport. **Owner-approved question 49 choice A:** when responsive allocation meets
+  minimum widths, clamp those visible modules to their approved CSS-px
+  minima and allocate the remaining usable module-content width
+  **proportionally among other visible modules according to their
+  underlying intended width ratios**. Recalculate proportionally if
+  additional modules reach their minima. Do not give equal shares or
+  prefer specific meter types. If minimums plus actual spacing/controls
+  cannot fit, keep minimums and scroll horizontally; no auto-hiding,
+  reordering or persistence of temporary displayed widths. This
+  minimum-aware responsive redistribution is **not** an exception to the
+  separate user-driven adjacent-visible-pair-only divider-resize rule.
+  All four built-in workflow preset contents/ratios are approved separately;
+  precise CSS-pixel rounding and breakpoint integration remain for testing.
+  **Owner-approved manual resizing with hidden modules choice A:**
+  when **at least two modules are visible**, the shared divider acts
+  on its **two immediately adjacent visible modules only**, regardless
+  of hidden module positions in the underlying order. Change the edited
+  pair's intended widths and preserve those manual edits when hidden
+  modules are revealed later. Hidden modules' intended widths/settings
+  and every other visible module must remain unchanged. Do not discard
+  pair edits merely because the hidden module is restored, and do not
+  mistake temporary hide-induced proportional rendering expansion for
+  an intentional width edit. Re-showing modules recomputes from the
+  edited pair widths plus untouched hidden-module intended values;
+  displayed CSS widths may reflow. Enforce each affected module's
+  approved minimum width and pairwise stop-at-minimum rule. Never
+  silently overwrite browser-local user presets; explicit Save is
+  still required. **Owner-approved question 50 choice A:** after a valid
+  shared-divider drag with some modules hidden, use the two edited visible
+  modules' **actual post-drag rendered widths to form their new intended
+  width ratio**. Normalize that ratio into their existing **combined
+  underlying intended-width weight**, keeping every hidden module's and
+  other visible module's intended weight unchanged. E.g. a valid visible
+  Waveform:Spectrogram pair of **440:260** means intended ratio **22:13**,
+  not persistent +40/-40 px applied to base widths or a percentage of the
+  entire strip. Re-showing other modules uses the new underlying pair
+  weights; rendered widths may differ under responsive minimum clamps,
+  without changing their intended ratio or named user presets. Respect
+  the clamped actual drag result and both modules' minima; do not derive
+  intent from a forbidden pointer overshoot. The ratio rule is settled;
+  numeric rounding/subpixel and extremely constrained cases still require
+  implementation verification.
+  **Owner-approved manual width resize choice A:** dragging the shared
+  right-hand divider changes only the selected module's width and the
+  immediately adjacent visible right-hand module's width, with equal and
+  opposite changes. Other modules retain their intended widths. This is
+  separate from the proportional expansion rule after explicitly hiding
+  a module. Honor each module's approved minimum width; do not silently
+  reorder/hide other modules or overwrite saved layout presets.
+  **Owner-approved neighbor-minimum choice A:** when expansion would
+  shrink the immediately visible right neighbor to/below its approved
+  minimum, **clamp and stop the shared divider at that minimum**.
+  Never take width from further-right modules, extend the strip's scroll
+  width, auto-hide modules or violate the minimum to continue this drag.
+  The selected module's own minimum likewise stops contraction.
+  **Owner-approved rightmost-module resize choice A:** resize the last
+  visible module via the **left-hand shared divider** with its immediate
+  visible left neighbor. Dragging this divider changes only that pair's
+  widths by equal/opposite amounts, observing both minimums and stopping
+  at either minimum. No independent right outer-edge drag, cascading
+  changes, scroll expansion, or implicit saved-preset overwrite is implied.
+  **Owner-approved sole-visible-module choice A:** if the user has
+  deliberately hidden every module except one, that **sole visible
+  module automatically fills the usable horizontal module area**;
+  do not offer an independent outer-edge resize drag, standalone width
+  slider or numeric control for that special case. This is *temporary
+  displayed expansion* under the already-approved proportional hide
+  redistribution rule. The module's approved CSS-px minimum still
+  applies; if available width is smaller, scroll horizontally rather
+  than violate its minimum. Keep hidden modules' intended widths/settings
+  and browser-saved custom layouts intact; showing another module
+  recalculates from intended widths, not from the temporary full-width
+  size. Do not reset strip height, change audio capture or otherwise
+  mutate preset data. **Owner-approved zero-visible-module choice C:**
+  when the user deliberately hides the last visible module, **automatically
+  collapse the whole Visuals dock strip**. Keep Visuals open and a
+  discoverable **keyboard-accessible restoration affordance** available;
+  do not leave an expanded empty strip, forcibly block the last hide
+  or automatically reenable a module/preset. Preserve all seven available
+  modules, their intended widths/order/configuration and browser-local
+  saved presets without silent writes. This user-triggered collapse is
+  distinct from the already-approved optional pointer auto-hide and
+  explicit manual whole-strip collapse and optional temporary pointer
+  auto-hide. **Owner question 52 choice B:** automatic all-hidden collapse
+  **turns optional auto-hide OFF**, just as explicit manual collapse does
+  under question 51 choice C, though their restore interactions differ.
+  Pointer movement to the bottom edge must not reveal an all-hidden strip.
+  Only opening the keyboard-accessible picker and explicitly selecting
+  one of the seven modules restores an expanded, **continuously visible**
+  dock; dismissing the picker leaves all hidden and auto-hide OFF.
+  Auto-hide stays OFF until separately re-enabled. Do not reset the
+  preferred session height, selected audio source or permissions. **Owner-approved all-hidden
+  restoration choice A:** activating the collapsed-strip restore affordance
+  opens a **selector listing all seven Visuals modules** without first
+  expanding a blank dock or resetting to the last built-in/custom preset.
+  **Owner-approved question 53 choice A:** in the zero-visible-module
+  collapsed state, expose a **small restore tab centered along the bottom
+  edge of the K.O. Tool browser viewport** (not the host OS screen).
+  Its accessible pointer/touch/keyboard activation opens the selector
+  **directly above the tab** while the strip is still collapsed. The
+  tab remains discoverable and focusable after dismissing/canceling the
+  selector. Only selecting one module expands the strip; no auto-enable
+  of other meters, audio capture, auto-hide or built-in preset. This
+  decision fixes the **all-hidden tab/picker anchor**, not exact sizes,
+  colors or focus choreography. **Owner-approved question 55 choice A:**
+  use the **same bottom-center restore tab** for both the all-hidden
+  collapsed dock and the explicitly manually collapsed **populated** dock.
+  With at least one previously visible module, tab activation **directly
+  reopens the exact previous populated strip** (same visible modules,
+  widths/order and settings), WITHOUT opening the seven-module picker.
+  With zero visible modules, the tab instead opens the seven-module
+  selector directly above it and waits for explicit module selection.
+  Activation must work by pointer, touch and keyboard; do not require
+  a second button or re-clicking the Visuals desktop icon. Neither
+  restore action may restart stopped audio capture, restore auto-hide,
+  reset session height or overwrite saved/unsaved layouts. The shared
+  tab is for **complete collapse**, not the separate temporary pointer
+  auto-hide reveal interaction. **Owner-approved question 54 choice A:** in a
+  short or narrow K.O. Tool browser viewport, keep the selector as a
+  **single vertical list directly above the centered bottom tab**.
+  Constrain its height to the available viewport space above that tab
+  and make **the list itself vertically scrollable** to access all seven
+  modules. Keep the tab fixed and pointer/touch/keyboard-accessible.
+  Do not switch to a multi-column grid, expand a full-screen picker,
+  move the tab, allow the menu outside the browser viewport, or reveal
+  any module/strip without explicit selection. Ensure the first and last
+  options and dismissal can be reached via wheel/trackpad, touch and
+  keyboard. Exact CSS sizing, focus choreography and viewports too small
+  for a usable item require implementation/accessibility verification.
+  Technical references: MDN CSS `overflow-y` and `max-height`.
+  The strip remains collapsed until the user **explicitly selects one
+  module**; only then expand and show that single module full-width, under
+  its approved minimum-width and scrolling rule. Dismissal/cancel keeps
+  all seven hidden and the dock collapsed. Keep all other modules'
+  intended widths/order/settings intact and avoid implicit writes to
+  saved local presets; do not reset session strip height, selected
+  audio source or permissions. Exact tab/picker styling, focus mechanics
+  and pathological-viewport feasibility remain undecided; the bottom-
+  center anchor is approved by question 53, available-height-bounded
+  internal vertical scrolling by question 54, and auto-hide precedence
+  by questions 51–52;
+  capture behavior is now approved by owner question 48, choice C:
+  hiding the final visible module **stops active browser audio capture**.
+  Restore-picker interactions and selecting a module do **not restart**
+  capture automatically; a new explicit user action is required.
+  Keep the selected input preference, module state, and local presets;
+  do not silently switch inputs or assume browser permission persists.
+  **Owner-approved preset storage choice A:**
+  store saved custom module layouts **only in browser-local site storage**,
+  available on future Visuals openings in the same profile/origin. Store at
+  least module visibility, ordering and intended widths. Do NOT add preset
+  export/import files, accounts, cloud storage, or cross-device sync. Browser
+  site-data clearing/private mode can lose presets; report failed writes.
+  Exact storage API/schema remain undecided. **Strip height is excluded
+  from local presets (height memory choice A).** This does not change the
+  Auto Theme per-launch reset; question 64 removes per-module color
+  overrides and their persistence entirely.
+  **Owner-approved question 57 choice C — restore last working layout:**
+  besides browser-local explicitly named layouts, auto-save the current
+  **working module layout** as a separate site-local snapshot (same
+  browser profile and origin), even if the user has not pressed Save.
+  Include seven-module visibility/selection, manual left-to-right order,
+  and **underlying intended widths/ratios**, including hidden modules.
+  New Visuals sessions (close/reopen or K.O. Tool browser reload) restore
+  the most recent valid working snapshot, NOT always Balanced or only
+  the last selected saved preset. Initial use or missing/invalid/blocked
+  site data falls back to built-in **Balanced**, without falsely claiming
+  prior unsaved edits were recovered. Loading built-in/custom presets
+  updates current working state; subsequent unsaved edits may update
+  this distinct auto-snapshot, but MUST NOT silently rewrite named
+  layouts or approved built-in preset definitions. Only explicit Save
+  creates/updates named presets. Store intended ratios/weights, NOT
+  temporary responsive minimum-clamped or expanded rendered pixels.
+  If the snapshot has **zero** visible modules, reopen collapsed with
+  the bottom-center seven-module restore tab/picker. Otherwise reopen
+  visibly expanded. Do NOT restore the old explicit manual collapsed
+  state, pointer auto-hide, previous manually selected theme, preferred
+  strip height, MediaStream tracks or audio permissions from the layout
+  snapshot: auto-hide starts OFF (question 56), Auto Theme ON, strip
+  height at its approved launch target and capture stopped until an
+  explicit Start. This local draft is not account/cloud sync or export.
+  Exact storage API/schema, failure handling and non-layout module-setting
+  persistence remain technical/open.
+  **Owner-approved question 58 choice A — committed-action writes:**
+  write the **separate current working layout snapshot immediately AFTER
+  each successfully completed layout change**: drop/reorder completion,
+  end of a module divider drag (actual clamped pair ratio only), module
+  hide/show including the seventh final hide or all-hidden module restore,
+  and a completed built-in/named preset selection. Write the full latest
+  visibility, order and underlying intended widths (including hidden
+  modules), not transient responsive rendered widths. **Do not write
+  during pointer moves/partial drags**, for canceled/no-op edits, for
+  browser resizing/scrolling or session-only height, theme, audio/capture
+  and auto-hide changes. No delayed two-second debounce, periodic-only
+  timer or on-close-only persistence should replace action completion.
+  **Only the unnamed working snapshot is auto-updated**; every named
+  preset and built-in preset remains unchanged without explicit Save.
+  **Owner-approved question 59 choice A — failed working snapshot write:**
+  on local storage denial, quota, unavailable storage or write exception,
+  **keep the latest unsaved Visuals module layout in live session memory**.
+  Editing, reordering, divider resize, module hide/show and using Visuals
+  must remain possible. Show one **persistent, non-blocking, accessible**
+  **«Изменения не сохранены» / “Changes not saved”** warning, explaining
+  that edits may be lost on app close or page reload. Do NOT force a
+  modal, lock the layout or tell the user a failed write succeeded.
+  On the **next completed layout-changing action** retry saving the
+  **entire latest working snapshot**, including edits since the last
+  successful write, following Q58's immediate post-completion trigger;
+  no per-frame, periodic or idle-delay retries are approved. Repeated
+  failures leave the session editable and warning in place without
+  duplicate warning spam. Only clear the warning when persistence of
+  the latest full snapshot is confirmed successful. If Visuals is later
+  reopened before any successful recovery, do not pretend in-memory
+  changes survived: use only a valid previously saved snapshot or the
+  Balanced fallback. Keep named layout presets and built-in definitions
+  untouched; error on this auto-snapshot must not be mistaken for an
+  explicitly saved named preset's status. The warning's **top-right
+  desktop placement** is settled by question 62; exact visual styling,
+  offset/collision implementation, storage API/atomicity and cross-tab
+  coordination remain for design.
+  **Owner-approved question 60 choice B — close without confirming:**
+  when the user activates **Close Visuals inside the K.O. Tool browser
+  virtual desktop**, close the app **immediately even if “Изменения не
+  сохранены” is visible**. The pre-existing warning is sufficient;
+  there must be **no second confirmation modal, forced retry/write on
+  close, or blocked/delayed in-app closure**. Question 59's retry remains
+  triggered solely by the next completed layout edit while open.
+  Discard the unsuccessful in-memory working layout when the session ends;
+  subsequent reopen may restore only the last confirmed persisted valid
+  working snapshot (or Balanced fallback), never pretend the unsaved
+  changes survived. Do not modify named presets or built-in definitions,
+  silently start/restart audio capture or bypass audio privacy/cleanup
+  requirements. This decision covers only Visuals' own Close command;
+  **Owner-approved question 61 choice B — no Visuals-specific browser
+  unload/navigation prompts:** tab/window close, K.O. Tool page reload
+  and navigation to another website must proceed **without extra
+  confirmation or blocking due solely to unsaved Visuals layout edits**.
+  While the Visuals app is open, keep question 59's visible unobtrusive
+  «Изменения не сохранены» status; on unload do **not** register a
+  Visuals-specific `beforeunload` prompt, show an additional custom
+  modal, or force a retry/write (Q58 persists after completed layout
+  actions and Q59 retries on the next such action while open).
+  After leaving, reopen from the last confirmed valid stored working
+  snapshot or Balanced fallback; do not claim failed in-memory edits
+  were recovered. Do not interfere with **other K.O. Tool features'
+  independent safety/confirmation rules** or native browser behavior.
+  Respect audio capture cleanup/privacy obligations. Q60 still covers
+  instant **in-app** Close, whereas Q61 covers page/tab/navigation.
+  Exact warning visual dimensions and Close control placement remain open;
+  the warning's top-right desktop anchor is approved by question 62.
+  **Owner-approved question 62 choice A — warning placement:**
+  place the persistent, nonblocking unsaved Visuals working-layout status
+  **«Изменения не сохранены» at the upper-right corner of the K.O. Tool
+  browser virtual desktop/viewport**, outside the bottom-docked Visuals
+  strip. Show one warning while the Visuals session has an unpersisted
+  failed snapshot, **including when the strip is temporarily pointer-
+  auto-hidden, manually collapsed or automatically all-hidden collapsed**.
+  Do not move this warning beside the bottom-center restore tab, hide
+  it inside the module picker, or use a host-OS always-on-top overlay.
+  Preserve accessibility/keyboard discoverability without a modal or
+  forced focus change. Clear after a **confirmed successful save** of
+  the entire current working snapshot (Q59), or when Visuals closes;
+  do not claim a write succeeded if it failed. Keep this status from
+  overlapping essential K.O. Tool controls; exact CSS positioning,
+  styling and narrow-viewport collision handling are engineering tasks.
+  This choice does **not** locate the independent active-capture status,
+  selected input or Stop control required during pointer auto-hide.
+  **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
+  comfortable minimum; then use horizontal strip scrolling when they cannot
+  fit. Never auto-hide/reorder modules or overwrite saved preset widths as
+  a side effect of viewport resizing. The minimum widths above are approved;
+  exact breakpoints depend on measured module spacing and controls, which
+  remain engineering/design decisions. **Owner-approved horizontal
+  navigation choice B:** rely on **native browser horizontal overflow
+  scrolling and the native scrollbar**, with trackpad horizontal movement,
+  touch swipe and keyboard-operable scrolling via a focusable/accessibly
+  named scroll region or equivalent native mechanism. Do NOT add custom
+  left/right scroll arrow buttons, a minimap/overview rail or replacement
+  custom scrollbar. Platform/OS overlay or automatically hidden native
+  scrollbar rendering is acceptable; all visible modules and controls
+  must remain reachable. Do not intercept normal vertical page scroll
+  merely to force horizontal movement. Preserve drag/reorder/resize
+  operation, module minima, layout order, browser-saved widths, audio
+  source and permissions. Exact focus treatment, compatibility and
+  pixel breakpoints still need technical review.
+  **Owner-approved strip height choice B:** allow
+  free **vertical resizing of the entire strip** by dragging its top edge
+  up/down while the lower edge stays docked inside the browser viewport.
+  Do not impose Compact/Standard/Expanded height presets. Preserve readable
+  meters, selected modules, usable desktop controls and source/session state.
+  **Owner-approved height memory choice A:** manual height adjustment is
+  session-only; on closing/reopening Visuals or reloading K.O. Tool, use a
+  **standard launch height of 150 CSS px (owner choice B)**, **not the
+  user's last adjusted height**. Never persist strip height globally or
+  within a locally saved layout preset. **Owner-approved height bounds
+  choice A:** minimum **90 CSS px**, maximum **40% of the K.O. Tool browser
+  viewport's CSS height**. Launch at 150 CSS px whenever these bounds
+  allow; otherwise respect the 40% cap on shorter but viable viewports.
+  **Owner-approved very-short viewport choice A:** below **225 CSS px**
+  viewport height, the **90 CSS px minimum overrides the 40% cap**; the
+  strip may occupy more than 40% of the window. Do not force an automatic
+  collapse or shrink below 90 CSS px just to preserve the percentage.
+  Test layout feasibility and accessible controls even for tiny viewports;
+  technical details of a viewport shorter than the strip itself require
+  implementation validation. **Owner-approved same-session preset-switch choice A:**
+  preserve the currently adjusted Visuals strip height when switching
+  Balanced, Beatmaking, Mixing, Live, or custom presets. Preset switching
+  must not reset to 150 CSS px, nor persist/load any preset-specific height;
+  keep within the approved viewport bounds where satisfiable. Only a new
+  Visuals launch resets to the 150 CSS px standard. **Owner-approved
+  viewport height restoration choice A:** retain the **latest manually
+  selected preferred height only in memory for the current Visuals session**.
+  On viewport shrink, clamp the *rendered* height to allowed bounds without
+  overwriting that preferred value; on viewport growth automatically
+  restore it when allowed. Example: user sets 250px at 800px viewport;
+  at 500px viewport cap display to 200px; returning to 800px shows 250px.
+  A new deliberate manual drag replaces the preferred value. Switching
+  presets does not change it; closing/reopening Visuals or K.O. Tool reload
+  resets it to the 150px launch target. For short viewports below 225px,
+  honor the already approved 90px minimum over 40%, and do not invent OS
+  overlays or browser-persistent height settings. Very tiny-window
+  accessibility/recovery details remain engineering work.
+  **Owner-approved strip visibility choice C:** the entire bottom dock is
+  **visible by default**; optional auto-hide reveals it by pointing at the
+  lower viewport edge, while manual collapse has an explicit restore control.
+  Keep keyboard-accessible restoration and preserve module layout/presets.
+  **Owner-approved question 56 choice A:** start **every newly opened
+  Visuals session with optional pointer auto-hide OFF**, including a
+  Visuals close/reopen and a K.O. Tool browser-page reload. When at least
+  one module is visible, the strip starts continuously visible until
+  the user explicitly enables auto-hide in the current session. Do not
+  save/restore auto-hide in browser-local preferences or in Balanced,
+  Beatmaking, Mixing, Live or user-named layout presets; a preset switch
+  inside one Visuals session does not itself toggle auto-hide. This
+  reset is independent of the already-approved Auto Theme reset and the
+  strip's session-only 150 CSS-px launch height. Keep saved module
+  visibility/order/widths, source preference, unrelated customization
+  and browser-local user presets intact; a zero-visible selection still
+  shows the approved collapsed tab/picker and must not auto-enable a
+  module just to appear visible. No capture starts automatically on
+  reopening or because pointer auto-hide resets. Questions 51–52
+  continue to disable auto-hide on both complete-collapse paths.
+  Question 57 choice C independently requires the latest auto-saved
+  working module layout at launch; it does not restore past auto-hide.
+  **Owner-approved question 51 choice C:** when a user **manually
+  collapses the entire strip**, disable optional pointer auto-hide even
+  if it was enabled before collapse. Pointer motion to the bottom edge
+  must **not** reopen a manually collapsed strip. Only an explicit
+  accessible restore/expand action reopens it; the strip then remains
+  **always visible** until the user explicitly re-enables auto-hide.
+  Do not restore the former auto-hide setting implicitly or rewrite
+  layout visibility/order/intended widths, browser presets, source
+  preference or current session height. Manual collapse still stops
+  Visuals audio capture (question 48); restoration must not silently
+  restart it. **Owner-approved question 52 choice B** extends the same
+  auto-hide-OFF outcome to **automatic hiding of the last visible module**.
+  The latter uses the approved all-seven-module restoration picker, not
+  the populated-strip manual expand control. Selecting a module then
+  shows a continuously visible strip with auto-hide OFF. No audio capture
+  resumes until explicit user action.
+  **Owner-approved capture lifecycle (question 48, choice C):** when optional
+  pointer auto-hide temporarily retracts the strip, preserve an already
+  authorized active audio stream while **pausing visual rendering**. Keep an
+  accessible, discoverable indicator of active capture/selected input and a
+  Stop capture control usable even while the strip is hidden. Auto-hide
+  must not activate capture if previously idle. Explicit manual whole-strip
+  collapse or user hiding the seventh/final visible module **stops** active
+  Visuals audio tracks; restoring the strip or selecting a module never
+  restarts capture without explicit action and any required browser permission.
+  Hiding fewer modules, ordinary layout switches and height changes do not
+  change the capture state by themselves. Preserve selected input preference,
+  layouts and presets; never silently fall back to the microphone. Exact
+  controls/picker styling and state-dependent accessible labels,
+  pathological-viewport focus/feasibility, background-tab behavior and
+  implementation details remain open. Shared bottom-center tab
+  placement/state-dependent restore behavior and picker scrolling are
+  settled by questions 53–55. Auto-hide is session-only and resets
+  OFF on fresh Visuals launch (question 56); complete-collapse auto-hide
+  outcomes are settled by questions 51–52. Full-screen alternatives are not approved.
+  **Owner correction at question 64: theme-based colors ONLY.** Visuals
+  exposes exactly **three whole-strip color modes**: **Device colors /
+  Под устройство**, **App colors / Под приложение**, and **Black & white /
+  Ч/Б**. All seven meter modules inherit the chosen single theme; there
+  are **NO individual module color pickers/overrides or per-layout colors**
+  and hence NO custom module colors to store in local presets.
+  This supersedes the prior four separately selectable Retro/WIN, EP-133,
+  EP-40 and Minimal themes. EP-133 and EP-40 are **device palettes inside
+  Device colors**, not standalone selector entries. App colors uses the
+  existing K.O. Tool Win/Retro CSS tokens (`css/base.css`: teal
+  `#008080`, gray `#c0c0c0`, navy `#000080`); Ч/Б uses only
+  black/white/gray with legible contrast, not an extra color picker.
+  **Device colors uses only currently verified My EP model identity**:
+  resolved `TE032AS001` (or validated `TE032AS002` alias with GREET
+  `base_sku=TE032AS001`) = EP-133 palette; `TE032AS006` = EP-40
+  palette. Keep the owner's previously approved EP-1320 Medieval
+  `TE032AS005` fallback: use **App colors**, still label the device
+  EP-1320. For no verified model, use safe **App colors** rather than
+  inventing device-specific colors. **Owner final question 65 choice A:**
+  if device identity is unknown, unrecognized, or ambiguous, render
+  **App colors / Под приложение**, not stale EP-133/EP-40 palette,
+  invented device colors, or forced monochrome. Do not falsely identify
+  an unsupported device as a known EP. USB MIDI identity and browser
+  USB Audio availability are separate: a real chosen browser audio
+  input remains usable with proper user/browser permission even if the
+  MIDI device cannot be identified. Never automatically switch to a
+  microphone. Exact unknown-identity status wording/placement still
+  requires accessible UI validation, **not another owner theme choice**.
+  **Existing Auto Theme priority is retained:** every new Visuals
+  session initializes Auto Theme ON and selects verified device colors
+  for EP-133/EP-40, otherwise App colors. A manual selection of one of
+  the three color modes turns Auto Theme OFF for that session until
+  deliberately re-enabled. Manual App colors and Ч/Б remain fixed through
+  device connect/disconnect; manually chosen Device colors renders only
+  a verified EP palette, otherwise safely falls back to App colors
+  without pretending a device is known. With Auto Theme ON a real
+  device disconnection returns to App colors, invalidates stale identity,
+  retains Auto Theme ON and re-resolves upon validated reconnection.
+  Do not determine MIDI identity from USB Audio device names, poll FILE,
+  change capture/source, initiate SysEx writes or silently start audio.
+  Theme changes must not change selected modules, order/widths, named
+  presets, height or audio state. Exact EP and monochrome palettes,
+  accessible identity status, and contrast UI need validation.
+  **The owner interview ends with question 65; do not keep extending
+  A/B/C questionnaires.** The owner has since suggested auto-capture
+  upon available EP USB Audio connection with browser permission, but
+  the prior documented explicit-start policy and privacy constraints
+  still exist; verify genuine USB Audio exposure, user permissions and
+  implementation behavior before proposing that code change. **No
+  application code edits are authorized by these design decisions.**
+  **Owner-approved placement scope (choice A):** Visuals' dock is only within
+  the K.O. Tool browser virtual desktop/viewport. Do not introduce a native
+  macOS/Windows wrapper or standalone desktop companion, host-OS always-on-top
+  overlays, multi-application floating bars, or a promised later OS-overlay
+  phase. The MiniMeters reference is about meter-strip design only. Scope
+  the existing always-visible/auto-hide/manual-collapse options to Visuals
+  while open **inside the browser**. Existing `index.html` and
+  `css/base.css` form the current browser desktop; Visuals is not
+  implemented. **`docs/VISUALS.md` is the canonical detailed Visuals
+  specification.** Keep this agent guide, the user README, research
+  summary and acceptance tests synchronized to it rather than
+  independently expanding duplicate technical requirements. See
+  docs/VISUALS.md.
+- Future possibilities also include context-aware onboarding and a community
+  sample/project library; neither is implemented nor a code-change mandate.
+- **Approved future product contract (not yet implemented):** My EP gets a
+  `REPITCH` toggle **ON by default**, manually switchable OFF. With ON, parse
+  incoming WAV Teenage Engineering `LIST/INFO/TNGE` metadata. An exact
+  `sound.pitch = -12` is the owner-approved marker to skip x2 repitch; preserve
+  that pitch compensation through any necessary format-only conversion.
+  Otherwise process x2 and attach `sound.pitch = -12` before sample upload.
+  With OFF, preserve the current direct-upload path without automatic x2.
+  Scope the toggle to *new local sample imports*; do not mutate existing
+  on-device data during MOVE/COPY/backup/restore. This is a new feature that
+  requires explicit code-change authorization, tests and HIL.
+- A `-12` metadata marker is **a product convention, not proof** of a past
+  x2 transform. On invalid/corrupt metadata, fail transparently rather than
+  treating unreadable metadata as absent. Do not overwrite source local files.
+  **Current implementation differs:** SpeedUpperCut applies x2/-12, while My EP
+  upload currently does not automatically do so. Do not claim feature parity.
+- The official tool's features are an aspiration for parity, not grounds to
+  describe unimplemented device writes as supported. Use exact device/firmware
+  evidence. Optional live visualizers must not be presented as reading audio
+  over SysEx: Web MIDI and USB Audio are distinct channels.
+- User research and competitor UX are inspiration, **not licenses to copy
+  code, SVG graphics, UI assets, trademarks or proprietary data**.
+
+## Actual architecture
+
+This is a **static HTML/CSS/native JavaScript application**, published through
+GitHub Pages. Node.js is used for builds and tests, not as a production API.
+It does not use the Vibe template's Bun/React/Hono/Prisma/PostgreSQL stack.
+
+| Path | Responsibility |
+| --- | --- |
+| `index.html`, `css/` | Classic application interface and styling |
+| `js/app.js` | Original converter UI and orchestration |
+| `js/audio/` | Shared decode, resample, WAV, import and chop logic |
+| `js/ep133/` | EP-series device, SysEx/FILE, transactions, project formats and safety |
+| `js/ep133/ui/` | My EP workflow controllers and presentation |
+| `js/platformSupport.js` | Browser and feature preflight, without permission requests |
+| `scripts/build-pages.mjs` | Versioned static GitHub Pages bundle in `dist/` |
+| `tests/` | Node tests, fixtures and Playwright Chromium browser tests |
+| `docs/testing/` | Existing canonical audio, browser, device and capture contracts |
+
+Inspect the source of truth at the relevant boundary before adding new code.
+Prefer the existing shared modules and project-specific conventions over
+introducing a competing implementation, framework, abstraction or dependency.
+
+## Hardware / MIDI safety: release-blocking requirements
+
+- Treat USB MIDI SysEx and FILE writes as **critical hardware operations**.
+  Read-only inspection is distinct from mutation.
+- Keep the existing `deviceRuntime`, transport scheduler, session ownership,
+  firmware/SKU evidence gates, strict FILE transactions, project dependency
+  checks, post-write device readback, and recovery journals intact.
+- A recognized model, valid firmware handshake, FILE bitmask, or simulator
+  result alone is **not** permission to write. Capability approval depends on
+  exact firmware-scoped evidence from `js/ep133/evidenceRegistry.js` and the
+  compatibility matrix. Fail closed on unknown state.
+- Do not bypass busy/unsafe/recovery states, permissions, active-project
+  restrictions, checksum/CRC checks, or user confirmation. Do not perform
+  speculative retries after ambiguous errors or disconnections.
+- Distinguish a saved project archive from an unsaved in-memory device state.
+  Project polling is **opt-in (`AUTO: OFF` by default)** and read-only, on a
+  20-second interval when enabled. It is not a true live playhead or unsaved
+  MIDI-event feed. Never accelerate hardware FILE reads to fake live sync.
+  Never authorize project writes by making archive parsing more permissive.
+- Deleting samples referenced by project pads requires the **second explicit
+  informed confirmation** in the current My EP flow; cancellation must do
+  nothing. Never automate destructive hardware acceptance against real data.
+- For physical EP HIL: first back up the device, use expendable test slots,
+  record model/firmware/host and expected results, and obtain specific owner
+  approval before write/destructive/interruption scenarios.
+- Fake EP browser tests and synthetic golden vectors **do not** prove that
+  physical EP hardware behaves the same way. Do not claim real-device support
+  or successful HIL unless traceable hardware evidence exists.
+
+## Audio and file semantics
+
+- The converter's canonical x2 pipeline is in `js/audio/processor.js` and
+  `js/audio/audioEngine.js`. Do not introduce a second DSP implementation.
+- x2 conversion and My EP direct uploads are **currently distinct operations**.
+  Introduce the owner-approved REPITCH behavior only in a separately authorized,
+  tested change. Reuse the shared DSP instead of duplicating it.
+- Preserve reference resampler/WASM ABI expectations, explicit cancellation,
+  PCM/metadata output contracts, and named HI/MID/LO presets. Never substitute
+  an unverified resampler fallback without a reviewed change in contract.
+- Batch import skips macOS `._*` and `__MACOSX` metadata, invalid/empty files,
+  and reports individual decoder failures without losing successful outputs.
+- **Converter exports preserve source-number prefixes**; My EP can remove a
+  1–3-digit slot prefix (1–999) followed by whitespace or `_` when assigning
+  device filenames/slots. Do not conflate export paths and device names.
+- Consult `docs/testing/audio-x2-pipeline.md` before changing DSP, naming,
+  audio metadata or folder conversion.
+
+## Implementation and test workflow
+
+1. Read the issue/request, `AGENTS.md`, relevant README/test guides, the
+   target-branch code, and the current relevant Linear/GitHub history.
+2. Reproduce the issue or demonstrate its source-level cause. Separate known
+   facts, assumptions, and unknown device behavior.
+3. For behavior changes or bug fixes, add a focused failing test when feasible,
+   then implement the smallest authorized change. Do not update fixture
+   expectations just to make a regression pass.
+4. Run focused `node --test ...` tests, then `npm test`,
+   `npm run build:pages`, and `npm run test:e2e` as relevant. For protocol,
+   firmware, recovery, project write or DSP changes, run the full suite and
+   perform the specified hardware checks if real-device behavior is claimed.
+5. Review the diff for unintended hardware writes, cross-feature effects,
+   accidental fixture churn, sensitive data and license/attribution issues.
+6. Report the exact tests executed and their results; mark skipped or
+   unavailable tests clearly. Never report simulated CI as HIL evidence.
+7. Update Linear issue descriptions/statuses only when authorized and backed
+   by the correct acceptance evidence. Merged code does not by itself close a
+   user-reported hardware incident.
+
+Use [docs/TESTING.md](docs/TESTING.md) for local commands and the HIL gate.
+
+## Git, deployment and dependencies
+
+- Inspect the current branch, working tree and remote before any Git action.
+- Do not switch/create branches, commit, push, open/merge PRs, rebase, reset,
+  or deploy without explicit authorization for that action. Preserve other
+  worktrees and uncommitted changes.
+- Do not change `.github/workflows/`, dependencies, build scripts, protocol
+  guards, or the live Pages deployment as a side effect of documentation work.
+- Deployment of `main` can automatically trigger GitHub Pages; a documentation
+  merge may still be a release event. Get explicit release approval.
+- Never include credentials, device serial numbers, private raw captures or
+  user data in issues, commits, logs or fixtures. Redact before sharing.
+- The current repository has no declared root license file. Do not assume
+  third-party reference code, official tools, bundled binaries or artwork can
+  be copied. Check provenance and applicable licenses before importing assets.
+
+## Completion report
+
+State: what changed; which branch/commit; what was inspected; commands actually
+run; pass/fail/not-run; hardware evidence and limitations; risks and rollback;
+and the next action requiring owner approval. Keep product decisions with the
+owner and avoid claiming certainty beyond the evidence.
