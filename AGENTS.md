@@ -582,7 +582,11 @@ to this project. **Do not replace the stack or copy the template architecture.**
   the existing always-visible/auto-hide/manual-collapse options to Visuals
   while open **inside the browser**. Existing `index.html` and
   `css/base.css` form the current browser desktop; Visuals is not
-  implemented. See docs/VISUALS.md.
+  implemented. **`docs/VISUALS.md` is the canonical detailed Visuals
+  specification.** Keep this agent guide, the user README, research
+  summary and acceptance tests synchronized to it rather than
+  independently expanding duplicate technical requirements. See
+  docs/VISUALS.md.
 - Future possibilities also include context-aware onboarding and a community
   sample/project library; neither is implemented nor a code-change mandate.
 - **Approved future product contract (not yet implemented):** My EP gets a
