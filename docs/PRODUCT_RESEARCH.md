@@ -43,7 +43,9 @@ The proposed `REPITCH` control is **ON by default** and can be switched OFF. Whe
 
 The existing `projectReader.js`, read-only inspector and gated 16-step `SEQUENCER` provide starting points, **not proof that a finished read-only piano roll or live sync exists**. See [SEQUENCER.md](SEQUENCER.md).
 
-### Visuals — separate desktop application (owner-approved option A)
+### Visuals — separate in-browser K.O. Tool desktop application (owner-approved option A)
+
+**Detailed source of truth:** [VISUALS.md](VISUALS.md). This section records research context and owner decisions; implementation rules and open technical validation are maintained in the canonical Visuals specification.
 
 - **Placement:** a separate **Visuals** application inside the **K.O. Tool browser virtual desktop**, launched from its own **in-page icon**. It must **not** become a My EP tab or a native host-OS desktop application. The existing browser `index.html` has icons for SpeedUpperCut and My EP; no Visuals implementation is shipped.
 - **Purpose:** engaging audio-reactive visuals for performances and filming the physical EP on camera. MiniMeters is a **reference for exploring** spectrum, waveform, oscilloscope and flexible layouts, not a source of licensed artwork or code.
