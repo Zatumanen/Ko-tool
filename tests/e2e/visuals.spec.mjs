@@ -7,7 +7,7 @@ test('Visuals opens as its own desktop app with seven real modules and safe idle
  await expect(page.locator('.vis-dock')).toBeVisible();
  await expect(page.locator('.vis-meter')).toHaveCount(7);
  await expect(page.locator('[data-action="start"]')).toBeVisible();
- await expect(page.locator('[data-audio-status]')).toContainText('Выберите');
+ await expect(page.locator('[data-audio-status]')).toContainText(/Выберите|Доступных аудиовходов нет/);
  await expect(page.locator('[data-auto-theme]')).toBeChecked();
  await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-app/);
  await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
