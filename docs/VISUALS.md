@@ -1,6 +1,6 @@
 # K.O. Tool — Visuals (product specification)
 
-**Status:** owner-approved direction, 17 October 2026. **Visuals is not implemented in `main`.** This document describes intended behavior, not authorization to change application code.
+**Status:** owner-approved direction, 17 October 2026; owner interview concluded at question 65. **Visuals is not implemented in `main`.** This document is the **canonical detailed Visuals product specification**. `README.md`, `AGENTS.md`, `PRODUCT_RESEARCH.md` and `TESTING.md` summarize its requirements or define verification; do not independently redefine product behavior there. The specification is not authorization to change application code.
 
 ## Product role and placement
 
@@ -184,6 +184,12 @@ No application code or native package creation is authorized by this documentati
 
 **Source is the user's chosen live audio input**, not an implicit output-device/system-audio loopback or audio extracted from MIDI events. Support for capture of computer playback or mixing multiple sources is **not approved** by the C selection and requires its own design decision.
 
+### Capture-start policy: explicit-start baseline; later automatic-capture preference requires verification
+
+The earlier approved interaction and question 48 lifecycle rules require an **explicit Start** action after appropriate browser consent; restoring the manually/all-hidden-collapsed dock does not restart stopped tracks. The owner subsequently expressed a **preference for capture to follow connection of an EP USB Audio device**, without a large persistent control panel: when a real permitted EP audio input is available, visualization should follow the signal; when the input disconnects, capture stops. This newer preference **has not yet been reconciled with the earlier explicit-start contract or validated on actual hardware/browsers**. It does not prove that a MIDI connection provides USB Audio, that site permission is persistent, or that the browser can initiate capture without a gesture.
+
+**Implementation gate:** verify EP firmware/OS USB Audio exposure, browser `audioinput` enumeration, `getUserMedia` permission/gesture constraints, reconnect behavior, active-track indication and a usable Stop/disable path; record a user-approved start/restart policy **before implementing any automatic capture**. Until that review, treat explicit Start as the **documented safe baseline** and do not add an unsolicited mic fallback, hidden microphone capture or automatic reopening after a manually/all-hidden stopped state. Avoid presenting the requested automatic behavior as already implemented or as an unconditional hardware guarantee. Capture detection is independent of My EP MIDI model recognition and of the question 65 palette fallback.
+
 ## Technical boundary and external sources
 
 Current repository `main` contains a SpeedUpperCut audio converter and My EP (Web MIDI/SysEx) but no Visuals app or verified browser audio-capture implementation. It is not valid to infer a supported EP USB-audio stream from a firmware changelog alone.
@@ -221,7 +227,7 @@ Relevant standard web APIs (prospective implementation, **not current code**):
 
 No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical EP hardware.
 
-## To be decided in future interviews
+## Owner decisions (interview concluded) and implementation validation
 
 - **Resolved:** default is a bottom docked meter strip; v1 includes all seven named modules (Waveform, Spectrum, Loudness, Stereo Meter, Output Meters, Oscilloscope, Spectrogram).
 - **Resolved:** the bottom strip supports drag-reordering, width adjustments, hide/restore, built-in layouts for beatmaking, mixing and live recording, and saving/reloading custom presets (owner choice C).
@@ -278,7 +284,7 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - **Resolved (owner choice A):** on real EP disconnection **with Auto Theme ON**, switch to **App colors**, invalidate stale identity and leave Auto Theme enabled. With Auto Theme OFF, keep the manually selected mode; if the mode is Device colors but no validated palette is available, render the safe App colors fallback.
 - **Resolved (owner choice A):** every new Visuals opening resets Auto Theme ON, without restoring a prior manual mode; verified EP-133/EP-40 uses Device colors, otherwise use App colors.
 - **Resolved (question 65, owner choice A):** when the connected device cannot be confidently identified, **App colors / K.O. Tool** is the safe color fallback; keep Visuals operable with an independently authorized available browser audio input and do not pretend the device is an EP model. Manual App colors/Ч/Б choice retains priority; manual Device colors renders the same safe fallback until a validated device is known. Exact status text/UI positioning and browser capture-permission behavior require engineering validation, **not a new theme-choice interview**.
-- **Technical validation backlog (not further owner A/B/C interview):** exact EP-133/EP-40 palette tokens and Ч/Б contrast; browser storage API/schema/failure handling; rendering, UI accessibility, narrow viewports, capture/performance/resource cleanup; verify available USB Audio and device firmware/browser exposure in real HIL tests. Per-module/custom color persistence is not applicable under question 64. **Audio auto-start after plug-in/permission was proposed by the owner in discussion, but the earlier explicit-start policy remains in docs and is not technically validated; do not silently implement either as automatic capture without resolving permissions and hardware support.**
+- **Technical validation backlog (not further owner A/B/C interview):** exact EP-133/EP-40 palette tokens and Ч/Б contrast; browser storage API/schema/failure handling; rendering, UI accessibility, narrow viewports, capture/performance/resource cleanup; verify available USB Audio and device firmware/browser exposure in real HIL tests. Per-module/custom color persistence is not applicable under question 64. **The proposed auto-capture start policy is tracked in the dedicated section above; the current explicit-Start baseline is not overridden until device/browser permission evidence and a separately approved implementation policy are available.**
 - Recording/export of Visuals (not currently authorized), if desired.
 - Audio capture latency and performance budget, and supported platforms.
 
