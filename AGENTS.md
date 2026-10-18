@@ -342,8 +342,28 @@ to this project. **Do not replace the stack or copy the template architecture.**
   timer or on-close-only persistence should replace action completion.
   **Only the unnamed working snapshot is auto-updated**; every named
   preset and built-in preset remains unchanged without explicit Save.
-  Do not claim save succeeded when storage fails; API, failure/retry and
-  cross-tab consistency remain engineering/source-verification details.
+  **Owner-approved question 59 choice A — failed working snapshot write:**
+  on local storage denial, quota, unavailable storage or write exception,
+  **keep the latest unsaved Visuals module layout in live session memory**.
+  Editing, reordering, divider resize, module hide/show and using Visuals
+  must remain possible. Show one **persistent, non-blocking, accessible**
+  **«Изменения не сохранены» / “Changes not saved”** warning, explaining
+  that edits may be lost on app close or page reload. Do NOT force a
+  modal, lock the layout or tell the user a failed write succeeded.
+  On the **next completed layout-changing action** retry saving the
+  **entire latest working snapshot**, including edits since the last
+  successful write, following Q58's immediate post-completion trigger;
+  no per-frame, periodic or idle-delay retries are approved. Repeated
+  failures leave the session editable and warning in place without
+  duplicate warning spam. Only clear the warning when persistence of
+  the latest full snapshot is confirmed successful. If Visuals is later
+  reopened before any successful recovery, do not pretend in-memory
+  changes survived: use only a valid previously saved snapshot or the
+  Balanced fallback. Keep named layout presets and built-in definitions
+  untouched; error on this auto-snapshot must not be mistaken for an
+  explicitly saved named preset's status. Exact warning placement/UI,
+  storage API/atomicity, cross-tab coordination and any explicit-close
+  confirmation on pending unsaved changes remain for separate design.
   **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
