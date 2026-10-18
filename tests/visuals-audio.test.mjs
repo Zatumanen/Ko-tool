@@ -81,3 +81,19 @@ test('source change stops an existing capture without silently starting a replac
   assert.equal(a.active,false);
   assert.equal(a.selectedId,'mic-other');
 });
+
+test('explicit input discovery releases temporary default device before selecting EP',async()=>{
+  const temporary=makeStream();
+  let askedForDefault=false;
+  const nav={mediaDevices:{
+    async getUserMedia(constraints){askedForDefault=constraints.audio===true;return temporary},
+    async enumerateDevices(){return[{kind:'audioinput',deviceId:'ep-usb',label:'EP USB AUDIO'}]}
+  }};
+  const a=createVisualsAudio({navigatorRef:nav,AudioContextClass:FakeAudioContext});
+  const found=await a.unlockInputs();
+  assert.equal(askedForDefault,true);
+  assert.equal(temporary.track.readyState,'ended');
+  assert.deepEqual(found,[{id:'ep-usb',label:'EP USB AUDIO'}]);
+  assert.equal(a.active,false);
+  assert.equal(a.selectedId,'');
+});
