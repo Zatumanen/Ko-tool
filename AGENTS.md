@@ -376,8 +376,22 @@ to this project. **Do not replace the stack or copy the template architecture.**
   changes survived. Do not modify named presets or built-in definitions,
   silently start/restart audio capture or bypass audio privacy/cleanup
   requirements. This decision covers only Visuals' own Close command;
-  **browser tab/window close, navigation and reload prompts remain
-  separate**. Exact warning/Close control placement remains open.
+  **Owner-approved question 61 choice B — no Visuals-specific browser
+  unload/navigation prompts:** tab/window close, K.O. Tool page reload
+  and navigation to another website must proceed **without extra
+  confirmation or blocking due solely to unsaved Visuals layout edits**.
+  While the Visuals app is open, keep question 59's visible unobtrusive
+  «Изменения не сохранены» status; on unload do **not** register a
+  Visuals-specific `beforeunload` prompt, show an additional custom
+  modal, or force a retry/write (Q58 persists after completed layout
+  actions and Q59 retries on the next such action while open).
+  After leaving, reopen from the last confirmed valid stored working
+  snapshot or Balanced fallback; do not claim failed in-memory edits
+  were recovered. Do not interfere with **other K.O. Tool features'
+  independent safety/confirmation rules** or native browser behavior.
+  Respect audio capture cleanup/privacy obligations. Q60 still covers
+  instant **in-app** Close, whereas Q61 covers page/tab/navigation.
+  Exact warning/Close control placement remains open.
   **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
