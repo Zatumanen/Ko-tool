@@ -362,8 +362,22 @@ to this project. **Do not replace the stack or copy the template architecture.**
   Balanced fallback. Keep named layout presets and built-in definitions
   untouched; error on this auto-snapshot must not be mistaken for an
   explicitly saved named preset's status. Exact warning placement/UI,
-  storage API/atomicity, cross-tab coordination and any explicit-close
-  confirmation on pending unsaved changes remain for separate design.
+  storage API/atomicity and cross-tab coordination remain for design.
+  **Owner-approved question 60 choice B — close without confirming:**
+  when the user activates **Close Visuals inside the K.O. Tool browser
+  virtual desktop**, close the app **immediately even if “Изменения не
+  сохранены” is visible**. The pre-existing warning is sufficient;
+  there must be **no second confirmation modal, forced retry/write on
+  close, or blocked/delayed in-app closure**. Question 59's retry remains
+  triggered solely by the next completed layout edit while open.
+  Discard the unsuccessful in-memory working layout when the session ends;
+  subsequent reopen may restore only the last confirmed persisted valid
+  working snapshot (or Balanced fallback), never pretend the unsaved
+  changes survived. Do not modify named presets or built-in definitions,
+  silently start/restart audio capture or bypass audio privacy/cleanup
+  requirements. This decision covers only Visuals' own Close command;
+  **browser tab/window close, navigation and reload prompts remain
+  separate**. Exact warning/Close control placement remains open.
   **Owner-approved responsive choice C:** shrink visible modules proportionally only to a
   comfortable minimum; then use horizontal strip scrolling when they cannot
   fit. Never auto-hide/reorder modules or overwrite saved preset widths as
