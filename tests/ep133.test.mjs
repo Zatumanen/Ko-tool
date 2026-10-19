@@ -178,13 +178,14 @@ test('firmware-scoped evidence grants write only inside the verified range',()=>
 
 test('evidence registry is complete, uniquely scoped, and keeps provenance with explicit rights',()=>{
   assert.equal(validateEvidenceRegistry(),true);
-  assert.equal(EVIDENCE_REGISTRY.length,27);
+  const skus=['TE032AS001','TE032AS005','TE032AS006'];
+  assert.equal(EVIDENCE_REGISTRY.length,skus.length*Object.values(CAPABILITY_KEYS).length);
   const ids=new Set(EVIDENCE_REGISTRY.map(record=>record.id));
   assert.equal(ids.size,EVIDENCE_REGISTRY.length);
 
-  for(const sku of ['TE032AS001','TE032AS005','TE032AS006']){
+  for(const sku of skus){
     const records=listCapabilityEvidence({sku});
-    assert.equal(records.length,9);
+    assert.equal(records.length,Object.values(CAPABILITY_KEYS).length);
     assert.deepEqual(
       new Set(records.map(record=>record.capability)),
       new Set(Object.values(CAPABILITY_KEYS))
@@ -2765,7 +2766,7 @@ test('EP FILE scheduler exposes an explicit non-reentrant transport lease extend
     fs.readFile(new URL('../js/ep133/fileScheduler.js',import.meta.url),'utf8')
   ]);
   assert.match(transport,/const fileScheduler=createFileScheduler\(\{withLock:withBrowserFileLock\}\)/);
-  assert.match(transport,/export function withFileTransportTransaction\(label,operation,\{strict=false\}=\{\}\)/);
+  assert.match(transport,/export function withFileTransportTransaction\(label,operation,\{strict=false,recoveryRead=false\}=\{\}\)/);
   assert.match(transport,/FILE transaction lease is no longer active/);
   assert.match(transport,/getFileMetadata:track\(/);
   assert.match(transport,/getFileInfo:track\(/);

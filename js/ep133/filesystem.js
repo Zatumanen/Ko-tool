@@ -1,11 +1,14 @@
-import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20261001-1';
+import{onConnectionChange,withStrictFirmwareDebugGuard,getConnectedDeviceInfo,getDeviceSessionToken,markDeviceUnsafe,isDeviceUnsafe}from './device.js?v=20261001-1';
 import{withFileTransportTransaction,getFileOperationCoordinatorState,resetFileTransportState,fileTransportInternals,initFileSystem,getFileMetadata,listDeviceFiles,listDirectory,getFileInfo,putFile,deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,getFile}from './fileTransport.js?v=20261001-1';
 import{normalizeFileName,prepareSampleCreateMetadata,prepareSampleWritableMetadata,prepareSampleLocalMetadata,prepareSampleTransferMetadata,createTransferFileName,uploadSampleToSlotWithTransport}from './sampleFilesystem.js?v=20261001-1';
 import{createProjectFilesystem,assertProjectWriteActiveGuard}from './projectFilesystem.js?v=20261001-1';
 import{createSampleDependencyGuard}from './sampleDependencyGuard.js?v=20261001-1';
 import{createBrowserProjectRecoveryStore}from './projectRecovery.js?v=20261001-1';
 import{createSampleTransactionRuntime}from './sampleTransactionRuntime.js?v=20261001-1';
-import{publishSampleRecoveryEvent,publishProjectRecoveryEvent,syncDeviceRuntimeRecovery,setDeviceRecoveryRescanHandler}from './deviceRecoveryRuntimeBridge.js';
+import{publishSampleRecoveryEvent,publishProjectRecoveryEvent,publishPadRecoveryEvent,syncDeviceRuntimeRecovery,setDeviceRecoveryRescanHandler}from './deviceRecoveryRuntimeBridge.js';
+import{getPadMetadataAvailability as resolvePadMetadataAvailability}from './padMetadata.js';
+import{createPadRecoveryStore}from './padRecovery.js';
+import{createPadMetadataRuntime}from './padMetadataRuntime.js';
 import{deviceRuntime}from './deviceRuntime.js';
 import{toStructuredEpError,EP_ERROR_CATEGORY,EP_ERROR_CODE}from './errors.js?v=20261001-1';
 
@@ -27,9 +30,11 @@ export{
 const projectRecoveryStore=createBrowserProjectRecoveryStore(),sampleDependencyGuard=createSampleDependencyGuard({getConnectedDeviceInfo});
 const sampleTransactionRuntime=createSampleTransactionRuntime({getConnectedDeviceInfo});
 sampleTransactionRuntime.setRecoveryEventHandler(publishSampleRecoveryEvent);
+const padRecoveryStore=createPadRecoveryStore();
+const padMetadataRuntime=createPadMetadataRuntime({withFileTransaction:withFileTransportTransaction,getConnectedDeviceInfo,getDeviceSessionToken,recoveryStore:padRecoveryStore,onRecoveryEvent:publishPadRecoveryEvent});
 const syncRuntimeRecovery=device=>syncDeviceRuntimeRecovery({
   runtime:deviceRuntime,deviceInfo:device,listSampleTransactions:()=>sampleTransactionRuntime.listTransactions(),
-  listProjectCheckpoints:()=>projectRecoveryStore.listCheckpoints()
+  listProjectCheckpoints:()=>projectRecoveryStore.listCheckpoints(),listPadTransactions:()=>padRecoveryStore.list()
 }).catch(error=>console.warn('EP recovery runtime hydration failed',error));
 setDeviceRecoveryRescanHandler(()=>syncRuntimeRecovery(getConnectedDeviceInfo()));
 const projectFilesystem=createProjectFilesystem({
@@ -100,7 +105,14 @@ export const restoreProjectRecoveryCheckpoint=(id,options={})=>projectFilesystem
 export const getSampleRecoveryTransaction=id=>sampleTransactionRuntime.getTransaction(id);
 export const listSampleRecoveryTransactions=()=>sampleTransactionRuntime.listTransactions();
 export const deleteSampleRecoveryTransaction=id=>sampleTransactionRuntime.deleteTransaction(id);
-
+export const getPadMetadataAvailability=()=>resolvePadMetadataAvailability(getConnectedDeviceInfo());
+export const listPadMetadataTargets=options=>padMetadataRuntime.listTargets(options);
+export const readPadMetadataTarget=options=>padMetadataRuntime.readTarget(options);
+export const applyPadMetadata=args=>padMetadataRuntime.apply(args);
+export const listPadRecoveryRecords=()=>padMetadataRuntime.listRecords();
+export const verifyPadRecoveryRecord=id=>padMetadataRuntime.verify(id);
+export const restorePadRecoveryRecord=(id,options)=>padMetadataRuntime.restore(id,options);
+export const acknowledgePadRecoveryRecord=id=>padMetadataRuntime.acknowledge(id);
 onConnectionChange(({connected,device})=>{
   if(!connected){projectFilesystem.resetProjectRuntime();return;}
   syncRuntimeRecovery(device);

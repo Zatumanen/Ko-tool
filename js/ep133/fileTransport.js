@@ -36,7 +36,7 @@ function runGuardedFileMutation(label,operation){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label),label,{mode:'mutation'});
 }
 
-function createFileTransactionLease(){
+function createFileTransactionLease({readOnly=false}={}){
   let active=true;
   const inFlight=new Set();
   const assertActive=()=>{
@@ -56,10 +56,10 @@ function createFileTransactionLease(){
     getFileMetadata:track(async(nodeId,key=null)=>{await ensureFileSystemInitializedUnlocked();return getMetadataByNodeId(nodeId,key);}),
     getFileInfo:track(async fileId=>{await ensureFileSystemInitializedUnlocked();return getFileInfoUnlocked(fileId);}),
     getFile:track(getFileUnlocked),
-    putFile:track(putFileUnlocked),
+    ...(readOnly?{}:{putFile:track(putFileUnlocked),
     setFileMetadata:track(setFileMetadataUnlocked),
     deleteFile:track(deleteFileUnlocked),
-    moveFile:track(moveFileUnlocked)
+    moveFile:track(moveFileUnlocked)})
   });
   return{
     lease,
@@ -70,11 +70,12 @@ function createFileTransactionLease(){
   };
 }
 
-export function withFileTransportTransaction(label,operation,{strict=false}={}){
+export function withFileTransportTransaction(label,operation,{strict=false,recoveryRead=false}={}){
   if(typeof operation!=='function')throw new TypeError('FILE transaction requires an operation.');
+  if(strict&&recoveryRead)throw new TypeError('Recovery read cannot use a strict mutation transaction.');
   const transactionLabel=String(label||'FILE transaction');
   return runFileOperation(async()=>{
-    const context=createFileTransactionLease();
+    const context=createFileTransactionLease({readOnly:recoveryRead});
     try{
       const execute=()=>operation(context.lease);
       return strict
@@ -83,7 +84,7 @@ export function withFileTransportTransaction(label,operation,{strict=false}={}){
     }finally{
       await context.close();
     }
-  },transactionLabel,{mode:strict?'mutation':'read'});
+  },transactionLabel,{mode:strict?'mutation':recoveryRead?'recovery-read':'read'});
 }
 
 export function getFileOperationCoordinatorState(){return deviceOperationCoordinator.getState();}

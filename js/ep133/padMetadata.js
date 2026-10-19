@@ -1,7 +1,7 @@
-import{resolveDeviceCapabilities}from './deviceCapabilities.js?v=20261001-1';
+import{resolveDeviceCapabilities,decodeFileRights}from './deviceCapabilities.js?v=20261001-1';
 import{assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
 import{assertFileMetadata}from './coreContracts.js?v=20261008-1';
-import{TE_SYSEX_FILE_CAPABILITY_READ,TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR}from './constants.js';
+import{TE_SYSEX_FILE_FILE_TYPE_FILE,TE_SYSEX_FILE_FILE_TYPE_DIR}from './constants.js';
 
 /**
  * Pure pad-node contracts, separate from /sounds defaults and native TAR records.
@@ -190,7 +190,7 @@ function padTreeReader(fileOps){
     if(!Number.isInteger(info.flags)||info.flags<0||info.flags>255||
       (info.flags&3)!==bits||entry.fileType!==type)
       throw new Error('Pad tree INFO node type does not match LIST chain.');
-    if(!(info.flags&TE_SYSEX_FILE_CAPABILITY_READ))
+    if(!decodeFileRights(info.flags).read)
       throw new Error('Pad tree INFO read capability is required.');
     return entry;
   };

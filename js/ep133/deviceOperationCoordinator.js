@@ -87,7 +87,7 @@ export function createDeviceOperationCoordinator({
   };
 
   const begin=(label,{mode='read'}={})=>{
-    const normalizedMode=mode==='mutation'?'mutation':'read';
+    const normalizedMode=mode==='mutation'?'mutation':mode==='recovery-read'?'recovery-read':'read';
     assertAvailable({mode:normalizedMode});
     const operationId=typeof nextOperationId==='function'?nextOperationId():nextId++;
     const connectionEpoch=runtime?.captureEpoch?.();
