@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as module from '../js/ep133/padMetadataRuntime.js';
+import {deviceRuntime} from '../js/ep133/deviceRuntime.js';
+import {createDeviceOperationCoordinator} from '../js/ep133/deviceOperationCoordinator.js';
+import {publishPadRecoveryEvent,syncDeviceRuntimeRecovery} from '../js/ep133/deviceRecoveryRuntimeBridge.js';
 import {readPadTarget} from '../js/ep133/padMetadata.js';
 
 // Synthetic leased FILE tree and durable dependency, never hardware evidence.
@@ -8,7 +11,7 @@ const target={project:'01',group:'A',pad:'01',sampleSlot:7,projectFid:2101,group
 const metadata=()=>({sym:7,'sound.playmode':'oneshot','sample.start':4,'sample.end':300,
   'envelope.attack':5,'envelope.release':90,'sound.pitch':0,'sound.amplitude':72,
   'sound.pan':-3,'sound.mutegroup':2,'time.mode':'off','midi.channel':4});
-function harness({records=new Map(),persistent=true,availability=()=>({read:true,write:true})}={}){
+function harness({records=new Map(),persistent=true,availability=()=>({read:true,write:true}),coordinator=null,publish=null}={}){
   let current=metadata(),token='PRIVATE-SESSION-TOKEN',device={sku:'TE032AS001',metadata:{serial:'PRIVATE-SERIAL',os_version:'2.5.1'}};
   const actions=[],events=[];
   const nodes=[{nodeId:1800,parentId:0,fileName:'projects',flags:6},
@@ -29,8 +32,8 @@ function harness({records=new Map(),persistent=true,availability=()=>({read:true
     async list(){return structuredClone([...records.values()]);}
   };
   const dependencies={withFileTransaction:async(label,operation,options)=>{
-    actions.push(['LEASE',options.strict,options.recoveryRead===true]);return operation(fileOps);
-  },getConnectedDeviceInfo:()=>device,getDeviceSessionToken:()=>token,recoveryStore:store,onRecoveryEvent:e=>events.push(e)};
+    actions.push(['LEASE',options.strict,options.recoveryRead===true]);return coordinator?coordinator.run(label,()=>operation(fileOps),{mode:options.strict?'mutation':options.recoveryRead?'recovery-read':'read'}):operation(fileOps);
+  },getConnectedDeviceInfo:()=>device,getDeviceSessionToken:()=>token,recoveryStore:store,onRecoveryEvent:e=>{events.push(e);publish?.(e);}};
   if(availability)dependencies.getPadMetadataAvailability=availability;
   const runtime=module.createPadMetadataRuntime(dependencies);
   return{runtime,store,records,actions,events,fileOps,nodes,
@@ -231,3 +234,66 @@ test('runtime discovery and read use read leases with current session and firmwa
   const denied=harness({availability:()=>({read:false,write:false})});
   await assert.rejects(()=>denied.runtime.readTarget(target),/permission|evidence/i);
 });
+
+// Real runtime/coordinator/bridge; only leased FILE and journal dependencies are synthetic.
+for(const reconnect of ['different-device','same-device-new-session','same-session','late-error-persistence']){
+  test('late pad failure origin: '+reconnect,async()=>{
+    const epoch=deviceRuntime.getSnapshot().connection.epoch+1;
+    deviceRuntime.dispatch({type:'OWNERSHIP_ACQUIRED'});
+    const connect=(connectionEpoch,deviceKey='synthetic-A')=>deviceRuntime.dispatch({type:'DEVICE_CONNECTED',connectionEpoch,
+      device:{sku:'TE032AS001',firmware:'2.5.1',deviceKey,identityVerified:true}});
+    connect(epoch);deviceRuntime.dispatch({type:'RECOVERY_SCAN_COMPLETED',connectionEpoch:epoch});
+    const coordinator=createDeviceOperationCoordinator({runtime:deviceRuntime});
+    const h=harness({coordinator,publish:publishPadRecoveryEvent});
+    let rejectSet,started;const dispatched=new Promise(resolve=>{started=resolve;});
+    h.fileOps.setFileMetadata=async fid=>{h.actions.push(['SET',fid]);started();return new Promise((_,reject)=>{rejectSet=reject;});};
+    let releasePersistence,persisting;const persistenceStarted=new Promise(resolve=>{persisting=resolve;});
+    if(reconnect==='late-error-persistence'){
+      const update=h.store.update;h.store.update=async(...args)=>{
+        if(sets(h).length&&args[1].status==='requires-recovery'){persisting();await new Promise(resolve=>{releasePersistence=resolve;});}
+        return update(...args);
+      };
+    }
+    const pending=assert.rejects(()=>h.apply(),/recovery/i);await dispatched;
+    const original=(await h.store.list())[0];
+    if(reconnect==='late-error-persistence'){rejectSet(new Error('SET before disconnect'));await persistenceStarted;}
+    if(reconnect!=='same-session'){
+      deviceRuntime.dispatch({type:'DEVICE_DISCONNECTED',connectionEpoch:epoch+1});
+      h.token='new-session';
+      if(reconnect==='different-device')h.device={sku:'TE032AS001',metadata:{serial:'OTHER-DEVICE',os_version:'2.5.1'}};
+      connect(epoch+2,reconnect==='different-device'?'synthetic-B':'synthetic-A');
+      // Preserve the existing generic disconnect blocker; do not claim B is ready.
+      deviceRuntime.dispatch({type:'RECOVERY_SCAN_COMPLETED',connectionEpoch:epoch+2});
+      assert.equal(deviceRuntime.getSnapshot().recovery.transaction.source,'operation');
+    }
+    if(reconnect==='late-error-persistence')releasePersistence();else rejectSet(new Error('ambiguous synthetic SET'));await pending;
+    assert.equal(sets(h).length,1);
+    assert.equal((await h.store.get(original.id)).status,'requires-recovery');
+    const observed={events:h.events.length,transaction:deviceRuntime.getSnapshot().recovery.transaction};
+    if(reconnect==='different-device'){
+      const foreign=await syncDeviceRuntimeRecovery({runtime:deviceRuntime,deviceInfo:{sku:'TE032AS001',metadata:{serial:'OTHER-DEVICE',os_version:'2.5.1'}},listSampleTransactions:async()=>[],listProjectCheckpoints:async()=>[],listPadTransactions:()=>h.store.list()});
+      assert.equal(foreign.count,0);observed.foreignTransaction=deviceRuntime.getSnapshot().recovery.transaction;
+      await assert.rejects(()=>h.runtime.acknowledge(original.id),/different physical device/i);
+    }
+    // Original device reconnect hydration still finds its durable pad record.
+    const returnEpoch=deviceRuntime.captureEpoch()+1;
+    deviceRuntime.dispatch({type:'DEVICE_DISCONNECTED',connectionEpoch:returnEpoch});
+    h.token='origin-return-session';h.device={sku:'TE032AS001',metadata:{serial:'PRIVATE-SERIAL',os_version:'2.5.1'}};
+    connect(returnEpoch+1);
+    const result=await syncDeviceRuntimeRecovery({runtime:deviceRuntime,
+      deviceInfo:{sku:'TE032AS001',metadata:{serial:'PRIVATE-SERIAL',os_version:'2.5.1'}},
+      listSampleTransactions:async()=>[],listProjectCheckpoints:async()=>[],listPadTransactions:()=>h.store.list()});
+    assert.equal(result.count,1);assert.equal(result.blocker.id,original.id);
+    assert.equal(sets(h).length,1);
+    // Resolve this test's actual record through real verification/acknowledgement.
+    await h.runtime.acknowledge(original.id);
+    deviceRuntime.dispatch({type:'RECOVERY_SCAN_COMPLETED',connectionEpoch:deviceRuntime.captureEpoch()});
+    if(reconnect==='same-session'){
+      assert.equal(observed.transaction.id,original.id);assert.equal(observed.transaction.source,'pad');
+    }else{
+      assert.equal(observed.events,0,'old session must not publish under the new connection');
+      assert.equal(observed.transaction.source,'operation');
+      if(reconnect==='different-device')assert.equal(observed.foreignTransaction.source,'operation');
+    }
+  });
+}

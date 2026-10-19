@@ -25,7 +25,9 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
   recoveryStore,onRecoveryEvent,getPadMetadataAvailability:availability=getPadMetadataAvailability}={}){
   for(const dependency of [withFileTransaction,getConnectedDeviceInfo,getDeviceSessionToken,availability])
     if(typeof dependency!=='function')throw new TypeError('Pad runtime requires transaction, device, session and availability services.');
-  const notify=event=>{try{onRecoveryEvent?.(event);}catch{/* Durable state remains authoritative. */}};
+  // Notifications are connection-owned, unlike the durable journal. A late old
+  // transaction must never acquire the bridge's current connection epoch.
+  const notify=(event,ctx)=>{try{ctx.guard();onRecoveryEvent?.(event);}catch{/* Durable state remains authoritative. */}};
   const context=(token=getDeviceSessionToken())=>{
     if(typeof token!=='string'||!token)throw new Error('Pad operation requires a current device session.');
     const device=identity(getConnectedDeviceInfo());
@@ -90,7 +92,7 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
     }catch(error){
       if(dispatched){
         try{await recoveryStore.update(id,{status:'requires-recovery'});}catch{/* MUTATE is already durable. */}
-        notify({type:'required',transactionId:id,reason:'Pad mutation requires authoritative recovery verification.'});
+        notify({type:'required',transactionId:id,reason:'Pad mutation requires authoritative recovery verification.'},ctx);
         const failure=new Error('Pad mutation requires recovery; no automatic retry was performed.');
         failure.recordId=id;throw failure;
       }
@@ -137,7 +139,7 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
       return withFileTransaction('pad recovery verification',async ops=>{
         const record=await getRecord(id,ctx),report=await inspect(record,ops,ctx);
         await recoveryStore.update(id,{verification:report});ctx.guard();
-        notify({type:'verified',transactionId:record.id,verification:report});return report;
+        notify({type:'verified',transactionId:record.id,verification:report},ctx);return report;
       },{strict:false,recoveryRead:true});
     },
     async acknowledge(id){
@@ -147,9 +149,9 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
         ctx.guard();await recoveryStore.update(id,{status:'acknowledged',verification:report});
         try{ctx.guard();}catch(error){
           try{await recoveryStore.update(id,{status:'requires-recovery'});}catch{/* Keep runtime blocked as well. */}
-          notify({type:'required',transactionId:record.id,reason:'Pad acknowledgement was interrupted.'});throw error;
+          notify({type:'required',transactionId:record.id,reason:'Pad acknowledgement was interrupted.'},ctx);throw error;
         }
-        notify({type:'acknowledged',transactionId:record.id,verification:report});return report;
+        notify({type:'acknowledged',transactionId:record.id,verification:report},ctx);return report;
       },{strict:false,recoveryRead:true});
     },
     async restore(id,{confirmed=false}={}){
