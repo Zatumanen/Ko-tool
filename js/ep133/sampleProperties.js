@@ -47,7 +47,7 @@ const row=(slot,key,label,value,{numeric=false,drag='',editable=true,isPending=(
   '</div>';
 };
 
-export function renderSampleProperties(slot,{playModes=[],barPolicy={},isPending=()=>false,escapeHtml=String}={}){
+export function renderSampleProperties(slot,{playModes=[],barPolicy={},isPending=()=>false,escapeHtml=String,includeSampleTiming=true}={}){
   if(!slot?.file)return'';
   const meta=slot.meta||{};
   const options={isPending,escapeHtml};
@@ -63,15 +63,15 @@ export function renderSampleProperties(slot,{playModes=[],barPolicy={},isPending
   html+=row(slot,'sound.pitch','PITCH',pitch>0?'+'+pitch:String(pitch),{...options,numeric:true});
   html+='<div class="ep133-property-separator"></div>';
   html+=row(slot,'time.mode','TIME MODE',timeMode.toUpperCase(),options);
-  if(timeMode==='bpm')html+=row(slot,'sound.bpm','BPM',String(bpm),{...options,numeric:true,drag:'bpm'});
-  if(timeMode==='bar'){
+  if(includeSampleTiming&&timeMode==='bpm')html+=row(slot,'sound.bpm','BPM',String(bpm),{...options,numeric:true,drag:'bpm'});
+  if(includeSampleTiming&&timeMode==='bar'){
     const barLabel=bars===null?'—':bars===1?'1 BAR':String(bars)+' BARS';
     html+=row(slot,'sound.bars','BARS',barLabel,{...options,editable:barAuthoring});
   }
   return html;
 }
 
-export function getSamplePropertyChange(slot,key,direction,{playModes=[],barPolicy={}}={}){
+export function getSamplePropertyChange(slot,key,direction,{playModes=[],barPolicy={},includeSampleTiming=true}={}){
   const meta=slot?.meta||{};
   const step=Number(direction)||0;
   const barValues=barPolicyValues(barPolicy);
@@ -91,8 +91,8 @@ export function getSamplePropertyChange(slot,key,direction,{playModes=[],barPoli
     const index=TIME_MODES.indexOf(current);
     const value=TIME_MODES[(index+step+TIME_MODES.length)%TIME_MODES.length];
     const extra={};
-    if(value==='bpm'&&!(Number(meta['sound.bpm'])>=1&&Number(meta['sound.bpm'])<=200))extra['sound.bpm']=120;
-    if(value==='bar'&&normalizeSampleBar(meta['sound.bars'])===null){
+    if(includeSampleTiming&&value==='bpm'&&!(Number(meta['sound.bpm'])>=1&&Number(meta['sound.bpm'])<=200))extra['sound.bpm']=120;
+    if(includeSampleTiming&&value==='bar'&&normalizeSampleBar(meta['sound.bars'])===null){
       if(!barAuthoring)return null;
       extra['sound.bars']=barValues[0];
     }

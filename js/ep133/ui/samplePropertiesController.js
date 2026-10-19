@@ -8,7 +8,7 @@ export function createSamplePropertiesController({
   isConnected,isSynchronized,isMetadataHydrating,isMutating,
   withFileTransaction,setFileMetadata,getFileMetadata,
   captureBatchSession,assertBatchSession,
-  showError,logTechnical,escapeHtml=String,
+  showError,logTechnical,escapeHtml=String,onEditAssignedPad,
   documentRef=globalThis.document,windowRef=globalThis.window,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay),
   clearTimeoutFn=timer=>clearTimeout(timer),
@@ -36,6 +36,7 @@ export function createSamplePropertiesController({
       isPending:key=>isPropertyPending(slot.id,key),
       escapeHtml
     });
+    if(onEditAssignedPad)propertiesGrid.innerHTML+='<button type="button" data-edit-assigned-pad>EDIT ASSIGNED PAD</button>';
     const pending=[...propertyStates.values()].some(state=>state.slotId===slot.id);
     const results=[...propertyResults.values()].filter(result=>result.slotId===slot.id);
     const result=results.find(result=>result.error)||results[0];
@@ -239,6 +240,12 @@ export function createSamplePropertiesController({
   };
 
   propertiesGrid?.addEventListener('click',event=>{
+    if(event.target.closest('[data-edit-assigned-pad]')){
+      const slot=sampleStore?.getSlot?.(currentPropertySlotId);
+      // Capture only canonical device-confirmed values, never the pending overlay.
+      if(slot?.file)onEditAssignedPad?.(slot,{confirmedLibraryMetadata:slot.verification?.metadata==='verified'?{...slot.meta}:null});
+      close();return;
+    }
     const button=event.target.closest('[data-property]');
     if(!button||!currentPropertySlotId)return;
     const slot=sampleStore?.getSlot?.(currentPropertySlotId);

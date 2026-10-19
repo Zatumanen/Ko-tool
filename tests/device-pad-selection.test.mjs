@@ -65,3 +65,23 @@ test('sample metadata and stale/disconnected events do not hijack selection',asy
   await wait();
   assert.equal(x.calls.length,0);
 });
+
+test('optional active-pad callback receives guarded authoritative FID and assignment',async()=>{
+  const active=[];
+  const controller=createDevicePadSelectionController({isConnected:()=>true,isSynchronized:()=>true,
+    withFileTransaction:async(label,fn)=>fn({getFileInfo:async()=>({fileName:'A',parentId:4500}),getFileMetadata:async()=>({sym:7})}),
+    captureBatchSession:()=>1,assertBatchSession:token=>assert.equal(token,1),onActivePad:value=>active.push(value),schedule:fn=>setTimeout(fn,0)});
+  // Parent INFO must identify the group collection before active selection is accepted.
+  controller.handleFileEvent(event(4501,{active:6107}));await wait();assert.equal(active.length,0);
+  controller.reset();
+  const accepted=createDevicePadSelectionController({isConnected:()=>true,isSynchronized:()=>true,
+    withFileTransaction:async(label,fn)=>fn({getFileInfo:async id=>id===4501?{fileName:'A',parentId:4500}:{fileName:'groups'},getFileMetadata:async()=>({sym:7})}),
+    captureBatchSession:()=>1,assertBatchSession:()=>{},onActivePad:value=>active.push(value),schedule:fn=>setTimeout(fn,0)});
+  accepted.handleFileEvent(event(4501,{active:6107}));await wait();assert.deepEqual(active,[{padId:6107,sym:7}]);accepted.reset();
+});
+
+test('active-pad callback resolves cross-project/group literal target through INFO parents',async()=>{
+ const received=[],infos=new Map([[6207,{nodeId:6207,fileName:'12',parentId:4600}],[4600,{nodeId:4600,fileName:'B',parentId:4300}],[4300,{nodeId:4300,fileName:'groups',parentId:3100}],[3100,{nodeId:3100,fileName:'02',parentId:2000}],[2000,{nodeId:2000,fileName:'projects',parentId:0}]]);
+ const controller=createDevicePadSelectionController({isConnected:()=>true,isSynchronized:()=>true,onActivePad:selection=>received.push(selection),withFileTransaction:async(label,fn)=>fn({getFileInfo:async id=>infos.get(id),getFileMetadata:async()=>({sym:8})}),captureBatchSession:()=>1,assertBatchSession:()=>{},schedule:fn=>setTimeout(fn,0)});
+ controller.handleFileEvent(event(4600,{active:6207}));await wait();assert.deepEqual(received,[{padId:6207,sym:8,target:{project:'02',group:'B',pad:'12',projectFid:3100,groupFid:4600,padFid:6207,sampleSlot:8}}]);controller.reset();
+});

@@ -871,3 +871,15 @@
   filter:grayscale(1);
   pointer-events:none;
 }
+
+/* Selected pad owns a separate target and recovery surface. */
+.ep-pad-dialog .ep-backup-window{width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+.ep-pad-dialog .ep-backup-body{overflow:auto}
+.ep-pad-selectors{display:flex;flex-wrap:wrap;gap:12px}
+.ep-pad-selectors label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:90px}
+.ep-pad-source{padding:10px;border:1px solid currentColor;overflow-wrap:anywhere;font-size:11px}
+.ep-pad-dialog [data-pad-pitch]{cursor:ns-resize;touch-action:none}
+.ep-pad-recovery label{display:block;margin:10px 0}
+.ep-pad-recovery select{max-width:100%}
+#ep133-pad-recovery-detail{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;font:11px/1.5 monospace}
+#ep133-pad-reason,#ep133-pad-status{overflow-wrap:anywhere;font-size:11px}

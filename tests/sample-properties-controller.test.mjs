@@ -107,3 +107,14 @@ for(const action of ['close','reset']){
     assert.equal(s.documentHandlers.has('pointercancel'),false);
   });
 }
+
+test('assigned-pad entry captures confirmed library values rather than pending values',async()=>{
+  const sampleStore=createSampleStore();sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',isWritable:true}]);sampleStore.setMetadata(7,{'sound.pitch':0,'sound.playmode':'oneshot','time.mode':'off','envelope.release':42});
+  const handlers=new Map(),calls=[];
+  const controller=createSamplePropertiesController({properties:{hidden:false},propertiesGrid:{innerHTML:'',addEventListener:(type,fn)=>handlers.set(type,fn)},sampleStore,
+    getActiveDeviceProfile:()=>({advancedSampleMetadataWrites:true,playModes:['oneshot','key','legato']}),isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
+    captureBatchSession:()=>1,setTimeoutFn:()=>1,clearTimeoutFn:()=>{},onEditAssignedPad:(slot,options)=>calls.push({slot,options})});
+  controller.open(sampleStore.getSlot(7));controller.change(sampleStore.getSlot(7),'sound.pitch',1);
+  handlers.get('click')({target:{closest:selector=>selector==='[data-edit-assigned-pad]'?{}:null}});
+  assert.equal(calls.length,1);assert.equal(calls[0].options.confirmedLibraryMetadata['sound.pitch'],0);controller.reset();
+});
