@@ -58,14 +58,24 @@ activation in Cloud merely because repository files exist.
 
 ## Existing cloud runtime
 
-Node22.23.3 is retained at /workspace/.ko-tool-tools/node_modules/node/bin:
-prepend it to PATH per shell. Playwright is in node_modules; system Chromium is
-/usr/bin/chromium. Existing commands: npm test, npm run build:pages,
-npm run test:e2e. Cloud browser override:
-/workspace/.ko-tool-tools/playwright.cloud.config.mjs. It selects system Chromium;
+Verified 2026-10-19: Node22.22.0 is retained at
+`/workspace/.ko-tool-setup/node_modules/node/bin`; prepend it to PATH per shell.
+The default shell Node is24.19.0. Playwright is in node_modules; system Chromium
+is `/usr/bin/chromium` (154.0.8037.57 at verification). Existing commands:
+`npm test`, `npm run build:pages`, `npm run test:e2e`. Cloud browser override:
+`/workspace/.ko-tool-setup/playwright.config.mjs`. It selects system Chromium;
 the managed-browser CDN previously hit network policy. Preserve TLS/integrity.
+Retain new results separately in `work/` rather than overwriting earlier traces.
 The test server fixes port4173; stop only your own manual server before E2E.
 No package.json, lockfile or Actions change is needed for this configuration.
+
+This session's restricted runner reports `spawnSync ... EPERM` even when a
+child exits successfully, and asynchronous child stdout can be empty. This was
+reproduced with both Node22 and Node24 using a child that only prints its version;
+the supported approved execution outside that sandbox captures output normally.
+If this recurs, diagnose a minimal child-process example and use the environment's
+permission workflow when needed. Do not skip syntax checks, weaken runtime
+assertions or alter application code to accommodate the runner limitation.
 
 ## Activation and verification limits
 
