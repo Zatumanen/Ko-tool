@@ -2,6 +2,8 @@
 
 Goal: understand reference application behavior and file/protocol contracts well enough to implement **independent** Ko-tool compatibility. This is not a license to copy proprietary source, icons, binaries or trademarks.
 
+Current owner-supplied materials and comparison: [Reference sources](REFERENCE_SOURCES.md). The official EP Sample Tool is the owner's primary technical reference; raw artifacts are retained outside Git with SHA-256 manifests.
+
 ## Input inventory
 
 For each user-supplied input record:

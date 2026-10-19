@@ -65,7 +65,9 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       sink.connect(context.destination); // zero gain: drive analysis without audible feedback
       track.onended=()=>{if(request===generation)stop('Аудиовход отключён')};
       await context.resume();
-      if(request!==generation){release();return false}
+      // The superseding START/STOP already released this request's graph.
+      // Shared capture state may now belong to a newer START.
+      if(request!==generation)return false;
       active=true;state('LIVE · '+(track.label||'Аудиовход'));
       return true;
     }catch(error){

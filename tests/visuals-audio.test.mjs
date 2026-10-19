@@ -72,6 +72,45 @@ test('stop during pending permission immediately releases a late stream',async()
   assert.equal(stream.track.readyState,'ended');
   assert.equal(a.active,false);
 });
+test('a superseded START finishing resume cannot stop the newly selected live input',async t=>{
+  let finishOldResume,enteredOldResume;
+  const oldResume=new Promise(resolve=>{finishOldResume=resolve});
+  const oldResuming=new Promise(resolve=>{enteredOldResume=resolve});
+  const contexts=[];
+  class DelayedAudioContext extends FakeAudioContext{
+    constructor(){super();contexts.push(this)}
+    resume(){
+      if(contexts.indexOf(this)===0){enteredOldResume();return oldResume}
+      return Promise.resolve();
+    }
+  }
+  const streams=[makeStream(),makeStream()],requests=[];
+  const a=createVisualsAudio({
+    navigatorRef:{mediaDevices:{async getUserMedia(constraints){
+      requests.push(constraints.audio.deviceId.exact);
+      return streams[requests.length-1];
+    }}},
+    AudioContextClass:DelayedAudioContext
+  });
+  t.after(()=>a.stop());
+  a.select('old-input');
+  const firstStart=a.start();
+  await oldResuming;
+  a.select('new-input');
+  assert.equal(await a.start(),true);
+  assert.equal(a.active,true);
+
+  finishOldResume();
+  assert.equal(await firstStart,false);
+  assert.deepEqual(requests,['old-input','new-input']);
+  assert.equal(a.selectedId,'new-input');
+  assert.equal(a.active,true,'the stale START must leave the new capture live');
+  assert.notEqual(a.sample(),null);
+  assert.equal(streams[0].track.readyState,'ended');
+  assert.equal(streams[1].track.readyState,'live');
+  assert.equal(contexts[0].closed,true);
+  assert.equal(contexts[1].closed,false);
+});
 test('source change stops an existing capture without silently starting a replacement',async()=>{
   const first=makeStream(),nav={mediaDevices:{getUserMedia:async()=>first}};
   const a=createVisualsAudio({navigatorRef:nav,AudioContextClass:FakeAudioContext});
