@@ -165,6 +165,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
         if(dom.padProject)dom.padProject.value=selected.project;if(dom.padGroup)dom.padGroup.value=selected.group;
       }
       targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');if(dom.padSelect)dom.padSelect.value=selected.pad;
+      snapshot=null;notice='READING SELECTED PAD…';render();
       await load(selected,version);
     }catch(error){if(valid(version))fail('read',error);}
   };

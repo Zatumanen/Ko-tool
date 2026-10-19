@@ -13,14 +13,14 @@ class Element{
 const metadata=()=>({sym:7,'sound.pitch':0,'sound.playmode':'oneshot','time.mode':'off','sample.start':0,'sample.end':500,'envelope.attack':0,'envelope.release':42,'sound.amplitude':100,'sound.pan':0,'sound.mutegroup':0,'midi.channel':1});
 const target=(pad='01',sampleSlot=7)=>({project:'01',group:'A',pad,projectFid:3001,groupFid:4500,padFid:pad==='01'?6107:6111,sampleSlot});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-const build=({write=true,meta=metadata(),applyResult}={})=>{
+const build=({write=true,meta=metadata(),applyResult,readResult}={})=>{
   const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padSource','padGrid','padApply','padStatus','padReason','padRecoveryList','padRecoveryDetail','padRecoveryVerify','padRecoveryRestore','padRecoveryAcknowledge','padRecoveryRefresh'].map(key=>[key,new Element()]));
   const doc=new Element(),writes=[],errors=[],reads=[];let session='first',timers=[],device={...meta};
   const controller=createPadPropertiesController({dom,documentRef:doc,
     getAvailability:()=>({read:true,write,reason:write?'':'Pad writes lack physical evidence.'}),
     captureSession:()=>session,assertSession:value=>{if(value!==session)throw Error('Session changed');},reportError:(...args)=>errors.push(args),
     readTargets:async options=>({projects:[{project:'01',projectFid:3001}],groups:options.project?[{project:'01',group:'A',groupFid:4500}]:[],pads:options.group?[target('01',options.sampleSlot),target('02',options.sampleSlot)]:[]}),
-    readTarget:async selected=>{reads.push(selected);return{target:{...selected},metadata:{...device,sym:selected.sampleSlot},fingerprint:JSON.stringify(device)};},
+    readTarget:async selected=>{reads.push(selected);const result={target:{...selected},metadata:{...device,sym:selected.sampleSlot},fingerprint:JSON.stringify(device)};return readResult?readResult(selected,result):result;},
     applyPadMetadata:async args=>{writes.push(structuredClone(args));if(applyResult)return applyResult(args);device={...device,...args.changes};return{metadata:{...device},verification:{ok:true}};},
     setTimeoutFn:fn=>{timers.push(fn);return fn;},clearTimeoutFn:fn=>{timers=timers.filter(item=>item!==fn);}
   });
@@ -90,6 +90,19 @@ test('pad time mode reaches BAR without requiring or inventing library timing va
 
 test('authoritative hardware target follows across project/group and invalidates original copy source',async()=>{
  const s=build();await s.open();await s.choose();const selected={project:'02',group:'B',pad:'12',projectFid:3100,groupFid:4600,padFid:6207,sampleSlot:8};await s.controller.handleActivePad({padId:6207,sym:8,target:selected});assert.deepEqual(s.reads.at(-1),selected);assert.equal(s.dom.padProject.value,'02');assert.equal(s.dom.padGroup.value,'B');assert.equal(s.dom.padSelect.value,'12');assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padSource.textContent,/cleared/);await s.step('sound.pitch');await s.flush();assert.equal(s.writes[0].target.padFid,6207);assert.equal(s.writes[0].before.metadata.sym,8);
+});
+for(const outcome of ['success','failure'])test(`hardware follow blocks stale grid/apply during a delayed ${outcome} read`,async()=>{
+ const selected={project:'02',group:'B',pad:'12',projectFid:3100,groupFid:4600,padFid:6207,sampleSlot:7};
+ let settle,defer=true;
+ const s=build({readResult:(target,result)=>target.padFid===selected.padFid&&defer?new Promise((resolve,reject)=>{settle=()=>{defer=false;outcome==='success'?resolve(result):reject(Error('Selected pad read failed'));};}):result});
+ await s.open();await s.choose();const follow=s.controller.handleActivePad({padId:selected.padFid,sym:7,target:selected});await tick();
+ assert.deepEqual(s.reads.at(-1),selected);assert.equal(s.dom.padProject.value,'02');assert.equal(s.dom.padSelect.value,'12');
+ const attemptEdit=async()=>{await s.step('sound.pitch');await s.flush();await s.dom.padApply.fire('click');await s.dom.padGrid.fire('pointerdown',{clientY:100,preventDefault(){},target:{closest:()=>({})}});await s.doc.fire('pointermove',{clientY:91});await s.doc.fire('pointerup');await s.flush();};
+ await attemptEdit();assert.deepEqual(s.writes,[],'new selectors must never dispatch changes to the old pad');assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padAssignment.textContent,/NO PAD SELECTED/);
+ settle();await follow;
+ if(outcome==='success'){assert.match(s.dom.padAssignment.textContent,/02.*B.*12/);await s.step('sound.pitch');await s.flush();assert.equal(s.writes.length,1);assert.equal(s.writes[0].target.padFid,selected.padFid);}
+ else{await attemptEdit();assert.deepEqual(s.writes,[]);assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padStatus.textContent,/Selected pad read failed/);assert.match(s.dom.padAssignment.textContent,/NO PAD SELECTED/);}
+ s.controller.dispose();
 });
 test('recovery errors remain visible after action cleanup',async()=>{
  const s=build();const r=createPadRecoveryController({dom:s.dom,listRecords:async()=>[{id:'r',target:target(),before:metadata(),desired:metadata(),status:'requires-recovery'}],verify:async()=>{throw Error('Protected state is incomplete');},confirmAction:async()=>true,reportError:()=>{}});await r.refresh();s.dom.padRecoveryList.value='r';await s.dom.padRecoveryList.fire('change');await s.dom.padRecoveryVerify.fire('click');assert.match(s.dom.padRecoveryDetail.textContent,/Protected state is incomplete/);r.dispose();
