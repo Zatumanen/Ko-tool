@@ -51,6 +51,7 @@ A merged PR, green CI, or passing fake device test does **not** automatically cl
 | x2, channels, metadata, WASM | `tests/audio-pipeline-golden.test.mjs`, `tests/processor.test.mjs`, `tests/resampler-zip.test.mjs`, converter E2E |
 | Folder/ZIP/names | `tests/audio-import-policy.test.mjs`, `tests/output-name.test.mjs`, `tests/e2e/folder-import-recovery.spec.mjs`, `tests/e2e/output-file-names.spec.mjs` |
 | Sample upload and slot numbering | `tests/ep-sample-numbered-upload.test.mjs`, `tests/sample-upload-name-normalization.test.mjs`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs` |
+| Sample properties / native WAV metadata | `tests/sample-properties-controller.test.mjs`, `tests/ep-wav-sampler-metadata.test.mjs`, `tests/e2e/my-ep-sample-editing.spec.mjs`; check SET/GET confirmation, rejected writes, session changes, outside selection clearing and waveform bounds |
 | MOVE/COPY/DELETE and dependencies | `tests/sample-dependency-index.test.mjs`, `tests/e2e/sample-dependency-guard.spec.mjs`, sample transaction and recovery tests |
 | Projects, sequence, recovery | `tests/projects-readonly.test.mjs`, `tests/project-sequencer-ui.test.mjs`, `tests/project-recovery.test.mjs`, `tests/project-write-diff.test.mjs`, project E2E |
 | Browser/firmware capability | `tests/platform-support.test.mjs`, `tests/device-compatibility-matrix.test.mjs`, `tests/device-identity-as002.test.mjs`, platform E2E |
@@ -90,6 +91,8 @@ Before **any** device write, destructive action, firmware test, or deliberately 
 | Opt-in auto refresh | `AUTO: OFF` has no periodic reads; `AUTO: ON` reads saved data, stops when hidden/busy/disconnected; no writes |
 
 Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md) for missing GET/MOVE traces and failure cases. Do not convert synthetic data into “real hardware” evidence.
+
+The context-menu PITCH / PLAY MODE / TIME MODE fields edit sample-library metadata. Confirm them on the physical device's sample-library path; already assigned pads have separate project parameters. The controller retains confirmed values until SET/GET readback, reports `SAVING TO EP` / `SAVED ON EP` / `NOT SAVED`, and cancels pending gestures on disconnection. Fake-EP checks of these paths do not establish that the owner's reported physical-device symptom is resolved.
 
 ## Feature-specific acceptance (implemented and planned)
 

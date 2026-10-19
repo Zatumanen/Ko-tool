@@ -249,6 +249,7 @@ export function createEpWorkspace({
     isConnected,isSynchronized:()=>synchronized,
     isMetadataHydrating:()=>metadataHydrating,isMutating:()=>mutating,
     withFileTransaction,setFileMetadata,getFileMetadata,
+    captureBatchSession,assertBatchSession,
     showError:message=>showError?.(message),logTechnical,escapeHtml
   });
   const closeProperties=()=>propertiesController.close();
@@ -393,6 +394,7 @@ export function createEpWorkspace({
     activeDeviceProfile=deviceView.renderIdentity(state);
     const unsafe=runtimeUnsafe()||legacyConnectionUnsafe;
     if(unsafe){
+      propertiesController.reset();
       metadataHydrating=false;synchronized=false;updateMutationAvailability();
       void stopCurrentPreview();closeProperties();hideGlobalProgress();
       panel.classList.add('device-disconnected');
@@ -405,6 +407,7 @@ export function createEpWorkspace({
       panel.classList.remove('device-disconnected');setConnectionOverlay('');setStatus('CONNECTED');return;
     }
     metadataHydrating=false;synchronized=false;updateMutationAvailability();
+    propertiesController.reset();
     devicePadSelectionController.reset();
     void stopCurrentPreview();closeProperties();hideGlobalProgress();panel.classList.add('device-disconnected');
     const hadConnection=deviceView.hasEverConnected();
@@ -440,7 +443,13 @@ export function createEpWorkspace({
     if(files.length&&slot)void uploadFilesToSlot(slot,files).catch(error=>reportError('COULD NOT UPLOAD SAMPLE.',error));
   };
   const handlePointerDown=event=>{
-    if(properties&&!properties.hidden&&!properties.contains(event.target)&&!event.target.closest?.('.ep133-sample-row'))closeProperties();
+    const target=event.target;
+    const insideProperties=properties?.contains(target);
+    if(properties&&!properties.hidden&&!insideProperties&&!target.closest?.('.ep133-sample-row'))closeProperties();
+    const insideDialog=[confirmDialog,projectEditorDialog,sequencerDialog,backupDialog]
+      .some(dialog=>dialog&&!dialog.hidden&&dialog.contains(target))||target.closest?.('#waveform-editor');
+    if(panel.style.display!=='none'&&!panel.contains(target)&&!insideProperties&&!insideDialog&&memory?.getSelectedSlots().length)
+      memory.selectSlots([],{preview:false,navigate:false});
   };
   const handleKeyDown=event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;

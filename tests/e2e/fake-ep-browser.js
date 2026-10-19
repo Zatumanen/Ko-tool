@@ -265,6 +265,7 @@
     emitLater(debugFrame('err e2e strict mutation'),0);
     return true;
   };
+  let ignoreNextMetadataSet=false;
   const onRequest=request=>{
     requestCount++;
     requestLog.push({
@@ -312,6 +313,7 @@
       if(id===1000){emitLater(response(request));emitMetadata(1000);return;}
       const sample=samples.get(id);
       if(!sample){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
+      if(ignoreNextMetadataSet){ignoreNextMetadataSet=false;emitLater(response(request));return;}
       sample.meta={...sample.meta,...patch};if(patch.name)sample.name=String(patch.name);
       emitLater(response(request));emitMetadata(id);return;
     }
@@ -424,6 +426,7 @@
     changeProjectBpm,
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
+    ignoreNextMetadataSet:()=>{ignoreNextMetadataSet=true;},
     emitDebug:text=>emitLater(debugFrame(text||'err e2e'),0),
     reset:()=>{
       debugNextMutation=false;

@@ -2248,7 +2248,7 @@ test('My EP Properties uses source-backed enums, debounced writes, playmode rele
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/samplePropertiesController.js',import.meta.url),'utf8');
   const helpers=await fs.readFile(new URL('../js/ep133/sampleProperties.js',import.meta.url),'utf8');
-  assert.match(source,/getSamplePropertyChange\(canonical,key,direction,\{[\s\S]*playModes:profile\.playModes,[\s\S]*barPolicy:profile\.sampleBars/);
+  assert.match(source,/getSamplePropertyChange\(\{\.\.\.canonical,meta:desiredMeta\},key,direction,\{[\s\S]*playModes:profile\.playModes,[\s\S]*barPolicy:profile\.sampleBars/);
   assert.match(helpers,/export const TIME_MODES=Object\.freeze\(\['off','bpm','bar'\]\)/);
   assert.doesNotMatch(helpers,/BAR_VALUES/);
   assert.match(helpers,/data-readonly="true"/);

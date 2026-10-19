@@ -58,6 +58,25 @@ function parseKo2Metadata(bytes){
   return null;
 }
 
+function parseWavSamplerMetadata(bytes){
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  let offset=12;
+  while(offset+8<=view.byteLength){
+    const size=view.getUint32(offset+4,true),start=offset+8,end=start+size;
+    if(end>view.byteLength)break;
+    if(readAscii(view,offset,4)==='smpl'&&size>=36){
+      const extra={midi_root_note:view.getUint32(start+12,true)};
+      if(view.getUint32(start+28,true)>0&&size>=60){
+        extra.loop_start=view.getUint32(start+44,true);
+        extra.loop_end=view.getUint32(start+48,true);
+      }
+      return extra;
+    }
+    offset=end+(size&1);
+  }
+  return{};
+}
+
 const TEENAGE_META_VALIDATORS={
   "sound.loopstart":value=>value!=null&&value>=0,
   "sound.loopend":value=>value!=null&&value>=0,
@@ -119,6 +138,7 @@ export function inspectEpReadyWav(bytes,{formats=[],targetSampleRate=null}={}){
     bits:16,
     length:frames/wav.rate,
     extra:{
+      ...parseWavSamplerMetadata(source),
       data_start:wav.dataOffset,
       data_end:wav.dataOffset+wav.dataSize,
       json:''

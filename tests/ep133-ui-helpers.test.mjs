@@ -439,7 +439,7 @@ test('sample library sync fails closed when the /sounds node is missing',async()
   assert.equal(reported,'COULD NOT READ EP SAMPLE LIBRARY.');
 });
 
-test('sample properties controller debounces optimistic writes and confirms playmode with release',async()=>{
+test('sample properties controller debounces writes and commits playmode only after readback with release',async()=>{
   const timers=[],writes=[];
   const sampleStore=createSampleStore();
   sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
@@ -457,8 +457,8 @@ test('sample properties controller debounces optimistic writes and confirms play
     setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
   controller.scheduleWrite(sampleStore.getSlot(7),'sound.playmode','key');
-  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'key');
-  assert.equal(sampleStore.getSlot(7).verification.metadata,'provisional');
+  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'oneshot');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
   assert.equal(controller.hasPendingWrites(),true);
   await timers.shift()();
   assert.deepEqual(writes,[{id:7,payload:{'sound.playmode':'key','envelope.release':44}}]);
@@ -486,13 +486,13 @@ test('sample properties controller restores authoritative metadata after failed 
     setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
   controller.scheduleWrite(sampleStore.getSlot(9),'sound.pitch',1);
-  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],1);
+  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],0);
   await timers.shift()();
   assert.equal(reads,2);
   assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],0);
   assert.equal(sampleStore.getSlot(9).verification.metadata,'verified');
   assert.equal(controller.getPendingCount(),0);
-  assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.']);
+  assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.\nEP did not confirm sample property sound.pitch.']);
   assert.match(technical[0][0],/PROPERTY sound\.pitch/);
 });
 
