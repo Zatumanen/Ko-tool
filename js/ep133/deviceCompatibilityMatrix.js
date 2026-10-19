@@ -15,6 +15,7 @@ export const CAPABILITY_KEYS=Object.freeze({
   PROJECT_TRANSPORT:'project.transport',
   PROJECT_AUTHORING:'project.authoring',
   PROJECT_RELOAD:'project.reload',
+  PAD_METADATA:'project.pad-metadata',
   SCENE_TIME_SIGNATURE:'project.scene-time-signature',
   LIVE_WITH_PATTERNS:'project.live-with-patterns',
   LIVE_WITH_FX:'project.live-with-fx'
@@ -27,6 +28,7 @@ export const CAPABILITY_NAMES=Object.freeze({
   projectTransport:CAPABILITY_KEYS.PROJECT_TRANSPORT,
   projectAuthoring:CAPABILITY_KEYS.PROJECT_AUTHORING,
   projectReload:CAPABILITY_KEYS.PROJECT_RELOAD,
+  padMetadata:CAPABILITY_KEYS.PAD_METADATA,
   sceneTimeSignature:CAPABILITY_KEYS.SCENE_TIME_SIGNATURE,
   liveWithPatterns:CAPABILITY_KEYS.LIVE_WITH_PATTERNS,
   liveWithFx:CAPABILITY_KEYS.LIVE_WITH_FX

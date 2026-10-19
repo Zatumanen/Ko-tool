@@ -8,10 +8,10 @@ import{getEpCompatibility,GENERIC_EP_PROJECT,normalizeEpSku}from './deviceCompat
 const clone=(profile,firmware='')=>{
   const all=resolveDeviceCapabilities({sku:profile.sku,firmware});
   const{
-    projectTransport,projectAuthoring,projectReload,sceneTimeSignature,
+    projectTransport,projectAuthoring,projectReload,padMetadata,sceneTimeSignature,
     liveWithPatterns,liveWithFx
   }=all.evidence;
-  const evidence={projectTransport,projectAuthoring,projectReload,sceneTimeSignature,liveWithPatterns,liveWithFx};
+  const evidence={projectTransport,projectAuthoring,projectReload,padMetadata,sceneTimeSignature,liveWithPatterns,liveWithFx};
   return{
     ...profile,evidence,
     acceptedPadRecordSizes:[...profile.acceptedPadRecordSizes],
@@ -21,6 +21,7 @@ const clone=(profile,firmware='')=>{
     projectTransport:canReadCapability(projectTransport),
     projectAuthoring:canWriteCapability(projectAuthoring),
     projectReloadVerified:canWriteCapability(projectReload),
+    padMetadataAuthoring:canWriteCapability(padMetadata),
     sceneTimeSignatureAuthoring:canWriteCapability(sceneTimeSignature),
     nativeLiveWithPatternsObserved:canPreserveCapability(liveWithPatterns),
     nativeLiveWithFxObserved:canPreserveCapability(liveWithFx)

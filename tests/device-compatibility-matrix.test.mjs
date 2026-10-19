@@ -170,3 +170,20 @@ test('connection, protocols and profile facades consume one matrix; no duplicate
     assert.doesNotMatch(source,/resolveRegisteredCapabilityEvidence/);
   }
 });
+
+test('live pad metadata has distinct unverified records for every SKU and profile',()=>{
+  assert.equal(CAPABILITY_KEYS.PAD_METADATA,'project.pad-metadata');
+  assert.equal(CAPABILITY_NAMES.padMetadata,CAPABILITY_KEYS.PAD_METADATA);
+  for(const sku of SUPPORTED_EP_SKUS){
+    const records=listCapabilityEvidence({sku,capability:CAPABILITY_KEYS.PAD_METADATA});
+    assert.equal(records.length,1);
+    assert.equal(records[0].level,'unverified');
+    assert.equal(records[0].write,false);
+    assert.equal(records[0].sourceType,'shared-protocol');
+    assert.match(records[0].artifactId,/891a905c5faf8b5c7b0ae1bdfee260c21f7417eb/);
+    const project=getEpProjectProfile(sku,'2.5.1');
+    assert.equal(project.padMetadataAuthoring,false);
+    assert.equal(project.evidence.padMetadata.evidenceId,records[0].id);
+  }
+  assert.equal(EVIDENCE_REGISTRY.length,30);
+});
