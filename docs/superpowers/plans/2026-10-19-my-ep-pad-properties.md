@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the owner chooses delegated execution. Implement task-by-task with the checks below.
 
+**Status (2026-10-20, Europe/Moscow):** Owner approved the design, implementation plan and delegated execution in chat. Tasks 1–4 are implemented/reviewed; Task 5 browser/evidence regressions and focused checks are complete. Task 6 cumulative verification and release remain pending. Production physical pad writes remain evidence-denied.
+
 **Goal:** Edit the explicitly chosen hardware pad's PITCH / PLAY MODE / TIME MODE, synchronize hardware changes back into My EP, and preserve unrelated settings and recovery guarantees.
 
 **Architecture:** Add a pad-specific metadata service and recovery record behind the existing FILE scheduler/runtime. A separate UI controller selects and edits the pad; sample-library defaults keep their own controller. The exact-firmware pad capability controls mutation independently of sample and archive permissions.
@@ -111,11 +113,11 @@
 
 **Files:** extend `tests/e2e/fake-ep-browser.js`; create `tests/e2e/my-ep-pad-properties.spec.mjs`; update `docs/TESTING.md`, `docs/REFERENCE_SOURCES.md`, the approved spec status and compact `docs/PROJECT_STATE.md`.
 
-- [ ] Extend the fake node tree with two project/group/pad targets sharing one sample, complete pad metadata and a source of hardware selection/metadata events. Add controlled ignored/clobbered SET and disconnect hooks. Keep all fixture provenance explicitly synthetic.
-- [ ] Write failing E2E cases for explicit selection/apply, each requested property family, the unchanged second pad/library, release-only gesture, hardware-to-UI refresh, readonly firmware, stale target, ambiguous failure, persistent recovery and reconnect without replay.
-- [ ] Run `npm run test:e2e -- tests/e2e/my-ep-pad-properties.spec.mjs`; observe the missing workflow.
-- [ ] Complete the browser integration until these assertions pass. For writable synthetic scenarios instantiate the real controller/workspace with injected test services, following the existing `createEpWorkspace({services})` boundary. Run production-capability denial tests through the normal app entry. A simulated writable profile must not alter the production registry or introduce a production bypass; only actual accepted evidence can enable the normal app's physical write path.
-- [ ] Document the actual evidence source and current hardware limits. Retain any owner-supplied raw reference/capture outside Git; check provenance/license before importing permitted derivatives. Commit this regression/documentation change.
+- [x] Extend the fake node tree with two project/group/pad targets sharing one sample, complete pad metadata and a source of hardware selection/metadata events. Add controlled ignored/clobbered SET and disconnect hooks. Keep all fixture provenance explicitly synthetic.
+- [x] Add E2E cases for explicit selection/apply, each requested property family, the unchanged second pad/library, release-only gesture, hardware-to-UI refresh, readonly firmware, stale target, ambiguous failure, persistent recovery and reconnect without replay.
+- [x] Run `npm run test:e2e -- tests/e2e/my-ep-pad-properties.spec.mjs`; record actual initial fixture/workflow failures. Tasks 1–4 already implement the UI; do not break production to manufacture RED.
+- [x] Complete the browser integration until these assertions pass. For writable synthetic scenarios instantiate the real controller/workspace with injected test services, following the existing `createEpWorkspace({services})` boundary. Run production-capability denial tests through the normal app entry. A simulated writable profile must not alter the production registry or introduce a production bypass; only actual accepted evidence can enable the normal app's physical write path.
+- [x] Document the actual evidence source and current hardware limits. Retain any owner-supplied raw reference/capture outside Git; check provenance/license before importing permitted derivatives. Commit this regression/documentation change.
 
 ## Task 6: Final review, PR checks and release handoff
 
@@ -127,6 +129,6 @@
 
 ## Handoff and prerequisite
 
-Recommended execution is native in this checkout with one final independent reviewer: the tasks share target, capability and recovery interfaces, and per-task implementer handoffs add little benefit. The owner must review this written plan and select execution before the new pad code starts.
+The owner approved this plan and chose delegated execution in the existing isolated checkout. One final independent review and cumulative verification remain required before the authorized release steps; do not repeat the approval interview.
 
 The supplied archives contain no Best Friend executable or raw pad-operation trace. Task 1 must establish operation evidence before enabling physical writes. Read-only discovery, UI, payload contracts and recovery tests can be implemented independently; unsupported production operations remain read-only. This dependency must be reported rather than replaced by a broader sample/archive permission.

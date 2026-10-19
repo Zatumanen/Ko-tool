@@ -5,7 +5,8 @@
   const F={INIT:1,PUT:2,GET:3,LIST:4,PLAYBACK:5,DELETE:6,METADATA:7,INFO:11,MOVE:12};
   const CAP={FILE:1,DIR:2,READ:4,WRITE:8,DELETE:16,MOVE:32,PLAY:64};
   const flagsFile=CAP.FILE|CAP.READ|CAP.WRITE|CAP.DELETE|CAP.MOVE|CAP.PLAY;
-  const identityCode=0x33,sku='TE032AS001',osVersion='2.5.1',serial='E2E-EP-0001';
+  const identityCode=0x33,sku='TE032AS001',serial='E2E-EP-0001';
+  let osVersion='2.5.1';
   const u16=(a,i)=>(a[i]<<8)|a[i+1];
   const u32=(a,i)=>((a[i]<<24)|(a[i+1]<<16)|(a[i+2]<<8)|a[i+3])>>>0;
   const be16=n=>[(n>>8)&255,n&255];
@@ -170,6 +171,24 @@
     [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
     [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
+  // Synthetic LIST/INFO pad tree. Literal names and deliberately unrelated wire
+  // FIDs prevent tests from accepting sample-slot or pad-number arithmetic.
+  const padMeta=(sym,pitch=0)=>({sym,'sound.playmode':'oneshot','sample.start':4,'sample.end':300,
+    'envelope.attack':5,'envelope.release':90,'sound.pitch':pitch,'sound.amplitude':72,
+    'sound.pan':-3,'sound.mutegroup':2,'time.mode':'off','midi.channel':4});
+  const padNodes=new Map([
+    [2000,{id:2000,parent:0,name:'projects',flags:CAP.DIR|CAP.READ,meta:{active:3001}}],
+    ...[...projects.values()].map(p=>[p.id,{id:p.id,parent:2000,name:p.name,flags:CAP.DIR|CAP.READ,meta:{}}]),
+    [4101,{id:4101,parent:3001,name:'groups',flags:CAP.DIR|CAP.READ,meta:{active:4201}}],
+    [4102,{id:4102,parent:3002,name:'groups',flags:CAP.DIR|CAP.READ,meta:{active:4202}}],
+    [4201,{id:4201,parent:4101,name:'A',flags:CAP.DIR|CAP.READ,meta:{active:6207}}],
+    [4202,{id:4202,parent:4102,name:'B',flags:CAP.DIR|CAP.READ,meta:{active:7312}}],
+    [6207,{id:6207,parent:4201,name:'01',flags:CAP.FILE|CAP.READ|CAP.WRITE,meta:padMeta(7)}],
+    [7312,{id:7312,parent:4202,name:'12',flags:CAP.FILE|CAP.READ|CAP.WRITE,meta:padMeta(7,2)}],
+    [7313,{id:7313,parent:4202,name:'11',flags:CAP.FILE|CAP.READ|CAP.WRITE,meta:padMeta(8,-2)}]
+  ]);
+  let padSetFault=null;
+  const metadataFor=id=>id===1000?soundsMeta():samples.get(id)?.meta||padNodes.get(id)?.meta||{};
   let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
   const rejectedUploadSlots=new Set();
   let rejectedListPage=null,heldListPage=null;
@@ -235,7 +254,7 @@
   const debugFrame=text=>Uint8Array.from([0xf0,...TE,identityCode,0x33,...enc.encode(text),0xf7]);
   const emitLater=(data,delay=0)=>setTimeout(()=>input.emit(data),delay);
   const emitMetadata=nodeId=>{
-    const meta=nodeId===1000?soundsMeta():samples.get(nodeId)?.meta||{};
+    const meta=metadataFor(nodeId);
     emitLater(eventFrame(concat([3,...be16(nodeId)],enc.encode(JSON.stringify(meta)),[0])),0);
   };
   const emitDeleted=id=>{
@@ -295,7 +314,7 @@
         listEntry(2000,CAP.DIR|CAP.READ,0,'projects')
       ];
       else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.reportedSize??s.data.length,s.name));
-      else if(node===2000)body=[...projects.values()].map(project=>listEntry(project.id,CAP.DIR|CAP.READ,project.data.length,project.name));
+      else body=[...padNodes.values()].filter(n=>n.parent===node).map(n=>listEntry(n.id,n.flags,projects.get(n.id)?.data.length||0,n.name));
       const reply=response(request,concat(be16(page),...body.slice(page*listPageSize,(page+1)*listPageSize)));
       if(node===1000&&heldListPage===page){
         delayedListResponses.push(()=>emitLater(reply));return;
@@ -304,13 +323,20 @@
     }
     if(sub===F.METADATA&&raw[1]===2){
       const id=u16(raw,2),page=u16(raw,4);
-      const meta=id===1000?soundsMeta():id===2000?{active:3001,name:'projects'}:samples.get(id)?.meta||{};
+      const meta=metadataFor(id);
       if(page>0){emitLater(response(request,Uint8Array.from(be16(page))));return;}
       emitLater(response(request,concat(be16(0),enc.encode(JSON.stringify(meta)),[0])));return;
     }
     if(sub===F.METADATA&&raw[1]===1){
       const id=u16(raw,2),text=zstr(raw,4),patch=JSON.parse(text||'{}');
       if(id===1000){emitLater(response(request));emitMetadata(1000);return;}
+      const pad=padNodes.get(id);
+      if(pad&&(pad.flags&CAP.FILE)){
+        const fault=padSetFault;padSetFault=null;
+        if(fault!=='ignore')pad.meta={...pad.meta,...patch,...(fault==='clobber'?{'sound.pan':0}:{})};
+        if(fault==='disconnect'){disconnect();return;}
+        emitLater(response(request));emitMetadata(id);return;
+      }
       const sample=samples.get(id);
       if(!sample){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
       if(ignoreNextMetadataSet){ignoreNextMetadataSet=false;emitLater(response(request));return;}
@@ -318,7 +344,8 @@
       emitLater(response(request));emitMetadata(id);return;
     }
     if(sub===F.INFO){
-      const id=u16(raw,1),sample=samples.get(id);
+      const id=u16(raw,1),sample=samples.get(id),node=padNodes.get(id);
+      if(node){emitLater(response(request,concat(be16(id),be16(node.parent),[node.flags],be32(projects.get(id)?.data.length||0),enc.encode(node.name),[0])));return;}
       if(!sample){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
       emitLater(response(request,fileInfo(sample)));return;
     }
@@ -407,6 +434,13 @@
     input.state='connected';output.state='connected';access.onstatechange?.({port:input});
   };
   window.__fakeEp={
+    // These hooks model faults/events only, never production firmware evidence.
+    setFirmware:value=>{osVersion=String(value);},
+    changeSampleMetadata:(id,patch)=>{const sample=samples.get(id);if(!sample)throw Error('Unknown synthetic sample');sample.meta={...sample.meta,...patch};},
+    padSnapshot:()=>[...padNodes.values()].filter(n=>n.flags&CAP.FILE).map(n=>({id:n.id,parent:n.parent,name:n.name,meta:{...n.meta}})),
+    changePad:(id,patch,{emit=true}={})=>{const node=padNodes.get(id);if(!node)throw Error('Unknown synthetic pad');node.meta={...node.meta,...patch};if(emit)emitMetadata(id);},
+    selectPad:id=>{const node=padNodes.get(id);if(!node||!(node.flags&CAP.FILE))throw Error('Unknown synthetic pad');padNodes.get(node.parent).meta.active=id;emitMetadata(node.parent);},
+    faultNextPadSet:fault=>{if(!['ignore','clobber','disconnect'].includes(fault))throw Error('Unknown synthetic fault');padSetFault=fault;},
     midiAccessRequests:[],
     get requestCount(){return requestCount;},
     get requestLog(){return requestLog.map(item=>({...item,raw:[...item.raw]}));},
