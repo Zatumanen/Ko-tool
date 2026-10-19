@@ -104,6 +104,29 @@ for(const outcome of ['success','failure'])test(`hardware follow blocks stale gr
  else{await attemptEdit();assert.deepEqual(s.writes,[]);assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padStatus.textContent,/Selected pad read failed/);assert.match(s.dom.padAssignment.textContent,/NO PAD SELECTED/);}
  s.controller.dispose();
 });
+test('newest hardware selection supersedes a pending read and stale completion cannot unlock it',async()=>{
+ const b={...target('02'),padFid:6111},c={...target('03'),padFid:6113},pending=new Map();let defer=true;
+ const s=build({readResult:(selected,result)=>defer&&[b.padFid,c.padFid].includes(selected.padFid)?new Promise(resolve=>pending.set(selected.padFid,()=>resolve(result))):result});
+ await s.open();await s.choose();const first=s.controller.handleActivePad({padId:b.padFid,sym:7,target:b});await tick();
+ const newest=s.controller.handleActivePad({padId:c.padFid,sym:7,target:c});await tick();
+ assert.deepEqual(s.reads.map(item=>item.padFid),[6107,b.padFid,c.padFid]);assert.equal(s.dom.padSelect.value,'03');
+ pending.get(b.padFid)();await first;await s.step('sound.pitch');await s.flush();await s.dom.padApply.fire('click');assert.deepEqual(s.writes,[]);assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padAssignment.textContent,/NO PAD SELECTED/);
+ defer=false;pending.get(c.padFid)();await newest;assert.match(s.dom.padAssignment.textContent,/01.*A.*03/);await s.step('sound.pitch');await s.flush();assert.equal(s.writes.length,1);assert.equal(s.writes[0].target.padFid,c.padFid);s.controller.dispose();
+});
+test('hardware follow accepts a fresh selection after the previous target read failed',async()=>{
+ const b={...target('02'),padFid:6111},c={...target('03'),padFid:6113};
+ const s=build({readResult:(selected,result)=>{if(selected.padFid===b.padFid)throw Error('Prior target read failed');return result;}});await s.open();await s.choose();
+ await s.controller.handleActivePad({padId:b.padFid,sym:7,target:b});assert.equal(s.dom.padApply.disabled,true);await s.controller.handleActivePad({padId:c.padFid,sym:7,target:c});
+ assert.equal(s.reads.at(-1).padFid,c.padFid);assert.equal(s.dom.padSelect.value,'03');assert.match(s.dom.padAssignment.textContent,/01.*A.*03/);await s.step('sound.pitch');await s.flush();assert.equal(s.writes.length,1);assert.equal(s.writes[0].target.padFid,c.padFid);s.controller.dispose();
+});
+for(const action of ['manual choose','close','reset'])test(`${action} clears hardware-follow loading context and ignores its late read`,async()=>{
+ const b={...target('02'),padFid:6111},c={...target('03'),padFid:6113};let finish;
+ const s=build({readResult:(selected,result)=>selected.padFid===b.padFid?new Promise(resolve=>{finish=()=>resolve(result);}):result});await s.open();await s.choose();
+ const old=s.controller.handleActivePad({padId:b.padFid,sym:7,target:b});await tick();
+ if(action==='manual choose'){s.dom.padProject.value='01';await s.dom.padProject.fire('change');}else{s.controller[action]();await s.open();}
+ const n=s.reads.length;await s.controller.handleActivePad({padId:c.padFid,sym:7,target:c});assert.equal(s.reads.length,n);
+ finish();await old;assert.equal(s.dom.padApply.disabled,true);assert.match(s.dom.padAssignment.textContent,/NO PAD SELECTED/);assert.deepEqual(s.writes,[]);s.controller.dispose();
+});
 test('recovery errors remain visible after action cleanup',async()=>{
  const s=build();const r=createPadRecoveryController({dom:s.dom,listRecords:async()=>[{id:'r',target:target(),before:metadata(),desired:metadata(),status:'requires-recovery'}],verify:async()=>{throw Error('Protected state is incomplete');},confirmAction:async()=>true,reportError:()=>{}});await r.refresh();s.dom.padRecoveryList.value='r';await s.dom.padRecoveryList.fire('change');await s.dom.padRecoveryVerify.fire('click');assert.match(s.dom.padRecoveryDetail.textContent,/Protected state is incomplete/);r.dispose();
 });

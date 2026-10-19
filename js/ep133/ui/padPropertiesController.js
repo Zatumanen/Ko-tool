@@ -12,7 +12,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
   captureSession,assertSession,reportError,documentRef=globalThis.document,
   setTimeoutFn=(fn,ms)=>setTimeout(fn,ms),clearTimeoutFn=id=>clearTimeout(id)
 }={}){
-  let opened=false,disposed=false,epoch=0,session=null,sampleSlot=null,source=null,snapshot=null;
+  let opened=false,disposed=false,epoch=0,session=null,sampleSlot=null,source=null,snapshot=null,followTarget=null;
   let projects=[],groups=[],targets=[],draft={},queued=null,timer=null,inFlight=false,activeApply=null,stopGesture=null,notice='CHOOSE A PROJECT, GROUP AND PAD.';
   const errors=new Map(),listeners=[];
   const listen=(el,type,fn)=>{el?.addEventListener(type,fn);listeners.push([el,type,fn]);};
@@ -87,7 +87,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
   };
   const options=(key,values,label)=>{if(dom[key]){dom[key].innerHTML='<option value="">CHOOSE '+label+'</option>'+values.map(value=>'<option value="'+escape(value)+'">'+escape(value)+'</option>').join('');dom[key].value='';}};
   const choose=async(level)=>{
-    cancel();epoch++;snapshot=null;render();
+    cancel();epoch++;snapshot=null;followTarget=null;render();
     const version=epoch;
     if(level==='pad'){
       const selected=targets.find(item=>item.pad===dom.padSelect.value);
@@ -104,7 +104,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
       else{targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');}
     }catch(error){if(valid(version))fail('read',error);}
   };
-  const close=()=>{opened=false;epoch++;cancel();activeApply=null;inFlight=false;snapshot=null;source=null;errors.clear();if(dom.padDialog)dom.padDialog.hidden=true;};
+  const close=()=>{opened=false;epoch++;cancel();activeApply=null;inFlight=false;snapshot=null;followTarget=null;source=null;errors.clear();if(dom.padDialog)dom.padDialog.hidden=true;};
   const openFromSample=async(slot,{confirmedLibraryMetadata}={})=>{
     if(disposed)return;close();opened=true;sampleSlot=Number(slot?.id??slot);session=null;
     source=confirmedLibraryMetadata?Object.fromEntries(FIELDS.filter(key=>Object.hasOwn(confirmedLibraryMetadata,key)).map(key=>[key,confirmedLibraryMetadata[key]])):null;
@@ -144,9 +144,10 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
     return load(snapshot.target);
   };
   const handleActivePad=async selection=>{
-    if(!opened||!snapshot||!Number.isInteger(selection?.padId)||!Number.isInteger(selection?.sym))return;
+    const previous=snapshot?.target||followTarget;
+    if(!opened||!previous||!Number.isInteger(selection?.padId)||!Number.isInteger(selection?.sym))return;
     if(busy()){notice='PENDING · HARDWARE SELECTION CHANGED; TARGET RETAINED';render();return;}
-    const previous=snapshot.target,version=++epoch;
+    const version=++epoch;
     try{
       assertSession(session);
       // Discovery resolves literal names and FIDs; never derive them from pad arithmetic.
@@ -165,7 +166,8 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
         if(dom.padProject)dom.padProject.value=selected.project;if(dom.padGroup)dom.padGroup.value=selected.group;
       }
       targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');if(dom.padSelect)dom.padSelect.value=selected.pad;
-      snapshot=null;notice='READING SELECTED PAD…';render();
+      // Identity-only follow context admits newer selections without enabling edits.
+      followTarget=clone(selected);snapshot=null;notice='READING SELECTED PAD…';render();
       await load(selected,version);
     }catch(error){if(valid(version))fail('read',error);}
   };
