@@ -152,5 +152,31 @@ test('reset releases UI ownership while an old dispatched apply cannot unlock a 
  const current=s.dom.padApply.fire('click');assert.equal(s.writes.length,2);
  pending[0]({metadata:{...metadata(),...s.source},verification:{ok:true}});await old;
  assert.equal(s.dom.padApply.disabled,true);await s.step('sound.pitch');await s.flush();assert.equal(s.writes.length,2);
- pending[1]({metadata:{...metadata(),...s.source},verification:{ok:true}});await current;assert.match(s.dom.padStatus.textContent,/SAVED/);s.controller.dispose();
+ s.setDevice({...metadata(),...s.source});pending[1]({metadata:{...metadata(),...s.source},verification:{ok:true}});await current;assert.match(s.dom.padStatus.textContent,/SAVED/);s.controller.dispose();
+});
+
+test('unchanged hardware echoes preserve verified saved status while changed metadata clears it',async()=>{
+ const s=build();await s.open();await s.choose();await s.step('sound.pitch');await s.flush();
+ assert.match(s.dom.padStatus.textContent,/SAVED ON EP/);
+ await s.controller.handleFileEvent({type:UPDATED,data:{nodeId:6107}});
+ assert.match(s.dom.padStatus.textContent,/SAVED ON EP/);
+ await s.controller.handleActivePad({padId:6107,sym:7,target:target()});
+ assert.match(s.dom.padStatus.textContent,/SAVED ON EP/);
+ s.setDevice({...metadata(),'sound.pitch':-6});
+ await s.controller.handleFileEvent({type:UPDATED,data:{nodeId:6107}});
+ assert.match(s.dom.padStatus.textContent,/READY/);
+ assert.doesNotMatch(s.dom.padStatus.textContent,/SAVED ON EP/);
+});
+
+test('hardware changes after verified apply are not retained as the saved snapshot',async()=>{
+ let s;s=build({applyResult:async args=>{
+  const confirmed={...args.before.metadata,...args.changes};
+  s.setDevice({...confirmed,'sound.pitch':-6});
+  return{metadata:confirmed,verification:{ok:true}};
+ }});
+ await s.open();await s.choose();await s.step('sound.pitch');await s.flush();
+ assert.doesNotMatch(s.dom.padStatus.textContent,/SAVED ON EP/);
+ await s.controller.handleFileEvent({type:UPDATED,data:{nodeId:6107}});
+ assert.doesNotMatch(s.dom.padStatus.textContent,/SAVED ON EP/);
+ assert.match(s.dom.padGrid.innerHTML,/-6/);
 });

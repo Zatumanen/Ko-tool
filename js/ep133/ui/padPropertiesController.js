@@ -12,7 +12,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
   captureSession,assertSession,reportError,documentRef=globalThis.document,
   setTimeoutFn=(fn,ms)=>setTimeout(fn,ms),clearTimeoutFn=id=>clearTimeout(id)
 }={}){
-  let opened=false,disposed=false,epoch=0,session=null,sampleSlot=null,source=null,snapshot=null,followTarget=null;
+  let opened=false,disposed=false,epoch=0,session=null,sampleSlot=null,source=null,snapshot=null,followTarget=null,savedSnapshot=null;
   let projects=[],groups=[],targets=[],draft={},queued=null,timer=null,inFlight=false,activeApply=null,stopGesture=null,notice='CHOOSE A PROJECT, GROUP AND PAD.';
   const errors=new Map(),listeners=[];
   const listen=(el,type,fn)=>{el?.addEventListener(type,fn);listeners.push([el,type,fn]);};
@@ -63,7 +63,9 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
       if(!valid(job.version))return;
       if(!sameTarget(authoritative.target,job.before.target))throw Error('Authoritative pad target changed after readback.');
       preparePadMetadataPayload(authoritative.metadata,{});snapshot=clone(authoritative);
-      draft={};errors.delete(job.key);notice='SAVED ON EP · READBACK VERIFIED';
+      const stillSaved=verifyPadMetadata(job.before.metadata,candidate,authoritative.metadata).ok;
+      savedSnapshot=stillSaved?clone(authoritative):null;
+      draft={};errors.delete(job.key);notice=stillSaved?'SAVED ON EP · READBACK VERIFIED':'READY · HARDWARE CHANGED AFTER SAVE';
     }catch(error){if(valid(job.version)){draft={};fail(job.key,error);}}
     finally{if(activeApply===operation){activeApply=null;inFlight=false;if(opened&&!disposed)render();}}
   };
@@ -82,12 +84,14 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
       const result=await readTarget(clone(selected));assertSession(session);
       if(!valid(version))return;
       if(!sameTarget(selected,result.target))throw Error('Authoritative pad target changed; choose it again.');
-      snapshot=clone(result);notice='READY · AUTHORITATIVE PAD VALUES';render();
+      const unchangedSave=typeof savedSnapshot?.fingerprint==='string'&&sameTarget(savedSnapshot.target,result.target)&&savedSnapshot.fingerprint===result.fingerprint;
+      snapshot=clone(result);if(!unchangedSave)savedSnapshot=null;
+      notice=unchangedSave?'SAVED ON EP · READBACK VERIFIED':'READY · AUTHORITATIVE PAD VALUES';render();
     }catch(error){if(valid(version))fail('read',error);}
   };
   const options=(key,values,label)=>{if(dom[key]){dom[key].innerHTML='<option value="">CHOOSE '+label+'</option>'+values.map(value=>'<option value="'+escape(value)+'">'+escape(value)+'</option>').join('');dom[key].value='';}};
   const choose=async(level)=>{
-    cancel();epoch++;snapshot=null;followTarget=null;render();
+    cancel();epoch++;snapshot=null;followTarget=null;savedSnapshot=null;render();
     const version=epoch;
     if(level==='pad'){
       const selected=targets.find(item=>item.pad===dom.padSelect.value);
@@ -104,7 +108,7 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
       else{targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');}
     }catch(error){if(valid(version))fail('read',error);}
   };
-  const close=()=>{opened=false;epoch++;cancel();activeApply=null;inFlight=false;snapshot=null;followTarget=null;source=null;errors.clear();if(dom.padDialog)dom.padDialog.hidden=true;};
+  const close=()=>{opened=false;epoch++;cancel();activeApply=null;inFlight=false;snapshot=null;followTarget=null;savedSnapshot=null;source=null;errors.clear();if(dom.padDialog)dom.padDialog.hidden=true;};
   const openFromSample=async(slot,{confirmedLibraryMetadata}={})=>{
     if(disposed)return;close();opened=true;sampleSlot=Number(slot?.id??slot);session=null;
     source=confirmedLibraryMetadata?Object.fromEntries(FIELDS.filter(key=>Object.hasOwn(confirmedLibraryMetadata,key)).map(key=>[key,confirmedLibraryMetadata[key]])):null;

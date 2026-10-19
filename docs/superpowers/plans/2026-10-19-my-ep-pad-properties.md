@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the owner chooses delegated execution. Implement task-by-task with the checks below.
 
-**Status (2026-10-20, Europe/Moscow):** Owner approved the design, implementation plan and delegated execution in chat. Tasks 1–4 are implemented/reviewed; Task 5 browser/evidence regressions and focused checks are complete. Task 6 cumulative verification and release remain pending. Production physical pad writes remain evidence-denied.
+**Status (2026-10-20, Europe/Moscow):** Owner approved the design, implementation plan and delegated execution in chat. Tasks 1–5 are implemented/reviewed. Final cumulative software checks are recorded in PR139; physical evidence/acceptance still blocks merge and release. Production physical pad writes remain evidence-denied.
 
 **Goal:** Edit the explicitly chosen hardware pad's PITCH / PLAY MODE / TIME MODE, synchronize hardware changes back into My EP, and preserve unrelated settings and recovery guarantees.
 

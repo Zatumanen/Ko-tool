@@ -1,6 +1,6 @@
 # My EP: selected-pad properties
 
-Updated: 2026-10-20 (Europe/Moscow). Status: owner approved this written design and its implementation plan in chat. Tasks 1–4 are implemented and reviewed; Task 5 adds focused browser/evidence regressions. Final cumulative checks/release review remain Task 6. Physical pad writes remain unverified and disabled by production evidence.
+Updated: 2026-10-20 (Europe/Moscow). Status: owner approved this written design and its implementation plan in chat. Tasks 1–5 are implemented and reviewed; final cumulative software check results are recorded in PR139. Physical acceptance remains the merge/outcome gate. Physical pad writes remain unverified and disabled by production evidence.
 
 ## Owner outcome and scope
 
