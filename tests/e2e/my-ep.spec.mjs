@@ -195,10 +195,8 @@ test('My EP connects, syncs, searches, renames, uploads, moves and deletes throu
   }),{message:'WAV drop should complete FILE PUT into slot 9',timeout:10000}).toBe('uploaded');
   await expect(page.locator('[data-slot="9"]')).toHaveClass(/occupied/);
 
-  // Device PUT is observable before upload readback and its final row redraws.
-  // Wait for the completed operation UI before starting a native pointer drag.
+  // Device PUT is observable before verified readback releases the mutation lock.
   await expect(page.locator('#ep133-global-progress')).toBeHidden();
-  await expect(page.locator('[data-slot="9"]')).not.toHaveClass(/operation-active/);
   await expect(page.locator('[data-slot="8"]')).toHaveAttribute('draggable','true');
   await page.locator('[data-slot="8"]').dragTo(page.locator('[data-slot="10"]'));
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(true);

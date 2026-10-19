@@ -20,8 +20,8 @@ Future My EP REPITCH defaults ON: incoming exact pitch−12 skips x2; malformed 
 
 ## Current work and limits
 
-- Branch fix/visuals-capture-and-upload-drag based on b696eac. Patch: stale Visuals START guard + regression; MOVE E2E waits for post-upload row cleanup. Prior local pair-width/COPY fixes are not in this checkout.
-- Fresh Node22.22.0:622 tests passed,0 failed/skipped; Pages build passed. Chromium:63 passed,0 failed. Restricted-runner child-process failures are environmental; see [runtime](CODEX.md#existing-cloud-runtime). No hardware claim.
+- Branch fix/visuals-capture-and-upload-drag based on b696eac. Fixes: stale Visuals START cannot stop a newer capture; delayed operation cleanup updates cells without replacing native drag nodes. Regressions cover both.
+- Baseline:622 Node tests,63 Chromium scenarios and Pages build passed; cleanup regressions:2/2 passed after observed failures. Full CI: [PR138](https://github.com/Zatumanen/Ko-tool/pull/138). Runner limits: [runtime](CODEX.md#existing-cloud-runtime). No hardware claim.
 - Real captures lack GET/MOVE and timeout/late-response/firmware-debug/interrupted-session. Exact-firmware write gates remain mandatory.
 - HIL next: owner reported EP-133 connected, EP-40 available, macOS12.7.6/Chrome; exact firmware/browser versions and physical results pending. Recheck connection.
 - Priorities remain ZAT-48 stabilization and ZAT-9 HIL; ZAT-39 folder retest and ZAT-44 physical saved-project refresh acceptance remain open. No blanket hardware-compatibility claim.

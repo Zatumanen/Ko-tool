@@ -30,7 +30,7 @@ npx playwright test tests/e2e/my-ep-live-project-refresh.spec.mjs
 
 [playwright.config.mjs](../playwright.config.mjs) starts `node tests/e2e/server.mjs` on `http://127.0.0.1:4173` automatically. Stop a manually launched server before E2E because `reuseExistingServer: false` and the port is fixed. Browser automation uses `tests/e2e/fake-ep-browser.js`.
 
-For native sample dragging after an upload, wait for the global progress indicator to hide, the uploaded row's `operation-active` class to clear, and the source to become `draggable`. A file appearing in the fake device is earlier than readback, operation completion and the final list redraw; starting a drag then can detach its source. Keep the native pointer gesture and authoritative MOVE assertions; do not replace them with synthetic drop events or a fixed sleep.
+For native sample dragging after an upload, wait for the global progress indicator to hide and the source to become `draggable`: a file appearing in the fake device is earlier than verified readback and release of the mutation lock. Delayed operation-indicator cleanup must update existing cells without replacing drag nodes. [Cleanup regressions](../tests/e2e/sample-operation-cleanup.spec.mjs) clear single/all indicators during a real pointer drag, verify row identity and complete the transfer gesture. Do not hide this interval by waiting for cleanup before dragging, substituting synthetic drop events or adding a fixed sleep.
 
 **This document is instructions, not a claim that these commands were run during documentation work.** GitHub Actions on `main` runs tests and Pages build; a push to `main` also triggers [Pages deployment](../.github/workflows/deploy-pages.yml).
 

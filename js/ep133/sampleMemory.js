@@ -314,6 +314,16 @@ export function createSampleMemory({
     return'<span class="ep133-operation-label">'+escapeHtml(operation.label||operation.status||'')+'</span>';
   };
 
+  // Delayed operation cleanup is cosmetic: keep native drag/focus nodes alive.
+  const clearOperationCell=nodeId=>{
+    const row=listEl?.querySelector('[data-slot="'+nodeId+'"]');
+    if(!row)return;
+    row.classList.remove('operation-active');
+    const cell=row.querySelector('.ep133-sample-size');
+    const slot=slots[nodeId-1];
+    if(cell)cell.textContent=slot?.file?formatSize(slot.file.size):'';
+  };
+
   const render=()=>{
     updateSearchPresentation();
     if(!listEl)return;
@@ -652,8 +662,15 @@ export function createSampleMemory({
       });
       render();
     },
-    clearOperation(id){slotOperations.delete(Number(id));render();},
-    clearOperations(){slotOperations.clear();render();}
+    clearOperation(id){
+      const nodeId=Number(id);
+      slotOperations.delete(nodeId);clearOperationCell(nodeId);
+    },
+    clearOperations(){
+      const ids=[...slotOperations.keys()];
+      slotOperations.clear();
+      for(const id of ids)clearOperationCell(id);
+    }
   };
 
   return{
