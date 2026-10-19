@@ -172,6 +172,26 @@ test('verify and acknowledge reread authoritative current state without SET',asy
   assert.ok(h.actions.filter(a=>a[0]==='LEASE').slice(-2).every(a=>a[2]===true));
 });
 
+for(const [label,current] of [
+  ['incomplete snapshot',()=>({sym:7})],
+  ['unknown playmode',()=>({...metadata(),'sound.playmode':'unknown'})],
+  ['invalid field type',()=>({...metadata(),'sound.pitch':'3'})],
+  ['unsupported field',()=>({...metadata(),unknown:1})]
+])for(const operation of ['verify','acknowledge']){
+  test(operation+' refuses '+label+' without clearing recovery or publishing verified state',async()=>{
+    const h=harness();
+    h.fileOps.setFileMetadata=async fid=>{h.actions.push(['SET',fid]);throw new Error('timeout');};
+    await assert.rejects(()=>h.apply(),/recovery/i);
+    const record=(await h.store.list())[0];
+    h.current=current();h.events.length=0;
+    await assert.rejects(()=>h.runtime[operation](record.id),/snapshot|complete|enum|finite|unsupported|metadata/i);
+    assert.equal((await h.store.get(record.id)).status,'requires-recovery');
+    assert.equal(h.events.length,0);
+    await assert.rejects(()=>h.apply(),/recovery|unresolved/i);
+    assert.equal(sets(h).length,1);
+  });
+}
+
 test('restore requires acknowledgement and confirmation then journals a new guarded transaction',async()=>{
   const h=harness();const realSet=h.fileOps.setFileMetadata;
   h.fileOps.setFileMetadata=async(fid,value)=>{await realSet(fid,value);throw new Error('timeout');};

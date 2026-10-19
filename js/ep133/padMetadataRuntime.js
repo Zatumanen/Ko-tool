@@ -106,6 +106,8 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
   };
   const inspect=async(record,ops,ctx)=>{
     const current=await read(ops,record.target,ctx);
+    // A divergent state is acknowledgeable only when every field is understood.
+    preparePadMetadataPayload(current.metadata,{});
     const verification=verifyPadMetadata(record.before,record.desired,current.metadata);
     return{...verification,classification:verification.ok?'desired':canonical(current.metadata)===canonical(record.before)?'before':'diverged',
       fingerprint:current.fingerprint,metadata:current.metadata,deviceMutated:false,verifiedAt:new Date().toISOString()};
