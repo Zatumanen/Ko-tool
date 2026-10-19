@@ -1,6 +1,6 @@
 # My EP: selected-pad properties
 
-Date: 2026-10-19 (Europe/Moscow). Status: written design awaiting owner review.
+Date: 2026-10-19 (Europe/Moscow). Status: owner approved this written design in chat on 2026-10-19; implementation plan pending review.
 
 ## Owner outcome and scope
 
