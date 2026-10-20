@@ -699,6 +699,7 @@ Visuals не захватывает звук системы через MIDI и �
 ```bash
 git clone https://github.com/Zatumanen/Ko-tool.git
 cd Ko-tool
+node scripts/check-codex-env.mjs
 npm install --no-audit --no-fund
 node tests/e2e/server.mjs
 ```
@@ -752,15 +753,16 @@ Playwright с Chromium и симулированным MIDI-устройство
 
 ### Статус разработки
 
-Задачи и подтверждение готовности ведутся в
-[Linear](https://linear.app/clouded). Ближайшие приоритеты:
-[ZAT-48 — стабилизация `main`](https://linear.app/clouded/issue/ZAT-48/stabilize-production-main-and-my-ep-before-resuming-os-redesign)
-и [ZAT-9 — матрица аппаратных испытаний](https://linear.app/clouded/issue/ZAT-9/establish-hardware-in-the-loop-matrix-for-critical-write-paths).
-Новые функции и UI/UX-миграция отложены до соответствующей проверки.
+Текущие задачи выпуска и критерии готовности ведутся в
+[Linear: K.O. Tool — Release 1.0](https://linear.app/clouded/project/ko-tool-release-10-2f713ebc0fca)
+(ZAT-52–ZAT-71). Исторические задачи [ZAT-48](https://linear.app/clouded/issue/ZAT-48)
+и [ZAT-9](https://linear.app/clouded/issue/ZAT-9) сохраняют собственные
+результаты и аппаратные ограничения; релиз не подтверждён одними CI-тестами.
 
 Изменения проводятся через явное согласование, адресные тесты,
-проверку регрессий, PR, CI и отдельно разрешённый выпуск. Слияние в `main`
-может автоматически запустить публикацию GitHub Pages.
+проверку регрессий и PR. Публикация GitHub Pages допускается только
+после ручного запуска workflow `deploy-pages`, прохождения его проверок и
+разрешения владельца. Настройте environment protection в GitHub отдельно.
 
 ## Лицензия и сторонние материалы
 
