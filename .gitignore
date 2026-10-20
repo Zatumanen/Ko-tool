@@ -1,0 +1,21 @@
+# Dependencies and generated GitHub Pages site
+node_modules/
+dist/
+
+# Browser automation and analysis outputs
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+graphify-out/
+
+# Local scratch, cloud runtime traces and owner-supplied reference material
+work/
+*.log
+
+# Local environment, credentials and OS files
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store

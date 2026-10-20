@@ -56,42 +56,48 @@ separate. This chat's host spawn tool has no agent-type field; if authorized,
 pass the matching role brief explicitly. Do not claim named-role/concurrency
 activation in Cloud merely because repository files exist.
 
-## Existing cloud runtime
+## Portable Codex setup and dated runtime notes
 
-Verified 2026-10-19: Node22.22.0 is retained at
-`/workspace/.ko-tool-setup/node_modules/node/bin`; prepend it to PATH per shell.
-The default shell Node is24.19.0. Playwright is in node_modules; system Chromium
-is `/usr/bin/chromium` (154.0.8037.57 at verification). Existing commands:
-`npm test`, `npm run build:pages`, `npm run test:e2e`. Cloud browser override:
-`/workspace/.ko-tool-setup/playwright.config.mjs`. It selects system Chromium;
-the managed-browser CDN previously hit network policy. Preserve TLS/integrity.
-Retain new results separately in `work/` rather than overwriting earlier traces.
-The test server fixes port4173; stop only your own manual server before E2E.
-No package.json, lockfile or Actions change is needed for this configuration.
+For every **new** checkout/session, inspect actual branch/status and execute
+`node scripts/check-codex-env.mjs`. Use Node.js 22, then install dependencies
+with `npm install --no-audit --no-fund` until a verified `package-lock.json`
+is available; only then switch the setup/CI to `npm ci`. Run focused tests
+first; full gates are selected by docs/TESTING.md and AGENTS.md. For E2E use
+`npx playwright install chromium` followed by `npm run test:e2e`.
+The test server owns port 4173: stop only a manual server you started.
+Generated assets and diagnostics belong in ignored `dist/`, `work/`,
+`test-results/`, `playwright-report/` rather than commits.
 
-This session's restricted runner reports `spawnSync ... EPERM` even when a
-child exits successfully, and asynchronous child stdout can be empty. This was
-reproduced with both Node22 and Node24 using a child that only prints its version;
-the supported approved execution outside that sandbox captures output normally.
-If this recurs, diagnose a minimal child-process example and use the environment's
-permission workflow when needed. Do not skip syntax checks, weaken runtime
-assertions or alter application code to accommodate the runner limitation.
+Cloud runtimes are **not portable** by assumption. Check `node --version`,
+`npm --version`, browser availability and file paths before configuring an
+override. Never change application code or relax TLS/CI assertions to bypass a
+restricted cloud runner. Report environment-specific failures as unverified.
+
+Historical environment, **2026-10-19 only**: Node 22.22.0 at
+`/workspace/.ko-tool-setup/node_modules/node/bin`, default Node 24.19.0,
+Chromium at `/usr/bin/chromium` and browser override at
+`/workspace/.ko-tool-setup/playwright.config.mjs`. The restricted runner showed
+`spawnSync ... EPERM` and child stdout limitations; these observations do not
+prove anything about another Codex workspace. Prefer a minimal reproduction
+and normal permission workflow if a similar failure appears.
 
 ## Activation and verification limits
 
-Files are implemented locally. A new Cloud task must discover this checkout's
-AGENTS and .agents/skills; the current conversation is not proof of reload.
-.codex/config.toml depends on runtime support/trust. If your interface requires
-it, trust only this project and start a new task; do not weaken sandbox/network.
-No live Cloud dashboard setting was applied by this task. The existing start_skill
-draft was shortened from3,899 to1,386 characters, removing stale results and
-delegating selective context to AGENTS/PROJECT_STATE. Install script, repositories,
-network and credential requirements were preserved. The confirmed draft save does
-not execute it or publish a snapshot: review/save in environment settings, then
-publish the environment and verify discovery in a new task. Earlier CDN additions
-remain draft settings until applied. No new MCP/plugin is needed.
+A new Codex Cloud task must discover this checkout's AGENTS.md,
+`.agents/skills/` and selected `.codex/config.toml` roles. Files alone do not
+prove skill/role activation, environment trust or published Cloud settings.
+Verify discovery in a fresh session; do not alter sandbox/network protection
+or install optional global tools solely to make discovery work. The 2026-10-19
+Cloud start-skill/environment observations were draft state, not a portable
+or activated guarantee. No new MCP/plugin is required by default.
 
-Config-only verification covers sizes, YAML/TOML, relative links, archive hash,
-selective-routing cases, unchanged application/test/dependency/CI hashes and
-runtime tool/browser availability. Full suites are not rerun solely for docs;
-previous application results remain dated evidence for earlier code changes.
+[Release verification skill](../.agents/skills/release-verification/SKILL.md)
+is opt-in for release readiness, not every patch. Existing
+[session-handoff](../.agents/skills/session-handoff/SKILL.md) is already the
+canonical way to hand off unfinished work; do not create another handoff skill.
+
+Config-only verification covers frontmatter, TOML, paths/links, archive hash,
+tracked-file scope and the actual current environment. CI/workflow changes
+need workflow inspection and a new Actions run; no local documentation check
+proves GitHub deployment gates. Full application suites are not rerun solely
+for prose edits; previous results remain dated evidence for earlier code.

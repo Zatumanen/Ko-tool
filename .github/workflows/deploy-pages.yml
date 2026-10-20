@@ -1,9 +1,7 @@
 name: deploy-pages
 
+# Explicit owner-approved action only. Never auto-publish on a merge to main.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -13,17 +11,52 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check Codex environment
+        run: node scripts/check-codex-env.mjs
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Unit and behavior tests
+        run: npm test
+
+      - name: Build GitHub Pages
+        run: npm run build:pages
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser E2E with fake EP
+        run: npm run test:e2e
+
   deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout verified SHA
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4

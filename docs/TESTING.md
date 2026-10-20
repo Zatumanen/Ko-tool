@@ -32,7 +32,7 @@ npx playwright test tests/e2e/my-ep-live-project-refresh.spec.mjs
 
 For native sample dragging after an upload, wait for the global progress indicator to hide and the source to become `draggable`: a file appearing in the fake device is earlier than verified readback and release of the mutation lock. Delayed operation-indicator cleanup must update existing cells without replacing drag nodes. [Cleanup regressions](../tests/e2e/sample-operation-cleanup.spec.mjs) clear single/all indicators during a real pointer drag, verify row identity and complete the transfer gesture. Do not hide this interval by waiting for cleanup before dragging, substituting synthetic drop events or adding a fixed sleep.
 
-**This document is instructions, not a claim that these commands were run during documentation work.** GitHub Actions on `main` runs tests and Pages build; a push to `main` also triggers [Pages deployment](../.github/workflows/deploy-pages.yml).
+**This document is instructions, not a claim that these commands were run during documentation work.** GitHub Actions runs tests and Pages builds for pushes/PRs. [Pages deployment](../.github/workflows/deploy-pages.yml) requires a separately authorized manual dispatch and passing unit, build and browser verification. Configure environment reviewer protection in GitHub Settings where required; fake EP tests do not replace release HIL gates.
 
 ## Evidence levels
 

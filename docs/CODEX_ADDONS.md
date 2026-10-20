@@ -1,6 +1,6 @@
 # Optional Codex Cloud add-ons for K.O. Tool
 
-These project skills complement the compact AGENTS.md and existing four skills from the token-efficient Codex configuration. They are **not** always-on instructions, agents, hooks, MCP registrations or new production dependencies. The existing PR introducing .agents/skills may still be awaiting merge; check current target branch.
+These optional skills complement the compact AGENTS.md and core domain skills already on `main`. They are **not** always-on instructions, agents, hooks, MCP registrations or new production dependencies.
 
 | Skill | Call only when |
 | --- | --- |
@@ -9,6 +9,7 @@ These project skills complement the compact AGENTS.md and existing four skills f
 | `feature-spec` | Turning settled decisions into a testable specification |
 | `architecture-graph` | Investigating a large, connected set of modules where simple source navigation fails |
 | `reference-reverse-engineering` | Examining actual owner-supplied reference artifacts |
+| `release-verification` | Auditing a specific approved release candidate and Go/No-Go evidence |
 
 ## Optional third-party runtime tools
 

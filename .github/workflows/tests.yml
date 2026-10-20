@@ -9,6 +9,15 @@ on:
       - main
 
 jobs:
+  codex-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-codex-env.mjs
+
   unit:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +43,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Lockfile not yet available; move to npm ci only after generating and verifying it.
       - run: npm install --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
