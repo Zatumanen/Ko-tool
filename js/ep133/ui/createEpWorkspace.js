@@ -151,6 +151,7 @@ export function createEpWorkspace({
   const unsubscribeRuntime=onDeviceRuntimeChange(snapshot=>{
     runtimeSnapshot=snapshot;
     updateMutationAvailability();
+    if(snapshot?.status==='disconnected'||snapshot?.status==='unsafe')propertiesController?.reset();
   });
 
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
@@ -248,7 +249,7 @@ export function createEpWorkspace({
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,isSynchronized:()=>synchronized,
     isMetadataHydrating:()=>metadataHydrating,isMutating:()=>mutating,
-    withFileTransaction,setFileMetadata,getFileMetadata,
+    withFileTransaction,captureBatchSession,assertBatchSession,
     showError:message=>showError?.(message),logTechnical,escapeHtml
   });
   const closeProperties=()=>propertiesController.close();
@@ -391,6 +392,7 @@ export function createEpWorkspace({
   const renderConnection=state=>{
     legacyConnectionUnsafe=!!state?.unsafe;
     activeDeviceProfile=deviceView.renderIdentity(state);
+    propertiesController?.reset();
     const unsafe=runtimeUnsafe()||legacyConnectionUnsafe;
     if(unsafe){
       metadataHydrating=false;synchronized=false;updateMutationAvailability();
@@ -440,7 +442,13 @@ export function createEpWorkspace({
     if(files.length&&slot)void uploadFilesToSlot(slot,files).catch(error=>reportError('COULD NOT UPLOAD SAMPLE.',error));
   };
   const handlePointerDown=event=>{
-    if(properties&&!properties.hidden&&!properties.contains(event.target)&&!event.target.closest?.('.ep133-sample-row'))closeProperties();
+    const target=event.target;
+    const insideProperties=properties?.contains(target);
+    if(properties&&!properties.hidden&&!insideProperties&&!target.closest?.('.ep133-sample-row'))closeProperties();
+    const insideDialog=[confirmDialog,projectEditorDialog,sequencerDialog,backupDialog]
+      .some(dialog=>dialog&&!dialog.hidden&&dialog.contains(target))||target.closest?.('#waveform-editor');
+    if(panel.style.display!=='none'&&!panel.contains(target)&&!insideProperties&&!insideDialog&&memory?.getSelectedSlots().length)
+      memory.selectSlots([],{preview:false,navigate:false});
   };
   const handleKeyDown=event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;
@@ -452,7 +460,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({

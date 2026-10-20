@@ -84,7 +84,7 @@ export function getSamplePropertyChange(slot,key,direction,{playModes=[],barPoli
   }
   if(key==='sound.pitch'){
     const current=Number.isFinite(Number(meta[key]))?Number(meta[key]):0;
-    return{value:Math.max(-12,Math.min(12,Math.round(current)+step)),extra:{}};
+    return{value:Math.max(-12,Math.min(12,current+step)),extra:{}};
   }
   if(key==='time.mode'){
     const current=normalizeTimeMode(meta[key]);
