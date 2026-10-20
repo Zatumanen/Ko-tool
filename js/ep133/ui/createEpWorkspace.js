@@ -12,6 +12,8 @@ import{TE_SYSEX_FILE_EVENT_METADATA_UPDATED}from '../constants.js';
 import{createSampleMemory}from '../sampleMemory.js?v=20261001-1';
 import{getEpDeviceProfile}from '../deviceProfile.js?v=20261001-1';
 import{createSamplePropertiesController}from './samplePropertiesController.js?v=20261001-1';
+import{createPadMetadataReader,getPadReadAvailability}from '../padMetadataReadOnly.js';
+import{createReadOnlyPadPropertiesController}from './padPropertiesReadOnlyController.js';
 import{createSampleStore}from '../sampleStore.js?v=20261001-1';
 import{createSessionGuard}from './sessionGuard.js?v=20261001-1';
 import{createFeedbackController}from './feedback.js?v=20261001-1';
@@ -113,6 +115,7 @@ export function createEpWorkspace({
   let legacyConnectionUnsafe=false;
   let activeDeviceProfile=deviceView.getActiveProfile();
   let propertiesController=null;
+  let padReadController=null;
   let memory=null;
   let runtimeSnapshot=getDeviceRuntimeSnapshot();
   const runtimeUnsafe=()=>runtimeSnapshot?.status==='unsafe';
@@ -141,8 +144,13 @@ export function createEpWorkspace({
     return metadata;
   };
 
+  const updatePadReadAvailability=()=>{
+    const selected=memory?.getSelectedSlots?.()||[];
+    if(dom.padOpen)dom.padOpen.disabled=!(selected.length===1&&selected[0].file&&isConnected()&&synchronized&&!metadataHydrating&&!mutating&&runtimeReady());
+  };
   const updateMutationAvailability=()=>{
     memory?.setMutationsEnabled?.(!!(runtimeReady()&&synchronized&&!metadataHydrating&&!mutating));
+    updatePadReadAvailability();
   };
   const setMutating=value=>{
     mutating=!!value;
@@ -151,7 +159,9 @@ export function createEpWorkspace({
   const unsubscribeRuntime=onDeviceRuntimeChange(snapshot=>{
     runtimeSnapshot=snapshot;
     updateMutationAvailability();
-    if(snapshot?.status==='disconnected'||snapshot?.status==='unsafe')propertiesController?.reset();
+    if(snapshot?.status==='disconnected'||snapshot?.status==='unsafe'){
+      propertiesController?.reset();padReadController?.invalidate();
+    }
   });
 
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
@@ -181,7 +191,7 @@ export function createEpWorkspace({
       isConnected()&&synchronized&&runtimeReady()&&!mutating&&!metadataHydrating&&
       panel.style.display!=='none'&&documentRef?.visibilityState!=='hidden'&&
       projectEditorDialog?.hidden!==false&&sequencerDialog?.hidden!==false&&
-      backupDialog?.hidden!==false&&confirmDialog?.hidden!==false
+      backupDialog?.hidden!==false&&confirmDialog?.hidden!==false&&dom.padDialog?.hidden!==false
     ),
     logAutoError:logTechnical,
     setIntervalFn:windowRef?.setInterval?.bind(windowRef),
@@ -254,6 +264,22 @@ export function createEpWorkspace({
   });
   const closeProperties=()=>propertiesController.close();
   const openProperties=(slot,event)=>propertiesController.open(slot,event);
+  const padReader=createPadMetadataReader({withFileTransaction,getConnectedDeviceInfo,
+    captureSession:captureBatchSession,assertSession:assertBatchSession,
+    assertReadable:()=>{
+      if(!isConnected()||!synchronized||metadataHydrating||mutating||runtimeUnsafe()||legacyConnectionUnsafe||propertiesController.hasPendingWrites())
+        throw Error('Pad READ requires a synchronized, safe device with no pending library write.');
+    }
+  });
+  padReadController=createReadOnlyPadPropertiesController({dom,reader:padReader,
+    getAvailability:()=>getPadReadAvailability(getConnectedDeviceInfo()),
+    captureSession:captureBatchSession,assertSession:assertBatchSession,documentRef});
+  const openPadProperties=()=>{
+    const selected=memory?.getSelectedSlots?.()||[];
+    if(selected.length!==1||!selected[0].file||dom.padOpen?.disabled)return;
+    closeProperties();void padReadController.openFromSample(selected[0]);
+  };
+  dom.padOpen?.addEventListener('click',openPadProperties);
   const sampleRenameController=createSampleRenameController({
     sampleStore,isConnected,isSynchronized:()=>synchronized,
     withFileTransaction,setFileMetadata,getFileMetadata,normalizeFileName
@@ -347,7 +373,7 @@ export function createEpWorkspace({
 
   memory=createSampleMemory({
     listEl:list,tabsEl:tabs,searchEl:search,searchClearEl:searchClear,searchCountEl:searchCount,
-    onSelect:slot=>{closeProperties();setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'');},
+    onSelect:slot=>{closeProperties();updatePadReadAvailability();setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'');},
     onPlay:auditionSample,onDelete:deleteSamples,onRename:(slot,value)=>sampleRenameController.rename(slot,value),
     onDownload:slot=>{requireLibraryReady();return sampleReadController.downloadOne(slot);},
     onDownloadMany:selectedSlots=>{requireLibraryReady();return sampleReadController.downloadMany(selectedSlots);},onTransfer:transactionalTransfer,
@@ -393,6 +419,7 @@ export function createEpWorkspace({
     legacyConnectionUnsafe=!!state?.unsafe;
     activeDeviceProfile=deviceView.renderIdentity(state);
     propertiesController?.reset();
+    padReadController?.invalidate();
     const unsafe=runtimeUnsafe()||legacyConnectionUnsafe;
     if(unsafe){
       metadataHydrating=false;synchronized=false;updateMutationAvailability();
@@ -423,7 +450,7 @@ export function createEpWorkspace({
   connectionLifecycle.start();
 
   const closePanel=()=>{
-    closeProperties();void stopCurrentPreview();panel.style.display='none';panel.setAttribute('aria-hidden','true');
+    closeProperties();padReadController.close();void stopCurrentPreview();panel.style.display='none';panel.setAttribute('aria-hidden','true');
   };
   const openPanel=()=>{
     connectionLifecycle.arm();panel.style.display='flex';panel.setAttribute('aria-hidden','false');
@@ -437,7 +464,7 @@ export function createEpWorkspace({
     }
   };
   const handlePaste=event=>{
-    if(panel.style.display==='none'||!synchronized||mutating)return;
+    if(dom.padDialog?.hidden===false||panel.style.display==='none'||!synchronized||mutating)return;
     const files=getClipboardAudioFiles(event);const slot=memory.getSelected();
     if(files.length&&slot)void uploadFilesToSlot(slot,files).catch(error=>reportError('COULD NOT UPLOAD SAMPLE.',error));
   };
@@ -445,13 +472,14 @@ export function createEpWorkspace({
     const target=event.target;
     const insideProperties=properties?.contains(target);
     if(properties&&!properties.hidden&&!insideProperties&&!target.closest?.('.ep133-sample-row'))closeProperties();
-    const insideDialog=[confirmDialog,projectEditorDialog,sequencerDialog,backupDialog]
+    const insideDialog=[confirmDialog,projectEditorDialog,sequencerDialog,backupDialog,dom.padDialog]
       .some(dialog=>dialog&&!dialog.hidden&&dialog.contains(target))||target.closest?.('#waveform-editor');
     if(panel.style.display!=='none'&&!panel.contains(target)&&!insideProperties&&!insideDialog&&memory?.getSelectedSlots().length)
       memory.selectSlots([],{preview:false,navigate:false});
   };
   const handleKeyDown=event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;
+    if(dom.padDialog&&!dom.padDialog.hidden){event.preventDefault();padReadController.close();return;}
     if(confirmDialog&&!confirmDialog.hidden){event.preventDefault();resolveConfirm(false);return;}
     if(projectEditorDialog&&!projectEditorDialog.hidden){event.preventDefault();projectEditorController.close();return;}
     if(sequencerDialog&&!sequencerDialog.hidden){event.preventDefault();projectSequencerController.close();return;}
@@ -460,7 +488,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{dom.padOpen?.removeEventListener('click',openPadProperties);padReadController.dispose();propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({
