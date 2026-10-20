@@ -1,5 +1,6 @@
 import{getDeviceRuntimeSnapshot,dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
 import{hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
+import{isUnresolvedPadRecord}from './padRecovery.js';
 
 let recoveryRescanHandler=null;
 export function setDeviceRecoveryRescanHandler(handler){
@@ -43,7 +44,7 @@ const sortBlockers=(a,b)=>{
 };
 
 export async function syncDeviceRuntimeRecovery({
-  runtime,deviceInfo,listSampleTransactions,listProjectCheckpoints
+  runtime,deviceInfo,listSampleTransactions,listProjectCheckpoints,listPadTransactions
 }={}){
   if(!runtime||typeof runtime.getSnapshot!=='function'||typeof runtime.dispatch!=='function'||typeof runtime.assertEpoch!=='function')
     throw new TypeError('Device recovery hydration requires a runtime state instance.');
@@ -54,9 +55,10 @@ export async function syncDeviceRuntimeRecovery({
   if(snapshot.connection.status!=='connected')throw new Error('Device recovery hydration requires a connected device.');
   const connectionEpoch=snapshot.connection.epoch;
   runtime.dispatch({type:'RECOVERY_SCAN_STARTED',connectionEpoch});
-  let samples,projects;
+  let samples,projects,pads;
   try{
-    [samples,projects]=await Promise.all([listSampleTransactions(),listProjectCheckpoints()]);
+    [samples,projects,pads]=await Promise.all([listSampleTransactions(),listProjectCheckpoints(),
+      listPadTransactions?listPadTransactions():[]]);
   }catch(error){
     runtime.assertEpoch(connectionEpoch);
     runtime.dispatch({
@@ -72,7 +74,11 @@ export async function syncDeviceRuntimeRecovery({
       .map(record=>({id:String(record.id||''),source:'sample',createdAt:record.createdAt,reason:recoveryReason(record,'sample')})),
     ...(Array.isArray(projects)?projects:[])
       .filter(record=>recordMatchesDevice(record,deviceInfo)&&unresolvedProject(record))
-      .map(record=>({id:String(record.id||''),source:'project',createdAt:record.createdAt,reason:recoveryReason(record,'project')}))
+      .map(record=>({id:String(record.id||''),source:'project',createdAt:record.createdAt,reason:recoveryReason(record,'project')})),
+    ...(Array.isArray(pads)?pads:[])
+      .filter(record=>recordMatchesDevice(record,deviceInfo)&&isUnresolvedPadRecord(record))
+      .map(record=>({id:String(record.id||''),source:'pad',createdAt:record.createdAt,
+        reason:'Persisted pad mutation requires authoritative recovery verification.'}))
   ].filter(item=>item.id).sort(sortBlockers);
   runtime.assertEpoch(connectionEpoch);
   if(blockers.length){
@@ -147,4 +153,28 @@ export function publishProjectRecoveryEvent(event){
     dispatchDeviceRuntimeEvent({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'project'});
     requestRecoveryRescan();
   }catch(error){console.warn('Project recovery runtime bridge failed',error);}
+}
+
+export function publishPadRecoveryEvent(event){
+  const snapshot=getDeviceRuntimeSnapshot();
+  if(snapshot.connection.status!=='connected')return;
+  const connectionEpoch=snapshot.connection.epoch,transactionId=String(event?.transactionId||'');
+  if(!transactionId)return;
+  try{
+    if(event.type==='required'){
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_REQUIRED',connectionEpoch,transactionId,source:'pad',
+        reason:'Pad mutation requires authoritative recovery verification.'});
+      return;
+    }
+    if(snapshot.recovery.transaction?.id!==transactionId||snapshot.recovery.transaction?.source!=='pad')return;
+    if(event.type==='verified'){
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'pad',verification:event.verification||null});
+    }else if(event.type==='acknowledged'){
+      if(!event.verification)return;
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_VERIFIED',connectionEpoch,transactionId,source:'pad',verification:event.verification});
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_SCAN_STARTED',connectionEpoch});
+      dispatchDeviceRuntimeEvent({type:'RECOVERY_ACKNOWLEDGED',connectionEpoch,transactionId,source:'pad'});
+      requestRecoveryRescan();
+    }
+  }catch(error){console.warn('Pad recovery runtime bridge failed',error);}
 }

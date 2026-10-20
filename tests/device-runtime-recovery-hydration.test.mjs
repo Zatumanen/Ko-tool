@@ -145,3 +145,25 @@ test('hydration never copies raw serial data into runtime recovery state',async(
   assert.equal(JSON.stringify(runtime.getSnapshot()).includes('HYDRATE-DEVICE'),false);
   assert.equal(JSON.stringify(runtime.getSnapshot()).includes('DO-NOT-COPY'),false);
 });
+
+test('optional pad transactions hydrate persistent MUTATE and VERIFY blockers after reconnect',async()=>{
+  for(const phase of ['MUTATE','VERIFY']){
+    const runtime=readyRuntime();
+    const result=await syncDeviceRuntimeRecovery({runtime,deviceInfo:device,
+      listSampleTransactions:async()=>[],listProjectCheckpoints:async()=>[],
+      listPadTransactions:async()=>[{id:'pad-'+phase,device:persistedDevice(device),status:'requires-recovery',phase}]
+    });
+    assert.equal(result.count,1);
+    assert.equal(runtime.getSnapshot().recovery.transaction.source,'pad');
+    assert.throws(()=>runtime.assertCanStartFileOperation({mode:'mutation'}),error=>error.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED');
+  }
+});
+
+test('pad storage scan errors keep hydration fail-closed',async()=>{
+  const runtime=readyRuntime();
+  await assert.rejects(()=>syncDeviceRuntimeRecovery({runtime,deviceInfo:device,
+    listSampleTransactions:async()=>[],listProjectCheckpoints:async()=>[],
+    listPadTransactions:async()=>{throw new Error('pad storage failed');}
+  }),/pad storage failed/);
+  assert.equal(runtime.getSnapshot().recovery.hydrated,false);
+});

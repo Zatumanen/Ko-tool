@@ -5,6 +5,12 @@ import{CAPABILITY_KEYS,SUPPORTED_EP_SKUS}from './deviceCompatibilityMatrix.js?v=
 export{CAPABILITY_KEYS};
 
 
+// Public documentation pin, not a captured/accepted pad-write artifact.
+export const PAD_METADATA_PROTOCOL_SOURCE=Object.freeze({
+  commit:'891a905c5faf8b5c7b0ae1bdfee260c21f7417eb',
+  url:'https://github.com/kmorrill/ep-series-sysex/blob/891a905c5faf8b5c7b0ae1bdfee260c21f7417eb/docs/file-protocol.md',
+  recordedAt:'2026-10-19'
+});
 const RECORDED_AT='2026-09-30';
 const KNOWN_SKUS=new Set(SUPPORTED_EP_SKUS);
 const KNOWN_CAPABILITIES=new Set(Object.values(CAPABILITY_KEYS));
@@ -38,7 +44,18 @@ const sampleBars=(sku)=>entry(
   }
 );
 
+const padMetadata=sku=>entry(
+  sku.toLowerCase()+'-pad-metadata-unverified',
+  sku,CAPABILITY_KEYS.PAD_METADATA,CAPABILITY_EVIDENCE.UNVERIFIED,{
+    read:true,preserve:true,sourceType:'shared-protocol',
+    artifactId:PAD_METADATA_PROTOCOL_SOURCE.url,recordedAt:PAD_METADATA_PROTOCOL_SOURCE.recordedAt,
+    source:'Public protocol documentation lists pad fields, string enums, release pairing and partial-write clobber risk. No scoped pad-operation capture or physical acceptance retained.',
+    reason:'Pad metadata writes are not hardware-verified for this model/firmware; complete safe payload and physical acceptance evidence are required.'
+  }
+);
+
 export const EVIDENCE_REGISTRY=Object.freeze([
+  ...SUPPORTED_EP_SKUS.map(padMetadata),
   entry('ep133-sample-metadata-os-2.5.1','TE032AS001',CAPABILITY_KEYS.SAMPLE_METADATA,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
     read:true,preserve:true,firmwareRange:'2.5.1',sourceType:'hil',
     source:'ep-series-sysex live verification on EP-133 OS 2.5.1'

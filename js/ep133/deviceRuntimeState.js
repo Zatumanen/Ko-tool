@@ -131,12 +131,14 @@ export function createDeviceRuntimeState({now=()=>Date.now()}={}){
     EP_ERROR_CATEGORY.SAFETY
   );
   const canStartFileOperation=mode=>
-    (mode==='read'||mode==='mutation')&&
+    ['read','mutation','recovery-read'].includes(mode)&&
     state.connection.status===DEVICE_RUNTIME_CONNECTION.CONNECTED&&
     state.connection.device?.identityVerified===true&&
     state.ownership.status===DEVICE_RUNTIME_OWNERSHIP.OWNED&&
     state.operation.phase===DEVICE_RUNTIME_OPERATION.IDLE&&
-    state.safety.status===DEVICE_RUNTIME_SAFETY.SAFE&&
+    (state.safety.status===DEVICE_RUNTIME_SAFETY.SAFE||
+      mode==='recovery-read'&&state.safety.status===DEVICE_RUNTIME_SAFETY.RECOVERY_REQUIRED&&!!state.recovery.transaction)&&
+    !state.externalInterference&&
     state.recovery.hydrated===true;
   const recoveryMatch=(event,{requireVerified=false}={})=>{
     exactEpoch(event.connectionEpoch);
@@ -322,7 +324,7 @@ export function createDeviceRuntimeState({now=()=>Date.now()}={}){
 
   const assertCanStartFileOperation=({mode='read'}={})=>{
     const normalized=String(mode||'read');
-    if(normalized!=='read'&&normalized!=='mutation')throw transitionError({type:'FILE_OPERATION_ADMISSION'},'unknown FILE operation mode '+normalized);
+    if(!['read','mutation','recovery-read'].includes(normalized))throw transitionError({type:'FILE_OPERATION_ADMISSION'},'unknown FILE operation mode '+normalized);
     if(!canStartFileOperation(normalized))throw operationBlocked({mode:normalized});
     return state;
   };

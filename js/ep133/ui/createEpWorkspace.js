@@ -1,6 +1,8 @@
 import{
   connectEp133,isConnected,markDeviceUnsafe,getConnectedDeviceInfo,getDeviceSessionToken,onFileEvent,waitForFileEvent,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
+  getPadMetadataAvailability,listPadMetadataTargets,readPadMetadataTarget,applyPadMetadata,
+  listPadRecoveryRecords,verifyPadRecoveryRecord,restorePadRecoveryRecord,acknowledgePadRecoveryRecord,
   listProjectArchivesReadOnly,readProjectArchiveReadOnly,uploadProjectArchive,
   getProjectRecoveryCheckpoint,listProjectRecoveryCheckpoints,deleteProjectRecoveryCheckpoint,
   restoreProjectRecoveryCheckpoint,
@@ -11,6 +13,8 @@ import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from '../deviceRuntime.js'
 import{TE_SYSEX_FILE_EVENT_METADATA_UPDATED}from '../constants.js';
 import{createSampleMemory}from '../sampleMemory.js?v=20261001-1';
 import{getEpDeviceProfile}from '../deviceProfile.js?v=20261001-1';
+import{createPadPropertiesController}from './padPropertiesController.js';
+import{createPadRecoveryController}from './padRecoveryController.js';
 import{createSamplePropertiesController}from './samplePropertiesController.js?v=20261001-1';
 import{createSampleStore}from '../sampleStore.js?v=20261001-1';
 import{createSessionGuard}from './sessionGuard.js?v=20261001-1';
@@ -39,6 +43,8 @@ import{outputFileName}from '../../output-name.js';
 const DEFAULT_SERVICES=Object.freeze({
   connectEp133,isConnected,markDeviceUnsafe,getConnectedDeviceInfo,getDeviceSessionToken,onFileEvent,waitForFileEvent,
   listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
+  getPadMetadataAvailability,listPadMetadataTargets,readPadMetadataTarget,applyPadMetadata,
+  listPadRecoveryRecords,verifyPadRecoveryRecord,restorePadRecoveryRecord,acknowledgePadRecoveryRecord,
   listProjectArchivesReadOnly,readProjectArchiveReadOnly,uploadProjectArchive,
   getProjectRecoveryCheckpoint,listProjectRecoveryCheckpoints,deleteProjectRecoveryCheckpoint,restoreProjectRecoveryCheckpoint,
   deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
@@ -55,6 +61,8 @@ export function createEpWorkspace({
   const{
     connectEp133,isConnected,markDeviceUnsafe,getConnectedDeviceInfo,getDeviceSessionToken,onFileEvent,waitForFileEvent,
     listDirectory,getFile,getFileMetadata,getFileInfo,uploadSampleToSlot,withFileTransaction,
+    getPadMetadataAvailability,listPadMetadataTargets,readPadMetadataTarget,applyPadMetadata,
+    listPadRecoveryRecords,verifyPadRecoveryRecord,restorePadRecoveryRecord,acknowledgePadRecoveryRecord,
     listProjectArchivesReadOnly,readProjectArchiveReadOnly,uploadProjectArchive,
     getProjectRecoveryCheckpoint,listProjectRecoveryCheckpoints,deleteProjectRecoveryCheckpoint,restoreProjectRecoveryCheckpoint,
     deleteFile,moveFile,setFileMetadata,startPlayback,stopPlayback,normalizeFileName,
@@ -64,7 +72,7 @@ export function createEpWorkspace({
   const{
     open,panel,close,title,list,tabs,search,searchClear,searchCount,
     deviceHead,deviceName,connectionOverlay,statusEl,memoryStats,memoryMeter,sampleCount,txIndicator,rxIndicator,
-    properties,propertiesGrid,globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
+    padDialog,properties,propertiesGrid,globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
     confirmDialog,confirmMessage,confirmOk,confirmCancel,
     samplesPanel,projectsPanel,samplesViewButton,projectsViewButton,
     projectList,projectInspector,projectRefresh,projectAutoRefresh,projectEdit,
@@ -113,6 +121,8 @@ export function createEpWorkspace({
   let legacyConnectionUnsafe=false;
   let activeDeviceProfile=deviceView.getActiveProfile();
   let propertiesController=null;
+  let padPropertiesController=null;
+  let padRecoveryController=null;
   let memory=null;
   let runtimeSnapshot=getDeviceRuntimeSnapshot();
   const runtimeUnsafe=()=>runtimeSnapshot?.status==='unsafe';
@@ -151,6 +161,9 @@ export function createEpWorkspace({
   const unsubscribeRuntime=onDeviceRuntimeChange(snapshot=>{
     runtimeSnapshot=snapshot;
     updateMutationAvailability();
+    if(snapshot?.status==='disconnected'||snapshot?.status==='unsafe'){
+      padPropertiesController?.reset();padRecoveryController?.reset();
+    }
   });
 
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
@@ -243,13 +256,32 @@ export function createEpWorkspace({
     .map(item=>item.getAsFile?.())
     .filter(Boolean);
 
+  padPropertiesController=createPadPropertiesController({
+    dom,documentRef,
+    getAvailability:()=>{
+      const availability=getPadMetadataAvailability();
+      if(!isConnected()||!runtimeReady())return{read:false,write:false,reason:'Pad FILE access requires a ready authorized device · '+String(runtimeSnapshot?.status||'disconnected')};
+      return availability;
+    },
+    readTargets:listPadMetadataTargets,readTarget:readPadMetadataTarget,applyPadMetadata,
+    captureSession:captureBatchSession,assertSession:assertBatchSession,reportError
+  });
+  padRecoveryController=createPadRecoveryController({
+    dom,listRecords:listPadRecoveryRecords,verify:verifyPadRecoveryRecord,restore:restorePadRecoveryRecord,
+    acknowledge:acknowledgePadRecoveryRecord,confirmAction,reportError
+  });
+  const refreshPadRecovery=()=>{void padRecoveryController.refresh();};
+  projectRecovery?.addEventListener('click',refreshPadRecovery);
+
   propertiesController=createSamplePropertiesController({
     properties,propertiesGrid,sampleStore,
     getActiveDeviceProfile:()=>activeDeviceProfile,
     isConnected,isSynchronized:()=>synchronized,
     isMetadataHydrating:()=>metadataHydrating,isMutating:()=>mutating,
     withFileTransaction,setFileMetadata,getFileMetadata,
-    showError:message=>showError?.(message),logTechnical,escapeHtml
+    captureBatchSession,assertBatchSession,
+    showError:message=>showError?.(message),logTechnical,escapeHtml,
+    onEditAssignedPad:(slot,options)=>padPropertiesController.openFromSample(slot,options)
   });
   const closeProperties=()=>propertiesController.close();
   const openProperties=(slot,event)=>propertiesController.open(slot,event);
@@ -381,11 +413,13 @@ export function createEpWorkspace({
   const devicePadSelectionController=createDevicePadSelectionController({
     isConnected,isSynchronized:()=>synchronized,getMemory:()=>memory,
     sampleStore,withFileTransaction,getFileInfo,getFileMetadata,listDirectory,
-    captureBatchSession,assertBatchSession,logTechnical
+    captureBatchSession,assertBatchSession,logTechnical,
+    onActivePad:selection=>{void padPropertiesController.handleActivePad(selection);}
   });
-  onFileEvent(event=>{
+  const unsubscribeFileEvents=onFileEvent(event=>{
     void fileEventController.handleFileEvent(event);
     devicePadSelectionController.handleFileEvent(event);
+    void padPropertiesController.handleFileEvent(event);
   });
 
   const renderConnection=state=>{
@@ -393,6 +427,7 @@ export function createEpWorkspace({
     activeDeviceProfile=deviceView.renderIdentity(state);
     const unsafe=runtimeUnsafe()||legacyConnectionUnsafe;
     if(unsafe){
+      propertiesController.reset();padPropertiesController.reset();padRecoveryController.reset();
       metadataHydrating=false;synchronized=false;updateMutationAvailability();
       void stopCurrentPreview();closeProperties();hideGlobalProgress();
       panel.classList.add('device-disconnected');
@@ -405,6 +440,7 @@ export function createEpWorkspace({
       panel.classList.remove('device-disconnected');setConnectionOverlay('');setStatus('CONNECTED');return;
     }
     metadataHydrating=false;synchronized=false;updateMutationAvailability();
+    propertiesController.reset();padPropertiesController.reset();padRecoveryController.reset();
     devicePadSelectionController.reset();
     void stopCurrentPreview();closeProperties();hideGlobalProgress();panel.classList.add('device-disconnected');
     const hadConnection=deviceView.hasEverConnected();
@@ -421,7 +457,7 @@ export function createEpWorkspace({
   connectionLifecycle.start();
 
   const closePanel=()=>{
-    closeProperties();void stopCurrentPreview();panel.style.display='none';panel.setAttribute('aria-hidden','true');
+    closeProperties();padPropertiesController.close();void stopCurrentPreview();panel.style.display='none';panel.setAttribute('aria-hidden','true');
   };
   const openPanel=()=>{
     connectionLifecycle.arm();panel.style.display='flex';panel.setAttribute('aria-hidden','false');
@@ -440,11 +476,18 @@ export function createEpWorkspace({
     if(files.length&&slot)void uploadFilesToSlot(slot,files).catch(error=>reportError('COULD NOT UPLOAD SAMPLE.',error));
   };
   const handlePointerDown=event=>{
-    if(properties&&!properties.hidden&&!properties.contains(event.target)&&!event.target.closest?.('.ep133-sample-row'))closeProperties();
+    const target=event.target;
+    const insideProperties=properties?.contains(target);
+    if(properties&&!properties.hidden&&!insideProperties&&!target.closest?.('.ep133-sample-row'))closeProperties();
+    const insideDialog=[confirmDialog,padDialog,projectEditorDialog,sequencerDialog,backupDialog]
+      .some(dialog=>dialog&&!dialog.hidden&&dialog.contains(target))||target.closest?.('#waveform-editor');
+    if(panel.style.display!=='none'&&!panel.contains(target)&&!insideProperties&&!insideDialog&&memory?.getSelectedSlots().length)
+      memory.selectSlots([],{preview:false,navigate:false});
   };
   const handleKeyDown=event=>{
     if(event.key!=='Escape'||event.defaultPrevented)return;
     if(confirmDialog&&!confirmDialog.hidden){event.preventDefault();resolveConfirm(false);return;}
+    if(padDialog&&!padDialog.hidden){event.preventDefault();padPropertiesController.close();return;}
     if(projectEditorDialog&&!projectEditorDialog.hidden){event.preventDefault();projectEditorController.close();return;}
     if(sequencerDialog&&!sequencerDialog.hidden){event.preventDefault();projectSequencerController.close();return;}
     if(backupDialog&&!backupDialog.hidden){event.preventDefault();backupRestoreController.close();return;}
@@ -452,7 +495,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{unsubscribeFileEvents?.();padPropertiesController.dispose();padRecoveryController.dispose();projectRecovery?.removeEventListener('click',refreshPadRecovery);devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({

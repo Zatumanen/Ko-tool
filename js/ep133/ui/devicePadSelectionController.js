@@ -7,7 +7,7 @@ import{TE_SYSEX_FILE_EVENT_METADATA_UPDATED}from '../constants.js?v=20261001-1';
  */
 export function createDevicePadSelectionController({
   isConnected=()=>false,isSynchronized=()=>false,getMemory=()=>null,
-  sampleStore,withFileTransaction,getFileInfo,getFileMetadata,listDirectory,
+  sampleStore,withFileTransaction,getFileInfo,getFileMetadata,listDirectory,onActivePad,
   captureBatchSession=()=>null,assertBatchSession=()=>{},
   logTechnical=()=>{},schedule=(fn,delay)=>setTimeout(fn,delay),
   cancelSchedule=handle=>clearTimeout(handle)
@@ -47,6 +47,25 @@ export function createDevicePadSelectionController({
       return padForProject(ops,meta.active);
     return null;
   };
+  const activeTarget=async(ops,padId,sym)=>{
+    // INFO parent links supply literal selectors. The pad editor resolves them
+    // again through LIST/INFO before it displays or mutates this target.
+    const pad=await ops.getFileInfo(padId);
+    if(pad?.nodeId!==padId||!pad.parentId)return null;
+    const group=await ops.getFileInfo(pad.parentId);
+    if(group?.nodeId!==pad.parentId||!group.parentId)return null;
+    const groups=await ops.getFileInfo(group.parentId);
+    if(groups?.nodeId!==group.parentId||groups.fileName!=='groups'||!groups.parentId)return null;
+    const project=await ops.getFileInfo(groups.parentId);
+    if(project?.nodeId!==groups.parentId||!project.parentId)return null;
+    const projects=await ops.getFileInfo(project.parentId);
+    if(projects?.nodeId!==project.parentId||projects.fileName!=='projects'||projects.parentId!==0)return null;
+    if(!/^\d{2}$/.test(project.fileName)||!/^\d{2}$/.test(pad.fileName)||!/[ABCD]/.test(group.fileName)||group.fileName.length!==1)return null;
+    const ids=[pad.nodeId,group.nodeId,groups.nodeId,project.nodeId,projects.nodeId];
+    if(ids.some(id=>!Number.isInteger(id)||id<=0||id>0xffff)||new Set(ids).size!==ids.length)return null;
+    return{project:project.fileName,group:group.fileName,pad:pad.fileName,
+      projectFid:project.nodeId,groupFid:group.nodeId,padFid:padId,sampleSlot:sym};
+  };
   const handle=async(event,token,version)=>{
     if(!isConnected()||!isSynchronized())return;
     try{
@@ -54,11 +73,17 @@ export function createDevicePadSelectionController({
         const padId=await resolvePadId(ops,event);
         if(!padId)return null;
         const metadata=await ops.getFileMetadata(padId);
-        return{padId,sym:Number(metadata?.sym)};
+        const selection={padId,sym:Number(metadata?.sym)};
+        if(onActivePad&&Number.isInteger(selection.sym)&&selection.sym>=1&&selection.sym<=999){
+          try{const target=await activeTarget(ops,padId,selection.sym);if(target)selection.target=target;}
+          catch(error){logTechnical('ACTIVE EP PAD CONTEXT',error);}
+        }
+        return selection;
       });
       assertBatchSession(token);
       if(version!==seq||!isConnected()||!isSynchronized()||!selection)return;
       lastPadId=selection.padId;
+      onActivePad?.(selection);
       const sym=selection.sym;
       if(Number.isInteger(sym)&&sym>=1&&sym<=999&&sampleStore?.getSlot(sym)?.file)
         getMemory()?.selectSlots([sym],{activeId:sym,preview:false,navigate:true});

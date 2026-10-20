@@ -7,18 +7,22 @@ export function createSamplePropertiesController({
   sampleStore,getActiveDeviceProfile,
   isConnected,isSynchronized,isMetadataHydrating,isMutating,
   withFileTransaction,setFileMetadata,getFileMetadata,
-  showError,logTechnical,escapeHtml=String,
+  captureBatchSession,assertBatchSession,
+  showError,logTechnical,escapeHtml=String,onEditAssignedPad,
   documentRef=globalThis.document,windowRef=globalThis.window,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay),
   clearTimeoutFn=timer=>clearTimeout(timer),
   debounceMs=PROPERTY_DEBOUNCE_MS
 }={}){
   let currentPropertySlotId=null;
+  let propertyAnchor=null;
+  let stopPropertyDrag=null;
   const runPropertyTransaction=operation=>typeof withFileTransaction==='function'
     ?withFileTransaction('sample property write',operation,{strict:true})
     :operation({setFileMetadata,getFileMetadata});
   const propertyStates=new Map();
   const pendingPropertyKeys=new Set();
+  const propertyResults=new Map();
 
   const propertyStateId=(slotId,key)=>String(slotId)+':'+key;
   const isPropertyPending=(slotId,key)=>pendingPropertyKeys.has(propertyStateId(slotId,key));
@@ -26,12 +30,19 @@ export function createSamplePropertiesController({
   const render=slot=>{
     if(!propertiesGrid||!slot?.file)return;
     const profile=getActiveDeviceProfile();
-    propertiesGrid.innerHTML=renderSampleProperties(slot,{
+    propertiesGrid.innerHTML='<div class="ep133-properties-scope">SAMPLE LIBRARY<br>ASSIGNED PADS KEEP THEIR OWN SETTINGS.</div>'+renderSampleProperties(slot,{
       playModes:profile.playModes,
       barPolicy:profile.sampleBars,
       isPending:key=>isPropertyPending(slot.id,key),
       escapeHtml
     });
+    if(onEditAssignedPad)propertiesGrid.innerHTML+='<button type="button" data-edit-assigned-pad>EDIT ASSIGNED PAD</button>';
+    const pending=[...propertyStates.values()].some(state=>state.slotId===slot.id);
+    const results=[...propertyResults.values()].filter(result=>result.slotId===slot.id);
+    const result=results.find(result=>result.error)||results[0];
+    const status=pending?'SAVING TO EP…':result?.error?'NOT SAVED · '+result.error:result?'SAVED ON EP':'READY';
+    propertiesGrid.innerHTML+='<div class="ep133-properties-status" data-property-status role="status">'+escapeHtml(status)+'</div>';
+    if(currentPropertySlotId===slot.id&&propertyAnchor)position(propertyAnchor);
   };
 
   const renderCurrent=()=>{
@@ -46,8 +57,10 @@ export function createSamplePropertiesController({
   };
 
   const close=()=>{
+    stopPropertyDrag?.();
     if(properties)properties.hidden=true;
     currentPropertySlotId=null;
+    propertyAnchor=null;
   };
 
   const position=event=>{
@@ -80,6 +93,7 @@ export function createSamplePropertiesController({
       return;
     }
     currentPropertySlotId=canonical.id;
+    propertyAnchor=event?{clientX:event.clientX,clientY:event.clientY}:null;
     render(canonical);
     position(event);
   };
@@ -105,6 +119,7 @@ export function createSamplePropertiesController({
     const sentExtra={...state.extra};
 
     try{
+      assertBatchSession?.(state.session);
       const payload={[state.key]:sentValue,...sentExtra};
       if(state.key==='sound.playmode'){
         const release=Number(slot.meta?.['envelope.release']);
@@ -112,8 +127,10 @@ export function createSamplePropertiesController({
       }
 
       const readback=await runPropertyTransaction(async fileOps=>{
+        assertBatchSession?.(state.session);
         await fileOps.setFileMetadata(slot.nodeId||slot.id,payload);
         const readback=await fileOps.getFileMetadata(slot.nodeId||slot.id);
+        assertBatchSession?.(state.session);
         for(const[key,value]of Object.entries(payload)){
           const got=readback?.[key];
           const matches=typeof value==='number'?Number(got)===Number(value):String(got)===String(value);
@@ -122,15 +139,12 @@ export function createSamplePropertiesController({
         return readback;
       });
 
+      if(propertyStates.get(id)!==state)return;
       sampleStore.setMetadata(slot.id,readback,{verification:'verified'});
       state.committed=readback?.[state.key]??sentValue;
+      propertyResults.set(id,{slotId:slot.id,saved:true});
 
       if(state.version!==version){
-        sampleStore.mergeMetadata(
-          slot.id,
-          {[state.key]:state.desired,...state.extra},
-          {verification:'provisional'}
-        );
         state.inFlight=false;
         clearTimeoutFn(state.timer);
         state.timer=setTimeoutFn(()=>flushPropertyWrite(id),40);
@@ -141,14 +155,19 @@ export function createSamplePropertiesController({
       pendingPropertyKeys.delete(id);
       propertyStates.delete(id);
     }catch(error){
+      if(propertyStates.get(id)!==state)return;
       logTechnical?.('PROPERTY '+state.key,error);
       let restored=null;
       try{
+        // Never read from a different device to "recover" an old edit.
+        assertBatchSession?.(state.session);
         restored=await getFileMetadata(slot.nodeId||slot.id);
+        assertBatchSession?.(state.session);
       }catch(readbackError){
         logTechnical?.('PROPERTY READBACK '+state.key,readbackError);
       }
 
+      if(propertyStates.get(id)!==state)return;
       if(restored){
         sampleStore.setMetadata(slot.id,restored,{verification:'verified'});
       }else{
@@ -161,10 +180,12 @@ export function createSamplePropertiesController({
 
       pendingPropertyKeys.delete(id);
       propertyStates.delete(id);
-      showError?.('COULD NOT UPDATE SAMPLE PROPERTY.');
+      const reason=String(error?.message||error||'Unknown device error.');
+      propertyResults.set(id,{slotId:slot.id,error:reason});
+      showError?.('COULD NOT UPDATE SAMPLE PROPERTY.\n'+reason);
     }finally{
       const latest=propertyStates.get(id);
-      if(latest)latest.inFlight=false;
+      if(latest===state)latest.inFlight=false;
       renderIfCurrent(slot.id);
     }
   };
@@ -184,6 +205,7 @@ export function createSamplePropertiesController({
         extra:{...extra},
         timer:null,
         inFlight:false,
+        session:captureBatchSession?.(),
         version:0
       };
       propertyStates.set(id,state);
@@ -195,11 +217,7 @@ export function createSamplePropertiesController({
     clearTimeoutFn(state.timer);
     pendingPropertyKeys.add(id);
 
-    sampleStore.mergeMetadata(
-      canonical.id,
-      {[key]:value,...extra},
-      {verification:'provisional'}
-    );
+    propertyResults.delete(id);
     renderIfCurrent(canonical.id);
     state.timer=setTimeoutFn(()=>flushPropertyWrite(id),debounceMs);
   };
@@ -210,7 +228,11 @@ export function createSamplePropertiesController({
     if(!canonical?.file||canonical.node?.isWritable!==true||!profile.advancedSampleMetadataWrites)return;
     if(key==='sound.bars'&&profile.sampleBars?.authoring!==true)return;
 
-    const result=getSamplePropertyChange(canonical,key,direction,{
+    const desiredMeta={...canonical.meta};
+    for(const state of propertyStates.values()){
+      if(state.slotId===canonical.id)Object.assign(desiredMeta,{[state.key]:state.desired},state.extra);
+    }
+    const result=getSamplePropertyChange({...canonical,meta:desiredMeta},key,direction,{
       playModes:profile.playModes,
       barPolicy:profile.sampleBars
     });
@@ -218,6 +240,12 @@ export function createSamplePropertiesController({
   };
 
   propertiesGrid?.addEventListener('click',event=>{
+    if(event.target.closest('[data-edit-assigned-pad]')){
+      const slot=sampleStore?.getSlot?.(currentPropertySlotId);
+      // Capture only canonical device-confirmed values, never the pending overlay.
+      if(slot?.file)onEditAssignedPad?.(slot,{confirmedLibraryMetadata:slot.verification?.metadata==='verified'?{...slot.meta}:null});
+      close();return;
+    }
     const button=event.target.closest('[data-property]');
     if(!button||!currentPropertySlotId)return;
     const slot=sampleStore?.getSlot?.(currentPropertySlotId);
@@ -227,12 +255,14 @@ export function createSamplePropertiesController({
   propertiesGrid?.addEventListener('pointerdown',event=>{
     const value=event.target.closest('[data-drag="bpm"]');
     if(!value||!currentPropertySlotId)return;
+    stopPropertyDrag?.();
     event.preventDefault();
 
     const slotId=currentPropertySlotId;
     const slot=sampleStore?.getSlot?.(slotId);
     const startY=event.clientY;
-    const startValue=Number(slot?.meta?.['sound.bpm'])>0?Math.round(Number(slot.meta['sound.bpm'])):120;
+    const desired=propertyStates.get(propertyStateId(slotId,'sound.bpm'))?.desired??slot?.meta?.['sound.bpm'];
+    const startValue=Number(desired)>0?Math.round(Number(desired)):120;
     let lastValue=startValue;
 
     const move=moveEvent=>{
@@ -248,8 +278,10 @@ export function createSamplePropertiesController({
       documentRef.removeEventListener('pointermove',move);
       documentRef.removeEventListener('pointerup',stop);
       documentRef.removeEventListener('pointercancel',stop);
+      if(stopPropertyDrag===stop)stopPropertyDrag=null;
     };
 
+    stopPropertyDrag=stop;
     documentRef.addEventListener('pointermove',move);
     documentRef.addEventListener('pointerup',stop,{once:true});
     documentRef.addEventListener('pointercancel',stop,{once:true});
@@ -257,6 +289,10 @@ export function createSamplePropertiesController({
 
   return{
     close,open,render,renderCurrent,renderIfCurrent,
+    reset(){
+      for(const state of propertyStates.values())clearTimeoutFn(state.timer);
+      propertyStates.clear();pendingPropertyKeys.clear();propertyResults.clear();close();
+    },
     scheduleWrite,flushPropertyWrite,change,
     hasPendingWrites:()=>pendingPropertyKeys.size>0,
     getPendingCount:()=>pendingPropertyKeys.size,

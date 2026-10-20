@@ -178,7 +178,6 @@
   min-height:0;
   flex-direction:column;
 }
-#ep133-sample-tabs{display:flex!important;flex:0 0 auto;flex-wrap:wrap;min-height:32px;overflow-x:auto}
 #ep133-samples-panel .ep133-sample-memory{
   flex:1;
   min-height:0;
@@ -406,6 +405,7 @@
 .ep133-sample-nav{
   flex:0 0 auto;
   display:flex;
+  flex-wrap:wrap;
   align-items:flex-end;
   gap:4px;
   min-height:32px;
@@ -415,7 +415,7 @@
 }
 .ep133-sample-tabs{
   --ep-tab-count:10;
-  flex:1 1 auto;
+  flex:1 1 300px;
   min-width:0;
   display:grid;
   grid-template-columns:repeat(var(--ep-tab-count),minmax(0,1fr));
@@ -776,6 +776,12 @@
 .ep133-property-row.pending .ep133-prop-value{
   opacity:.38;
 }
+.ep133-properties-scope,.ep133-properties-status{
+  padding:5px;
+  border-top:1px solid #aaa;
+  font:700 9px "Courier New",monospace;
+  overflow-wrap:anywhere;
+}
 .ep133-property-separator{
   height:2px;
   background:var(--win-gray);
@@ -865,3 +871,15 @@
   filter:grayscale(1);
   pointer-events:none;
 }
+
+/* Selected pad owns a separate target and recovery surface. */
+.ep-pad-dialog .ep-backup-window{width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+.ep-pad-dialog .ep-backup-body{overflow:auto}
+.ep-pad-selectors{display:flex;flex-wrap:wrap;gap:12px}
+.ep-pad-selectors label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:90px}
+.ep-pad-source{padding:10px;border:1px solid currentColor;overflow-wrap:anywhere;font-size:11px}
+.ep-pad-dialog [data-pad-pitch]{cursor:ns-resize;touch-action:none}
+.ep-pad-recovery label{display:block;margin:10px 0}
+.ep-pad-recovery select{max-width:100%}
+#ep133-pad-recovery-detail{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;font:11px/1.5 monospace}
+#ep133-pad-reason,#ep133-pad-status{overflow-wrap:anywhere;font-size:11px}

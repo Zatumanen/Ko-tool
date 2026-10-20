@@ -55,3 +55,18 @@ test('runtime-backed coordinator maps unexpected FILE traffic to blocked or unsa
   lease.close();
   assert.equal(activeRuntime.getSnapshot().status,'unsafe');
 });
+
+test('recovery-read admission preserves the active blocker and denies ordinary FILE traffic',()=>{
+  const runtime=readyRuntime(),coordinator=createDeviceOperationCoordinator({runtime});
+  runtime.dispatch({type:'RECOVERY_REQUIRED',connectionEpoch:0,transactionId:'pad-1',source:'pad'});
+  assert.throws(()=>coordinator.begin('ordinary read',{mode:'read'}),error=>error.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED');
+  assert.throws(()=>coordinator.begin('ordinary mutation',{mode:'mutation'}),error=>error.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED');
+  assert.doesNotThrow(()=>runtime.assertCanStartFileOperation({mode:'recovery-read'}));
+  const lease=coordinator.begin('pad recovery verification',{mode:'recovery-read'});
+  assert.equal(runtime.getSnapshot().operation.active.mode,'recovery-read');
+  assert.equal(runtime.getSnapshot().recovery.transaction.id,'pad-1');
+  lease.close();
+  assert.equal(runtime.getSnapshot().status,'recovery-required');
+  runtime.dispatch({type:'DEVICE_MARKED_UNSAFE',connectionEpoch:0,reason:'unsafe'});
+  assert.throws(()=>coordinator.begin('recovery unsafe',{mode:'recovery-read'}),error=>error.code==='EP_DEVICE_RUNTIME_OPERATION_BLOCKED');
+});

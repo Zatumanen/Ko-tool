@@ -5,6 +5,8 @@ const DOM_IDS=Object.freeze({
   list:'ep133-sample-list',tabs:'ep133-sample-tabs',search:'ep133-sample-search',searchClear:'ep133-search-clear',searchCount:'ep133-search-count',
   deviceHead:'ep133-device-head',deviceName:'ep133-device',connectionOverlay:'ep133-connection-overlay',statusEl:'ep133-status',
   memoryStats:'ep133-memory-stats',memoryMeter:'ep133-memory-meter-fill',sampleCount:'ep133-sample-count',txIndicator:'ep133-tx-indicator',rxIndicator:'ep133-rx-indicator',
+  padDialog:'ep133-pad-dialog',padClose:'ep133-pad-close',padProject:'ep133-pad-project',padGroup:'ep133-pad-group',padSelect:'ep133-pad-select',padAssignment:'ep133-pad-assignment',padSource:'ep133-pad-source',padGrid:'ep133-pad-grid',padApply:'ep133-pad-apply',padStatus:'ep133-pad-status',padReason:'ep133-pad-reason',
+  padRecoveryList:'ep133-pad-recovery-list',padRecoveryDetail:'ep133-pad-recovery-detail',padRecoveryVerify:'ep133-pad-recovery-verify',padRecoveryRestore:'ep133-pad-recovery-restore',padRecoveryAcknowledge:'ep133-pad-recovery-acknowledge',padRecoveryRefresh:'ep133-pad-recovery-refresh',
   properties:'ep133-properties',propertiesGrid:'ep133-properties-grid',globalProgress:'ep133-global-progress',globalProgressLabel:'ep133-global-progress-label',globalProgressFill:'ep133-global-progress-fill',globalProgressText:'ep133-global-progress-text',
   confirmDialog:'ep133-confirm-dialog',confirmMessage:'ep133-confirm-message',confirmOk:'ep133-confirm-ok',confirmCancel:'ep133-confirm-cancel',
   samplesPanel:'ep133-samples-panel',projectsPanel:'ep133-projects-panel',samplesViewButton:'ep133-view-samples',projectsViewButton:'ep133-view-projects',

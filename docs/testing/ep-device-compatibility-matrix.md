@@ -34,8 +34,8 @@ uses SKU and capability keys from the matrix; the
 connected firmware. Both `deviceProfile.js` and `projectProfile.js` use
 the same facade, instead of repeating capability lookups.
 
-Evidence for this release consists of nine named capability categories
-per known SKU (27 records total). Every resolved permission carries
+Evidence for this release consists of ten named capability categories
+per known SKU (30 records total). Every resolved permission carries
 `evidenceId`, `sourceType`, `recordedAt`, optional `artifactId`,
 `firmwareRange`, and `reason`, as defined by the registry.
 
@@ -53,6 +53,45 @@ A firmware can pass the minimum handshake and still have **all authoring
 disabled** because the exact firmware lacks hardware-scoped evidence. This is
 intentional. The raw FILE capability bitmask also **does not** authorize
 higher-level mutations independently of evidence.
+
+### Live pad metadata boundary
+
+`project.pad-metadata` is distinct from sample-library metadata, archive authoring
+and active-selection/reload. All three known SKUs start **unverified** with
+shared-protocol read/preserve and no writes, including EP-133 / EP-40 `2.5.1`.
+Unknown identities and malformed/obsolete firmware cannot use the pad facade;
+a recognized newer firmware still gains no pad-write permission.
+
+The secondary protocol source is pinned to
+[`891a905c5faf8b5c7b0ae1bdfee260c21f7417eb`](https://github.com/kmorrill/ep-series-sysex/blob/891a905c5faf8b5c7b0ae1bdfee260c21f7417eb/docs/file-protocol.md),
+reviewed 2026-10-19. This is public **documentation**, not an imported capture
+or new hardware acceptance. It lists these pad fields:
+
+```text
+sym, sound.playmode, sample.start, sample.end, envelope.attack,
+envelope.release, sound.pitch, sound.amplitude, sound.pan, sound.mutegroup,
+time.mode, midi.channel
+```
+
+It documents string play modes `oneshot` / `key` / `legato`, string time modes
+`off` / `bar` / `bpm`, and pairing play-mode writes with `envelope.release`.
+It warns that partial pad writes can resynchronize sample defaults and clobber
+pad overrides. It does not establish a complete safe pad payload for each model
+and firmware, a pad numeric-enum mapping, or pad `loop` support on EP-40.
+Existing registry HIL assertions and FILE captures remain scoped to their
+previous operations; none is promoted into pad-write evidence.
+
+`padMetadata.js` therefore builds only **pure candidate payloads**: all twelve
+fields must be present, unknown fields refuse, and protected values are copied
+exactly. Only pitch, play mode, time mode and an explicit play-mode release
+companion can change. No default fields or enum maps are guessed. Its optional
+`profile.playModes` can restrict the documented string modes; it cannot add
+encodings. Normalization may accept a partial read snapshot, but payload
+preparation refuses every incomplete snapshot. Verification compares intended
+and preserved fields against readback and rejects protected-field changes
+already present in a candidate. Synthetic contract vectors establish only these
+software checks. Runtime writes remain disabled pending scoped discovery,
+complete payload, persistence, readback and physical playback acceptance.
 
 ### Evidence and fixture references
 
@@ -75,7 +114,7 @@ higher-level mutations independently of evidence.
 
 1. Add the SKU and minimum firmware, UI and native project profile once in
    `DEVICE_COMPATIBILITY_MATRIX`; unverified fields should remain null/empty.
-2. Add nine evidence registry entries for the SKU; start new operations as
+2. Add ten evidence registry entries for the SKU; start new operations as
    `unverified` or `preserve-only` until real evidence supports stronger
    permissions. Validation requires a complete registry scope.
 3. Add evidence provenance to those records. Scope a hardware-verified
