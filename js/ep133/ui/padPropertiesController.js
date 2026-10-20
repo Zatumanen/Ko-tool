@@ -105,7 +105,15 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
       assertSession(session);const result=await readTargets({sampleSlot,project,...(level==='group'?{group}:{})});assertSession(session);
       if(!valid(version))return;
       if(level==='project'){groups=result.groups.map(item=>item.group);options('padGroup',groups,'GROUP');}
-      else{targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');}
+      else{
+        targets=clone(result.pads);options('padSelect',targets.map(item=>item.pad),'PAD');
+        if(!targets.length){
+          notice=Number(result.unverifiedPadCount)>0
+            ?'PAD ASSIGNMENT UNVERIFIED · SOME PADS REPORT SYM 0. SAVED PROJECT ASSIGNMENTS MAY DIFFER; EDITING REQUIRES A VERIFIED LIVE PAD.'
+            :'NO VERIFIED LIVE PAD ASSIGNED TO THIS SAMPLE IN THE SELECTED GROUP.';
+          render();
+        }
+      }
     }catch(error){if(valid(version))fail('read',error);}
   };
   const close=()=>{opened=false;epoch++;cancel();activeApply=null;inFlight=false;snapshot=null;followTarget=null;savedSnapshot=null;source=null;errors.clear();if(dom.padDialog)dom.padDialog.hidden=true;};
@@ -128,7 +136,13 @@ export function createPadPropertiesController({dom,getAvailability,readTargets,r
     const button=event.target.closest?.('[data-property]');if(!button||!snapshot||busy()&&!queued)return;
     const key=button.dataset.property;if(!['sound.pitch','sound.playmode','time.mode'].includes(key))return;
     const result=getSamplePropertyChange({meta:{...snapshot.metadata,...draft}},key,Number(button.dataset.direction),{playModes:['oneshot','key','legato'],includeSampleTiming:false});
-    if(result)schedule({[key]:result.value},key);
+    // Pad pitch can contain fractional semitones; library controls round to integers.
+    if(key==='sound.pitch'){
+      const current=Number(draft[key]??snapshot.metadata[key]);
+      const delta=Number(button.dataset.direction);
+      if(!Number.isFinite(current)||!Number.isInteger(delta)||Math.abs(delta)!==1)return;
+      schedule({[key]:Math.max(-12,Math.min(12,current+delta))},key);
+    }else if(result)schedule({[key]:result.value},key);
   });
   listen(dom.padGrid,'pointerdown',event=>{
     if(!event.target.closest?.('[data-pad-pitch]')||!snapshot||inFlight||invalidSnapshot()||!permission().write)return;

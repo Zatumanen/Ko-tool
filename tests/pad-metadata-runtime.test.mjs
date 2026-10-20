@@ -210,8 +210,17 @@ test('restore requires acknowledgement and confirmation then journals a new guar
   assert.equal(sets(h).length,2);
 });
 
+test('restore refuses verified or aborted records without an explicit acknowledgement',async()=>{
+  const h=harness(),result=await h.apply();
+  await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/acknowledged/i);
+  h.records.get(result.recordId).status='aborted';
+  await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/acknowledged/i);
+  assert.equal(sets(h).length,1);
+});
+
 test('failed restore establishes its own blocker and refuses further mutation',async()=>{
   const h=harness(),result=await h.apply();
+  await h.runtime.acknowledge(result.recordId);
   h.fileOps.setFileMetadata=async fid=>{h.actions.push(['SET',fid]);throw new Error('timeout');};
   await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/recovery/i);
   const failed=(await h.store.list()).find(r=>r.id!==result.recordId);
@@ -221,7 +230,7 @@ test('failed restore establishes its own blocker and refuses further mutation',a
 });
 
 test('restore refuses external protected-field drift rather than overwriting it',async()=>{
-  const h=harness(),result=await h.apply();h.current['sound.pan']=11;
+  const h=harness(),result=await h.apply();await h.runtime.acknowledge(result.recordId);h.current['sound.pan']=11;
   await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/protected|preserv/i);
   assert.equal(sets(h).length,1);
 });

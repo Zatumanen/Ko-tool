@@ -83,7 +83,9 @@ test('sym zero and absent or ambiguous assignment refuse targeted reads',async()
     await assert.rejects(()=>service.readPadTarget(d.fileOps,selection),/assignment|sym|sample/i);
   }
   const d=device();d.metadata.get(317).sym=0;
-  assert.deepEqual((await service.listPadTargets(d.fileOps,selection)).pads.map(p=>p.pad),['02']);
+  const listing=await service.listPadTargets(d.fileOps,selection);
+  assert.deepEqual(listing.pads.map(p=>p.pad),['02']);
+  assert.equal(listing.unverifiedPadCount,1,'sym:0 must be reported as ambiguous without inferring TAR assignments');
 });
 
 test('missing nodes or incomplete selectors refuse without fallback',async()=>{

@@ -159,7 +159,10 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
       const ctx=context();ctx.guard(true);
       return withFileTransaction('pad recovery restore',async ops=>{
         await assertNoBlocker(ctx);
-        const record=await getRecord(id,ctx),current=await read(ops,record.target,ctx);
+        const record=await getRecord(id,ctx);
+        if(record.status!=='acknowledged')
+          throw new Error('Pad restore requires an acknowledged recovery record.');
+        const current=await read(ops,record.target,ctx);
         for(const key of PAD_METADATA_FIELDS)
           if(!EDITABLE.has(key)&&!Object.is(current.metadata[key],record.before[key]))
             throw new Error('Pad restore refuses changed protected fields; preserve current authoritative values.');

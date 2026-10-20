@@ -248,15 +248,18 @@ function targetFrom(selectors,node,projectFid,groupFid){
 export async function listPadTargets(fileOps,options={}){
   const selectors=padSelectors(options);
   const{tree,result,padNodes,projectFid,groupFid}=await resolvePadTree(fileOps,selectors);
+  let unverifiedPadCount=0;
   for(const node of padNodes||[]){
     await tree.inspect(node,groupFid,'file');
     const metadata=await fileOps.getFileMetadata(node.nodeId);
     const assignment=padAssignment(metadata);
     assertFileMetadata(metadata,'Pad assignment metadata');
     // sym:0 is not a verified assignment, even if an archive says otherwise.
-    if(assignment!==0&&assignment===selectors.sampleSlot)
+    if(assignment===0){unverifiedPadCount++;continue;}
+    if(assignment===selectors.sampleSlot)
       result.pads.push(targetFrom(selectors,node,projectFid,groupFid));
   }
+  if(unverifiedPadCount)result.unverifiedPadCount=unverifiedPadCount;
   return result;
 }
 

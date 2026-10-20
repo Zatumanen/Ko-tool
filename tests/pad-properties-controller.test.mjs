@@ -13,13 +13,13 @@ class Element{
 const metadata=()=>({sym:7,'sound.pitch':0,'sound.playmode':'oneshot','time.mode':'off','sample.start':0,'sample.end':500,'envelope.attack':0,'envelope.release':42,'sound.amplitude':100,'sound.pan':0,'sound.mutegroup':0,'midi.channel':1});
 const target=(pad='01',sampleSlot=7)=>({project:'01',group:'A',pad,projectFid:3001,groupFid:4500,padFid:pad==='01'?6107:6111,sampleSlot});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-const build=({write=true,meta=metadata(),applyResult,readResult}={})=>{
+const build=({write=true,meta=metadata(),applyResult,readResult,unverifiedPadCount=0}={})=>{
   const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padSource','padGrid','padApply','padStatus','padReason','padRecoveryList','padRecoveryDetail','padRecoveryVerify','padRecoveryRestore','padRecoveryAcknowledge','padRecoveryRefresh'].map(key=>[key,new Element()]));
   const doc=new Element(),writes=[],errors=[],reads=[];let session='first',timers=[],device={...meta};
   const controller=createPadPropertiesController({dom,documentRef:doc,
     getAvailability:()=>({read:true,write,reason:write?'':'Pad writes lack physical evidence.'}),
     captureSession:()=>session,assertSession:value=>{if(value!==session)throw Error('Session changed');},reportError:(...args)=>errors.push(args),
-    readTargets:async options=>({projects:[{project:'01',projectFid:3001}],groups:options.project?[{project:'01',group:'A',groupFid:4500}]:[],pads:options.group?[target('01',options.sampleSlot),target('02',options.sampleSlot)]:[]}),
+    readTargets:async options=>({projects:[{project:'01',projectFid:3001}],groups:options.project?[{project:'01',group:'A',groupFid:4500}]:[],pads:options.group&&!unverifiedPadCount?[target('01',options.sampleSlot),target('02',options.sampleSlot)]:[],...(options.group&&unverifiedPadCount?{unverifiedPadCount}:{})}),
     readTarget:async selected=>{reads.push(selected);const result={target:{...selected},metadata:{...device,sym:selected.sampleSlot},fingerprint:JSON.stringify(device)};return readResult?readResult(selected,result):result;},
     applyPadMetadata:async args=>{writes.push(structuredClone(args));if(applyResult)return applyResult(args);device={...device,...args.changes};return{metadata:{...device},verification:{ok:true}};},
     setTimeoutFn:fn=>{timers.push(fn);return fn;},clearTimeoutFn:fn=>{timers=timers.filter(item=>item!==fn);}
@@ -33,6 +33,19 @@ const build=({write=true,meta=metadata(),applyResult,readResult}={})=>{
 
 test('chooser and selecting an assigned target only read; copy source is explicit and detached',async()=>{
   const s=build();await s.open();assert.match(s.dom.padSource.textContent,/-5/);s.source['sound.pitch']=12;await s.choose();assert.deepEqual(s.writes,[]);assert.match(s.dom.padAssignment.textContent,/01.*A.*01.*7/);await s.dom.padApply.fire('click');assert.equal(s.writes.length,1);assert.deepEqual(s.writes[0].changes,{'sound.pitch':-5,'sound.playmode':'legato','time.mode':'bpm','envelope.release':99});assert.equal(s.writes[0].target.padFid,6107);assert.equal(s.writes[0].before.metadata['sound.pan'],0);
+});
+test('pad buttons preserve fractional pitch instead of rounding it before a one-semitone step',async()=>{
+ const s=build({meta:{...metadata(),'sound.pitch':0.5}});await s.open();await s.choose();
+ await s.step('sound.pitch');await s.flush();assert.equal(s.writes[0].changes['sound.pitch'],1.5);
+ await s.step('sound.pitch');await s.flush();assert.equal(s.writes[1].changes['sound.pitch'],2.5);
+ s.controller.dispose();
+});
+test('unverified sym zero is reported rather than inventing a live pad assignment',async()=>{
+ const s=build({unverifiedPadCount:1});await s.open();await s.choose();
+ assert.match(s.dom.padStatus.textContent,/SYM 0.*UNVERIFIED|UNVERIFIED.*SYM 0/);
+ assert.equal(s.dom.padApply.disabled,true);
+ await s.step('sound.pitch');await s.flush();assert.deepEqual(s.writes,[]);
+ s.controller.dispose();
 });
 test('pad-owned editing preserves canonical values pending readback and affects one reused assignment',async()=>{
  const s=build();await s.open();await s.choose();await s.step('sound.pitch');assert.equal(s.writes.length,0);assert.match(s.dom.padGrid.innerHTML,/pending/);await s.flush();assert.equal(s.writes.length,1);assert.deepEqual(s.writes[0].changes,{'sound.pitch':1});assert.equal(s.writes[0].target.padFid,6107);assert.match(s.dom.padStatus.textContent,/SAVED/);
