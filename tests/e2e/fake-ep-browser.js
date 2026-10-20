@@ -412,6 +412,12 @@
     sampleBytes:id=>samples.has(Number(id))?[...samples.get(Number(id)).data]:null,
     removeSample:id=>samples.delete(Number(id)),
     seedSamples,
+    seedSample:id=>{
+      if(!Number.isInteger(id)||id<1||id>999||samples.has(id))throw new Error('Invalid new fake sample slot');
+      const source=samples.get(8),name='sample'+id;
+      const sample={...source,id,name,data:source.data.slice(),meta:{...source.meta,name}};
+      samples.set(id,sample);emitAdded(sample);
+    },
     rejectUploadSlot:id=>rejectedUploadSlots.add(Number(id)),
     rejectListPage:page=>{rejectedListPage=page==null?null:Number(page);},
     holdListPage:page=>{heldListPage=page==null?null:Number(page);},
