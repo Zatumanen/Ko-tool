@@ -833,9 +833,12 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
     isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
     suppressNativeMoveEvent:(oldId,newId)=>{actions.push(['suppress',oldId,newId]);return()=>actions.push(['release',oldId,newId]);},
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
-    moveFile:async(sourceId,parentId,targetId,options)=>{
-      actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
-      return{oldFileId:sourceId,newFileId:targetId,sourceCrc:123,destinationCrc:123,crcVerified:true,info:{nodeId:targetId,fileName:'kick',fileSize:100},metadata:{name:'kick',crc:123}};
+    withFileTransaction:async(_label,operation,{strict})=>{
+      assert.equal(strict,true);
+      return operation({moveFile:async(sourceId,parentId,targetId,options)=>{
+        actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
+        return{oldFileId:sourceId,newFileId:targetId,sourceCrc:123,destinationCrc:123,crcVerified:true,info:{nodeId:targetId,fileName:'kick',fileSize:100},metadata:{name:'kick',crc:123}};
+      }});
     },
     readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
@@ -863,12 +866,15 @@ test('sample move controller rolls completed moves back in reverse order and res
     isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
     suppressNativeMoveEvent:(oldId,newId)=>{actions.push(['suppress',oldId,newId]);return()=>actions.push(['release',oldId,newId]);},
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
-    moveFile:async(sourceId,parentId,targetId,options)=>{
-      actions.push(['move',sourceId,targetId,options.verifyCrc]);
-      if(sourceId===7&&targetId===8)return{oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
-      if(sourceId===9&&targetId===10)throw new Error('second move failed');
-      if(sourceId===8&&targetId===7)return{oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
-      throw new Error('unexpected move');
+    withFileTransaction:async(_label,operation,{strict})=>{
+      assert.equal(strict,true);
+      return operation({moveFile:async(sourceId,parentId,targetId,options)=>{
+        actions.push(['move',sourceId,targetId,options.verifyCrc]);
+        if(sourceId===7&&targetId===8)return{oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
+        if(sourceId===9&&targetId===10)throw new Error('second move failed');
+        if(sourceId===8&&targetId===7)return{oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
+        throw new Error('unexpected move');
+      }});
     },
     readDevice:async()=>actions.push(['resync']),logTechnical(){}
   });
@@ -888,7 +894,7 @@ test('sample move controller refuses an occupied destination before sending FILE
     sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),fileItemFromInfo:()=>null,
     remapCurrentPropertySlot(){},renderDeviceStats(){},captureBatchSession:()=> 'session-a',assertBatchSession(){},getDeviceSessionToken:()=> 'session-a',
     isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
-    moveFile:async()=>{moveCalls++;},readDevice:async()=>{},logTechnical(){}
+    withFileTransaction:async(_label,operation)=>operation({moveFile:async()=>{moveCalls++;}}),readDevice:async()=>{},logTechnical(){}
   });
   const source=sampleStore.getSlot(7);
   await assert.rejects(()=>controller.nativeMoveTransfer([{sourceId:7,targetId:8}],new Map([[7,source]])),/Target sample slot is no longer empty/);
