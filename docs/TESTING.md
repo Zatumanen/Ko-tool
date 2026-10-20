@@ -51,6 +51,7 @@ A merged PR, green CI, or passing fake device test does **not** automatically cl
 | x2, channels, metadata, WASM | `tests/audio-pipeline-golden.test.mjs`, `tests/processor.test.mjs`, `tests/resampler-zip.test.mjs`, converter E2E |
 | Folder/ZIP/names | `tests/audio-import-policy.test.mjs`, `tests/output-name.test.mjs`, `tests/e2e/folder-import-recovery.spec.mjs`, `tests/e2e/output-file-names.spec.mjs` |
 | Sample upload and slot numbering | `tests/ep-sample-numbered-upload.test.mjs`, `tests/sample-upload-name-normalization.test.mjs`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs` |
+| Sample Library metadata | `tests/sample-properties-controller.test.mjs`, `tests/ep133-ui-helpers.test.mjs`, `tests/e2e/my-ep-sample-editing.spec.mjs`; keep sample MOVE/COPY and dependency regressions green |
 | MOVE/COPY/DELETE and dependencies | `tests/sample-dependency-index.test.mjs`, `tests/e2e/sample-dependency-guard.spec.mjs`, sample transaction and recovery tests |
 | Projects, sequence, recovery | `tests/projects-readonly.test.mjs`, `tests/project-sequencer-ui.test.mjs`, `tests/project-recovery.test.mjs`, `tests/project-write-diff.test.mjs`, project E2E |
 | Browser/firmware capability | `tests/platform-support.test.mjs`, `tests/device-compatibility-matrix.test.mjs`, `tests/device-identity-as002.test.mjs`, platform E2E |
@@ -100,6 +101,15 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 - ON without that marker: apply the existing x2 pipeline and set `sound.pitch=-12` before upload. Corrupt metadata must fail explicitly.
 - OFF: use current direct upload path without automatic x2.
 - All three cases: preserve original local file, device capability and upload transaction guards, occupied-slot policy, metadata verification, and batch cancellation.
+
+### Sample Library settings (limited ZAT-61 integration)
+
+- Library PITCH, PLAY MODE and TIME MODE retain the existing model/firmware permissions. No assigned-pad writer, pad SET/restore or new pad recovery is included; library defaults do not claim to update assigned-pad settings.
+- Show SAVING until a strict FILE SET/GET confirms every changed field, including the PLAY MODE release companion. SET acknowledgement alone, ignored/rejected SET, missing fields, malformed numeric values or array values must not produce SAVED. Preserve unrelated metadata and fractional pitch; read the release companion after acquiring the FILE lease.
+- Rapid edits before dispatch coalesce; edits during readback retain the latest intent for the next guarded transaction. Canonical metadata changes only from authoritative readback. A failure remains NOT SAVED with its reason even if another field later succeeds; do not automatically retry an ambiguous write.
+- Capture the device session when scheduling. Check it after acquiring the lease and around SET/GET, including recovery GET. Disconnect, reconnect, device replacement or reset must prevent queued old operations from reaching a new session or repainting its metadata. Test recovery waiting behind another operation with the real FILE scheduler.
+- Closing properties stops active BPM gestures and hides the menu; an already chosen edit may complete only in the same valid session. Reset cancels queued edits and stale UI results. Outside click closes/deselects without navigating; Escape preserves the My EP window. Pending library writes keep existing MOVE/COPY exclusion active, and transfers resume after confirmed completion.
+- The new Chromium scenarios use fake EP for success/reopen, ignored SET, rejected SET, rapid edits/Escape and outside-click deselection. Discovery is not execution; require the full Chromium suite in subsequent PR CI. Physical library editing still requires exact-model/firmware HIL and owner authorization. No simulated result confirms pad editing or physical compatibility.
 
 ### Saved sequencer — both views
 

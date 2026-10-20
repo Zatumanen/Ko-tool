@@ -439,12 +439,13 @@ test('sample library sync fails closed when the /sounds node is missing',async()
   assert.equal(reported,'COULD NOT READ EP SAMPLE LIBRARY.');
 });
 
-test('sample properties controller debounces optimistic writes and confirms playmode with release',async()=>{
+test('sample properties controller debounces writes and confirms playmode with release before commit',async()=>{
   const timers=[],writes=[];
   const sampleStore=createSampleStore();
   sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
   sampleStore.setMetadata(7,{'sound.playmode':'oneshot','envelope.release':44});
   const controller=createSamplePropertiesController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
     properties:null,propertiesGrid:null,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
@@ -452,13 +453,20 @@ test('sample properties controller debounces optimistic writes and confirms play
     }),
     isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
     setFileMetadata:async(id,payload)=>writes.push({id,payload:{...payload}}),
+    withFileTransaction:async(_label,operation,{strict})=>{
+      assert.equal(strict,true);
+      return operation({
+        setFileMetadata:async(id,payload)=>writes.push({id,payload:{...payload}}),
+        getFileMetadata:async()=>({'sound.playmode':'key','envelope.release':44,channels:1,samplerate:46875,format:'s16'})
+      });
+    },
     getFileMetadata:async()=>({'sound.playmode':'key','envelope.release':44,channels:1,samplerate:46875,format:'s16'}),
     showError(){},logTechnical(){},
     setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
   controller.scheduleWrite(sampleStore.getSlot(7),'sound.playmode','key');
-  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'key');
-  assert.equal(sampleStore.getSlot(7).verification.metadata,'provisional');
+  assert.equal(sampleStore.getSlot(7).meta['sound.playmode'],'oneshot');
+  assert.equal(sampleStore.getSlot(7).verification.metadata,'verified');
   assert.equal(controller.hasPendingWrites(),true);
   await timers.shift()();
   assert.deepEqual(writes,[{id:7,payload:{'sound.playmode':'key','envelope.release':44}}]);
@@ -473,6 +481,7 @@ test('sample properties controller restores authoritative metadata after failed 
   sampleStore.replaceFiles([{nodeId:9,fileName:'/sounds/snare',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
   sampleStore.setMetadata(9,{'sound.pitch':0});
   const controller=createSamplePropertiesController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
     properties:null,propertiesGrid:null,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
@@ -480,19 +489,25 @@ test('sample properties controller restores authoritative metadata after failed 
     }),
     isConnected:()=>true,isSynchronized:()=>true,isMetadataHydrating:()=>false,isMutating:()=>false,
     setFileMetadata:async()=>{},
+    withFileTransaction:async(_label,operation,{strict})=>{
+      assert.equal(strict,true);
+      return operation({setFileMetadata:async()=>{},getFileMetadata:async()=>{
+        reads+=1;return{'sound.pitch':0,channels:1,samplerate:46875,format:'s16'};
+      }});
+    },
     getFileMetadata:async()=>{reads+=1;return{'sound.pitch':0,channels:1,samplerate:46875,format:'s16'};},
     showError:message=>errors.push(message),
     logTechnical:(label,error)=>technical.push([label,String(error?.message||error)]),
     setTimeoutFn:callback=>{timers.push(callback);return timers.length;},clearTimeoutFn(){},debounceMs:120
   });
   controller.scheduleWrite(sampleStore.getSlot(9),'sound.pitch',1);
-  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],1);
+  assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],0);
   await timers.shift()();
   assert.equal(reads,2);
   assert.equal(sampleStore.getSlot(9).meta['sound.pitch'],0);
   assert.equal(sampleStore.getSlot(9).verification.metadata,'verified');
   assert.equal(controller.getPendingCount(),0);
-  assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.']);
+  assert.deepEqual(errors,['COULD NOT UPDATE SAMPLE PROPERTY.\nEP did not confirm sample property sound.pitch.']);
   assert.match(technical[0][0],/PROPERTY sound\.pitch/);
 });
 
@@ -503,6 +518,7 @@ test('sample properties controller owns open-slot state and remaps it after nati
   sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:100,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
   sampleStore.setMetadata(7,{'sound.pitch':0});
   const controller=createSamplePropertiesController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
     properties:panel,propertiesGrid:grid,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,
@@ -1066,6 +1082,7 @@ test('sample property SET and verification readback share one strict FILE transa
   sampleStore.replaceFiles([{nodeId:7,fileName:'/sounds/kick',fileType:'file',fileSize:10,isWritable:true}]);
   sampleStore.setMetadata(7,{'sound.pitch':0});
   const controller=createSamplePropertiesController({
+    captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
     properties:null,propertiesGrid:null,sampleStore,
     getActiveDeviceProfile:()=>({
       name:'K.O. II',advancedSampleMetadataWrites:true,

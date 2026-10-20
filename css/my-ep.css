@@ -776,6 +776,12 @@
 .ep133-property-row.pending .ep133-prop-value{
   opacity:.38;
 }
+.ep133-properties-scope,.ep133-properties-status{
+  padding:5px;
+  border-top:1px solid #aaa;
+  font:700 9px "Courier New",monospace;
+  overflow-wrap:anywhere;
+}
 .ep133-property-separator{
   height:2px;
   background:var(--win-gray);
