@@ -214,6 +214,7 @@ test('restore refuses verified or aborted records without an explicit acknowledg
   const h=harness(),result=await h.apply();
   await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/acknowledged/i);
   h.records.get(result.recordId).status='aborted';
+  await assert.rejects(()=>h.runtime.acknowledge(result.recordId),/recovery-required or verified/i);
   await assert.rejects(()=>h.runtime.restore(result.recordId,{confirmed:true}),/acknowledged/i);
   assert.equal(sets(h).length,1);
 });

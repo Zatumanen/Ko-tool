@@ -73,10 +73,18 @@ test('hardware follow uses authoritative discovery and clears old library copy s
 });
 test('recovery is independently reachable, verification is read-only and restore requires confirmation',async()=>{
  const s=build(),calls=[];let approved=false;const record={id:'r1',target:target(),before:metadata(),desired:{...metadata(),'sound.pitch':5},status:'requires-recovery'};
- const r=createPadRecoveryController({dom:s.dom,listRecords:async()=>[record],verify:async id=>{calls.push(['verify',id]);return{metadata:record.desired,classification:'desired'};},restore:async(...args)=>calls.push(['restore',...args]),acknowledge:async id=>calls.push(['ack',id]),confirmAction:async()=>approved,reportError:()=>{}});
- await r.refresh();s.dom.padRecoveryList.value='r1';await s.dom.padRecoveryList.fire('change');assert.match(s.dom.padRecoveryDetail.textContent,/ORIGINAL.*CURRENT.*DESIRED/s);await s.dom.padRecoveryVerify.fire('click');assert.deepEqual(calls,[['verify','r1']]);await s.dom.padRecoveryRestore.fire('click');assert.equal(calls.length,1);approved=true;await s.dom.padRecoveryRestore.fire('click');assert.deepEqual(calls[1],['restore','r1',{confirmed:true}]);await s.dom.padRecoveryAcknowledge.fire('click');assert.deepEqual(calls[2],['ack','r1']);r.dispose();assert.equal([...s.dom.padRecoveryVerify.handlers.values()].reduce((n,set)=>n+set.size,0),0);
+ const r=createPadRecoveryController({dom:s.dom,listRecords:async()=>[record],verify:async id=>{calls.push(['verify',id]);return{metadata:record.desired,classification:'desired'};},restore:async(...args)=>calls.push(['restore',...args]),acknowledge:async id=>{calls.push(['ack',id]);record.status='acknowledged';return{metadata:record.desired};},confirmAction:async()=>approved,reportError:()=>{}});
+ await r.refresh();s.dom.padRecoveryList.value='r1';await s.dom.padRecoveryList.fire('change');assert.match(s.dom.padRecoveryDetail.textContent,/ORIGINAL.*CURRENT.*DESIRED/s);await s.dom.padRecoveryVerify.fire('click');assert.deepEqual(calls,[['verify','r1']]);assert.equal(s.dom.padRecoveryRestore.disabled,true);await s.dom.padRecoveryRestore.fire('click');assert.equal(calls.length,1);approved=true;await s.dom.padRecoveryAcknowledge.fire('click');assert.deepEqual(calls[1],['ack','r1']);assert.equal(s.dom.padRecoveryRestore.disabled,false);await s.dom.padRecoveryRestore.fire('click');assert.deepEqual(calls[2],['restore','r1',{confirmed:true}]);r.dispose();assert.equal([...s.dom.padRecoveryVerify.handlers.values()].reduce((n,set)=>n+set.size,0),0);
 });
 
+test('aborted pad journal cannot be acknowledged or restored through recovery UI',async()=>{
+ const s=build(),actions=[],record={id:'aborted',target:target(),before:metadata(),desired:metadata(),status:'aborted'};
+ const r=createPadRecoveryController({dom:s.dom,listRecords:async()=>[record],verify:async()=>actions.push('verify'),restore:async()=>actions.push('restore'),acknowledge:async()=>actions.push('ack'),confirmAction:async()=>true});
+ await r.refresh();s.dom.padRecoveryList.value='aborted';await s.dom.padRecoveryList.fire('change');
+ assert.equal(s.dom.padRecoveryRestore.disabled,true);assert.equal(s.dom.padRecoveryAcknowledge.disabled,true);
+ await s.dom.padRecoveryRestore.fire('click');await s.dom.padRecoveryAcknowledge.fire('click');assert.deepEqual(actions,[]);
+ r.dispose();
+});
 test('workspace composition forwards its single FILE subscription and owns pad dialog/recovery lifecycle',async()=>{
  const fs=await import('node:fs/promises');const source=await fs.readFile(new URL('../js/ep133/ui/createEpWorkspace.js',import.meta.url),'utf8');
  assert.match(source,/padPropertiesController\.handleFileEvent\(event\)/);assert.match(source,/onActivePad:.*padPropertiesController\.handleActivePad/);

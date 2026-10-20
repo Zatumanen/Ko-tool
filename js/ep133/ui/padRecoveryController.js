@@ -8,7 +8,9 @@ export function createPadRecoveryController({dom,listRecords,verify,restore,ackn
     if(dom.padRecoveryDetail)dom.padRecoveryDetail.textContent=record
       ?'PAD '+record.target.project+' / '+record.target.group+' / '+record.target.pad+' · SAMPLE '+record.target.sampleSlot+' · '+record.status+'\nORIGINAL '+JSON.stringify(record.before)+'\nCURRENT '+(record.verification?.metadata?JSON.stringify(record.verification.metadata):'NOT YET VERIFIED')+'\nDESIRED '+JSON.stringify(record.desired)+(errors.size?'\nNOT COMPLETED · '+[...errors.values()].join(' · '):'')
       :'Select a pad recovery record. Verification reads the connected device; acknowledge current state before a separate restore.';
-    for(const key of ['padRecoveryVerify','padRecoveryRestore','padRecoveryAcknowledge'])if(dom[key])dom[key].disabled=busy||!record;
+    if(dom.padRecoveryVerify)dom.padRecoveryVerify.disabled=busy||!record;
+    if(dom.padRecoveryRestore)dom.padRecoveryRestore.disabled=busy||record?.status!=='acknowledged';
+    if(dom.padRecoveryAcknowledge)dom.padRecoveryAcknowledge.disabled=busy||!record||!['requires-recovery','verified'].includes(record.status);
     for(const key of ['padRecoveryList','padRecoveryRefresh'])if(dom[key])dom[key].disabled=busy;
   };
   const refreshRecords=async()=>{
@@ -20,7 +22,11 @@ export function createPadRecoveryController({dom,listRecords,verify,restore,ackn
   };
   const refresh=()=>{if(disposed||busy)return;return refreshRecords();};
   const run=async kind=>{
-    if(disposed||busy||!selected)return;const id=selected,current=version,operation={};activeAction=operation;busy=true;render();
+    if(disposed||busy||!selected)return;
+    const record=records.find(item=>item.id===selected);
+    if(kind==='restore'&&record?.status!=='acknowledged')return;
+    if(kind==='acknowledge'&&!['requires-recovery','verified'].includes(record?.status))return;
+    const id=selected,current=version,operation={};activeAction=operation;busy=true;render();
     try{
       if(kind!=='verify'&&!await confirmAction(kind==='restore'?'Restore original values to this one pad? This creates a new guarded transaction; verify and acknowledge current state first.':'Acknowledge the freshly read current pad state and clear this recovery blocker?'))return;
       if(disposed||current!==version||id!==selected)return;

@@ -145,7 +145,10 @@ export function createPadMetadataRuntime({withFileTransaction,getConnectedDevice
     async acknowledge(id){
       const ctx=context();
       return withFileTransaction('pad recovery acknowledgement',async ops=>{
-        const record=await getRecord(id,ctx),report=await inspect(record,ops,ctx);
+        const record=await getRecord(id,ctx);
+        if(!['requires-recovery','verified'].includes(record.status))
+          throw new Error('Pad acknowledgement requires a recovery-required or verified journal record.');
+        const report=await inspect(record,ops,ctx);
         ctx.guard();await recoveryStore.update(id,{status:'acknowledged',verification:report});
         try{ctx.guard();}catch(error){
           try{await recoveryStore.update(id,{status:'requires-recovery'});}catch{/* Keep runtime blocked as well. */}
