@@ -302,3 +302,52 @@ test('official whole-device PAK has project TARs and WAV with no samples rewritt
   expect(files.has('/meta.json')).toBe(true);
   expect(JSON.parse(new TextDecoder().decode(files.get('/meta.json').data)).pak_type).toBe('user');
 });
+
+test('read-only official PAK inspection lists sample slots and pad references with zero FILE writes',async({page})=>{
+  await openBackup(page,{selectProject02:true});
+  await page.evaluate(()=>{
+    window.__pakPreviewSource=[];
+    window.showSaveFilePicker=async()=>({
+      async createWritable(){return{
+        async write(blob){window.__pakPreviewSource=[...new Uint8Array(await blob.arrayBuffer())];},
+        async close(){}
+      }; }
+    });
+  });
+  await page.locator('#ep133-backup-official-project').click();
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:25000});
+  const raw=await page.evaluate(()=>window.__pakPreviewSource);
+  expect(raw.length).toBeGreaterThan(500);
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-pak-preview-file').setInputFiles({
+    name:'inspection.ppak',mimeType:'application/zip',buffer:Buffer.from(raw)
+  });
+  const summary=page.locator('#ep133-pak-preview-summary');
+  await expect(summary).toContainText('PROJECTS',{timeout:20000});
+  await expect(summary).toContainText('P02');
+  await expect(summary).toContainText('007 ·');
+  await expect(summary).toContainText('008 ·');
+  await expect(summary).toContainText('READ-ONLY PREVIEW');
+  await expect(summary).toContainText('RESTORE FROM .PAK/.PPAK IS DISABLED');
+  await expect(page.locator('#ep133-restore-run')).toBeDisabled();
+  const writes=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start)
+    .filter(r=>r.command===5&&([2,6,12].includes(r.sub)||
+      (r.sub===7&&r.type===1))),before);
+  expect(writes).toEqual([]);
+});
+
+test('invalid official PAK preview refuses content without enabling Restore or sending FILE writes',async({page})=>{
+  await openBackup(page);
+  const start=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-pak-preview-file').setInputFiles({
+    name:'invalid.pak',mimeType:'application/zip',buffer:Buffer.from([80,75,3,4,0])
+  });
+  const summary=page.locator('#ep133-pak-preview-summary');
+  await expect(summary).toContainText('PREVIEW REJECTED',{timeout:20000});
+  await expect(summary).toContainText('NO DEVICE WRITE PERFORMED');
+  await expect(page.locator('#ep133-restore-run')).toBeDisabled();
+  const writes=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start)
+    .filter(r=>r.command===5&&([2,6,12].includes(r.sub)||
+      (r.sub===7&&r.type===1))),start);
+  expect(writes).toEqual([]);
+});
