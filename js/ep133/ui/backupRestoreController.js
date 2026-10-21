@@ -12,6 +12,9 @@ const safeProject=value=>{
   return project;
 };
 const pad=value=>String(value).padStart(3,'0');
+class BackupCancelledError extends Error{
+  constructor(){super('Backup cancelled by user');this.name='BackupCancelledError';}
+}
 const dateStamp=()=>new Date().toISOString().replace(/[:.]/g,'-');
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -84,6 +87,21 @@ export function createBackupRestoreController({
   let restorePlan=null;
   let selectedRecoveryId=null;
   let busy=false;
+  let backupInProgress=false;
+  let cancelRequested=false;
+  const cancelBackupButton=dialog.querySelector?.('#ep133-backup-cancel')||null;
+  const assertBackupContinuing=()=>{if(cancelRequested)throw new BackupCancelledError();};
+  const requestBackupCancellation=()=>{
+    if(!backupInProgress||cancelRequested)return;
+    cancelRequested=true;
+    if(cancelBackupButton){
+      cancelBackupButton.disabled=true;
+      cancelBackupButton.textContent='CANCELLING…';
+    }
+    updateBackupProgress('CANCELLING',{
+      detail:'FINISHING CURRENT DEVICE REQUEST · NO PARTIAL ARCHIVE WILL BE SAVED'
+    },'cancelling');
+  };
   const progressPanel=dialog.querySelector?.('#ep133-backup-operation')||null;
   const phaseElement=dialog.querySelector?.('#ep133-backup-phase')||null;
   const countsElement=dialog.querySelector?.('#ep133-backup-counts')||null;
@@ -93,6 +111,11 @@ export function createBackupRestoreController({
   let backupProgress={phase:'PREPARING',projectDone:0,projectTotal:0,
     sampleDone:0,sampleTotal:0,current:'—',detail:'',percent:0};
   const updateBackupProgress=(phase,updates={},state='running')=>{
+    if(backupInProgress&&cancelRequested&&state==='running'){
+      phase='CANCELLING';
+      state='cancelling';
+      updates={...updates,detail:'FINISHING CURRENT DEVICE REQUEST · NO PARTIAL ARCHIVE WILL BE SAVED'};
+    }
     backupProgress={...backupProgress,phase,...updates};
     if(!progressPanel)return;
     progressPanel.hidden=false;
@@ -167,6 +190,7 @@ export function createBackupRestoreController({
   };
 
   const readBackupSnapshot=async(scope,projectNumber=null)=>{
+    assertBackupContinuing();
     const info=getConnectedDeviceInfo();
     if(!info)throw new Error('Connect an EP-series device first.');
     const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
@@ -174,6 +198,7 @@ export function createBackupRestoreController({
     return withFileTransaction('backup snapshot',async fileOps=>{
       updateBackupProgress('PREPARING',{detail:'LISTING PROJECTS AND SOUNDS · READ ONLY',percent:0,current:'—'});
       const root=await fileOps.listDirectory(0,'/');
+      assertBackupContinuing();
       const projectsRoot=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
       const soundsRoot=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
       if(!projectsRoot)throw new Error('EP-series /projects node is unavailable.');
@@ -181,6 +206,7 @@ export function createBackupRestoreController({
         .filter(item=>item.fileType==='folder'&&/^\/projects\/\d{2}$/.test(item.fileName))
         .sort((a,b)=>a.fileName.localeCompare(b.fileName));
       const activeMeta=await fileOps.getFileMetadata(projectsRoot.nodeId,'active');
+      assertBackupContinuing();
       const activeFid=Number(activeMeta?.active)||null;
       const selected=projectNumber==null?null:safeProject(projectNumber);
       const nodes=scope==='device'
@@ -191,6 +217,7 @@ export function createBackupRestoreController({
       const soundNodes=soundsRoot
         ?await fileOps.listDirectory(soundsRoot.nodeId,'/sounds')
         :[];
+      assertBackupContinuing();
       const occupied=soundNodes.map(item=>Number(item.nodeId)).filter(id=>id>=1&&id<=999);
       const projects=[];
       const referenced=new Set();
@@ -199,12 +226,14 @@ export function createBackupRestoreController({
         current:'—',detail:'PROJECT COUNT IS BASED ON COMPLETED FILES',percent:0
       });
       for(let index=0;index<nodes.length;index++){
+        assertBackupContinuing();
         const node=nodes[index];
         updateBackupProgress('READING PROJECTS',{
           current:'P'+node.fileName.slice(-2)+'.tar',
           detail:'READING FILE '+(index+1)+'/'+nodes.length+' · DEVICE FILE_GET'
         });
         const file=await fileOps.getFile(node.nodeId);
+        assertBackupContinuing(); // Drain current FILE_GET, then stop before the next file.
         const number=node.fileName.slice(-2);
         const dependencies=profile.projectAuthoring
           ?preflightProjectSampleDependencies(file.data,occupied,{profile,strict:false})
@@ -222,6 +251,7 @@ export function createBackupRestoreController({
         });
       }
 
+      assertBackupContinuing();
       const sampleNodes=scope==='device'
         ?soundNodes.filter(item=>Number(item.nodeId)>=1&&Number(item.nodeId)<=999)
         :scope==='project+samples'
@@ -240,6 +270,7 @@ export function createBackupRestoreController({
           :'NO SAMPLE FILES REQUIRED'
       });
       for(let index=0;index<sampleNodes.length;index++){
+        assertBackupContinuing();
         const node=sampleNodes[index];
         const slot=pad(node.nodeId);
         updateBackupProgress('READING SAMPLES',{
@@ -256,10 +287,12 @@ export function createBackupRestoreController({
               ' · CURRENT FILE '+(total?Math.floor(done*100/total)+'%':'READING')
           });
         });
+        assertBackupContinuing();
         updateBackupProgress('READING SAMPLES',{
           detail:'SAMPLE '+(index+1)+'/'+sampleNodes.length+' · READING METADATA'
         });
         const metadata=await fileOps.getFileMetadata(node.nodeId);
+        assertBackupContinuing();
         samples.push({
           slot:Number(node.nodeId),
           name:String(metadata?.name||file.name||node.fileName||('sample-'+pad(node.nodeId))),
@@ -272,6 +305,7 @@ export function createBackupRestoreController({
           detail:'SAMPLE '+samples.length+'/'+sampleNodes.length+' COMPLETE'
         });
       }
+      assertBackupContinuing();
       return{
         info,profile,
         activeProject:projectNodes.find(node=>Number(node.nodeId)===activeFid)?.fileName?.slice(-2)||null,
@@ -283,6 +317,13 @@ export function createBackupRestoreController({
   const runBackup=async(scope)=>{
     // No project number is read before busy is established, including errors.
     if(busy)return;
+    backupInProgress=true;
+    cancelRequested=false;
+    if(cancelBackupButton){
+      cancelBackupButton.hidden=false;
+      cancelBackupButton.disabled=false;
+      cancelBackupButton.textContent='CANCEL BACKUP';
+    }
     setBusy(true);
     backupProgress={phase:'PREPARING',projectDone:0,projectTotal:0,
       sampleDone:0,sampleTotal:0,current:'—',detail:'',percent:0};
@@ -290,12 +331,16 @@ export function createBackupRestoreController({
     try{
       const project=scope==='device'?null:safeProject(getSelectedProject());
       const snapshot=await readBackupSnapshot(scope,project);
+      assertBackupContinuing();
       if(scope==='project'){
         const record=snapshot.projects[0];
         updateBackupProgress('BUILDING ARCHIVE',{
           current:'P'+project+'.tar',detail:'PREPARING PROJECT TAR FOR SAVE',percent:97
         });
         const blob=new Blob([record.data],{type:'application/x-tar'});
+        assertBackupContinuing();
+        backupInProgress=false;
+        if(cancelBackupButton)cancelBackupButton.hidden=true;
         updateBackupProgress('DOWNLOAD HANDOFF',{detail:'REQUESTING FILE SAVE',percent:99});
         const outcome=await saveBlob(blob,'P'+project+'.tar');
         if(finishBackup(outcome))setStatus('BACKUP P'+project+' FILE WRITTEN');
@@ -308,9 +353,12 @@ export function createBackupRestoreController({
           scope,device:snapshot.info,activeProject:snapshot.activeProject,
           projects:snapshot.projects,samples:snapshot.samples
         });
+        assertBackupContinuing();
         const name=scope==='device'
           ?'SpeedUpperCut_device_'+dateStamp()+'.zip'
           :'SpeedUpperCut_P'+project+'_samples_'+dateStamp()+'.zip';
+        backupInProgress=false;
+        if(cancelBackupButton)cancelBackupButton.hidden=true;
         updateBackupProgress('DOWNLOAD HANDOFF',{current:name,detail:'REQUESTING FILE SAVE',percent:99});
         const outcome=await saveBlob(bundle.blob,name);
         if(finishBackup(outcome))setStatus(
@@ -320,9 +368,20 @@ export function createBackupRestoreController({
         );
       }
     }catch(error){
+      if(error instanceof BackupCancelledError){
+        updateBackupProgress('CANCELLED',{
+          current:'NO FILE SAVED',
+          detail:'CANCELLED BY USER · NO PARTIAL ARCHIVE OR DOWNLOAD',
+        },'cancelled');
+        setStatus('BACKUP CANCELLED · NO FILE SAVED');
+        return;
+      }
       failBackup(error);
       throw error;
     }finally{
+      backupInProgress=false;
+      cancelRequested=false;
+      if(cancelBackupButton)cancelBackupButton.hidden=true;
       hideGlobalProgress();
       setBusy(false);
     }
@@ -691,6 +750,7 @@ export function createBackupRestoreController({
   openButton?.addEventListener('click',()=>{void open('backup');});
   recoveryButton?.addEventListener('click',()=>{void open('recovery').catch(error=>reportError('COULD NOT READ RECOVERY CHECKPOINTS.',error));});
   closeButton?.addEventListener('click',close);
+  cancelBackupButton?.addEventListener('click',requestBackupCancellation);
   backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportDialogError('PROJECT BACKUP FAILED.',error)));
   backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportDialogError('PROJECT + SAMPLES BACKUP FAILED.',error)));
   backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportDialogError('DEVICE BACKUP FAILED.',error)));
