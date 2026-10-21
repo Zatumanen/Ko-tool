@@ -303,6 +303,19 @@
 .ep-backup-operation[data-state="failed"] .ep-backup-operation-detail{color:#8e0000;font-weight:700}
 .ep-backup-operation[data-state="done"]{background:#edf8ee}
 
+.ep-pak-preview-summary{max-height:275px;overflow:auto;border:1px solid #888;background:#f9fbff;padding:8px;
+  font:11px/1.55 "Courier New",monospace;overflow-wrap:anywhere}
+.ep-pak-preview-summary strong{font-weight:700}
+.ep-pak-preview-summary[aria-busy="true"]{opacity:.75}
+.ep-pak-preview-summary .ep-pak-report{display:grid;gap:4px}
+.ep-pak-preview-summary .ep-pak-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted #aaa}
+.ep-pak-preview-summary .ep-pak-warning{color:#8b3200;font-weight:700}
+.ep-pak-preview-summary .ep-pak-error{color:#a00000;font-weight:700}
+.ep-pak-preview-summary .ep-pak-inventory{max-height:125px;overflow:auto;border:1px inset #aaa;padding:4px;background:#fff}
+.ep-pak-preview-summary .ep-pak-inventory div{padding:1px 0}
+.ep-pak-preview-summary .ep-pak-disabled{border-top:1px solid #999;padding-top:5px;font-weight:700}
+
+
 .ep-backup-operation-actions{display:flex;justify-content:flex-end}
 .ep-backup-operation-actions button{min-height:29px;padding:5px 12px;cursor:pointer;border:2px outset var(--win-gray);background:var(--win-gray);font:700 10px "Courier New",monospace}
 .ep-backup-operation-actions button[hidden]{display:none!important}
