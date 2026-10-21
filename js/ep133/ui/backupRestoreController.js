@@ -3,6 +3,7 @@ import{
 }from '../backupBundle.js?v=20261001-1';
 import{getEpProjectProfile}from '../projectProfile.js?v=20261001-1';
 import{createOfficialEpPak}from '../officialPak.js?v=20261022-1';
+import{inspectOfficialPak}from '../officialPakReader.js?v=20261022-1';
 import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
 import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
 
@@ -88,6 +89,8 @@ export function createBackupRestoreController({
   let restorePlan=null;
   let selectedRecoveryId=null;
   let busy=false;
+  const pakPreviewInput=dialog.querySelector('#ep133-pak-preview-file');
+  const pakPreviewSummary=dialog.querySelector('#ep133-pak-preview-summary');
   const officialProjectButton=dialog.querySelector('#ep133-backup-official-project');
   const officialDeviceButton=dialog.querySelector('#ep133-backup-official-device');
   let backupInProgress=false;
@@ -181,6 +184,7 @@ export function createBackupRestoreController({
     ])if(button)button.disabled=busy||(button.dataset.baseDisabled==='true');
     if(closeButton)closeButton.disabled=busy;
     if(restoreInput)restoreInput.disabled=busy;
+    if(pakPreviewInput)pakPreviewInput.disabled=busy;
     if(restoreProjectSelect)restoreProjectSelect.disabled=busy;
   };
   const open=async(mode='backup')=>{
@@ -534,6 +538,93 @@ export function createBackupRestoreController({
     }finally{hideGlobalProgress();setBusy(false);}
   };
 
+  const onOfficialPakPreview=async file=>{
+    if(busy||!file)return;
+    // Archive previews are never accepted as restoreSource/restorePlan.
+    restoreSource=null;restorePlan=null;
+    if(restoreInput)restoreInput.value='';
+    if(restoreProjectSelect){restoreProjectSelect.innerHTML='';restoreProjectSelect.hidden=true;}
+    renderRestorePlan(null);
+    if(pakPreviewSummary){
+      pakPreviewSummary.textContent='VALIDATING ZIP / WAV / TAR · READ ONLY';
+      pakPreviewSummary.setAttribute('aria-busy','true');
+    }
+    setBusy(true);
+    try{
+      if(!/\\.pp?ak$/i.test(String(file.name||'')))
+        throw new Error('Select a .pak or .ppak archive.');
+      if(file.size>128*1024*1024)
+        throw new Error('PAK exceeds the 128 MiB read-only preview limit.');
+      const raw=new Uint8Array(await file.arrayBuffer());
+      const archive=await inspectOfficialPak(raw);
+      const info=getConnectedDeviceInfo();
+      if(!info)throw new Error('Connect and sync a supported EP to compare archive contents.');
+      const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+      const archiveIdentity=String(archive.metadata.device_sku||'').toUpperCase();
+      const archiveBase=String(archive.metadata.base_sku||'').toUpperCase();
+      const deviceIdentity=String(info.identitySku||'').toUpperCase();
+      const deviceBase=String(info.baseSku||info.metadata?.base_sku||'').toUpperCase();
+      const identityMatch=archiveIdentity===deviceIdentity&&
+        archiveBase===deviceBase&&archive.metadata.device_version===firmware;
+      const occupancy=archive.sounds.map(sound=>{
+        const slot=sampleStore?.getSlot?.(sound.slot);
+        const occupied=!!slot?.file;
+        return{sound,occupied};
+      });
+      const conflicts=occupancy.filter(x=>x.occupied).length;
+      const free=occupancy.length-conflicts;
+      const missing=archive.dependencies.flatMap(x=>x.missing.map(slot=>'P'+x.project+' → '+pad(slot)));
+      const warnings=[...archive.warnings];
+      if(!identityMatch)warnings.push('ARCHIVE SKU / BASE SKU / FIRMWARE DOES NOT MATCH CONNECTED EP');
+      warnings.push('SLOT OCCUPANCY IS FROM CURRENT SYNCHRONIZED UI, NOT AUTHORITATIVE FILE READBACK.');
+      warnings.push('DEVICE FREE SPACE AND PROTECTED/UNWRITABLE SLOTS ARE NOT VERIFIED.');
+      const rows=[
+        '<div class="ep-pak-report">',
+        '<div class="ep-pak-row"><strong>FORMAT</strong><span>',archive.format.toUpperCase(),'</span></div>',
+        '<div class="ep-pak-row"><strong>ARCHIVE SKU</strong><span>',escapeHtml(archiveIdentity),' / ',escapeHtml(archiveBase),'</span></div>',
+        '<div class="ep-pak-row"><strong>FIRMWARE</strong><span>',escapeHtml(archive.metadata.device_version||'?'),'</span></div>',
+        '<div class="ep-pak-row"><strong>CONNECTED DEVICE</strong><span>',identityMatch?'IDENTITY MATCH':'MISMATCH / UNVERIFIED','</span></div>',
+        '<div class="ep-pak-row"><strong>PROJECTS</strong><span>',archive.projects.length,'</span></div>',
+        '<div class="ep-pak-row"><strong>SAMPLES</strong><span>',archive.sounds.length,'</span></div>',
+        '<div class="ep-pak-row"><strong>CANDIDATE EMPTY SLOTS</strong><span>',free,'</span></div>',
+        '<div class="ep-pak-row"><strong>OCCUPIED / POTENTIAL CONFLICTS</strong><span>',conflicts,'</span></div>',
+        '<div class="ep-pak-row"><strong>MISSING REFERENCED SAMPLES</strong><span>',missing.length,'</span></div>',
+        '<strong>PROJECTS / PAD DEPENDENCIES</strong>',
+        '<div class="ep-pak-inventory">',
+        archive.projects.map(p=>{
+          const m=archive.dependencies.find(d=>d.project===p.number);
+          return '<div>P'+escapeHtml(p.number)+' · '+p.size+' B · '+p.padReferences.length+
+            ' PAD ASSIGNMENTS · '+(m?.missing?.length||0)+' MISSING IN ARCHIVE</div>';
+        }).join(''),
+        '</div><strong>ARCHIVED SAMPLES · SLOT / NAME / DEVICE VIEW</strong>',
+        '<div class="ep-pak-inventory">',
+        occupancy.map(({sound,occupied})=>
+          '<div>'+pad(sound.slot)+' · '+escapeHtml(sound.name)+' · '+
+          sound.sampleFrames+' FRAMES · '+(occupied?'OCCUPIED · REVIEW':'EMPTY IN UI')+'</div>'
+        ).join(''),
+        '</div>',
+        missing.length?'<div class="ep-pak-warning">MISSING PAD REFERENCES: '+
+          escapeHtml(missing.join(', '))+'</div>':'',
+        ...warnings.map(w=>'<div class="ep-pak-warning">'+escapeHtml(w)+'</div>'),
+        '<div class="ep-pak-disabled">READ-ONLY PREVIEW · RESTORE FROM .PAK/.PPAK IS DISABLED. '+
+        'NO MIDI WRITES. ANY FUTURE RESTORE NEEDS A SEPARATE VERIFIED PREFLIGHT AND OWNER APPROVAL.</div>',
+        '</div>'
+      ];
+      if(pakPreviewSummary)pakPreviewSummary.innerHTML=rows.join('');
+      updateBackupProgress('RESULT',{
+        detail:'OFFICIAL ARCHIVE INSPECTED · READ ONLY · NO DEVICE WRITES',percent:100
+      },'done');
+    }catch(error){
+      if(pakPreviewSummary)pakPreviewSummary.innerHTML=
+        '<div class="ep-pak-error">PREVIEW REJECTED: '+escapeHtml(error.message||error)+
+        '</div><div>NO DEVICE WRITE PERFORMED.</div>';
+      updateBackupProgress('RESULT',{detail:String(error?.message||error)},'failed');
+    }finally{
+      if(pakPreviewSummary)pakPreviewSummary.setAttribute('aria-busy','false');
+      setBusy(false);
+    }
+  };
+
   const restoreSamples=async plan=>{
     if(!plan.restore.length)return[];
     const profile=getActiveDeviceProfile();
@@ -771,6 +862,7 @@ export function createBackupRestoreController({
   officialProjectButton?.addEventListener('click',()=>backupOfficialProject().catch(error=>reportDialogError('OFFICIAL PROJECT PPAK EXPORT FAILED.',error)));
   officialDeviceButton?.addEventListener('click',()=>backupOfficialDevice().catch(error=>reportDialogError('OFFICIAL DEVICE PAK EXPORT FAILED.',error)));
   restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportDialogError('RESTORE PREFLIGHT FAILED.',error)));
+  pakPreviewInput?.addEventListener('change',()=>onOfficialPakPreview(pakPreviewInput.files?.[0]||null));
   restoreProjectSelect?.addEventListener('change',async()=>{
     if(restoreSource?.kind!=='bundle')return;
     try{
