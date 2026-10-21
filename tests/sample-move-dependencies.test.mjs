@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import{createSampleMoveController}from '../js/ep133/ui/sampleMoveController.js';
 import{createSampleStore}from '../js/ep133/sampleStore.js';
 import{createSampleDependencyGuard}from '../js/ep133/sampleDependencyGuard.js';
+import{verifyNativeProjectSlotMove}from '../js/ep133/sampleMoveProjectVerification.js';
 
 // Synthetic pad-only TARs exercise the real read-only dependency parser.
 const projectTar=(slot,length)=>{
@@ -16,7 +17,7 @@ const projectTar=(slot,length)=>{
 };
 
 const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
-  withoutTransaction=false,crcVerified=true,afterRead=()=>{}}={})=>{
+  withoutTransaction=false,crcVerified=true,afterRead=()=>{},referenced=[7,12]}={})=>{
   const sampleStore=createSampleStore(),events=[];
   const entry=id=>({nodeId:id,fileName:'/sounds/sample'+id,fileType:'file',fileSize:64});
   sampleStore.replaceFiles([7,10,12].map(entry));
@@ -26,7 +27,7 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
     getConnectedDeviceInfo:()=>({sku,metadata:{os_version:firmware}})
   });
   const archives=new Map([3001,3002].map((id,index)=>{
-    const bytes=projectTar(index?12:7,failure==='unsupported'?3:sku==='TE032AS006'?29:26);
+    const bytes=projectTar(referenced[index],failure==='unsupported'?3:sku==='TE032AS006'?29:26);
     if(failure==='corrupt'&&index===1)bytes[0]^=1;
     return[id,bytes];
   }));
@@ -46,6 +47,18 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
     },
     async moveFile(sourceId,parentId,targetId,options){
       events.push(['move',sourceId,targetId,options]);
+      if(failure==='second-move-fails'&&sourceId===12)throw new Error('Second MOVE request failed');
+      // Firmware simulation is scoped to the observed EP-133 2.5.1 behavior.
+      if(sku==='TE032AS001'&&firmware==='2.5.1'){
+        for(const [projectId,bytes] of archives){
+          const stored=bytes[513]|bytes[514]<<8;
+          if(stored===sourceId&&failure!=='firmware-did-not-remap'){
+            bytes[513]=targetId&255;bytes[514]=(targetId>>>8)&255;
+            if(failure==='unrelated-project-edit'&&projectId===3001)bytes[515]^=1;
+          }
+        }
+      }
+      if(failure==='timeout-after-move')throw new Error('FILE_MOVE response timeout');
       return{oldFileId:sourceId,newFileId:targetId,sourceCrc:sourceId*1001,
         destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},info:entry(targetId)};
     }
@@ -63,6 +76,8 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
     captureBatchSession:()=>session,
     assertBatchSession:token=>{if(token!==session)throw new Error('Device session changed');},
     getDeviceSessionToken:()=>session,isConnected:()=>true,
+    markDeviceUnsafe:reason=>events.push(['unsafe',reason]),
+    verifyNativeProjectSlotMove,
     setMutating:value=>events.push(['mutating',value]),setGlobalProgress(){},
     hideGlobalProgress:()=>events.push(['hide-progress']),
     suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
@@ -90,15 +105,31 @@ for(const sku of ['TE032AS001','TE032AS006']){
     assert.equal(h.sampleStore.getSlot(10).file,null);
     assert.ok(h.sampleStore.getSlot(20).file);
   });
-  for(const id of [7,12])test(sku+': reference to '+id+' in either project blocks MOVE',async()=>{
+  for(const id of [7,12])test(sku+': reference to '+id+' follows firmware-scoped MOVE rules',async()=>{
     const h=harness({sku});
-    await assert.rejects(()=>h.run([id]),/is used by P0[12] A01.*MOVE would break/);
-    assertNoMove(h);
+    if(sku==='TE032AS006'){
+      await assert.rejects(()=>h.run([id]),/is used by P0[12] A01.*MOVE would break/);
+      assertNoMove(h);
+    }else{
+      assert.deepEqual(await h.run([id]),{targetIds:[20]});
+      assert.equal(h.events.filter(e=>e[0]==='move').length,1);
+      assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),
+        id===7?[3001,3002,3001]:[3001,3002,3002]);
+      assert.ok(h.sampleStore.getSlot(20).file);
+      assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
+    }
   });
-  test(sku+': a later referenced source blocks the entire batch before its first MOVE',async()=>{
+  test(sku+': batch references are checked and verified under one strict lease',async()=>{
     const h=harness({sku});
-    await assert.rejects(()=>h.run([10,7]),/slot 007 is used by P01 A01/);
-    assertNoMove(h);
+    if(sku==='TE032AS006'){
+      await assert.rejects(()=>h.run([10,7]),/slot 007 is used by P01 A01/);
+      assertNoMove(h);
+    }else{
+      assert.deepEqual(await h.run([10,7]),{targetIds:[20,21]});
+      assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),
+        [[10,20],[7,21]]);
+      assert.equal(h.events.filter(e=>e[0]==='get').filter(e=>e[1]===3001).length,2);
+    }
   });
   for(const failure of ['corrupt','unsupported','unavailable','missing-projects']){
     test(sku+': '+failure+' project blocks MOVE without mutation',async()=>{
@@ -140,4 +171,34 @@ test('MOVE still rejects destination CRC mismatch after dependency preflight',as
   await assert.rejects(()=>h.run([10]),/CRC verification failed/);
   assert.deepEqual(h.events.filter(e=>e[0]==='get'),[['get',3001],['get',3002]]);
   assert.equal(h.sampleStore.getSlot(20).file,null);
+});
+
+test('EP-133 firmware remaps one sample in two saved projects without TAR writes',async()=>{
+  const h=harness({referenced:[7,7]});
+  assert.deepEqual(await h.run([7]),{targetIds:[20]});
+  assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),[3001,3002,3001,3002]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
+  assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
+});
+
+for(const failure of ['firmware-did-not-remap','unrelated-project-edit','timeout-after-move']){
+  test('EP-133 locks without retry or reverse MOVE after '+failure,async()=>{
+    const h=harness({failure});
+    await assert.rejects(()=>h.run([7]),/Native MOVE may have changed/);
+    assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
+    assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+  });
+}
+
+test('a failed second native MOVE never automatically reverses the first',async()=>{
+  const h=harness({failure:'second-move-fails'});
+  await assert.rejects(()=>h.run([7,12]),/Second MOVE request failed/);
+  assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20],[12,21]]);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+});
+
+test('referenced MOVE remains blocked on an unverified firmware',async()=>{
+  const h=harness({firmware:'2.5.2'});
+  await assert.rejects(()=>h.run([7]),/unverified|not supported|reference|lock/i);
+  assertNoMove(h);
 });
