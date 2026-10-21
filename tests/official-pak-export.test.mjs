@@ -4,7 +4,7 @@ import{inflateRawSync}from 'node:zlib';
 import{createOfficialEpPak,createOfficialSampleWav}from '../js/ep133/officialPak.js';
 import{createEpBackupBundle,parseEpBackupBundle}from '../js/ep133/backupBundle.js';
 
-const device={name:'EP-133',sku:'TE032AS001',metadata:{os_version:'2.5.1',base_sku:'TE032AS001',serial:'PRIVATE-UNUSED'}};
+const device={name:'EP-133',sku:'TE032AS001',identitySku:'TE032AS002',baseSku:'TE032AS001',metadata:{os_version:'2.5.1',base_sku:'TE032AS001',serial:'PRIVATE-UNUSED'}};
 const sample=(slot=7,options={})=>{
   const data=Uint8Array.from([1,2,3,4,5,6,7,8]);
   const metadata={
@@ -127,10 +127,20 @@ test('official whole device PAK has deflated leading-slash paths, correct manife
   assert.equal(meta.pak_version,1);
   assert.equal(meta.pak_release,'1.2.0');
   assert.equal(meta.device_version,'2.5.1');
+  assert.equal(meta.device_sku,'TE032AS002');
   assert.equal(meta.base_sku,'TE032AS001');
   assert.equal('serial' in meta,false);
   assert.equal('identityHash' in meta,false);
   assert.equal(new TextDecoder().decode(files.get('/meta.json').data).includes('PRIVATE-UNUSED'),false);
+});
+
+test('official PAK rejects missing or unverified MIDI identity before serializing',async()=>{
+  await assert.rejects(()=>createOfficialEpPak({
+    scope:'device',device:{...device,identitySku:''},projects:[project()],samples:[sample()]
+  }),/MIDI identity/);
+  await assert.rejects(()=>createOfficialEpPak({
+    scope:'device',device:{...device,baseSku:'TE032AS002'},projects:[project()],samples:[sample()]
+  }),/GREET base SKU/);
 });
 
 test('official PPAK contains one project, referenced sample and project pak_type',async()=>{
