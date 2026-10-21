@@ -351,7 +351,7 @@ export function createEpWorkspace({
     sampleStore,getSoundsParentId:()=>sampleStore.getSoundsParentId(),getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     fileItemFromInfo,remapCurrentPropertySlot:(oldId,newId)=>propertiesController.remapCurrentSlot(oldId,newId),
     renderDeviceStats,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
-    isConnected,setMutating,setGlobalProgress,hideGlobalProgress,suppressNativeMoveEvent,clearNativeMoveSuppression,
+    isConnected,setMutating,setGlobalProgress,hideGlobalProgress,markDeviceUnsafe,suppressNativeMoveEvent,clearNativeMoveSuppression,
     moveFile,readDevice:()=>readDevice(),logTechnical
   });
   const sampleCopyController=createSampleCopyController({
