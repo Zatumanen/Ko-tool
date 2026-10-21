@@ -10,8 +10,11 @@ const open=async(page,sku,os='2.5.1')=>{
   await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
   await expect(page.locator('#ep133-global-progress')).toBeHidden();
   await expect(page.locator('[data-slot="7"]')).toHaveAttribute('draggable','true');
-  // Right click selects without auditioning the sample.
-  await page.locator('[data-slot="7"]').click({button:'right'});
+  // Control-click selects without audition or opening the independent Sample Library properties editor.
+  // Right-click raises a legitimate write-permission alert on some unsupported models/firmware.
+  await page.locator('[data-slot="7"]').click({modifiers:['Control']});
+  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+  await expect(page.locator('#error-dialog')).toBeHidden();
 };
 
 for(const [sku,os] of [['TE032AS006','2.5.1'],['TE032AS005','2.5.1'],['TE032AS001','2.5.2']])test(sku+' '+os+': library opens a read-only pad view and missing READ evidence emits no FILE traffic',async({page})=>{
@@ -106,8 +109,13 @@ test('unknown OS is rejected during handshake before any pad FILE discovery',asy
   await page.goto('/');
   const rejected=page.waitForEvent('console',{predicate:event=>event.type()==='error'&&/AUTO CONNECT/.test(event.text())&&/firmware/i.test(event.text())});
   await page.locator('#my-ep-icon').click();await rejected;
-  await expect(page.locator('#ep133-status')).toHaveText('CONNECT EP SERIES');
+  // Session ownership can display a pre-connect notice after a rejected handshake;
+  // verify connection state rather than a transient status string.
   await expect(page.locator('#ep133-status')).not.toContainText('SYNCED');
+  expect(await page.evaluate(async()=>{
+    const ep=await import('/js/ep133/index.js?v=20261001-1');
+    return ep.isConnected();
+  })).toBe(false);
   expect(await page.evaluate(()=>window.__fakeEp.requestLog.filter(r=>r.command===5))).toEqual([]);
   await expect(page.locator('#ep133-pad-readonly-dialog')).toBeHidden();
 });
