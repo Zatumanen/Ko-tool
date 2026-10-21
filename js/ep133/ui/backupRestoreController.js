@@ -551,7 +551,7 @@ export function createBackupRestoreController({
     }
     setBusy(true);
     try{
-      if(!/\\.pp?ak$/i.test(String(file.name||'')))
+      if(!/\.pp?ak$/i.test(String(file.name||'')))
         throw new Error('Select a .pak or .ppak archive.');
       if(file.size>128*1024*1024)
         throw new Error('PAK exceeds the 128 MiB read-only preview limit.');
