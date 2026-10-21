@@ -2,7 +2,7 @@ import{test,expect}from '@playwright/test';
 import{readFile}from 'node:fs/promises';
 
 const fixture=await readFile(new URL('./fake-ep-browser.js',import.meta.url),'utf8');
-const open=async(page,sku,os='2.5.1')=>{
+const open=async(page,sku,os='2.5.1',selectLibrarySample=true)=>{
   // Device identity fixture only. No evidence/profile override is injected.
   await page.addInitScript({content:fixture.replace("sku='TE032AS001'","sku='"+sku+"'").replace("osVersion='2.5.1'","osVersion='"+os+"'")});
   await page.goto('/');await page.locator('#my-ep-icon').click();
@@ -10,10 +10,12 @@ const open=async(page,sku,os='2.5.1')=>{
   await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
   await expect(page.locator('#ep133-global-progress')).toBeHidden();
   await expect(page.locator('[data-slot="7"]')).toHaveAttribute('draggable','true');
-  // Control-click selects without audition or opening the independent Sample Library properties editor.
-  // Right-click raises a legitimate write-permission alert on some unsupported models/firmware.
-  await page.locator('[data-slot="7"]').click({modifiers:['Control']});
-  await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+  // Selecting a sample is optional for pad viewing, but existing library tests still select it.
+  if(selectLibrarySample){
+    // Control-click selects without audition or opening the separate properties editor.
+    await page.locator('[data-slot="7"]').click({modifiers:['Control']});
+    await expect(page.locator('[data-slot="7"]')).toHaveClass(/selected/);
+  }
   await expect(page.locator('#error-dialog')).toBeHidden();
 };
 
@@ -100,6 +102,34 @@ test('EP-133 OS 2.5.1 production UI reads its own pad metadata without any write
   expect(libraryPitch).not.toBe(-2.25);
   assertReadOnly(await page.evaluate(i=>window.__fakeEp.requestLog.slice(i),before));
 });
+test('EP-133 pad grid opens without a selected library sample and keyboard focus survives pad reads',async({page})=>{
+  await open(page,'TE032AS001','2.5.1',false);
+  await expect(page.locator('[data-slot].selected')).toHaveCount(0);
+  await expect(page.locator('#ep133-pad-open')).toBeEnabled();
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-pad-open').click();
+  await page.locator('#ep133-pad-project').selectOption('01');
+  await page.locator('#ep133-pad-group').selectOption('A');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key]')).toHaveCount(12);
+  const pad02=page.locator('#ep133-pad-keys [data-pad-key="02"]');
+  await pad02.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#ep133-pad-assignment')).toContainText('PAD 02 · ASSIGNED SAMPLE 008');
+  await expect(pad02).toBeFocused();
+  await expect(pad02).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="03"]')).toBeFocused();
+  const pad10=page.locator('#ep133-pad-keys [data-pad-key="10"]');
+  await pad10.focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#ep133-pad-assignment')).toContainText('PAD 10 · ASSIGNED SAMPLE 602');
+  await expect(pad10).toBeFocused();
+  await expect(pad10).toHaveAttribute('aria-pressed','true');
+  await expect(pad02).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('[data-slot].selected')).toHaveCount(0);
+  assertReadOnly(await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),before));
+});
+
 test('disconnect invalidates pad snapshot and reconnect requires fresh selection',async({page})=>{
   await open(page,'TE032AS001');await selectPad(page);
   const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);

@@ -34,6 +34,15 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
         '<span class="ep-pad-key-sample">'+escape(status)+'</span></button>';
     }).join('');
   };
+  // Preserve existing button nodes (and keyboard focus) while changing selection.
+  const syncKeycapSelection=()=>{
+    const selected=dom.padSelect?.value;
+    for(const button of dom.padKeys?.querySelectorAll?.('[data-pad-key]')||[]){
+      const active=button.dataset.padKey===selected;
+      button.classList.toggle('is-selected',active);
+      button.setAttribute('aria-pressed',String(active));
+    }
+  };
   const clearSnapshot=()=>{
     snapshot=null;text('padAssignment','PAD PARAMETERS · NO PAD SELECTED');
     if(dom.padGrid)dom.padGrid.innerHTML='';
@@ -71,7 +80,7 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
       guard();const project=dom.padProject?.value,group=dom.padGroup?.value;
       if(level==='pad'){
         const selected=targets.find(t=>t.pad===dom.padSelect?.value);
-        renderKeycaps();
+        syncKeycapSelection();
         if(!selected){text('padStatus','CHOOSE A PAD.');return;}
         const result=await reader.readTarget({...selected},context(version));
         if(!valid(version))return;guard();
@@ -129,6 +138,14 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
     // Capture before those handlers; native select navigation still works.
     event.stopImmediatePropagation();
     if(event.key==='Escape'){event.preventDefault();close();return;}
+    // Document capture blocks native key events from reaching pad buttons.
+    // Handle keyboard activation here, without letting background handlers run.
+    if(event.key==='Enter'||event.key===' '){
+      const button=event.target?.closest?.('[data-pad-key]');
+      if(button&&!button.disabled&&dom.padKeys?.contains?.(button)){
+        event.preventDefault();clickKeycap(event);return;
+      }
+    }
     if(event.key==='Tab'){
       event.preventDefault();
       const candidates=dom.padDialog?.querySelectorAll

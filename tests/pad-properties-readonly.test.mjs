@@ -74,6 +74,48 @@ test('all twelve physical keys render in hardware order and unavailable nodes ar
   assert.ok(html.indexOf('data-pad-key="01"')<html.indexOf('data-pad-key="02"'));
   assert.ok(html.indexOf('data-pad-key="09"')<html.indexOf('data-pad-key="10"'));
 });
+test('pad keyboard selection updates existing buttons and preserves focused element',async()=>{
+  const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
+  const markup=s.dom.padKeys.innerHTML;
+  const button=pad=>{
+    const state=new Set(),attrs=new Map();
+    return{
+      dataset:{padKey:pad},disabled:false,
+      classList:{toggle:(name,enabled)=>enabled?state.add(name):state.delete(name)},
+      setAttribute:(name,value)=>attrs.set(name,value),
+      closest:()=>null,
+      focus(){s.documentRef.activeElement=this;},
+      active:()=>state.has('is-selected'),
+      pressed:()=>attrs.get('aria-pressed')
+    };
+  };
+  const first=button('01'),second=button('02');
+  first.closest=()=>first;second.closest=()=>second;
+  s.dom.padKeys.querySelectorAll=selector=>{
+    assert.equal(selector,'[data-pad-key]');return[first,second];
+  };
+  s.dom.padKeys.contains=element=>element===first||element===second;
+  first.focus();
+  await s.choose('padSelect','01');
+  assert.equal(first.active(),true);assert.equal(first.pressed(),'true');
+  await s.choose('padSelect','02');
+  assert.equal(first.active(),false);assert.equal(first.pressed(),'false');
+  assert.equal(second.active(),true);assert.equal(second.pressed(),'true');
+  assert.equal(s.dom.padKeys.innerHTML,markup,'no keycap subtree replacement on selection');
+  assert.equal(s.documentRef.activeElement,first,'focused button remains attached');
+  second.focus();
+  let prevented=0,stopped=0;
+  s.documentRef.listeners.get('keydown')({
+    key:'Enter',target:second,
+    stopImmediatePropagation(){stopped++;},
+    preventDefault(){prevented++;}
+  });
+  assert.equal(stopped,1);assert.equal(prevented,1);
+  assert.equal(s.documentRef.activeElement,second);
+  assert.equal(s.dom.padKeys.innerHTML,markup);
+  assert.equal(s.calls.at(-1)[0],'GET');
+});
+
 test('rapid pad switching discards a late answer for the previous pad',async()=>{
   const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
   const gate=s.deferRead(),old=s.choose('padSelect','01');await gate.entered.promise;
