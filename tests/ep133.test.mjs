@@ -2801,17 +2801,18 @@ test('sample COPY transaction uses only lease-bound FILE operations until it exi
   assert.doesNotMatch(block,/await deleteFile\(/);
 });
 
-test('sample MOVE and COPY resync only after their FILE transaction lease exits',async()=>{
+test('native MOVE locks on ambiguity without implicit retry/resync; COPY resyncs only after its FILE lease',async()=>{
   const fs=await import('node:fs/promises');
   const [move,copy]=await Promise.all([
     fs.readFile(new URL('../js/ep133/ui/sampleMoveController.js',import.meta.url),'utf8'),
     fs.readFile(new URL('../js/ep133/ui/sampleCopyController.js',import.meta.url),'utf8')
   ]);
-  for(const source of [move,copy]){
-    const transactionEnd=source.search(/\}(?:,plan)?\);\n    \}catch\(error\)\{/);
-    const resync=source.indexOf('await readDevice()');
-    assert.ok(transactionEnd>=0&&resync>transactionEnd);
-  }
+  assert.match(move,/markDeviceUnsafe\(reason\)/);
+  assert.doesNotMatch(move,/await readDevice\(\)/);
+  assert.doesNotMatch(move,/restored=await fileOps\.moveFile\(/);
+  const transactionEnd=copy.search(/\}(?:,plan)?\);\n    \}catch\(error\)\{/);
+  const resync=copy.indexOf('await readDevice()');
+  assert.ok(transactionEnd>=0&&resync>transactionEnd);
 });
 
 
