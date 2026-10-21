@@ -2,6 +2,7 @@ import{
   createEpBackupBundle,readEpBackupBundleFile,buildBundleProjectRestorePlan
 }from '../backupBundle.js?v=20261001-1';
 import{getEpProjectProfile}from '../projectProfile.js?v=20261001-1';
+import{createOfficialEpPak}from '../officialPak.js?v=20261022-1';
 import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
 import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
 
@@ -87,6 +88,8 @@ export function createBackupRestoreController({
   let restorePlan=null;
   let selectedRecoveryId=null;
   let busy=false;
+  const officialProjectButton=dialog.querySelector('#ep133-backup-official-project');
+  const officialDeviceButton=dialog.querySelector('#ep133-backup-official-device');
   let backupInProgress=false;
   let cancelRequested=false;
   const cancelBackupButton=dialog.querySelector?.('#ep133-backup-cancel')||null;
@@ -173,6 +176,7 @@ export function createBackupRestoreController({
     busy=!!value;
     for(const button of [
       backupProjectButton,backupProjectSamplesButton,backupDeviceButton,
+      officialProjectButton,officialDeviceButton,
       restoreButton,recoveryRestoreButton,recoveryDownloadButton,recoveryDeleteButton
     ])if(button)button.disabled=busy||(button.dataset.baseDisabled==='true');
     if(closeButton)closeButton.disabled=busy;
@@ -314,7 +318,7 @@ export function createBackupRestoreController({
     });
   };
 
-  const runBackup=async(scope)=>{
+  const runBackup=async(scope,format='speeduppercut')=>{
     // No project number is read before busy is established, including errors.
     if(busy)return;
     backupInProgress=true;
@@ -349,14 +353,22 @@ export function createBackupRestoreController({
           current:scope==='device'?'WHOLE DEVICE':'P'+project+' + SAMPLES',
           detail:'ASSEMBLING ZIP · ALL FILES READ',percent:97
         });
-        const bundle=await createEpBackupBundle({
-          scope,device:snapshot.info,activeProject:snapshot.activeProject,
-          projects:snapshot.projects,samples:snapshot.samples
-        });
+        const bundle=format==='official'
+          ?await createOfficialEpPak({
+            scope,device:snapshot.info,projects:snapshot.projects,samples:snapshot.samples
+          })
+          :await createEpBackupBundle({
+            scope,device:snapshot.info,activeProject:snapshot.activeProject,
+            projects:snapshot.projects,samples:snapshot.samples
+          });
         assertBackupContinuing();
-        const name=scope==='device'
-          ?'SpeedUpperCut_device_'+dateStamp()+'.zip'
-          :'SpeedUpperCut_P'+project+'_samples_'+dateStamp()+'.zip';
+        const name=format==='official'
+          ?(scope==='device'
+            ?'KoTool_EP-133_device_'+dateStamp()+'.pak'
+            :'KoTool_EP-133_P'+project+'_'+dateStamp()+'.ppak')
+          :(scope==='device'
+            ?'SpeedUpperCut_device_'+dateStamp()+'.zip'
+            :'SpeedUpperCut_P'+project+'_samples_'+dateStamp()+'.zip');
         backupInProgress=false;
         if(cancelBackupButton)cancelBackupButton.hidden=true;
         updateBackupProgress('DOWNLOAD HANDOFF',{current:name,detail:'REQUESTING FILE SAVE',percent:99});
@@ -388,6 +400,8 @@ export function createBackupRestoreController({
   };
   const backupProject=()=>runBackup('project');
   const backupBundle=scope=>runBackup(scope);
+  const backupOfficialProject=()=>runBackup('project+samples','official');
+  const backupOfficialDevice=()=>runBackup('device','official');
 
   const authoritativeBundlePlan=async(bundle,project)=>{
     const info=getConnectedDeviceInfo();
@@ -754,6 +768,8 @@ export function createBackupRestoreController({
   backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportDialogError('PROJECT BACKUP FAILED.',error)));
   backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportDialogError('PROJECT + SAMPLES BACKUP FAILED.',error)));
   backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportDialogError('DEVICE BACKUP FAILED.',error)));
+  officialProjectButton?.addEventListener('click',()=>backupOfficialProject().catch(error=>reportDialogError('OFFICIAL PROJECT PPAK EXPORT FAILED.',error)));
+  officialDeviceButton?.addEventListener('click',()=>backupOfficialDevice().catch(error=>reportDialogError('OFFICIAL DEVICE PAK EXPORT FAILED.',error)));
   restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportDialogError('RESTORE PREFLIGHT FAILED.',error)));
   restoreProjectSelect?.addEventListener('change',async()=>{
     if(restoreSource?.kind!=='bundle')return;
