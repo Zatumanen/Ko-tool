@@ -28,7 +28,7 @@ const metadataObject=value=>{
 };
 const selectors=(options={},required=false)=>{
   const{project,group,pad,sampleSlot}=options;
-  if(!Number.isInteger(sampleSlot)||sampleSlot<1||sampleSlot>999)throw Error('Invalid library sample slot.');
+  if(sampleSlot!=null&&(!Number.isInteger(sampleSlot)||sampleSlot<1||sampleSlot>999))throw Error('Invalid library sample slot.');
   if((required||project!=null)&&!(typeof project==='string'&&/^(0[1-9]|[1-9]\d)$/.test(project)))throw Error('Invalid project selector.');
   if((required||group!=null)&&!['A','B','C','D'].includes(group))throw Error('Invalid group selector.');
   if((required||pad!=null)&&!(typeof pad==='string'&&/^(0[1-9]|1[0-2])$/.test(pad)))throw Error('Invalid pad selector.');
@@ -106,7 +106,7 @@ async function listTargets(ops,options){
     const status=assignment(metadataObject(await ops.getFileMetadata(node.nodeId)));
     const target=targetFrom(s,node,projectFid,groupFid);
     if(status.status==='UNVERIFIED')result.unverifiedPads.push({...target,assignment:status});
-    else if(status.sampleSlot===s.sampleSlot)result.pads.push(target);
+    else result.pads.push({...target,assignment:status});
   }
   return result;
 }
@@ -118,7 +118,6 @@ async function readTarget(ops,options){
   const target=targetFrom(s,node,projectFid,groupFid);
   for(const key of ['projectFid','groupFid','padFid'])if(target[key]!==options[key])throw Error('Pad target FID changed; discover again.');
   const metadata=metadataObject(await ops.getFileMetadata(node.nodeId)),status=assignment(metadata);
-  if(status.status==='VERIFIED'&&status.sampleSlot!==s.sampleSlot)throw Error('Pad assignment no longer matches the selected library sample.');
   return{target,metadata,assignment:status};
 }
 

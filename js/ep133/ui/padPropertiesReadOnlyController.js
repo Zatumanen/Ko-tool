@@ -1,10 +1,11 @@
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const sameTarget=(a,b)=>['project','group','pad','sampleSlot','projectFid','groupFid','padFid'].every(k=>a?.[k]===b?.[k]);
+const sameTarget=(a,b)=>['project','group','pad','projectFid','groupFid','padFid'].every(k=>a?.[k]===b?.[k]);
+const EP133_KEYCAPS=Object.freeze(['7','8','9','4','5','6','1','2','3','.','0','ENTER']);
 
 // Only read capabilities enter this controller. Do not reuse the editable
 // sample renderer: even disabled edit controls would retain mutation handlers.
 export function createReadOnlyPadPropertiesController({dom,reader,getAvailability,captureSession,assertSession,documentRef=globalThis.document}={}){
-  let opened=false,disposed=false,epoch=0,session=null,sampleSlot=null,snapshot=null,targets=[];
+  let opened=false,disposed=false,epoch=0,session=null,snapshot=null,targets=[];
   let previousFocus=null;
   const listeners=[];
   const text=(key,value)=>{if(dom[key])dom[key].textContent=value;};
@@ -16,12 +17,30 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
     }).join('');
     dom[key].value='';dom[key].disabled=rows.length===0;
   };
+  const renderKeycaps=()=>{
+    if(!dom.padKeys)return;
+    const selected=dom.padSelect?.value;
+    dom.padKeys.innerHTML=EP133_KEYCAPS.map((key,index)=>{
+      const pad=String(index+1).padStart(2,'0');
+      const target=targets.find(item=>item.pad===pad);
+      const slot=target?.assignment?.status==='VERIFIED'?target.assignment.sampleSlot:null;
+      const status=slot!=null?'SMP '+String(slot).padStart(3,'0'):target?'UNVERIFIED':'NO NODE';
+      const active=pad===selected;
+      return '<button type="button" class="ep-pad-key'+(active?' is-selected':'')+'" data-pad-key="'+pad+'"'+
+        (target?'':' disabled')+' aria-pressed="'+String(active)+'" aria-label="Pad '+pad+
+        ', key '+escape(key)+', '+escape(status)+'">'+
+        '<span class="ep-pad-key-legend">'+escape(key)+'</span>'+
+        '<span class="ep-pad-key-number">PAD '+pad+'</span>'+
+        '<span class="ep-pad-key-sample">'+escape(status)+'</span></button>';
+    }).join('');
+  };
   const clearSnapshot=()=>{
     snapshot=null;text('padAssignment','PAD PARAMETERS · NO PAD SELECTED');
     if(dom.padGrid)dom.padGrid.innerHTML='';
   };
   const clearTargets=()=>{
-    targets=[];clearSnapshot();options('padProject',[],'PROJECT');options('padGroup',[],'GROUP');options('padSelect',[],'PAD');
+    targets=[];clearSnapshot();if(dom.padKeys)dom.padKeys.innerHTML='';
+    options('padProject',[],'PROJECT');options('padGroup',[],'GROUP');options('padSelect',[],'PAD');
   };
   const valid=version=>opened&&!disposed&&version===epoch;
   const guard=()=>{
@@ -52,36 +71,42 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
       guard();const project=dom.padProject?.value,group=dom.padGroup?.value;
       if(level==='pad'){
         const selected=targets.find(t=>t.pad===dom.padSelect?.value);
+        renderKeycaps();
         if(!selected){text('padStatus','CHOOSE A PAD.');return;}
         const result=await reader.readTarget({...selected},context(version));
         if(!valid(version))return;guard();
         if(!sameTarget(selected,result?.target))throw Error('Pad target identity changed.');
         snapshot=result;renderSnapshot();return;
       }
-      targets=[];options('padSelect',[],'PAD');if(level==='project')options('padGroup',[],'GROUP');
+      targets=[];options('padSelect',[],'PAD');renderKeycaps();
+      if(level==='project')options('padGroup',[],'GROUP');
       if(!project||level==='group'&&!group){text('padStatus','CHOOSE A PROJECT, GROUP AND PAD.');return;}
-      const result=await reader.listTargets({sampleSlot,project,...(level==='group'?{group}:{})},context(version));
+      const result=await reader.listTargets({project,...(level==='group'?{group}:{})},context(version));
       if(!valid(version))return;guard();
       if(level==='project')options('padGroup',result.groups.map(g=>g.group),'GROUP');
       else{
         targets=[...result.pads,...result.unverifiedPads];
-        options('padSelect',targets.map(t=>({value:t.pad,label:t.pad+(t.assignment?' · UNVERIFIED':'')})),'PAD');
+        options('padSelect',targets.sort((a,b)=>Number(a.pad)-Number(b.pad)).map(t=>({
+          value:t.pad,label:t.pad+(t.assignment?.status==='VERIFIED'
+            ?' · SAMPLE '+String(t.assignment.sampleSlot).padStart(3,'0')
+            :' · UNVERIFIED')
+        })),'PAD');
+        renderKeycaps();
       }
-      text('padStatus',level==='group'&&!targets.length?'NO VERIFIED ASSIGNMENTS FOR THIS SAMPLE.':'READ ONLY · CHOOSE A PAD.');
+      text('padStatus',level==='group'&&!targets.length?'NO READABLE PAD NODES.':'READ ONLY · CHOOSE A PAD.');
     }catch(error){failure(version,error);}
   };
   const close=()=>{
     opened=false;epoch++;session=null;clearTargets();text('padStatus','');if(dom.padDialog)dom.padDialog.hidden=true;
     const restore=previousFocus;previousFocus=null;restore?.focus?.();
   };
-  const openFromSample=async slot=>{
+  const openFromSample=async()=>{
     if(disposed)return;close();previousFocus=documentRef?.activeElement;opened=true;const version=++epoch;
-    sampleSlot=Number(slot?.id??slot);text('padSource','SAMPLE LIBRARY '+String(sampleSlot).padStart(3,'0')+' · ASSIGNMENT FILTER ONLY');
+    text('padSource','EP-133 · PROJECT PAD VIEW · ALL 12 PADS · READ ONLY');
     if(dom.padDialog)dom.padDialog.hidden=false;dom.padClose?.focus?.();text('padStatus','READING PAD TARGETS…');
     try{
       session=captureSession?.();guard();
-      if(!Number.isInteger(sampleSlot)||sampleSlot<1||sampleSlot>999)throw Error('Select a library sample.');
-      const result=await reader.listTargets({sampleSlot},context(version));
+      const result=await reader.listTargets({},context(version));
       if(!valid(version))return;guard();options('padProject',result.projects.map(p=>p.project),'PROJECT');
       text('padStatus','READ ONLY · CHOOSE A PROJECT, GROUP AND PAD.');
     }catch(error){failure(version,error);}
@@ -90,6 +115,14 @@ export function createReadOnlyPadPropertiesController({dom,reader,getAvailabilit
     ['padGroup','change',()=>choose('group')],['padSelect','change',()=>choose('pad')]]){
     dom[key]?.addEventListener(type,fn);listeners.push([dom[key],type,fn]);
   }
+  const clickKeycap=event=>{
+    const pad=event.target?.closest?.('[data-pad-key]')?.dataset?.padKey;
+    if(!opened||!targets.some(t=>t.pad===pad)||!dom.padSelect)return;
+    dom.padSelect.value=pad;
+    void choose('pad');
+  };
+  dom.padKeys?.addEventListener('click',clickKeycap);
+  listeners.push([dom.padKeys,'click',clickKeycap]);
   const captureKey=event=>{
     if(!opened)return;
     // The library owns document-level Delete/F2/arrows and window paste.

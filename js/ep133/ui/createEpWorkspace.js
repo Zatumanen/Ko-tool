@@ -145,8 +145,8 @@ export function createEpWorkspace({
   };
 
   const updatePadReadAvailability=()=>{
-    const selected=memory?.getSelectedSlots?.()||[];
-    if(dom.padOpen)dom.padOpen.disabled=!(selected.length===1&&selected[0].file&&isConnected()&&synchronized&&!metadataHydrating&&!mutating&&runtimeReady());
+    if(dom.padOpen)dom.padOpen.disabled=!(isConnected()&&synchronized&&!metadataHydrating&&!mutating&&
+      runtimeReady()&&!legacyConnectionUnsafe);
   };
   const updateMutationAvailability=()=>{
     memory?.setMutationsEnabled?.(!!(runtimeReady()&&synchronized&&!metadataHydrating&&!mutating));
@@ -275,9 +275,8 @@ export function createEpWorkspace({
     getAvailability:()=>getPadReadAvailability(getConnectedDeviceInfo()),
     captureSession:captureBatchSession,assertSession:assertBatchSession,documentRef});
   const openPadProperties=()=>{
-    const selected=memory?.getSelectedSlots?.()||[];
-    if(selected.length!==1||!selected[0].file||dom.padOpen?.disabled)return;
-    closeProperties();void padReadController.openFromSample(selected[0]);
+    if(dom.padOpen?.disabled)return;
+    closeProperties();void padReadController.openFromSample();
   };
   dom.padOpen?.addEventListener('click',openPadProperties);
   const sampleRenameController=createSampleRenameController({
