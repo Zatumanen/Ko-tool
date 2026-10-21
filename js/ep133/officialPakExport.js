@@ -100,14 +100,14 @@ export function encodeOfficialEpWav(pcmInput,metadata){
   return join([fourcc('RIFF'),u32(body.length),body]);
 }
 const safeName=value=>{
-  const name=String(value||'').replace(/[\\/\\\x00-\\x1f]/g,'_').trim();
+  const name=String(value||'').split('/').join('_').split(String.fromCharCode(92)).join('_').replace(/[\x00-\x1f]/g,'_').trim();
   if(!name||name==='.'||name==='..'||name.length>120)
     throw new Error('Sample name cannot be represented safely in a .pak filename.');
-  return name.replace(/\\.wav$/i,'');
+  return name.toLowerCase().endsWith('.wav')?name.slice(0,-4):name;
 };
 const safeProject=value=>{
   const p=String(value??'').padStart(2,'0');
-  if(!/^\\d{2}$/.test(p))throw new Error('Invalid official backup project number.');
+  if(!/^[0-9]{2}$/.test(p))throw new Error('Invalid official backup project number.');
   return p;
 };
 
@@ -156,7 +156,7 @@ export async function createOfficialEpPak({
     author:'K.O. Tool'
   };
   const base=String(device?.metadata?.base_sku||'').toUpperCase();
-  if(base&&/^TE\\d{3}AS\\d{3}$/.test(base))data.base_sku=base;
+  if(base&&/^TE[0-9]{3}AS[0-9]{3}$/.test(base))data.base_sku=base;
   files.push({path:'/meta.json',blob:new Blob([JSON.stringify(data,null,2)],{type:'application/json'})});
   return{blob:await createZip(files,{compression:'deflate'}),
     format:scope==='device'?'pak':'ppak',
