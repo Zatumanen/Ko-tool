@@ -63,6 +63,10 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
         destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},info:entry(targetId)};
     }
   };
+  fileOps.getFileInInitializedSession=async id=>{
+    events.push(['fast-get',id]);
+    return fileOps.getFile(id);
+  };
   const controller=createSampleMoveController({
     sampleStore,getSoundsParentId:()=>1000,getSoundsMetadata:()=>({}),fileItemFromInfo:info=>info,
     remapCurrentPropertySlot(){},renderDeviceStats(){},
@@ -78,7 +82,8 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
     getDeviceSessionToken:()=>session,isConnected:()=>true,
     markDeviceUnsafe:reason=>events.push(['unsafe',reason]),
     verifyNativeProjectSlotMove,
-    setMutating:value=>events.push(['mutating',value]),setGlobalProgress(){},
+    setMutating:value=>events.push(['mutating',value]),
+    setGlobalProgress:(label,value)=>events.push(['progress',label,value]),
     hideGlobalProgress:()=>events.push(['hide-progress']),
     suppressNativeMoveEvent:()=>()=>{},clearNativeMoveSuppression(){},
     moveFile:fileOps.moveFile,readDevice:async()=>events.push(['resync']),logTechnical(){}
@@ -201,4 +206,24 @@ test('referenced MOVE remains blocked on an unverified firmware',async()=>{
   const h=harness({firmware:'2.5.2'});
   await assert.rejects(()=>h.run([7]),/unverified|not supported|reference|lock/i);
   assertNoMove(h);
+});
+
+test('EP-133 fast project reads preserve complete scan, CRC and 3-stage progress',async()=>{
+  const h=harness({referenced:[7,7]});
+  assert.deepEqual(await h.run([7]),{targetIds:[20]});
+  assert.deepEqual(h.events.filter(e=>e[0]==='fast-get').map(e=>e[1]),
+    [3001,3002,3001,3002]);
+  const progress=h.events.filter(e=>e[0]==='progress');
+  const labels=progress.map(e=>e[1]);
+  assert.deepEqual([...new Set(labels)],['CHECK PROJECTS','MOVE','VERIFY']);
+  assert.equal(progress.at(-1)[2],100);
+  assert.equal(progress.some(e=>e[1]==='CHECK PROJECTS'&&e[2]===30),true);
+  assert.equal(h.events.filter(e=>e[0]==='move').length,1);
+});
+
+test('EP-40 retains traditional FILE_GET init before every project read',async()=>{
+  const h=harness({sku:'TE032AS006'});
+  assert.deepEqual(await h.run([10]),{targetIds:[20]});
+  assert.deepEqual(h.events.filter(e=>e[0]==='fast-get'),[]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),[3001,3002]);
 });
