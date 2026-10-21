@@ -101,11 +101,12 @@ const assertNoMove=h=>{
 };
 
 for(const sku of ['TE032AS001','TE032AS006']){
-  test(sku+': unreferenced MOVE scans every project before mutation and checks CRC',async()=>{
+  test(sku+': unreferenced MOVE checks CRC using firmware-scoped dependency policy',async()=>{
     const h=harness({sku});
     assert.deepEqual(await h.run([10]),{targetIds:[20]});
     const move=h.events.findIndex(e=>e[0]==='move');
-    assert.deepEqual(h.events.slice(0,move).filter(e=>e[0]==='get'),[['get',3001],['get',3002]]);
+    assert.deepEqual(h.events.slice(0,move).filter(e=>e[0]==='get'),
+      sku==='TE032AS001'?[]:[['get',3001],['get',3002]]);
     assert.equal(h.events[move][3].verifyCrc,true);
     assert.equal(h.sampleStore.getSlot(10).file,null);
     assert.ok(h.sampleStore.getSlot(20).file);
@@ -118,8 +119,8 @@ for(const sku of ['TE032AS001','TE032AS006']){
     }else{
       assert.deepEqual(await h.run([id]),{targetIds:[20]});
       assert.equal(h.events.filter(e=>e[0]==='move').length,1);
-      assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),
-        id===7?[3001,3002,3001]:[3001,3002,3002]);
+      assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
+      assert.deepEqual(h.events.filter(e=>e[0]==='list'),[]);
       assert.ok(h.sampleStore.getSlot(20).file);
       assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
     }
@@ -133,14 +134,19 @@ for(const sku of ['TE032AS001','TE032AS006']){
       assert.deepEqual(await h.run([10,7]),{targetIds:[20,21]});
       assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),
         [[10,20],[7,21]]);
-      assert.equal(h.events.filter(e=>e[0]==='get').filter(e=>e[1]===3001).length,2);
+      assert.equal(h.events.filter(e=>e[0]==='get').length,0);
     }
   });
   for(const failure of ['corrupt','unsupported','unavailable','missing-projects']){
-    test(sku+': '+failure+' project blocks MOVE without mutation',async()=>{
+    test(sku+': '+failure+' project integrity is scanned only when firmware remap is unverified',async()=>{
       const h=harness({sku,failure});
-      await assert.rejects(()=>h.run([10]),/TAR|pad-record size|unavailable|not available/);
-      assertNoMove(h);
+      if(sku==='TE032AS001'){
+        assert.deepEqual(await h.run([10]),{targetIds:[20]});
+        assert.equal(h.events.filter(e=>e[0]==='get').length,0);
+      }else{
+        await assert.rejects(()=>h.run([10]),/TAR|pad-record size|unavailable|not available/);
+        assertNoMove(h);
+      }
     });
   }
 }
@@ -151,8 +157,8 @@ test('MOVE fails closed without the strict FILE transaction API',async()=>{
   assertNoMove(h);
 });
 
-test('session change during dependency reads prevents MOVE',async()=>{
-  const h=harness({failure:'session-change'});
+test('session change during strict dependency reads prevents MOVE on unverified firmware',async()=>{
+  const h=harness({sku:'TE032AS006',failure:'session-change'});
   await assert.rejects(()=>h.run([10]),/session changed/);
   assertNoMove(h);
 });
@@ -165,7 +171,7 @@ test('unknown SKU cannot bypass project dependency preflight',async()=>{
 
 test('caller plan changes during preflight cannot move an unscanned source',async()=>{
   const plan=[{sourceId:10,targetId:20}];
-  const h=harness({afterRead:()=>{plan[0].sourceId=7;}});
+  const h=harness({sku:'TE032AS006',afterRead:()=>{plan[0].sourceId=7;}});
   await h.runPlan(plan);
   assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[10,20]]);
   assert.ok(h.sampleStore.getSlot(7).file);
@@ -174,26 +180,36 @@ test('caller plan changes during preflight cannot move an unscanned source',asyn
 test('MOVE still rejects destination CRC mismatch after dependency preflight',async()=>{
   const h=harness({crcVerified:false});
   await assert.rejects(()=>h.run([10]),/CRC verification failed/);
-  assert.deepEqual(h.events.filter(e=>e[0]==='get'),[['get',3001],['get',3002]]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
   assert.equal(h.sampleStore.getSlot(20).file,null);
 });
 
 test('EP-133 firmware remaps one sample in two saved projects without TAR writes',async()=>{
   const h=harness({referenced:[7,7]});
   assert.deepEqual(await h.run([7]),{targetIds:[20]});
-  assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),[3001,3002,3001,3002]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='list'),[]);
   assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
   assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
 });
 
-for(const failure of ['firmware-did-not-remap','unrelated-project-edit','timeout-after-move']){
-  test('EP-133 locks without retry or reverse MOVE after '+failure,async()=>{
-    const h=harness({failure});
-    await assert.rejects(()=>h.run([7]),/Native MOVE may have changed/);
-    assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
-    assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
-  });
-}
+test('native-only route cannot detect a hypothetical broken firmware project remap',async()=>{
+  const h=harness({failure:'firmware-did-not-remap'});
+  assert.deepEqual(await h.run([7]),{targetIds:[20]});
+  assert.equal(h.events.filter(e=>e[0]==='get').length,0);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,0);
+});
+test('native-only route does not inspect unrelated simulated project changes',async()=>{
+  const h=harness({failure:'unrelated-project-edit'});
+  assert.deepEqual(await h.run([7]),{targetIds:[20]});
+  assert.equal(h.events.filter(e=>e[0]==='get').length,0);
+});
+test('EP-133 does not retry or reverse MOVE after an ambiguous timeout',async()=>{
+  const h=harness({failure:'timeout-after-move'});
+  await assert.rejects(()=>h.run([7]),/Native MOVE may have changed/);
+  assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+});
 
 test('a failed second native MOVE never automatically reverses the first',async()=>{
   const h=harness({failure:'second-move-fails'});
@@ -208,16 +224,15 @@ test('referenced MOVE remains blocked on an unverified firmware',async()=>{
   assertNoMove(h);
 });
 
-test('EP-133 fast project reads preserve complete scan, CRC and 3-stage progress',async()=>{
+test('verified EP-133 mirrors official MOVE: no project reads, still checks CRC and progress',async()=>{
   const h=harness({referenced:[7,7]});
   assert.deepEqual(await h.run([7]),{targetIds:[20]});
-  assert.deepEqual(h.events.filter(e=>e[0]==='fast-get').map(e=>e[1]),
-    [3001,3002,3001,3002]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='fast-get'),[]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
   const progress=h.events.filter(e=>e[0]==='progress');
   const labels=progress.map(e=>e[1]);
-  assert.deepEqual([...new Set(labels)],['CHECK PROJECTS','MOVE','VERIFY']);
+  assert.deepEqual([...new Set(labels)],['MOVE','VERIFY']);
   assert.equal(progress.at(-1)[2],100);
-  assert.equal(progress.some(e=>e[1]==='CHECK PROJECTS'&&e[2]===30),true);
   assert.equal(h.events.filter(e=>e[0]==='move').length,1);
 });
 

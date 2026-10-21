@@ -34,6 +34,7 @@ export function createSampleMoveController({
         slots:Object.freeze(plan.map(pair=>pair.sourceId)),
         moves:Object.freeze(plan.map(pair=>Object.freeze({sourceId:pair.sourceId,targetId:pair.targetId}))),
         operation:'move',
+        nativeFirmwareMove:true,
         onMovePreflight,
         onProjectRead
       })
@@ -51,7 +52,7 @@ export function createSampleMoveController({
     const soundsParentId=Number(getSoundsParentId())||0;
 
     setMutating(true);
-    setGlobalProgress('CHECK PROJECTS',0);
+    setGlobalProgress('MOVE',0);
     try{
       return await runMoveTransaction(async fileOps=>{
         try{
@@ -73,7 +74,8 @@ export function createSampleMoveController({
 
             sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
             setGlobalProgress('MOVE',30+(index/plan.length)*65);
-            if(verifiedPreflight&&typeof verifyNativeProjectSlotMove!=='function')
+            if(verifiedPreflight&&!verifiedPreflight.nativeFirmwareMove&&
+               typeof verifyNativeProjectSlotMove!=='function')
               throw new Error('Verified firmware MOVE requires project TAR readback verification.');
             const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
             let moved;
@@ -94,7 +96,7 @@ export function createSampleMoveController({
 
             // For the exact verified firmware, re-read every affected saved TAR.
             // No project upload, pad METADATA_SET or manual remap is performed.
-            if(verifiedPreflight){
+            if(verifiedPreflight&&!verifiedPreflight.nativeFirmwareMove){
               const affected=new Set(verifiedPreflight.references
                 .filter(reference=>reference.slot===pair.sourceId)
                 .map(reference=>reference.project));

@@ -20,6 +20,8 @@ export function readSampleDependencyRequest(operation){
     throw new Error('Invalid MOVE preflight receiver.');
   if(request.onProjectRead!=null&&typeof request.onProjectRead!=='function')
     throw new Error('Invalid MOVE project-read progress receiver.');
+  if(request.nativeFirmwareMove!=null&&typeof request.nativeFirmwareMove!=='boolean')
+    throw new Error('Invalid native firmware MOVE policy.');
   const moves=request.moves==null?null:Array.from(request.moves,pair=>Object.freeze({
     sourceId:Number(pair?.sourceId),targetId:Number(pair?.targetId)
   }));
@@ -32,6 +34,7 @@ export function readSampleDependencyRequest(operation){
     slots:Object.freeze(slots),
     operation:String(request.operation||'modify'),
     ...(moves?{moves:Object.freeze(moves)}:{}),
+    ...(request.nativeFirmwareMove===true?{nativeFirmwareMove:true}:{}),
     ...(request.onMovePreflight?{onMovePreflight:request.onMovePreflight}:{}),
     ...(request.onProjectRead?{onProjectRead:request.onProjectRead}:{}),
     ...(request.confirmReferencedDelete?{confirmReferencedDelete:request.confirmReferencedDelete}:{})
@@ -137,10 +140,6 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
     const device=getConnectedDeviceInfo();
     const verifiedMove=request.operation==='move'&&
       device?.sku==='TE032AS001'&&device?.metadata?.os_version==='2.5.1';
-    const index=await buildIndex(fileOps,{
-      verifiedMove,onProjectRead:request.onProjectRead
-    });
-    const blockers=getSampleDependencyBlockers(index,request.slots);
     if(request.operation==='move'&&request.moves){
       const sources=request.moves.map(pair=>pair.sourceId).sort((a,b)=>a-b);
       const targets=request.moves.map(pair=>pair.targetId);
@@ -150,6 +149,26 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
          new Set(targets).size!==targets.length||
          targets.some(slot=>request.slots.includes(slot)))
         throw new Error('MOVE preflight plan does not match its complete source slot set.');
+      // This exact firmware is the only one on which device-managed project
+      // remapping has been verified on physical EP hardware. The official Sample
+      // Tool moves without downloading project archives. Keep all FILE/session,
+      // CRC and recovery checks; other firmware and DELETE still scan projects.
+      if(request.nativeFirmwareMove&&verifiedMove&&typeof request.onMovePreflight==='function'){
+        getProfile();
+        request.onMovePreflight(Object.freeze({
+          nativeFirmwareMove:true,
+          projectSnapshots:Object.freeze([]),
+          references:Object.freeze([])
+        }));
+        return Object.freeze({strategy:'verified-firmware-native-move'});
+      }
+    }
+    const index=await buildIndex(fileOps,{
+      verifiedMove,onProjectRead:request.onProjectRead
+    });
+    const blockers=getSampleDependencyBlockers(index,request.slots);
+    if(request.operation==='move'&&request.moves){
+      const targets=request.moves.map(pair=>pair.targetId);
       if(getSampleDependencyBlockers(index,targets).length)
         throw new Error('MOVE destination is already referenced by a saved project.');
     }

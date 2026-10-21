@@ -66,31 +66,37 @@ for(const variant of ['native','27-byte','missing-pattern']){
   });
 }
 
-test('firmware that does not remap a referenced project triggers a safety lock without retry',async({page})=>{
+test('official-style MOVE trusts hardware remap rather than reading project TAR',async({page})=>{
   await open(page,'native');
   await page.evaluate(()=>window.__fakeEp.setFirmwareProjectRemapEnabled(false));
   const start=await page.evaluate(()=>window.__fakeEp.requestLog.length);
   await drag(page,7,20);
-  await expect(page.locator('#error-message')).toContainText('Native MOVE may have changed');
-  const requests=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),start);
-  expect(mutations(requests).map(x=>x.sub)).toEqual([12]);
+  await expect(page.locator('[data-slot="20"]')).toHaveClass(/occupied/);
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  const result=await page.evaluate(index=>({
+    requests:window.__fakeEp.requestLog.slice(index),pads:window.__fakeEp.projectPadSlots()
+  }),start);
+  expect(mutations(result.requests).map(x=>x.sub)).toEqual([12]);
+  expect(result.requests.some(x=>x.command===5&&x.sub===3&&x.type===0)).toBe(false);
+  // Deliberate scope limit: broken fake firmware cannot be detected by this
+  // official-style path. Real EP-133 2.5.1 HIL proved firmware remapping.
+  expect(result.pads.filter(x=>x.slot===7)).toHaveLength(2);
 });
 
-test('an unreadable project pad blocks an unreferenced sample MOVE without mutation',async({page})=>{
+test('a malformed saved project does not trigger a project TAR read on verified firmware',async({page})=>{
   await open(page,'malformed');
   const start=await page.evaluate(()=>window.__fakeEp.requestLog.length);
   await drag(page,10,20);
-  await expect(page.locator('#error-message')).toContainText('unsupported pad-record size');
-  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  await expect(page.locator('[data-slot="20"]')).toHaveClass(/occupied/);
   const result=await page.evaluate(index=>({
     requests:window.__fakeEp.requestLog.slice(index),samples:window.__fakeEp.snapshot()
   }),start);
-  expect(mutations(result.requests)).toEqual([]);
-  expect(result.samples.some(s=>s.id===10)).toBe(true);
-  expect(result.samples.some(s=>s.id===20)).toBe(false);
+  expect(mutations(result.requests).map(x=>x.sub)).toEqual([12]);
+  expect(result.requests.some(x=>x.command===5&&x.sub===3&&x.type===0)).toBe(false);
+  expect(result.samples.some(x=>x.id===10)).toBe(false);
 });
 
-test('unreferenced native MOVE reads all projects first and verifies destination CRC',async({page})=>{
+test('unreferenced native MOVE skips project scans and still verifies destination CRC',async({page})=>{
   await open(page,'native');
   const before=await page.evaluate(()=>({
     requests:window.__fakeEp.requestLog.length,bytes:window.__fakeEp.sampleBytes(10),
@@ -104,14 +110,10 @@ test('unreferenced native MOVE reads all projects first and verifies destination
     requests:window.__fakeEp.requestLog.slice(index),bytes:window.__fakeEp.sampleBytes(20),
     projects:window.__fakeEp.projectSnapshot()
   }),before.requests);
-  const move=result.requests.findIndex(r=>r.command===5&&r.sub===12);
-  expect(move).toBeGreaterThan(-1);
-  const projectReads=result.requests.slice(0,move).filter(r=>r.command===5&&r.sub===3&&r.type===0)
-    .map(r=>(r.raw[2]<<8)|r.raw[3]);
-  expect(projectReads).toEqual([3001,3002]);
-  expect(result.requests.slice(move+1).some(r=>r.command===5&&r.sub===7&&r.type===2&&
-    ((r.raw[2]<<8)|r.raw[3])===20)).toBe(true);
   expect(mutations(result.requests).map(r=>r.sub)).toEqual([12]);
+  expect(result.requests.some(r=>r.command===5&&r.sub===3&&r.type===0)).toBe(false);
+  expect(result.requests.some(r=>r.command===5&&r.sub===7&&r.type===2&&
+    ((r.raw[2]<<8)|r.raw[3])===20)).toBe(true);
   expect(result.bytes).toEqual(before.bytes);
   expect(result.projects).toEqual(before.projects);
 });
@@ -151,13 +153,8 @@ test('native cross-tab drag opens LOOP on hover and moves only on empty slot dro
   }),before);
   expect(mutations(result.requests).map(x=>x.sub)).toEqual([12]);
   expect(result.pads.filter(x=>x.slot===600)).toHaveLength(2);
-  // Exact-firmware fast reads still GET every project but skip repeated FILE_INIT.
-  const beforeMove=result.requests.findIndex(x=>x.command===5&&x.sub===12);
-  const projectReads=result.requests.slice(0,beforeMove).filter(x=>
-    x.command===5&&x.sub===3&&x.type===0
-  );
-  expect(projectReads.length).toBe(2);
-  expect(result.requests.slice(0,beforeMove).filter(x=>x.command===5&&x.sub===1).length).toBe(0);
+  // Native EP-133 2.5.1 firmware updates pad references itself; no TAR GET.
+  expect(result.requests.filter(x=>x.command===5&&x.sub===3&&x.type===0)).toEqual([]);
 });
 
 test('dragging onto a tab alone never dispatches native FILE_MOVE',async({page})=>{
