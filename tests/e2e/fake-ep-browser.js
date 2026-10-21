@@ -95,6 +95,14 @@
     [3001,{id:3001,parent:2000,name:'01',data:projectTar}],
     [3002,{id:3002,parent:2000,name:'02',data:projectTarComplete}]
   ]);
+  const seedProjects=count=>{
+    if(!Number.isInteger(count)||count<1||count>9)throw new Error('Invalid fake project count');
+    projects.clear();
+    for(let number=1;number<=count;number++){
+      const id=3000+number;
+      projects.set(id,{id,parent:2000,name:String(number).padStart(2,'0'),data:projectTarComplete.slice()});
+    }
+  };
   // Synthetic read-only hierarchy: discovered FIDs/parents, never a FID formula.
   // These fixtures do not reconstruct the missing hardware RX for FID 3202.
   const padNodes=new Map([
@@ -189,6 +197,8 @@
   const rejectedUploadSlots=new Set();
   let rejectedListPage=null,heldListPage=null;
   const delayedListResponses=[];
+  const rejectedGetIds=new Set();
+  let heldGet=null,holdNextGetId=null;
   const requestLog=[];
   const listPageSize=24;
   // Represent full sample-library capacity without allocating 65 MB of audio.
@@ -395,6 +405,10 @@
     }
     if(sub===F.GET&&raw[1]===0){
       const id=u16(raw,2),file=samples.get(id)||projects.get(id);
+      if(rejectedGetIds.has(id)){
+        rejectedGetIds.delete(id);
+        emitLater(response(request,enc.encode('fake file read refused\0'),3));return;
+      }
       if(!file){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
       currentGet={file,pageSize:96};
       const flags=projects.has(id)?CAP.DIR|CAP.READ:flagsFile;
@@ -404,7 +418,11 @@
       const page=u16(raw,2),file=currentGet?.file;
       if(!file){emitLater(response(request,enc.encode('no get\0'),3));return;}
       const chunk=file.data.slice(page*currentGet.pageSize,(page+1)*currentGet.pageSize);
-      emitLater(response(request,concat(be16(page),chunk)));return;
+      const reply=()=>emitLater(response(request,concat(be16(page),chunk)));
+      if(holdNextGetId===file.id){
+        holdNextGetId=null;heldGet=reply;return;
+      }
+      reply();return;
     }
     if(sub===F.PUT&&raw[1]===0){
       const flags=raw[2],id=u16(raw,3),parent=u16(raw,5),size=u32(raw,7),name=zstr(raw,11);
@@ -476,6 +494,11 @@
     sampleBytes:id=>samples.has(Number(id))?[...samples.get(Number(id)).data]:null,
     removeSample:id=>samples.delete(Number(id)),
     seedSamples,
+    seedProjects,
+    rejectNextGet:id=>rejectedGetIds.add(Number(id)),
+    holdNextGet:id=>{holdNextGetId=Number(id);},
+    releaseHeldGet:()=>{const reply=heldGet;heldGet=null;reply?.();},
+    get hasHeldGet(){return heldGet!==null;},
     seedSample:id=>{
       if(!Number.isInteger(id)||id<1||id>999||samples.has(id))throw new Error('Invalid new fake sample slot');
       const source=samples.get(8),name='sample'+id;
