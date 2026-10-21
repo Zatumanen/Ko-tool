@@ -84,9 +84,19 @@ test('unverified assignment '+JSON.stringify(sym)+' is never replaced with the s
   assert.equal(result.assignment.status,'UNVERIFIED');assert.equal(result.assignment.sampleSlot,null);noMutations(h);
 });
 
-test('assignment changed to a different known sample refuses the selected target',async()=>{
+test('a different assigned sample remains readable with its real assignment',async()=>{
   const h=harness();h.metadata.get(6107).sym=8;
-  await assert.rejects(()=>h.reader.readTarget(h.target,h.options),/assignment/i);noMutations(h);
+  const list=await h.reader.listTargets({project:'01',group:'A'},h.options);
+  assert.deepEqual(list.pads.map(p=>p.assignment.sampleSlot),[8,7]);
+  const snapshot=await h.reader.readTarget({...h.target,sampleSlot:undefined},h.options);
+  assert.equal(snapshot.assignment.sampleSlot,8);noMutations(h);
+});
+test('project/group discovery does not require a library sample filter',async()=>{
+  const h=harness();
+  const projects=await h.reader.listTargets({},h.options);
+  assert.deepEqual(projects.projects.map(p=>p.project),['01']);
+  const pads=await h.reader.listTargets({project:'01',group:'A'},h.options);
+  assert.deepEqual(pads.pads.map(p=>p.pad),['01','02']);noMutations(h);
 });
 
 for(const [field,value]of [['project','../01'],['group','E'],['pad','13'],['sampleSlot',0],['padFid',6209],['projectFid',2102],['groupFid',4002]])

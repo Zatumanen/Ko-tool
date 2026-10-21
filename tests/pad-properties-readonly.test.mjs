@@ -11,7 +11,7 @@ const setup=()=>{
     focus(){documentRef.activeElement=this;},
     addEventListener(type,fn){this.listeners.set(type,fn);},removeEventListener(type){this.listeners.delete(type);},
     fire(type){return this.listeners.get(type)?.({target:this});}});
-  const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padGrid','padStatus','padSource'].map(k=>[k,element()]));
+  const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padKeys','padGrid','padStatus','padSource'].map(k=>[k,element()]));
   let permission=true,session='one',nextRead=null,targetOverride=null;
   const calls=[],target={project:'01',group:'A',pad:'01',sampleSlot:7,projectFid:2101,groupFid:4001,padFid:6107};
   let metadata={'sound.pitch':-2.25,'sound.playmode':'key','time.mode':'bpm'},assignment={status:'VERIFIED',sampleSlot:7};
@@ -42,6 +42,11 @@ test('explicit project/group/pad navigation displays only the pad GET values, ne
   assert.match(s.dom.padAssignment.textContent,/PROJECT 01.*A.*01.*007/);
   assert.match(s.dom.padStatus.textContent,/READ ONLY/);
   assert.deepEqual(Object.keys(s.controller).sort(),['close','dispose','invalidate','openFromSample']);
+  assert.match(s.dom.padSource.textContent,/ALL 12 PADS/);
+  assert.match(s.dom.padKeys.innerHTML,/data-pad-key="01"/);
+  assert.match(s.dom.padKeys.innerHTML,/data-pad-key="10"/);
+  assert.match(s.dom.padKeys.innerHTML,/ep-pad-key-legend">\./);
+  assert.match(s.dom.padKeys.innerHTML,/SMP 007/);
 });
 
 test('missing and unsupported metadata render UNVERIFIED plus escaped raw GET data',async()=>{
@@ -55,6 +60,17 @@ test('sym zero is displayed as UNVERIFIED assignment instead of the source libra
   assert.match(s.dom.padAssignment.textContent,/UNVERIFIED/);assert.doesNotMatch(s.dom.padAssignment.textContent,/ASSIGNED SAMPLE 007/);
 });
 
+test('all twelve physical keys render in hardware order and unavailable nodes are disabled',async()=>{
+  const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
+  const html=s.dom.padKeys.innerHTML;
+  assert.equal((html.match(/data-pad-key=/g)||[]).length,12);
+  assert.match(html,/data-pad-key="01"/);
+  assert.match(html,/data-pad-key="02"/);
+  assert.match(html,/data-pad-key="10"/);
+  assert.match(html,/data-pad-key="12" disabled/);
+  assert.ok(html.indexOf('data-pad-key="01"')<html.indexOf('data-pad-key="02"'));
+  assert.ok(html.indexOf('data-pad-key="09"')<html.indexOf('data-pad-key="10"'));
+});
 test('rapid pad switching discards a late answer for the previous pad',async()=>{
   const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
   const gate=s.deferRead(),old=s.choose('padSelect','01');await gate.entered.promise;

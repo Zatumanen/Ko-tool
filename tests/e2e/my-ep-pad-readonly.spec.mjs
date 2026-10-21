@@ -23,7 +23,7 @@ for(const [sku,os] of [['TE032AS006','2.5.1'],['TE032AS005','2.5.1'],['TE032AS00
   await page.locator('#ep133-pad-open').click();
   const dialog=page.getByRole('dialog',{name:'Read-only Pad Parameters',exact:true});
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('#ep133-pad-source')).toContainText('SAMPLE LIBRARY 007');
+  await expect(dialog.locator('#ep133-pad-source')).toContainText('ALL 12 PADS');
   await expect(dialog.locator('#ep133-pad-assignment')).toContainText('NO PAD SELECTED');
   await expect(dialog.locator('#ep133-pad-status')).toContainText('Pad metadata READ is not authorized');
   for(const id of ['project','group','select'])await expect(dialog.locator('#ep133-pad-'+id)).toBeDisabled();
@@ -77,13 +77,23 @@ test('EP-133 OS 2.5.1 production UI reads its own pad metadata without any write
   await open(page,'TE032AS001');
   const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
   await selectPad(page);
-  await expect(page.locator('#ep133-pad-source')).toContainText('SAMPLE LIBRARY 007');
+  await expect(page.locator('#ep133-pad-source')).toContainText('ALL 12 PADS');
   await expect(page.locator('#ep133-pad-assignment')).toContainText('PROJECT 01 / GROUP A / PAD 01 · ASSIGNED SAMPLE 007');
   for(const [field,value] of [['sound.pitch','-2.25'],['sound.playmode','key'],['time.mode','bpm']])
     await expect(page.locator('[data-pad-field="'+field+'"]')).toHaveText(value);
-  await expect(page.locator('#ep133-pad-select option[value="02"]')).toHaveText('02 · UNVERIFIED');
-  await expect(page.getByRole('dialog',{name:'Read-only Pad Parameters',exact:true}).getByRole('button')).toHaveCount(1);
-  await page.locator('#ep133-pad-select').selectOption('02');
+  await expect(page.locator('#ep133-pad-select option[value="02"]')).toHaveText('02 · SAMPLE 008');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key]')).toHaveCount(12);
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="01"]')).toContainText('7');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="02"]')).toContainText('8');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="10"]')).toContainText('.');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="01"]')).toContainText('SMP 007');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="02"]')).toContainText('SMP 008');
+  await expect(page.locator('#ep133-pad-keys [data-pad-key="10"]')).toContainText('SMP 602');
+  await page.locator('#ep133-pad-keys [data-pad-key="02"]').click();
+  await expect(page.locator('#ep133-pad-assignment')).toContainText('PAD 02 · ASSIGNED SAMPLE 008');
+  await page.locator('#ep133-pad-keys [data-pad-key="10"]').click();
+  await expect(page.locator('#ep133-pad-assignment')).toContainText('PAD 10 · ASSIGNED SAMPLE 602');
+  await page.locator('#ep133-pad-keys [data-pad-key="11"]').click();
   await expect(page.locator('#ep133-pad-status')).toContainText('ASSIGNMENT UNVERIFIED');
   await expect(page.locator('#ep133-pad-assignment')).toContainText('ASSIGNMENT UNVERIFIED');
   const libraryPitch=await page.evaluate(()=>window.__fakeEp.snapshot().find(s=>s.id===7).meta['sound.pitch']);
