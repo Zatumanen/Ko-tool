@@ -130,6 +130,87 @@ test('picker permission rejection fails visibly without download fallback; close
   expect(await page.evaluate(()=>window.__saveAttempts)).toBe(1);
 });
 
+
+test('CANCEL BACKUP drains the current project FILE_GET, skips subsequent projects and never saves partial output',async({page})=>{
+  await openBackup(page,{selectProject02:true});
+  await page.evaluate(()=>{
+    window.__fakeEp.holdNextGet(3001);
+    window.__cancelTestSaved=0;
+    window.showSaveFilePicker=async()=>{
+      window.__cancelTestSaved++;
+      return{async createWritable(){return{async write(){},async close(){}};}};
+    };
+  });
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await expect(page.locator('#ep133-backup-cancel')).toBeHidden();
+  await page.locator('#ep133-backup-device').click();
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.hasHeldGet),{timeout:15000}).toBe(true);
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('READING PROJECTS');
+  await expect(page.locator('#ep133-backup-current')).toHaveText('P01.tar');
+  const cancel=page.locator('#ep133-backup-cancel');
+  await expect(cancel).toBeEnabled();
+  await cancel.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('CANCELLING');
+  await expect(cancel).toBeDisabled();
+  await expect(page.locator('#ep133-backup-close')).toBeDisabled();
+  await expect(page.locator('#ep133-backup-detail')).toContainText('FINISHING CURRENT DEVICE REQUEST');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ep133-backup-dialog')).toBeVisible();
+  await page.evaluate(()=>window.__fakeEp.releaseHeldGet());
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('CANCELLED',{timeout:15000});
+  await expect(page.locator('#ep133-backup-operation')).toHaveAttribute('data-state','cancelled');
+  await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 0/2 · SAMPLES 0/0');
+  await expect(page.locator('#ep133-backup-detail')).toContainText('NO PARTIAL ARCHIVE');
+  await expect(cancel).toBeHidden();
+  await expect(page.locator('#ep133-backup-close')).toBeEnabled();
+  const result=await page.evaluate(index=>({
+    requests:window.__fakeEp.requestLog.slice(index),
+    saved:window.__cancelTestSaved
+  }),before);
+  expect(result.saved).toBe(0);
+  const projectGetInits=result.requests.filter(r=>r.command===5&&r.sub===3&&r.type===0)
+    .map(r=>(r.raw[2]<<8)|r.raw[3]);
+  expect(projectGetInits).toEqual([3001]);
+  expect(result.requests.filter(r=>r.command===5&&
+    ([2,6,12].includes(r.sub)||(r.sub===7&&r.type===1)))).toEqual([]);
+  await page.locator('#ep133-backup-device').click();
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:20000});
+  await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 2/2 · SAMPLES 2/2');
+  expect(await page.evaluate(()=>window.__cancelTestSaved)).toBe(1);
+});
+
+test('cancelling during sample FILE_GET on a 9-project / 331-sample backup stops the rest without output',async({page})=>{
+  test.setTimeout(120000);
+  await openBackup(page,{projects:9,samples:331});
+  await page.evaluate(()=>{
+    window.__fakeEp.holdNextGet(1);
+    window.__cancelSampleSaved=0;
+    window.showSaveFilePicker=async()=>{window.__cancelSampleSaved++;return{
+      async createWritable(){return{async write(){},async close(){}};}
+    };};
+  });
+  const start=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-backup-device').click();
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.hasHeldGet),{timeout:90000}).toBe(true);
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('READING SAMPLES');
+  await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 9/9 · SAMPLES 0/331');
+  await expect(page.locator('#ep133-backup-current')).toContainText('001');
+  await page.locator('#ep133-backup-cancel').click();
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('CANCELLING');
+  await page.evaluate(()=>window.__fakeEp.releaseHeldGet());
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('CANCELLED',{timeout:15000});
+  await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 9/9 · SAMPLES 0/331');
+  const result=await page.evaluate(index=>({
+    requests:window.__fakeEp.requestLog.slice(index),
+    saved:window.__cancelSampleSaved
+  }),start);
+  expect(result.saved).toBe(0);
+  const soundGets=result.requests.filter(r=>r.command===5&&r.sub===3&&r.type===0)
+    .map(r=>(r.raw[2]<<8)|r.raw[3]).filter(id=>id>=1&&id<=999);
+  expect(soundGets).toEqual([1]);
+});
+
 test('picker cancellation is not reported as a completed backup',async({page})=>{
   await openBackup(page);
   await page.evaluate(()=>{
