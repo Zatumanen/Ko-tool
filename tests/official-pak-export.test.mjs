@@ -77,7 +77,7 @@ test('official WAV preserves exact original PCM, RIFF size, smpl and INFO/TNGE m
   assert.equal(new TextDecoder().decode(list.slice(4,8)),'TNGE');
   const jsonSize=new DataView(list.buffer).getUint32(8,true);
   assert.equal(list[12+jsonSize-1],0);
-  const m=JSON.parse(new TextDecoder().decode(list.slice(12,12+jsonSize-1)));
+  const m=JSON.parse(new TextDecoder().decode(list.slice(12,12+jsonSize)).replaceAll(String.fromCharCode(0),''));
   assert.equal(m['sound.pitch'],-12);
   assert.equal(m['sample.end'],4);
   assert.equal('sound.loopstart' in m,false);
@@ -92,7 +92,7 @@ test('official WAV ACID BPM chunk appears only for verified BPM range',()=>{
   assert.equal(acid.length,24);
   assert.ok(Math.abs(new DataView(acid.buffer).getFloat32(20,true)-87.46)<0.00001);
   const body=chunks.get('LIST');
-  assert.equal(JSON.parse(new TextDecoder().decode(body.slice(12,-1)))['sound.bpm'],87.46);
+  assert.equal(JSON.parse(new TextDecoder().decode(body.slice(12)).replaceAll(String.fromCharCode(0),''))['sound.bpm'],87.46);
 });
 
 test('official TNGE pads JSON payload to four bytes for both reference BPM layouts',()=>{
@@ -106,7 +106,7 @@ test('official TNGE pads JSON payload to four bytes for both reference BPM layou
     assert.equal(n%4,0);
     assert.equal(wav.length-candidate.data.length,extra);
     const tng=list.subarray(12,12+n);
-    assert.equal(JSON.parse(new TextDecoder().decode(tng).replace(/\\0+$/,''))['sound.bpm'],bpm);
+    assert.equal(JSON.parse(new TextDecoder().decode(tng).replaceAll(String.fromCharCode(0),''))['sound.bpm'],bpm);
   }
 });
 
