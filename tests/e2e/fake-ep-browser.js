@@ -277,7 +277,7 @@
       if(!name)break;
       const size=parseInt(zstr(header,124).trim(),8)||0;
       const dataStart=offset+512;
-      if(/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(name)&&size>=3){
+      if(/^pads\/[abcd]\/p(?:0[1-9]|1[0-2])$/.test(name)&&size>=3){
         const slot=bytes[dataStart+1]|bytes[dataStart+2]<<8;
         visit({name,slot,offset:dataStart+1,bytes});
       }
