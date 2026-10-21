@@ -3,9 +3,6 @@ import path from 'node:path';
 import{fileURLToPath}from 'node:url';
 
 const fakeEpScript=path.join(path.dirname(fileURLToPath(import.meta.url)),'fake-ep-browser.js');
-const fileWrites=requests=>requests.filter(r=>r.command===5&&(
-  [2,6,12].includes(r.sub)||(r.sub===7&&r.type===1)
-));
 const openBackup=async(page,{projects=2,samples=null}={})=>{
   await page.addInitScript({path:fakeEpScript});
   await page.goto('/');
@@ -44,7 +41,8 @@ test('9 projects / 331 samples: in-dialog counters reach exact completed file to
   await expect(page.locator('#ep133-backup-detail')).toContainText('FILE WRITTEN');
   const outcome=await page.evaluate(start=>({
     saved:window.__savedBackupFiles,
-    mutating:fileWrites(window.__fakeEp.requestLog.slice(start))
+    mutating:window.__fakeEp.requestLog.slice(start).filter(r=>r.command===5&&
+      ([2,6,12].includes(r.sub)||(r.sub===7&&r.type===1)))
   }),before);
   expect(outcome.saved).toHaveLength(1);
   expect(outcome.saved[0].closed).toBe(true);
@@ -73,7 +71,9 @@ test('paused FILE_GET leaves visible activity, identifies current project and fo
   await expect(page.locator('#ep133-backup-dialog')).toBeVisible();
   await page.evaluate(()=>window.__fakeEp.releaseHeldGet());
   await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:25000});
-  expect(await page.evaluate(start=>fileWrites(window.__fakeEp.requestLog.slice(start)),before)).toEqual([]);
+  expect(await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(r=>
+    r.command===5&&([2,6,12].includes(r.sub)||(r.sub===7&&r.type===1))
+  ),before)).toEqual([]);
 });
 
 test('mid-backup FILE_GET error is visible as FAILED; next backup can retry',async({page})=>{
