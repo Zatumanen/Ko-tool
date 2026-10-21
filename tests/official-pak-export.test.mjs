@@ -95,6 +95,21 @@ test('official WAV ACID BPM chunk appears only for verified BPM range',()=>{
   assert.equal(JSON.parse(new TextDecoder().decode(body.slice(12,-1)))['sound.bpm'],87.46);
 });
 
+test('official TNGE pads JSON payload to four bytes for both reference BPM layouts',()=>{
+  for(const [slot,bpm,end,extra] of [[612,87.46,81416,356],[617,130.3,162133,360]]){
+    const candidate=sample(slot,{
+      'sound.bpm':bpm,'sample.end':end,'sound.pitch':0
+    });
+    const wav=createOfficialSampleWav(candidate);
+    const list=wavChunks(wav).get('LIST');
+    const n=new DataView(list.buffer,list.byteOffset,list.byteLength).getUint32(8,true);
+    assert.equal(n%4,0);
+    assert.equal(wav.length-candidate.data.length,extra);
+    const tng=list.subarray(12,12+n);
+    assert.equal(JSON.parse(new TextDecoder().decode(tng).replace(/\\0+$/,''))['sound.bpm'],bpm);
+  }
+});
+
 test('official whole device PAK has deflated leading-slash paths, correct manifest, original bytes and no serial',async()=>{
   const p=project('01');
   const s=sample();
