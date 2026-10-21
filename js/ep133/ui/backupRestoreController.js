@@ -132,7 +132,14 @@ export function createBackupRestoreController({
   };
   const reportDialogError=(message,error)=>{
     failBackup(error);
-    reportError(message,error);
+    // The dialog is above the global error layer. Opening a second, lower
+    // modal here traps pointer/focus while hiding the actionable FAILED state.
+    // Keep the error inside the active dialog and in technical logs instead.
+    if(dialog.hidden)reportError(message,error);
+    else{
+      setStatus(String(message)+' '+String(error?.message||error));
+      console.error(message,error);
+    }
   };
   const setBaseDisabled=(button,value)=>{
     if(!button)return;
