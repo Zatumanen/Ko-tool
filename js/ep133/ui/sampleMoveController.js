@@ -98,15 +98,15 @@ export function createSampleMoveController({
               const affected=new Set(verifiedPreflight.references
                 .filter(reference=>reference.slot===pair.sourceId)
                 .map(reference=>reference.project));
-              const readProject=verifiedPreflight.verifiedFastRead&&
-                typeof fileOps.getFileInInitializedSession==='function'
-                ?fileOps.getFileInInitializedSession:fileOps.getFile;
               let verified=0;
               for(const project of affected){
                 assertBatchSession(sessionToken);
                 const snapshot=projectSnapshots.get(project);
                 if(!snapshot)throw new Error('MOVE project P'+project+' preflight snapshot missing.');
-                const readback=await readProject(snapshot.nodeId);
+                const readback=verifiedPreflight.verifiedFastRead&&
+                  typeof fileOps.getFileInInitializedSession==='function'
+                  ?await fileOps.getFileInInitializedSession(snapshot.nodeId)
+                  :await fileOps.getFile(snapshot.nodeId);
                 const verification=verifyNativeProjectSlotMove(snapshot.data,readback.data,{
                   project,sourceId:pair.sourceId,targetId:pair.targetId
                 });
