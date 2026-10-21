@@ -26,7 +26,7 @@ export function createSampleMoveController({
     renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
   };
 
-  const runMoveTransaction=(operation,plan,onMovePreflight)=>{
+  const runMoveTransaction=(operation,plan,onMovePreflight,onProjectRead)=>{
     if(typeof withFileTransaction!=='function')
       throw new Error('MOVE requires a strict FILE transaction with project dependency preflight.');
     Object.defineProperty(operation,'sampleDependencyGuard',{
@@ -34,7 +34,8 @@ export function createSampleMoveController({
         slots:Object.freeze(plan.map(pair=>pair.sourceId)),
         moves:Object.freeze(plan.map(pair=>Object.freeze({sourceId:pair.sourceId,targetId:pair.targetId}))),
         operation:'move',
-        onMovePreflight
+        onMovePreflight,
+        onProjectRead
       })
     });
     return withFileTransaction('sample move transaction',operation,{strict:true});
@@ -50,6 +51,7 @@ export function createSampleMoveController({
     const soundsParentId=Number(getSoundsParentId())||0;
 
     setMutating(true);
+    setGlobalProgress('CHECK PROJECTS',0);
     try{
       return await runMoveTransaction(async fileOps=>{
         try{
@@ -70,7 +72,7 @@ export function createSampleMoveController({
               ?Number(trustedCrc):null;
 
             sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
-            setGlobalProgress('MOVE',(index/plan.length)*100);
+            setGlobalProgress('MOVE',30+(index/plan.length)*65);
             if(verifiedPreflight&&typeof verifyNativeProjectSlotMove!=='function')
               throw new Error('Verified firmware MOVE requires project TAR readback verification.');
             const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
@@ -86,6 +88,7 @@ export function createSampleMoveController({
             }
             releaseSuppression();
 
+            setGlobalProgress('VERIFY',30+((index+0.55)/plan.length)*65);
             if(moved.crcVerified!==true)
               throw new Error('Native FILE_MOVE CRC verification failed for slot '+source.id+' -> '+target.id+'.');
 
@@ -95,24 +98,30 @@ export function createSampleMoveController({
               const affected=new Set(verifiedPreflight.references
                 .filter(reference=>reference.slot===pair.sourceId)
                 .map(reference=>reference.project));
+              let verified=0;
               for(const project of affected){
                 assertBatchSession(sessionToken);
                 const snapshot=projectSnapshots.get(project);
                 if(!snapshot)throw new Error('MOVE project P'+project+' preflight snapshot missing.');
-                const readback=await fileOps.getFile(snapshot.nodeId);
+                const readback=verifiedPreflight.verifiedFastRead&&
+                  typeof fileOps.getFileInInitializedSession==='function'
+                  ?await fileOps.getFileInInitializedSession(snapshot.nodeId)
+                  :await fileOps.getFile(snapshot.nodeId);
                 const verification=verifyNativeProjectSlotMove(snapshot.data,readback.data,{
                   project,sourceId:pair.sourceId,targetId:pair.targetId
                 });
                 snapshot.data=verification.data;
+                verified++;
+                setGlobalProgress('VERIFY',30+((index+0.55+0.4*verified/affected.size)/plan.length)*65);
               }
             }
 
             applyNativeMoveLocally(source,target,moved);
             sampleStore.setOperation(target.id,{status:'complete',label:'MOVED',progress:100});
-            setGlobalProgress('MOVE',((index+1)/plan.length)*100);
+            setGlobalProgress('VERIFY',30+((index+1)/plan.length)*65);
           }
           for(const pair of plan)sampleStore.clearOperation(pair.targetId);
-          setGlobalProgress('MOVE',100);
+          setGlobalProgress('VERIFY',100);
           return{targetIds:plan.map(pair=>pair.targetId)};
         }catch(error){
           sampleStore.clearOperations();
@@ -135,6 +144,8 @@ export function createSampleMoveController({
             project:snapshot.project,nodeId:snapshot.nodeId,data:snapshot.data.slice()
           });
         }
+      },(done,total)=>{
+        setGlobalProgress('CHECK PROJECTS',total?30*done/total:30);
       });
     }finally{
       hideGlobalProgress();

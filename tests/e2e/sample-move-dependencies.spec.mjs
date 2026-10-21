@@ -115,3 +115,63 @@ test('unreferenced native MOVE reads all projects first and verifies destination
   expect(result.bytes).toEqual(before.bytes);
   expect(result.projects).toEqual(before.projects);
 });
+
+test('native cross-tab drag opens LOOP on hover and moves only on empty slot drop',async({page})=>{
+  await open(page,'native');
+  const source=page.locator('[data-slot="7"]');
+  await expect(source).toHaveAttribute('draggable','true');
+  const from=await source.boundingBox();
+  const tab=page.locator('.ep133-sample-tab', {hasText:'LOOP'});
+  const destinationTab=await tab.boundingBox();
+  expect(from).toBeTruthy();expect(destinationTab).toBeTruthy();
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+
+  await page.mouse.move(from.x+60,from.y+from.height/2);
+  await page.mouse.down();
+  await page.mouse.move(destinationTab.x+destinationTab.width/2,
+    destinationTab.y+destinationTab.height/2,{steps:18});
+
+  await expect(page.locator('.ep133-sample-tab.selected')).toHaveText('LOOP');
+  await expect(page.locator('[data-slot="600"]')).toHaveClass(/empty/);
+  expect(await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).some(
+    r=>r.command===5&&r.sub===12
+  ),before)).toBe(false);
+
+  const target=page.locator('[data-slot="600"]');
+  await target.scrollIntoViewIfNeeded();
+  const to=await target.boundingBox();
+  await page.mouse.move(to.x+60,to.y+to.height/2,{steps:16});
+  await page.mouse.up();
+  await expect(page.locator('[data-slot="600"]')).toHaveClass(/occupied/);
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+
+  const result=await page.evaluate(start=>({
+    requests:window.__fakeEp.requestLog.slice(start),
+    pads:window.__fakeEp.projectPadSlots()
+  }),before);
+  expect(mutations(result.requests).map(x=>x.sub)).toEqual([12]);
+  expect(result.pads.filter(x=>x.slot===600)).toHaveLength(2);
+  // Exact-firmware fast reads still GET every project but skip repeated FILE_INIT.
+  const beforeMove=result.requests.findIndex(x=>x.command===5&&x.sub===12);
+  const projectReads=result.requests.slice(0,beforeMove).filter(x=>
+    x.command===5&&x.sub===3&&x.type===0
+  );
+  expect(projectReads.length).toBe(2);
+  expect(result.requests.slice(0,beforeMove).filter(x=>x.command===5&&x.sub===1).length).toBe(0);
+});
+
+test('dragging onto a tab alone never dispatches native FILE_MOVE',async({page})=>{
+  await open(page,'native');
+  const from=await page.locator('[data-slot="7"]').boundingBox();
+  const tab=await page.locator('.ep133-sample-tab',{hasText:'LOOP'}).boundingBox();
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.mouse.move(from.x+60,from.y+from.height/2);
+  await page.mouse.down();
+  await page.mouse.move(tab.x+tab.width/2,tab.y+tab.height/2,{steps:16});
+  await expect(page.locator('.ep133-sample-tab.selected')).toHaveText('LOOP');
+  await page.mouse.up();
+  const moves=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start).filter(
+    x=>x.command===5&&x.sub===12
+  ),before);
+  expect(moves).toEqual([]);
+});

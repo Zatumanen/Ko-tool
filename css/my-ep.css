@@ -462,6 +462,21 @@
   z-index:2;
 }
 .ep133-sample-tab.selected:before{background:#fff}
+/* Hovering a destination tab while dragging only navigates; never drops. */
+.ep133-sample-tab.drag-switch-pending{
+  outline:2px dashed var(--primary-blue);
+  outline-offset:-3px;
+  background:#dbe8ff;
+}
+.ep133-drag-source-parking{
+  position:fixed;
+  left:-10000px;
+  top:0;
+  opacity:0;
+  pointer-events:none;
+  z-index:-1;
+}
+
 
 .ep133-search-box{
   flex:0 0 176px;

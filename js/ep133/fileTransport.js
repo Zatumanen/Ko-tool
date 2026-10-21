@@ -56,6 +56,11 @@ function createFileTransactionLease(){
     getFileMetadata:track(async(nodeId,key=null)=>{await ensureFileSystemInitializedUnlocked();return getMetadataByNodeId(nodeId,key);}),
     getFileInfo:track(async fileId=>{await ensureFileSystemInitializedUnlocked();return getFileInfoUnlocked(fileId);}),
     getFile:track(getFileUnlocked),
+    // For an already initialized strict MOVE lease: FILE_GET INIT opens its
+    // own page stream, so an extra FILE_INIT before each project is redundant.
+    // Callers must scope this opt-in path to verified device/firmware evidence.
+    getFileInInitializedSession:track((nodeId,onProgress)=>
+      getFileUnlocked(nodeId,onProgress,{reuseInitialized:true})),
     putFile:track(putFileUnlocked),
     setFileMetadata:track(setFileMetadataUnlocked),
     deleteFile:track(deleteFileUnlocked),
@@ -303,8 +308,9 @@ export async function startPlayback(nodeId,preview=true){return runFileOperation
 export async function stopPlayback(nodeId){return runFileOperation(async()=>{await ensureFileSystemInitializedUnlocked();const p=new Uint8Array(12),view=new DataView(p.buffer);p[0]=TE_SYSEX_FILE_PLAYBACK;p[1]=TE_SYSEX_FILE_PLAYBACK_STOP;view.setUint16(2,nodeId);view.setUint32(4,0);view.setUint32(8,0);await requestFile(TE_SYSEX_FILE,p,2000);},'FILE_PLAYBACK stop',{mode:'mutation'});}
 
 
-async function getFileUnlocked(nodeId,onProgress){
-  await initRead();
+async function getFileUnlocked(nodeId,onProgress,{reuseInitialized=false}={}){
+  if(reuseInitialized)await ensureFileSystemInitializedUnlocked();
+  else await initRead();
   let streamOpened=false,streamClosed=false;
   try{
     let start;

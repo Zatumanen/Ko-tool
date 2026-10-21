@@ -118,6 +118,9 @@ export function createSampleMemory({
   let renamePending=false;
   let mutationsEnabled=false;
   let dragSourceId=0;
+  let dragSourceRow=null;
+  let parkedDragSource=null;
+  let hoveredTabTimer=null;
   let optionHeld=false;
   let copyAtDragStart=false;
   let suppressClick=false;
@@ -237,6 +240,26 @@ export function createSampleMemory({
     setSelection([target.id],target.id,{preview:false,navigate:true});
   };
 
+  const clearTabHover=()=>{
+    if(hoveredTabTimer!==null){clearTimeout(hoveredTabTimer);hoveredTabTimer=null;}
+    tabsEl?.querySelectorAll('.drag-switch-pending').forEach(tab=>tab.classList.remove('drag-switch-pending'));
+  };
+  const releaseDragParking=()=>{
+    parkedDragSource?.remove();
+    parkedDragSource=null;
+    dragSourceRow=null;
+  };
+  const parkDragSource=()=>{
+    // Native HTML DnD must retain its originating node when the target tab
+    // replaces the visible list. Removing the source can cancel browser drag.
+    if(!dragSourceId||!dragSourceRow?.isConnected||parkedDragSource)return;
+    const parking=document.createElement('div');
+    parking.className='ep133-drag-source-parking';
+    parking.setAttribute('aria-hidden','true');
+    parking.appendChild(dragSourceRow);
+    document.body.appendChild(parking);
+    parkedDragSource=parking;
+  };
   const renderTabs=()=>{
     if(!tabsEl)return;
     tabsEl.style.setProperty('--ep-tab-count',String(Math.max(1,sampleTabs.length)));
@@ -244,6 +267,37 @@ export function createSampleMemory({
       return'<button type="button" class="ep133-sample-tab'+(index===activeTab?' selected':'')+'" data-tab="'+index+'" title="'+escapeHtml(tab.name)+'">'+escapeHtml(tab.name)+'</button>';
     }).join('');
     tabsEl.querySelectorAll('[data-tab]').forEach(button=>{
+      // A tab is a navigation waypoint, NEVER a transfer destination.
+      button.addEventListener('dragenter',event=>{
+        if(!dragSourceId||!mutationsEnabled||query())return;
+        event.preventDefault();
+        clearTabHover();
+        const next=Number(button.dataset.tab);
+        if(next===activeTab)return;
+        button.classList.add('drag-switch-pending');
+        hoveredTabTimer=setTimeout(()=>{
+          hoveredTabTimer=null;
+          if(!dragSourceId||!mutationsEnabled)return;
+          parkDragSource();
+          activeTab=next;
+          renderTabs();
+          render();
+        },220);
+      });
+      button.addEventListener('dragover',event=>{
+        if(!dragSourceId||!mutationsEnabled||query())return;
+        event.preventDefault();
+        if(event.dataTransfer)event.dataTransfer.dropEffect='none';
+      });
+      button.addEventListener('dragleave',event=>{
+        if(event.relatedTarget&&button.contains(event.relatedTarget))return;
+        if(button.classList.contains('drag-switch-pending'))clearTabHover();
+      });
+      button.addEventListener('drop',event=>{
+        if(!dragSourceId)return;
+        event.preventDefault();event.stopPropagation();
+        clearTabHover();
+      });
       button.addEventListener('click',()=>{
         activeTab=Number(button.dataset.tab);
         renderTabs();
@@ -333,6 +387,7 @@ export function createSampleMemory({
       listEl.innerHTML='<div class="ep133-empty ep133-search-empty">NO MATCHES</div>';
       return;
     }
+    if(dragSourceId&&dragSourceRow?.isConnected&&listEl.contains(dragSourceRow))parkDragSource();
     listEl.innerHTML=visibleSlots.map(slot=>{
       const active=slot.id===selectedId;
       const secondary=selectedIds.has(slot.id)&&!active;
@@ -454,6 +509,7 @@ export function createSampleMemory({
           onSelect?.(slot);
         }
         dragSourceId=slot.id;
+        dragSourceRow=row;
         // Chrome on macOS may omit Alt from drop events after Option-drag.
         // Preserve the copy intent captured before the native drag began.
         copyAtDragStart=optionHeld||event.altKey||event.ctrlKey||event.metaKey;
@@ -466,14 +522,17 @@ export function createSampleMemory({
         for(const item of files)listEl.querySelector('[data-slot="'+item.id+'"]')?.classList.add('dragging');
       });
       row.addEventListener('dragend',()=>{
+        clearTabHover();
         listEl.querySelectorAll('.ep133-sample-row.dragging').forEach(item=>item.classList.remove('dragging'));
         listEl.querySelectorAll('.ep133-sample-row.dragover').forEach(item=>{
           item.classList.remove('dragover','drag-blocked');
           delete item.dataset.transferAction;
           delete item.dataset.transferLabel;
         });
+        dragSourceId=0;
+        releaseDragParking();
         render();
-        setTimeout(()=>{suppressClick=false;dragSourceId=0;copyAtDragStart=false;},0);
+        setTimeout(()=>{suppressClick=false;copyAtDragStart=false;},0);
       });
       row.addEventListener('dragover',event=>{
         event.preventDefault();

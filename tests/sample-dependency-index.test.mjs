@@ -55,7 +55,9 @@ test('sample delete tags the complete target set before entering the unchanged s
   ]);
   assert.match(filesystem,/export function withFileTransaction\(label,operation,\{strict=false\}=\{\}\)/);
   assert.match(filesystem,/sampleDependencyGuard\.assertOperationSafe\(fileOps,operation\)/);
-  assert.match(guard,/const index=await buildIndex\(fileOps\)/);
+  assert.match(guard,/const index=await buildIndex\(fileOps,\{/);
+  assert.match(guard,/verifiedMove,onProjectRead:request\.onProjectRead/);
+  assert.match(guard,/const archive=await readProject\(node\.nodeId\)/);
   assert.match(guard,/assertSampleSlotsUnreferenced\(index,request\.slots/);
   assert.match(del,/tagDependencyGuard\(operation,canonicalTargets\.map\(slot=>slot\.id\),'delete',async blockers=>/);
   assert.match(del,/withFileTransaction\('sample delete transaction',operation,\{strict:true\}\)/);
