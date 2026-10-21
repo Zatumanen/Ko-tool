@@ -112,6 +112,10 @@ test('EP-133 pad grid opens without a selected library sample and keyboard focus
   await page.locator('#ep133-pad-group').selectOption('A');
   await expect(page.locator('#ep133-pad-keys [data-pad-key]')).toHaveCount(12);
   const pad02=page.locator('#ep133-pad-keys [data-pad-key="02"]');
+  // Buttons render as disabled NO NODE placeholders until the group FILE reads finish.
+  // Count alone does not establish that a key can be focused or activated.
+  await expect(pad02).toBeEnabled();
+  await expect(pad02).toContainText('SMP 008');
   await pad02.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#ep133-pad-assignment')).toContainText('PAD 02 · ASSIGNED SAMPLE 008');
