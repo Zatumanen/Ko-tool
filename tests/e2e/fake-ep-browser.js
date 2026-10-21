@@ -190,8 +190,8 @@
   };
 
   const samples=new Map([
-    [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.playmode':'oneshot','envelope.release':255}}],
-    [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.playmode':'oneshot','envelope.release':255}}]
+    [7,{id:7,name:'kick808',data:Uint8Array.from({length:128},(_,i)=>(i*17)&255),meta:{name:'kick808',channels:1,samplerate:46875,format:'s16',crc:7007,'sound.rootnote':60,'sound.playmode':'oneshot','envelope.release':255}}],
+    [8,{id:8,name:'snare',data:Uint8Array.from({length:96},(_,i)=>(i*23)&255),meta:{name:'snare',channels:1,samplerate:46875,format:'s16',crc:8008,'sound.rootnote':60,'sound.playmode':'oneshot','envelope.release':255}}]
   ]);
   let currentPut=null,currentGet=null,debugNextMutation=false,requestCount=0;
   const rejectedUploadSlots=new Set();
@@ -209,7 +209,7 @@
       const name='SAMPLE'+String(id).padStart(4,'0');
       samples.set(id,{
         id,name,data:new Uint8Array(64),reportedSize:virtualSize,
-        meta:{name,channels:1,samplerate:46875,format:'s16',crc:id*1001,'sound.playmode':'oneshot','envelope.release':255}
+        meta:{name,channels:1,samplerate:46875,format:'s16',crc:id*1001,'sound.rootnote':60,'sound.playmode':'oneshot','envelope.release':255}
       });
     }
   };
