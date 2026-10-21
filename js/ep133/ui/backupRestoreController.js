@@ -122,6 +122,18 @@ export function createBackupRestoreController({
     },cancelled?'cancelled':'done');
     return saved;
   };
+  const setDialogProgress=(label,percent)=>{
+    setGlobalProgress(label,percent);
+    updateBackupProgress(String(label),{
+      current:String(label),
+      detail:'DEVICE OPERATION · DO NOT DISCONNECT',
+      percent:Number(percent)||0
+    });
+  };
+  const reportDialogError=(message,error)=>{
+    failBackup(error);
+    reportError(message,error);
+  };
   const setBaseDisabled=(button,value)=>{
     if(!button)return;
     button.dataset.baseDisabled=String(!!value);
@@ -414,7 +426,7 @@ export function createBackupRestoreController({
     restoreProjectSelect.hidden=true;
     renderRestorePlan(null);
     if(!file)return;
-    setBusy(true);setGlobalProgress('READING BACKUP',15);
+    setBusy(true);setDialogProgress('READING BACKUP',15);
     try{
       if(/\.tar$/i.test(file.name)){
         restorePlan=await prepareTarRestore(file);
@@ -438,6 +450,7 @@ export function createBackupRestoreController({
         restorePlan={kind:'bundle',bundle,project:selected,plan};
         renderRestorePlan(restorePlan);
       }else throw new Error('Choose a project .tar or SpeedUpperCut .zip backup.');
+      updateBackupProgress('RESULT',{detail:'RESTORE PLAN READY · NO DEVICE WRITES'},'done');
     }finally{hideGlobalProgress();setBusy(false);}
   };
 
@@ -457,7 +470,7 @@ export function createBackupRestoreController({
           throw new Error('Restore target sample slot changed: '+pad(item.slot)+'. Re-run preflight.');
         for(let index=0;index<plan.restore.length;index++){
           const item=plan.restore[index],sample=item.backupSample;
-          setGlobalProgress('RESTORE SAMPLE '+pad(item.slot),((index+.1)/plan.restore.length)*70);
+          setDialogProgress('RESTORE SAMPLE '+pad(item.slot),((index+.1)/plan.restore.length)*70);
           const metadata=prepareSampleTransferMetadata(sample.metadata||{},{
             allowedPlayModes:profile.playModes,
             allowedBarValues:profile.sampleBars?.writeValues
@@ -537,7 +550,7 @@ export function createBackupRestoreController({
       'Restore P'+project+'? Project writes are checkpointed. Sample restore only fills empty slots and never overwrites conflicts.'
     );
     if(!ok)return;
-    setBusy(true);setGlobalProgress('RESTORE PRECHECK',5);
+    setBusy(true);setDialogProgress('RESTORE PRECHECK',5);
     let addedSamples=[];
     try{
       if(restorePlan.kind==='bundle'){
@@ -545,7 +558,7 @@ export function createBackupRestoreController({
         if(!latest.canRestore)throw new Error('Restore preflight changed. Resolve conflicts and retry.');
         addedSamples=await restoreSamples(latest);
         const target=restorePlan.bundle.projects.find(item=>item.number===project);
-        setGlobalProgress('RESTORE PROJECT P'+project,78);
+        setDialogProgress('RESTORE PROJECT P'+project,78);
         try{
           await uploadProjectArchive(makeProjectFile(project,target.data),{
             requireInactive:true,
@@ -556,13 +569,14 @@ export function createBackupRestoreController({
           throw error;
         }
       }else{
-        setGlobalProgress('RESTORE PROJECT P'+project,40);
+        setDialogProgress('RESTORE PROJECT P'+project,40);
         await uploadProjectArchive(restorePlan.file,{requireInactive:true,performReload:false});
       }
-      setGlobalProgress('VERIFYING RESTORE',96);
+      setDialogProgress('VERIFYING RESTORE',96);
       await readDevice();
       await refreshProjects();
       setStatus('RESTORE P'+project+' VERIFIED');
+      updateBackupProgress('RESULT',{detail:'RESTORE P'+project+' VERIFIED',percent:100},'done');
       await refreshRecovery();
     }finally{hideGlobalProgress();setBusy(false);}
   };
@@ -633,7 +647,7 @@ export function createBackupRestoreController({
       'Restore original P'+record.project?.number+' from this recovery checkpoint? A new recovery checkpoint will be created before writing.'
     );
     if(!ok)return;
-    setBusy(true);setGlobalProgress('RECOVERY RESTORE',15);
+    setBusy(true);setDialogProgress('RECOVERY RESTORE',15);
     try{
       await restoreProjectRecoveryCheckpoint(selectedRecoveryId,{
         requireInactive:true,performReload:false
@@ -670,10 +684,10 @@ export function createBackupRestoreController({
   openButton?.addEventListener('click',()=>{void open('backup');});
   recoveryButton?.addEventListener('click',()=>{void open('recovery').catch(error=>reportError('COULD NOT READ RECOVERY CHECKPOINTS.',error));});
   closeButton?.addEventListener('click',close);
-  backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportError('PROJECT BACKUP FAILED.',error)));
-  backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportError('PROJECT + SAMPLES BACKUP FAILED.',error)));
-  backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportError('DEVICE BACKUP FAILED.',error)));
-  restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportError('RESTORE PREFLIGHT FAILED.',error)));
+  backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportDialogError('PROJECT BACKUP FAILED.',error)));
+  backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportDialogError('PROJECT + SAMPLES BACKUP FAILED.',error)));
+  backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportDialogError('DEVICE BACKUP FAILED.',error)));
+  restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportDialogError('RESTORE PREFLIGHT FAILED.',error)));
   restoreProjectSelect?.addEventListener('change',async()=>{
     if(restoreSource?.kind!=='bundle')return;
     try{
@@ -681,12 +695,12 @@ export function createBackupRestoreController({
       const plan=await authoritativeBundlePlan(restoreSource.bundle,project);
       restorePlan={kind:'bundle',bundle:restoreSource.bundle,project,plan};
       renderRestorePlan(restorePlan);
-    }catch(error){reportError('RESTORE PREFLIGHT FAILED.',error);}
+    }catch(error){reportDialogError('RESTORE PREFLIGHT FAILED.',error);}
   });
-  restoreButton?.addEventListener('click',()=>executeRestore().catch(error=>reportError('RESTORE FAILED.',error)));
-  recoveryRestoreButton?.addEventListener('click',()=>restoreRecovery().catch(error=>reportError('RECOVERY RESTORE FAILED.',error)));
-  recoveryDownloadButton?.addEventListener('click',()=>downloadRecovery().catch(error=>reportError('RECOVERY DOWNLOAD FAILED.',error)));
-  recoveryDeleteButton?.addEventListener('click',()=>deleteRecovery().catch(error=>reportError('RECOVERY DELETE FAILED.',error)));
+  restoreButton?.addEventListener('click',()=>executeRestore().catch(error=>reportDialogError('RESTORE FAILED.',error)));
+  recoveryRestoreButton?.addEventListener('click',()=>restoreRecovery().catch(error=>reportDialogError('RECOVERY RESTORE FAILED.',error)));
+  recoveryDownloadButton?.addEventListener('click',()=>downloadRecovery().catch(error=>reportDialogError('RECOVERY DOWNLOAD FAILED.',error)));
+  recoveryDeleteButton?.addEventListener('click',()=>deleteRecovery().catch(error=>reportDialogError('RECOVERY DELETE FAILED.',error)));
 
   renderRestorePlan(null);
   renderRecoveryDetail(null);
