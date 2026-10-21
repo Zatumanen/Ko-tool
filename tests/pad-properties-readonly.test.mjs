@@ -17,7 +17,10 @@ const setup=()=>{
   let metadata={'sound.pitch':-2.25,'sound.playmode':'key','time.mode':'bpm'},assignment={status:'VERIFIED',sampleSlot:7};
   const reader={
     async listTargets(options,context){calls.push(['LIST',options]);assert.equal(context.sessionToken,'one');
-      return{projects:[{project:'01'}],groups:[{group:'A'}],pads:[target,{...target,pad:'02',padFid:6209}],unverifiedPads:[]};},
+      return{projects:[{project:'01'}],groups:[{group:'A'}],
+        pads:[{...target,assignment:{...assignment}},
+          {...target,pad:'02',padFid:6209,assignment:{status:'VERIFIED',sampleSlot:8}}],
+        unverifiedPads:[]};},
     async readTarget(selected,context){calls.push(['GET',selected]);const gate=nextRead;nextRead=null;
       const result={target:targetOverride||{...selected},metadata:{...metadata,'sound.pitch':selected.pad==='02'?4:metadata['sound.pitch']},assignment:{...assignment}};
       if(gate){gate.entered.resolve();await gate.release.promise;}return result;}
