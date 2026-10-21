@@ -178,13 +178,13 @@ test('firmware-scoped evidence grants write only inside the verified range',()=>
 
 test('evidence registry is complete, uniquely scoped, and keeps provenance with explicit rights',()=>{
   assert.equal(validateEvidenceRegistry(),true);
-  assert.equal(EVIDENCE_REGISTRY.length,27);
+  assert.equal(EVIDENCE_REGISTRY.length,30);
   const ids=new Set(EVIDENCE_REGISTRY.map(record=>record.id));
   assert.equal(ids.size,EVIDENCE_REGISTRY.length);
 
   for(const sku of ['TE032AS001','TE032AS005','TE032AS006']){
     const records=listCapabilityEvidence({sku});
-    assert.equal(records.length,9);
+    assert.equal(records.length,10);
     assert.deepEqual(
       new Set(records.map(record=>record.capability)),
       new Set(Object.values(CAPABILITY_KEYS))
@@ -3023,4 +3023,22 @@ test('device upload keeps the original extension until transport normalization, 
   assert.equal(stripSampleUploadPrefix('056.wav'),'056.wav');
   assert.equal(normalizeFileName(stripSampleUploadPrefix('056 Super Long Drum Loop.wav')),
     normalizeFileName('Super Long Drum Loop.wav'));
+});
+
+test('pad evidence is capture-observed, exact-firmware scoped and never writable on any SKU',()=>{
+  const records=listCapabilityEvidence({capability:CAPABILITY_KEYS.PAD_METADATA});
+  assert.equal(records.length,3);
+  for(const record of records){
+    assert.equal(record.rights.write,false);
+    assert.equal(record.rights.read,record.sku==='TE032AS001');
+    if(record.sku==='TE032AS001'){
+      assert.equal(record.level,CAPABILITY_EVIDENCE.CAPTURE_OBSERVED);
+      assert.equal(record.sourceType,'capture');
+      assert.match(record.source,/e962c91cf1ac5fe274c89bad257dcc536f97702b98c2357082b0ba53001d9126/);
+      assert.match(record.source,/f25620432bdf565002bf453a7adda6a31fc53ea624d8ad4ed6ac81de40a85688/);
+      assert.match(record.reason,/3202/);assert.match(record.reason,/incomplete/i);
+      assert.equal(resolveRegisteredCapabilityEvidence(record.sku,CAPABILITY_KEYS.PAD_METADATA,'2.5.1').firmwareMatch,true);
+      assert.equal(resolveRegisteredCapabilityEvidence(record.sku,CAPABILITY_KEYS.PAD_METADATA,'2.5.2').firmwareMatch,false);
+    }else assert.equal(record.level,CAPABILITY_EVIDENCE.UNVERIFIED);
+  }
 });

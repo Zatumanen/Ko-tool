@@ -782,6 +782,16 @@
   font:700 9px "Courier New",monospace;
   overflow-wrap:anywhere;
 }
+.ep-pad-readonly-dialog{position:fixed;inset:0;z-index:10035;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.5)}
+.ep-pad-readonly-dialog[hidden]{display:none!important}
+.ep-pad-readonly-window{width:min(650px,96vw);max-height:92vh;overflow:auto;background:var(--win-gray);border:2px outset var(--win-gray);font:12px "Courier New",monospace}
+.ep-pad-readonly-body{padding:10px;display:flex;flex-direction:column;gap:10px}
+.ep-pad-readonly-selectors{display:flex;flex-wrap:wrap;gap:10px}
+.ep-pad-readonly-selectors label{display:flex;flex-direction:column;gap:4px}
+.ep-pad-readonly-selectors select{min-width:100px}
+.ep-pad-readonly-body pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.ep-pad-readonly-body dl{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ep-pad-readonly-body dd{margin:0}
 .ep133-property-separator{
   height:2px;
   background:var(--win-gray);
