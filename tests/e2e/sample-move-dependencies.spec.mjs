@@ -34,26 +34,47 @@ const drag=async(page,from,to)=>{
 };
 
 for(const variant of ['native','27-byte','missing-pattern']){
-  test(variant+': assigned sample MOVE fails in the UI without any FILE mutation',async({page})=>{
+  test(variant+': assigned native MOVE preserves every project pad using firmware remap',async({page})=>{
     await open(page,variant);
     const before=await page.evaluate(()=>({
       requests:window.__fakeEp.requestLog.length,
-      samples:window.__fakeEp.snapshot(),bytes:window.__fakeEp.sampleBytes(7)
+      bytes:window.__fakeEp.sampleBytes(7),
+      pads:window.__fakeEp.projectPadSlots()
     }));
     await drag(page,7,20);
-    await expect(page.locator('#error-message')).toContainText('slot 007 is used by P01 A01');
+    await expect(page.locator('[data-slot="20"]')).toHaveClass(/occupied/);
+    await expect(page.locator('[data-slot="7"]')).toHaveClass(/empty/);
     await expect(page.locator('#ep133-global-progress')).toBeHidden();
     const after=await page.evaluate(start=>({
       requests:window.__fakeEp.requestLog.slice(start),
-      samples:window.__fakeEp.snapshot(),bytes:window.__fakeEp.sampleBytes(7)
+      bytes:window.__fakeEp.sampleBytes(20),
+      pads:window.__fakeEp.projectPadSlots()
     }),before.requests);
-    expect(mutations(after.requests)).toEqual([]);
-    expect(after.samples).toEqual(before.samples);
+    expect(mutations(after.requests).map(x=>x.sub)).toEqual([12]);
     expect(after.bytes).toEqual(before.bytes);
-    expect(after.requests.some(r=>r.command===5&&r.sub===3&&r.type===0)).toBe(true);
-    await expect(page.locator('[data-slot="20"]')).toHaveClass(/empty/);
+    const beforeAffected=before.pads.filter(p=>p.slot===7);
+    expect(beforeAffected.length).toBeGreaterThanOrEqual(2);
+    for(const pad of beforeAffected){
+      expect(after.pads.find(x=>x.project===pad.project&&x.pad===pad.pad)?.slot).toBe(20);
+    }
+    const beforeOthers=before.pads.filter(p=>p.slot!==7);
+    for(const pad of beforeOthers){
+      expect(after.pads.find(x=>x.project===pad.project&&x.pad===pad.pad)?.slot).toBe(pad.slot);
+    }
+    // Only the native FILE_MOVE may mutate device state; no project upload.
+    expect(after.requests.filter(x=>x.command===5&&x.sub===2)).toEqual([]);
   });
 }
+
+test('firmware that does not remap a referenced project triggers a safety lock without retry',async({page})=>{
+  await open(page,'native');
+  await page.evaluate(()=>window.__fakeEp.setFirmwareProjectRemapEnabled(false));
+  const start=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await drag(page,7,20);
+  await expect(page.locator('#error-message')).toContainText('Native MOVE may have changed');
+  const requests=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),start);
+  expect(mutations(requests).map(x=>x.sub)).toEqual([12]);
+});
 
 test('an unreadable project pad blocks an unreferenced sample MOVE without mutation',async({page})=>{
   await open(page,'malformed');

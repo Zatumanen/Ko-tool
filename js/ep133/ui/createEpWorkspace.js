@@ -26,6 +26,7 @@ import{createSampleDeleteController}from './sampleDeleteController.js?v=20261001
 import{createSampleUploadController}from './sampleUploadController.js?v=20261001-1';
 import{chooseSampleUploadTargets}from './sampleUploadChoice.js?v=20261001-1';
 import{createSampleMoveController}from './sampleMoveController.js?v=20261001-1';
+import{verifyNativeProjectSlotMove}from '../sampleMoveProjectVerification.js?v=20261021-1';
 import{createSampleCopyController}from './sampleCopyController.js?v=20261001-1';
 import{createSampleRenameController}from './sampleRenameController.js?v=20261001-1';
 import{createDevicePadSelectionController}from './devicePadSelectionController.js?v=20261001-1';
@@ -351,7 +352,7 @@ export function createEpWorkspace({
     sampleStore,getSoundsParentId:()=>sampleStore.getSoundsParentId(),getSoundsMetadata:()=>sampleStore.getSoundsMetadata(),
     fileItemFromInfo,remapCurrentPropertySlot:(oldId,newId)=>propertiesController.remapCurrentSlot(oldId,newId),
     renderDeviceStats,withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
-    isConnected,setMutating,setGlobalProgress,hideGlobalProgress,suppressNativeMoveEvent,clearNativeMoveSuppression,
+    isConnected,setMutating,setGlobalProgress,hideGlobalProgress,markDeviceUnsafe,verifyNativeProjectSlotMove,suppressNativeMoveEvent,clearNativeMoveSuppression,
     moveFile,readDevice:()=>readDevice(),logTechnical
   });
   const sampleCopyController=createSampleCopyController({

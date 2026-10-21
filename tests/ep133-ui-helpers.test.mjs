@@ -869,7 +869,7 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
   assert.equal(actions.some(item=>item[0]==='resync'),false);
 });
 
-test('sample move controller rolls completed moves back in reverse order and resyncs after a later MOVE failure',async()=>{
+test('sample move controller locks unsafe state without a reverse MOVE after a later failure',async()=>{
   const actions=[],sampleStore=createSampleStore();
   sampleStore.replaceFiles([{nodeId:1000,fileName:'/sounds',fileType:'folder'},{nodeId:7,fileName:'/sounds/one',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true},{nodeId:9,fileName:'/sounds/two',fileType:'file',fileSize:1,isReadable:true,isWritable:true,isDeletable:true,isMovable:true,isPlayable:true}]);
   sampleStore.setMetadata(7,{name:'one',crc:111});sampleStore.setMetadata(9,{name:'two',crc:222});
@@ -880,6 +880,7 @@ test('sample move controller rolls completed moves back in reverse order and res
     remapCurrentPropertySlot(){},renderDeviceStats(){},captureBatchSession:()=> 'session-a',
     assertBatchSession:token=>assert.equal(token,'session-a'),getDeviceSessionToken:()=> 'session-a',
     isConnected:()=>true,setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
+    markDeviceUnsafe:reason=>actions.push(['unsafe',reason]),
     suppressNativeMoveEvent:(oldId,newId)=>{actions.push(['suppress',oldId,newId]);return()=>actions.push(['release',oldId,newId]);},
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
     withFileTransaction:async(_label,operation,{strict})=>{
@@ -898,8 +899,9 @@ test('sample move controller rolls completed moves back in reverse order and res
     [{sourceId:7,targetId:8},{sourceId:9,targetId:10}],
     new Map([[7,source7],[9,source9]])
   ),/second move failed/);
-  assert.deepEqual(actions.filter(item=>item[0]==='move'),[['move',7,8,true],['move',9,10,true],['move',8,7,true]]);
-  assert.equal(actions.filter(item=>item[0]==='resync').length,1);
+  assert.deepEqual(actions.filter(item=>item[0]==='move'),[['move',7,8,true],['move',9,10,true]]);
+  assert.equal(actions.filter(item=>item[0]==='resync').length,0);
+  assert.equal(actions.filter(item=>item[0]==='unsafe').length,1);
   assert.equal(actions.some(item=>item[0]==='clear-suppress'&&item[1]===9&&item[2]===10),true);
 });
 
