@@ -18,6 +18,8 @@ export function readSampleDependencyRequest(operation){
     throw new Error('Invalid referenced-sample delete confirmation.');
   if(request.onMovePreflight!=null&&typeof request.onMovePreflight!=='function')
     throw new Error('Invalid MOVE preflight receiver.');
+  if(request.onProjectRead!=null&&typeof request.onProjectRead!=='function')
+    throw new Error('Invalid MOVE project-read progress receiver.');
   const moves=request.moves==null?null:Array.from(request.moves,pair=>Object.freeze({
     sourceId:Number(pair?.sourceId),targetId:Number(pair?.targetId)
   }));
@@ -31,6 +33,7 @@ export function readSampleDependencyRequest(operation){
     operation:String(request.operation||'modify'),
     ...(moves?{moves:Object.freeze(moves)}:{}),
     ...(request.onMovePreflight?{onMovePreflight:request.onMovePreflight}:{}),
+    ...(request.onProjectRead?{onProjectRead:request.onProjectRead}:{}),
     ...(request.confirmReferencedDelete?{confirmReferencedDelete:request.confirmReferencedDelete}:{})
   });
 }
@@ -93,7 +96,7 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
     return profile;
   };
 
-  const buildIndex=async fileOps=>{
+  const buildIndex=async(fileOps,{verifiedMove=false,onProjectRead=null}={})=>{
     if(!fileOps?.listDirectory||!fileOps?.getFile)throw new TypeError('Sample dependency guard requires lease-bound FILE reads.');
     const profile=getProfile();
     const root=await fileOps.listDirectory(0,'/');
@@ -103,8 +106,14 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
       .filter(item=>item.fileType==='folder'&&/^\/projects\/\d{2}$/.test(item.fileName))
       .sort((a,b)=>a.fileName.localeCompare(b.fileName));
     const results=[];
+    // Keep the full authoritative device scan on every MOVE; only eliminate
+    // redundant FILE_INIT rounds, not the project reads or safety checks.
+    const readProject=verifiedMove&&profile.id==='ep133'&&
+      typeof fileOps.getFileInInitializedSession==='function'
+      ?fileOps.getFileInInitializedSession:fileOps.getFile;
+    onProjectRead?.(0,projects.length);
     for(const node of projects){
-      const archive=await fileOps.getFile(node.nodeId);
+      const archive=await readProject(node.nodeId);
       results.push({
         project:node.fileName.slice(-2),
         nodeId:node.nodeId,
@@ -112,6 +121,7 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
         data:archive.data.slice(),
         model:readProjectPadDependencies(archive.data,{profile})
       });
+      onProjectRead?.(results.length,projects.length);
     }
     return Object.freeze({
       ...buildSampleDependencyIndex(results),
@@ -124,7 +134,12 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
   const assertOperationSafe=async(fileOps,operation)=>{
     const request=readSampleDependencyRequest(operation);
     if(!request)return null;
-    const index=await buildIndex(fileOps);
+    const device=getConnectedDeviceInfo();
+    const verifiedMove=request.operation==='move'&&
+      device?.sku==='TE032AS001'&&device?.metadata?.os_version==='2.5.1';
+    const index=await buildIndex(fileOps,{
+      verifiedMove,onProjectRead:request.onProjectRead
+    });
     const blockers=getSampleDependencyBlockers(index,request.slots);
     if(request.operation==='move'&&request.moves){
       const sources=request.moves.map(pair=>pair.sourceId).sort((a,b)=>a-b);
@@ -149,7 +164,8 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
         projectSnapshots:Object.freeze(index.projectSnapshots.filter(item=>
           blockers.some(blocker=>blocker.projects.includes(item.project))
         )),
-        references:Object.freeze(blockers.flatMap(blocker=>blocker.references))
+        references:Object.freeze(blockers.flatMap(blocker=>blocker.references)),
+        verifiedFastRead:verifiedMove
       }));
       return index;
     }
