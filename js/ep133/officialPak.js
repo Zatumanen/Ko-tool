@@ -70,7 +70,12 @@ export function createOfficialSampleWav(sample){
   for(const key of metaFields)
     if(Object.hasOwn(meta,key)&&allowedMeta(key,meta[key]))compact[key]=meta[key];
   const json=encoder.encode(JSON.stringify(compact));
-  const tng=concat([fourcc('TNGE'),u32(json.length+1),json,new Uint8Array(1)]);
+  // The official WAV writer NUL-terminates TNGE JSON and pads its
+  // declared payload to four bytes (not merely the RIFF 2-byte boundary).
+  // This matters for valid BPM WAVs and was verified on all 331 private files.
+  const tngLength=Math.ceil((json.length+1)/4)*4;
+  const tng=concat([fourcc('TNGE'),u32(tngLength),json,
+    new Uint8Array(tngLength-json.length)]);
   const wavChunks=[chunk('fmt ',fmt),chunk('smpl',smpl)];
   if(allowedMeta('sound.bpm',meta['sound.bpm'])){
     const acid=new Uint8Array(24);
