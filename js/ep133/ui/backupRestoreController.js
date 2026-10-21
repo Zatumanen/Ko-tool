@@ -24,17 +24,19 @@ const defaultSaveBlob=async(blob,name)=>{
       const writable=await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return true;
+      return 'saved';
     }catch(error){
       if(error?.name==='AbortError')return false;
-      if(!['NotAllowedError','SecurityError','InvalidStateError'].includes(error?.name))throw error;
+      // A rejected picker is not proof of permission to save via another path.
+      // Surface the error in the dialog; never silently claim the file was saved.
+      throw error;
     }
   }
   const url=URL.createObjectURL(blob);
   const anchor=document.createElement('a');
   anchor.href=url;anchor.download=name;anchor.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  return true;
+  return 'handoff'; // The browser accepted a download gesture, not a disk-write receipt.
 };
 
 const makeProjectFile=(project,data,name=null)=>{
@@ -82,7 +84,63 @@ export function createBackupRestoreController({
   let restorePlan=null;
   let selectedRecoveryId=null;
   let busy=false;
-
+  const progressPanel=dialog.querySelector?.('#ep133-backup-operation')||null;
+  const phaseElement=dialog.querySelector?.('#ep133-backup-phase')||null;
+  const countsElement=dialog.querySelector?.('#ep133-backup-counts')||null;
+  const currentElement=dialog.querySelector?.('#ep133-backup-current')||null;
+  const detailElement=dialog.querySelector?.('#ep133-backup-detail')||null;
+  const progressFill=dialog.querySelector?.('#ep133-backup-progress-fill')||null;
+  let backupProgress={phase:'PREPARING',projectDone:0,projectTotal:0,
+    sampleDone:0,sampleTotal:0,current:'—',detail:'',percent:0};
+  const updateBackupProgress=(phase,updates={},state='running')=>{
+    backupProgress={...backupProgress,phase,...updates};
+    if(!progressPanel)return;
+    progressPanel.hidden=false;
+    progressPanel.dataset.state=state;
+    if(phaseElement)phaseElement.textContent=state==='failed'?'FAILED':phase;
+    if(countsElement)countsElement.textContent=
+      'PROJECTS '+backupProgress.projectDone+'/'+backupProgress.projectTotal+
+      ' · SAMPLES '+backupProgress.sampleDone+'/'+backupProgress.sampleTotal;
+    if(currentElement)currentElement.textContent=backupProgress.current||'—';
+    if(detailElement)detailElement.textContent=backupProgress.detail||'';
+    if(progressFill)progressFill.style.width=
+      Math.max(0,Math.min(100,Number(backupProgress.percent)||0))+'%';
+  };
+  const failBackup=(error)=>{
+    const reason=String(error?.message||error||'Unknown backup error');
+    updateBackupProgress('RESULT',{detail:reason},'failed');
+  };
+  const finishBackup=(outcome)=>{
+    const saved=outcome==='saved'||outcome===true;
+    const cancelled=outcome===false;
+    updateBackupProgress('RESULT',{
+      percent:100,
+      current:cancelled?'NO FILE SAVED':backupProgress.current,
+      detail:saved?'FILE WRITTEN · FILE HANDLE CLOSED':
+        cancelled?'CANCELLED BY USER · NO FILE SAVED':
+          'DOWNLOAD HANDED TO BROWSER · VERIFY FILE IN DOWNLOADS'
+    },cancelled?'cancelled':'done');
+    return saved;
+  };
+  const setDialogProgress=(label,percent)=>{
+    setGlobalProgress(label,percent);
+    updateBackupProgress(String(label),{
+      current:String(label),
+      detail:'DEVICE OPERATION · DO NOT DISCONNECT',
+      percent:Number(percent)||0
+    });
+  };
+  const reportDialogError=(message,error)=>{
+    failBackup(error);
+    // The dialog is above the global error layer. Opening a second, lower
+    // modal here traps pointer/focus while hiding the actionable FAILED state.
+    // Keep the error inside the active dialog and in technical logs instead.
+    if(dialog.hidden)reportError(message,error);
+    else{
+      setStatus(String(message)+' '+String(error?.message||error));
+      console.error(message,error);
+    }
+  };
   const setBaseDisabled=(button,value)=>{
     if(!button)return;
     button.dataset.baseDisabled=String(!!value);
@@ -94,6 +152,9 @@ export function createBackupRestoreController({
       backupProjectButton,backupProjectSamplesButton,backupDeviceButton,
       restoreButton,recoveryRestoreButton,recoveryDownloadButton,recoveryDeleteButton
     ])if(button)button.disabled=busy||(button.dataset.baseDisabled==='true');
+    if(closeButton)closeButton.disabled=busy;
+    if(restoreInput)restoreInput.disabled=busy;
+    if(restoreProjectSelect)restoreProjectSelect.disabled=busy;
   };
   const open=async(mode='backup')=>{
     dialog.hidden=false;
@@ -101,7 +162,7 @@ export function createBackupRestoreController({
     if(mode==='recovery')await refreshRecovery();
   };
   const close=()=>{
-    if(busy)return;
+    if(busy)return; // Non-cancellable FILE_GET/restore cannot be interrupted by closing.
     dialog.hidden=true;
   };
 
@@ -111,6 +172,7 @@ export function createBackupRestoreController({
     const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
     const profile=getEpProjectProfile(info.sku,firmware);
     return withFileTransaction('backup snapshot',async fileOps=>{
+      updateBackupProgress('PREPARING',{detail:'LISTING PROJECTS AND SOUNDS · READ ONLY',percent:0,current:'—'});
       const root=await fileOps.listDirectory(0,'/');
       const projectsRoot=root.find(item=>item.fileName==='/projects'&&item.fileType==='folder');
       const soundsRoot=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
@@ -132,10 +194,16 @@ export function createBackupRestoreController({
       const occupied=soundNodes.map(item=>Number(item.nodeId)).filter(id=>id>=1&&id<=999);
       const projects=[];
       const referenced=new Set();
-
+      updateBackupProgress('READING PROJECTS',{
+        projectDone:0,projectTotal:nodes.length,sampleDone:0,sampleTotal:0,
+        current:'—',detail:'PROJECT COUNT IS BASED ON COMPLETED FILES',percent:0
+      });
       for(let index=0;index<nodes.length;index++){
         const node=nodes[index];
-        setGlobalProgress('BACKUP PROJECTS',((index+.2)/Math.max(1,nodes.length))*35);
+        updateBackupProgress('READING PROJECTS',{
+          current:'P'+node.fileName.slice(-2)+'.tar',
+          detail:'READING FILE '+(index+1)+'/'+nodes.length+' · DEVICE FILE_GET'
+        });
         const file=await fileOps.getFile(node.nodeId);
         const number=node.fileName.slice(-2);
         const dependencies=profile.projectAuthoring
@@ -148,6 +216,10 @@ export function createBackupRestoreController({
           active:Number(node.nodeId)===activeFid,
           dependencies
         });
+        updateBackupProgress('READING PROJECTS',{
+          projectDone:projects.length,percent:35*projects.length/nodes.length,
+          detail:'PROJECT '+projects.length+'/'+nodes.length+' COMPLETE'
+        });
       }
 
       const sampleNodes=scope==='device'
@@ -155,17 +227,49 @@ export function createBackupRestoreController({
         :scope==='project+samples'
           ?soundNodes.filter(item=>referenced.has(Number(item.nodeId)))
           :[];
+      if(scope==='project+samples'){
+        const present=new Set(sampleNodes.map(item=>Number(item.nodeId)));
+        const missing=[...referenced].filter(slot=>!present.has(slot));
+        if(missing.length)throw new Error('Referenced sample(s) are missing: '+missing.map(pad).join(', '));
+      }
       const samples=[];
+      updateBackupProgress('READING SAMPLES',{
+        sampleDone:0,sampleTotal:sampleNodes.length,
+        current:'—',percent:35,detail:sampleNodes.length
+          ?'READING '+sampleNodes.length+' SAMPLE FILES'
+          :'NO SAMPLE FILES REQUIRED'
+      });
       for(let index=0;index<sampleNodes.length;index++){
         const node=sampleNodes[index];
-        setGlobalProgress('BACKUP SAMPLES',35+((index+1)/Math.max(1,sampleNodes.length))*60);
-        const file=await fileOps.getFile(node.nodeId);
+        const slot=pad(node.nodeId);
+        updateBackupProgress('READING SAMPLES',{
+          current:slot+' · '+String(node.fileName||'').split('/').pop(),
+          detail:'SAMPLE '+(index+1)+'/'+sampleNodes.length+' · READING FILE'
+        });
+        let lastDecile=-1;
+        const file=await fileOps.getFile(node.nodeId,(done,total)=>{
+          const decile=total>0?Math.floor(done*10/total):-1;
+          if(decile===lastDecile)return;
+          lastDecile=decile;
+          updateBackupProgress('READING SAMPLES',{
+            detail:'SAMPLE '+(index+1)+'/'+sampleNodes.length+
+              ' · CURRENT FILE '+(total?Math.floor(done*100/total)+'%':'READING')
+          });
+        });
+        updateBackupProgress('READING SAMPLES',{
+          detail:'SAMPLE '+(index+1)+'/'+sampleNodes.length+' · READING METADATA'
+        });
         const metadata=await fileOps.getFileMetadata(node.nodeId);
         samples.push({
           slot:Number(node.nodeId),
           name:String(metadata?.name||file.name||node.fileName||('sample-'+pad(node.nodeId))),
           data:file.data.slice(),
           metadata:metadata||{}
+        });
+        updateBackupProgress('READING SAMPLES',{
+          sampleDone:samples.length,
+          percent:35+60*samples.length/Math.max(1,sampleNodes.length),
+          detail:'SAMPLE '+samples.length+'/'+sampleNodes.length+' COMPLETE'
         });
       }
       return{
@@ -176,38 +280,55 @@ export function createBackupRestoreController({
     });
   };
 
-  const backupProject=async()=>{
-    const project=safeProject(getSelectedProject());
-    setBusy(true);setGlobalProgress('BACKUP PROJECT',10);
+  const runBackup=async(scope)=>{
+    // No project number is read before busy is established, including errors.
+    if(busy)return;
+    setBusy(true);
+    backupProgress={phase:'PREPARING',projectDone:0,projectTotal:0,
+      sampleDone:0,sampleTotal:0,current:'—',detail:'',percent:0};
+    updateBackupProgress('PREPARING',{detail:'CHECKING CONNECTED DEVICE · READ ONLY'});
     try{
-      const snapshot=await readBackupSnapshot('project',project);
-      const record=snapshot.projects[0];
-      const saved=await saveBlob(new Blob([record.data],{type:'application/x-tar'}),'P'+project+'.tar');
-      if(saved)setStatus('BACKUP P'+project+' SAVED');
-    }finally{hideGlobalProgress();setBusy(false);}
-  };
-
-  const backupBundle=async scope=>{
-    const project=scope==='project+samples'?safeProject(getSelectedProject()):null;
-    setBusy(true);setGlobalProgress('BUILDING BACKUP',5);
-    try{
+      const project=scope==='device'?null:safeProject(getSelectedProject());
       const snapshot=await readBackupSnapshot(scope,project);
-      setGlobalProgress('BUILDING BACKUP',97);
-      const bundle=await createEpBackupBundle({
-        scope,device:snapshot.info,activeProject:snapshot.activeProject,
-        projects:snapshot.projects,samples:snapshot.samples
-      });
-      const name=scope==='device'
-        ?'SpeedUpperCut_device_'+dateStamp()+'.zip'
-        :'SpeedUpperCut_P'+project+'_samples_'+dateStamp()+'.zip';
-      const saved=await saveBlob(bundle.blob,name);
-      if(saved)setStatus(
-        scope==='device'
-          ?`DEVICE BACKUP · ${snapshot.projects.length} PROJECTS · ${snapshot.samples.length} SAMPLES`
-          :`BACKUP P${project} + ${snapshot.samples.length} SAMPLES`
-      );
-    }finally{hideGlobalProgress();setBusy(false);}
+      if(scope==='project'){
+        const record=snapshot.projects[0];
+        updateBackupProgress('BUILDING ARCHIVE',{
+          current:'P'+project+'.tar',detail:'PREPARING PROJECT TAR FOR SAVE',percent:97
+        });
+        const blob=new Blob([record.data],{type:'application/x-tar'});
+        updateBackupProgress('DOWNLOAD HANDOFF',{detail:'REQUESTING FILE SAVE',percent:99});
+        const outcome=await saveBlob(blob,'P'+project+'.tar');
+        if(finishBackup(outcome))setStatus('BACKUP P'+project+' FILE WRITTEN');
+      }else{
+        updateBackupProgress('BUILDING ARCHIVE',{
+          current:scope==='device'?'WHOLE DEVICE':'P'+project+' + SAMPLES',
+          detail:'ASSEMBLING ZIP · ALL FILES READ',percent:97
+        });
+        const bundle=await createEpBackupBundle({
+          scope,device:snapshot.info,activeProject:snapshot.activeProject,
+          projects:snapshot.projects,samples:snapshot.samples
+        });
+        const name=scope==='device'
+          ?'SpeedUpperCut_device_'+dateStamp()+'.zip'
+          :'SpeedUpperCut_P'+project+'_samples_'+dateStamp()+'.zip';
+        updateBackupProgress('DOWNLOAD HANDOFF',{current:name,detail:'REQUESTING FILE SAVE',percent:99});
+        const outcome=await saveBlob(bundle.blob,name);
+        if(finishBackup(outcome))setStatus(
+          scope==='device'
+            ?'DEVICE BACKUP FILE WRITTEN · '+snapshot.projects.length+' PROJECTS · '+snapshot.samples.length+' SAMPLES'
+            :'BACKUP P'+project+' FILE WRITTEN · '+snapshot.samples.length+' SAMPLES'
+        );
+      }
+    }catch(error){
+      failBackup(error);
+      throw error;
+    }finally{
+      hideGlobalProgress();
+      setBusy(false);
+    }
   };
+  const backupProject=()=>runBackup('project');
+  const backupBundle=scope=>runBackup(scope);
 
   const authoritativeBundlePlan=async(bundle,project)=>{
     const info=getConnectedDeviceInfo();
@@ -312,7 +433,7 @@ export function createBackupRestoreController({
     restoreProjectSelect.hidden=true;
     renderRestorePlan(null);
     if(!file)return;
-    setBusy(true);setGlobalProgress('READING BACKUP',15);
+    setBusy(true);setDialogProgress('READING BACKUP',15);
     try{
       if(/\.tar$/i.test(file.name)){
         restorePlan=await prepareTarRestore(file);
@@ -336,6 +457,7 @@ export function createBackupRestoreController({
         restorePlan={kind:'bundle',bundle,project:selected,plan};
         renderRestorePlan(restorePlan);
       }else throw new Error('Choose a project .tar or SpeedUpperCut .zip backup.');
+      updateBackupProgress('RESULT',{detail:'RESTORE PLAN READY · NO DEVICE WRITES'},'done');
     }finally{hideGlobalProgress();setBusy(false);}
   };
 
@@ -355,7 +477,7 @@ export function createBackupRestoreController({
           throw new Error('Restore target sample slot changed: '+pad(item.slot)+'. Re-run preflight.');
         for(let index=0;index<plan.restore.length;index++){
           const item=plan.restore[index],sample=item.backupSample;
-          setGlobalProgress('RESTORE SAMPLE '+pad(item.slot),((index+.1)/plan.restore.length)*70);
+          setDialogProgress('RESTORE SAMPLE '+pad(item.slot),((index+.1)/plan.restore.length)*70);
           const metadata=prepareSampleTransferMetadata(sample.metadata||{},{
             allowedPlayModes:profile.playModes,
             allowedBarValues:profile.sampleBars?.writeValues
@@ -435,7 +557,7 @@ export function createBackupRestoreController({
       'Restore P'+project+'? Project writes are checkpointed. Sample restore only fills empty slots and never overwrites conflicts.'
     );
     if(!ok)return;
-    setBusy(true);setGlobalProgress('RESTORE PRECHECK',5);
+    setBusy(true);setDialogProgress('RESTORE PRECHECK',5);
     let addedSamples=[];
     try{
       if(restorePlan.kind==='bundle'){
@@ -443,7 +565,7 @@ export function createBackupRestoreController({
         if(!latest.canRestore)throw new Error('Restore preflight changed. Resolve conflicts and retry.');
         addedSamples=await restoreSamples(latest);
         const target=restorePlan.bundle.projects.find(item=>item.number===project);
-        setGlobalProgress('RESTORE PROJECT P'+project,78);
+        setDialogProgress('RESTORE PROJECT P'+project,78);
         try{
           await uploadProjectArchive(makeProjectFile(project,target.data),{
             requireInactive:true,
@@ -454,13 +576,14 @@ export function createBackupRestoreController({
           throw error;
         }
       }else{
-        setGlobalProgress('RESTORE PROJECT P'+project,40);
+        setDialogProgress('RESTORE PROJECT P'+project,40);
         await uploadProjectArchive(restorePlan.file,{requireInactive:true,performReload:false});
       }
-      setGlobalProgress('VERIFYING RESTORE',96);
+      setDialogProgress('VERIFYING RESTORE',96);
       await readDevice();
       await refreshProjects();
       setStatus('RESTORE P'+project+' VERIFIED');
+      updateBackupProgress('RESULT',{detail:'RESTORE P'+project+' VERIFIED',percent:100},'done');
       await refreshRecovery();
     }finally{hideGlobalProgress();setBusy(false);}
   };
@@ -531,7 +654,7 @@ export function createBackupRestoreController({
       'Restore original P'+record.project?.number+' from this recovery checkpoint? A new recovery checkpoint will be created before writing.'
     );
     if(!ok)return;
-    setBusy(true);setGlobalProgress('RECOVERY RESTORE',15);
+    setBusy(true);setDialogProgress('RECOVERY RESTORE',15);
     try{
       await restoreProjectRecoveryCheckpoint(selectedRecoveryId,{
         requireInactive:true,performReload:false
@@ -568,10 +691,10 @@ export function createBackupRestoreController({
   openButton?.addEventListener('click',()=>{void open('backup');});
   recoveryButton?.addEventListener('click',()=>{void open('recovery').catch(error=>reportError('COULD NOT READ RECOVERY CHECKPOINTS.',error));});
   closeButton?.addEventListener('click',close);
-  backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportError('PROJECT BACKUP FAILED.',error)));
-  backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportError('PROJECT + SAMPLES BACKUP FAILED.',error)));
-  backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportError('DEVICE BACKUP FAILED.',error)));
-  restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportError('RESTORE PREFLIGHT FAILED.',error)));
+  backupProjectButton?.addEventListener('click',()=>backupProject().catch(error=>reportDialogError('PROJECT BACKUP FAILED.',error)));
+  backupProjectSamplesButton?.addEventListener('click',()=>backupBundle('project+samples').catch(error=>reportDialogError('PROJECT + SAMPLES BACKUP FAILED.',error)));
+  backupDeviceButton?.addEventListener('click',()=>backupBundle('device').catch(error=>reportDialogError('DEVICE BACKUP FAILED.',error)));
+  restoreInput?.addEventListener('change',()=>onRestoreFile(restoreInput.files?.[0]||null).catch(error=>reportDialogError('RESTORE PREFLIGHT FAILED.',error)));
   restoreProjectSelect?.addEventListener('change',async()=>{
     if(restoreSource?.kind!=='bundle')return;
     try{
@@ -579,12 +702,12 @@ export function createBackupRestoreController({
       const plan=await authoritativeBundlePlan(restoreSource.bundle,project);
       restorePlan={kind:'bundle',bundle:restoreSource.bundle,project,plan};
       renderRestorePlan(restorePlan);
-    }catch(error){reportError('RESTORE PREFLIGHT FAILED.',error);}
+    }catch(error){reportDialogError('RESTORE PREFLIGHT FAILED.',error);}
   });
-  restoreButton?.addEventListener('click',()=>executeRestore().catch(error=>reportError('RESTORE FAILED.',error)));
-  recoveryRestoreButton?.addEventListener('click',()=>restoreRecovery().catch(error=>reportError('RECOVERY RESTORE FAILED.',error)));
-  recoveryDownloadButton?.addEventListener('click',()=>downloadRecovery().catch(error=>reportError('RECOVERY DOWNLOAD FAILED.',error)));
-  recoveryDeleteButton?.addEventListener('click',()=>deleteRecovery().catch(error=>reportError('RECOVERY DELETE FAILED.',error)));
+  restoreButton?.addEventListener('click',()=>executeRestore().catch(error=>reportDialogError('RESTORE FAILED.',error)));
+  recoveryRestoreButton?.addEventListener('click',()=>restoreRecovery().catch(error=>reportDialogError('RECOVERY RESTORE FAILED.',error)));
+  recoveryDownloadButton?.addEventListener('click',()=>downloadRecovery().catch(error=>reportDialogError('RECOVERY DOWNLOAD FAILED.',error)));
+  recoveryDeleteButton?.addEventListener('click',()=>deleteRecovery().catch(error=>reportDialogError('RECOVERY DELETE FAILED.',error)));
 
   renderRestorePlan(null);
   renderRecoveryDetail(null);

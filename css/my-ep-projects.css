@@ -283,6 +283,27 @@
 }
 .ep-backup-title button{width:22px;height:22px;min-height:22px;padding:0}
 .ep-backup-body{padding:9px;display:flex;flex-direction:column;gap:8px}
+
+.ep-backup-operation{border:2px inset #888;background:#f5f8ff;padding:7px 8px;display:grid;gap:5px;min-width:0}
+.ep-backup-operation[hidden]{display:none!important}
+.ep-backup-operation-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font:700 11px "Courier New",monospace}
+.ep-backup-operation[data-state="running"] #ep133-backup-activity{
+  width:11px;height:11px;border-radius:50%;border:2px solid #a6badc;
+  border-top-color:#001d9c;animation:ep-backup-spin 850ms linear infinite
+}
+@keyframes ep-backup-spin{to{transform:rotate(360deg)}}
+.ep-backup-operation-counts,.ep-backup-operation-current,.ep-backup-operation-detail{
+  font:10px/1.45 "Courier New",monospace;overflow-wrap:anywhere
+}
+.ep-backup-operation-current{font-weight:700}
+.ep-backup-operation-track{height:8px;border:1px solid #666;background:#fff;overflow:hidden}
+.ep-backup-operation-track>span{display:block;height:100%;width:0;background:var(--primary-blue);transition:width 160ms linear}
+.ep-backup-operation-detail{color:#3a4455}
+.ep-backup-operation[data-state="failed"]{border-color:#a40000;background:#fff2f1}
+.ep-backup-operation[data-state="failed"] .ep-backup-operation-detail{color:#8e0000;font-weight:700}
+.ep-backup-operation[data-state="done"]{background:#edf8ee}
+@media(prefers-reduced-motion:reduce){.ep-backup-operation[data-state="running"] #ep133-backup-activity{animation:none}}
+
 .ep-backup-section{border:2px inset var(--win-dark);background:#fff}
 .ep-backup-section h3{
   margin:0;padding:5px 7px;border-bottom:1px solid #999;background:#dedede;
