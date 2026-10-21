@@ -1,12 +1,10 @@
-import{verifyNativeProjectSlotMove}from '../sampleMoveProjectVerification.js?v=20261021-1';
-
 export function createSampleMoveController({
   sampleStore,
   getSoundsParentId,getSoundsMetadata,
   fileItemFromInfo,
   remapCurrentPropertySlot,renderDeviceStats,
   withFileTransaction,captureBatchSession,assertBatchSession,getDeviceSessionToken,
-  isConnected,setMutating,setGlobalProgress,hideGlobalProgress,markDeviceUnsafe,
+  isConnected,setMutating,setGlobalProgress,hideGlobalProgress,markDeviceUnsafe,verifyNativeProjectSlotMove,
   suppressNativeMoveEvent,clearNativeMoveSuppression,
   readDevice,logTechnical
 }={}){
@@ -73,15 +71,15 @@ export function createSampleMoveController({
 
             sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
             setGlobalProgress('MOVE',(index/plan.length)*100);
+            if(verifiedPreflight&&typeof verifyNativeProjectSlotMove!=='function')
+              throw new Error('Verified firmware MOVE requires project TAR readback verification.');
             const releaseSuppression=suppressNativeMoveEvent(sourceNodeId,target.id);
             let moved;
             try{
               // Even a timeout may mean that the hardware changed every project.
               // Never retry FILE_MOVE or automatically MOVE back on ambiguity.
               mutationStarted=true;
-              moved=await fileOps.moveFile(sourceNodeId,soundsParentId,target.id,{
-                verifyCrc:true,expectedSourceCrc
-              });
+              moved=await fileOps.moveFile(sourceNodeId,soundsParentId,target.id,{verifyCrc:true,expectedSourceCrc});
             }catch(error){
               clearNativeMoveSuppression(sourceNodeId,target.id);
               throw error;
