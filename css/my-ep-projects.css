@@ -302,6 +302,14 @@
 .ep-backup-operation[data-state="failed"]{border-color:#a40000;background:#fff2f1}
 .ep-backup-operation[data-state="failed"] .ep-backup-operation-detail{color:#8e0000;font-weight:700}
 .ep-backup-operation[data-state="done"]{background:#edf8ee}
+
+.ep-backup-operation-actions{display:flex;justify-content:flex-end}
+.ep-backup-operation-actions button{min-height:29px;padding:5px 12px;cursor:pointer;border:2px outset var(--win-gray);background:var(--win-gray);font:700 10px "Courier New",monospace}
+.ep-backup-operation-actions button[hidden]{display:none!important}
+.ep-backup-operation-actions button:disabled{opacity:.55;cursor:default}
+.ep-backup-operation[data-state="cancelling"]{border-color:#b07a00;background:#fff8e6}
+.ep-backup-operation[data-state="cancelled"]{background:#f0f0f0}
+
 @media(prefers-reduced-motion:reduce){.ep-backup-operation[data-state="running"] #ep133-backup-activity{animation:none}}
 
 .ep-backup-section{border:2px inset var(--win-dark);background:#fff}
