@@ -100,13 +100,16 @@
   const padNodes=new Map([
     [3100,{id:3100,parent:3001,name:'groups',flags:CAP.DIR|CAP.READ}],
     [3200,{id:3200,parent:3100,name:'A',flags:CAP.DIR|CAP.READ}],
-    [3201,{id:3201,parent:3200,name:'01',flags:CAP.FILE|CAP.READ}],
-    [3202,{id:3202,parent:3200,name:'02',flags:CAP.FILE|CAP.READ}]
+    ...Array.from({length:12},(_,i)=>[
+      3201+i,{id:3201+i,parent:3200,name:String(i+1).padStart(2,'0'),flags:CAP.FILE|CAP.READ}
+    ])
   ]);
-  const padMetadata=new Map([
-    [3201,{sym:7,'sound.pitch':-2.25,'sound.playmode':'key','time.mode':'bpm'}],
-    [3202,{sym:0,'sound.pitch':4,'sound.playmode':'oneshot','time.mode':'off'}]
-  ]);
+  // Synthetic full physical layout; assignment values are not hardware claims.
+  const padMetadata=new Map(Array.from({length:12},(_,i)=>[
+    3201+i,{sym:i===0?7:i===1?8:i===9?602:0,
+      'sound.pitch':i===0?-2.25:i===9?-12:4,
+      'sound.playmode':i===0?'key':'oneshot','time.mode':i===0?'bpm':'off'}
+  ]));
   // Reproduce native scenes referencing implicit (non-serialized) patterns.
   // This must not disable checking pad sample dependencies.
   const setProjectMissingPattern=(projectNumber)=>{

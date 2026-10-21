@@ -11,13 +11,16 @@ const setup=()=>{
     focus(){documentRef.activeElement=this;},
     addEventListener(type,fn){this.listeners.set(type,fn);},removeEventListener(type){this.listeners.delete(type);},
     fire(type){return this.listeners.get(type)?.({target:this});}});
-  const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padGrid','padStatus','padSource'].map(k=>[k,element()]));
+  const dom=Object.fromEntries(['padDialog','padClose','padProject','padGroup','padSelect','padAssignment','padKeys','padGrid','padStatus','padSource'].map(k=>[k,element()]));
   let permission=true,session='one',nextRead=null,targetOverride=null;
   const calls=[],target={project:'01',group:'A',pad:'01',sampleSlot:7,projectFid:2101,groupFid:4001,padFid:6107};
   let metadata={'sound.pitch':-2.25,'sound.playmode':'key','time.mode':'bpm'},assignment={status:'VERIFIED',sampleSlot:7};
   const reader={
     async listTargets(options,context){calls.push(['LIST',options]);assert.equal(context.sessionToken,'one');
-      return{projects:[{project:'01'}],groups:[{group:'A'}],pads:[target,{...target,pad:'02',padFid:6209}],unverifiedPads:[]};},
+      return{projects:[{project:'01'}],groups:[{group:'A'}],
+        pads:[{...target,assignment:{...assignment}},
+          {...target,pad:'02',padFid:6209,assignment:{status:'VERIFIED',sampleSlot:8}}],
+        unverifiedPads:[]};},
     async readTarget(selected,context){calls.push(['GET',selected]);const gate=nextRead;nextRead=null;
       const result={target:targetOverride||{...selected},metadata:{...metadata,'sound.pitch':selected.pad==='02'?4:metadata['sound.pitch']},assignment:{...assignment}};
       if(gate){gate.entered.resolve();await gate.release.promise;}return result;}
@@ -42,6 +45,11 @@ test('explicit project/group/pad navigation displays only the pad GET values, ne
   assert.match(s.dom.padAssignment.textContent,/PROJECT 01.*A.*01.*007/);
   assert.match(s.dom.padStatus.textContent,/READ ONLY/);
   assert.deepEqual(Object.keys(s.controller).sort(),['close','dispose','invalidate','openFromSample']);
+  assert.match(s.dom.padSource.textContent,/ALL 12 PADS/);
+  assert.match(s.dom.padKeys.innerHTML,/data-pad-key="01"/);
+  assert.match(s.dom.padKeys.innerHTML,/data-pad-key="10"/);
+  assert.match(s.dom.padKeys.innerHTML,/ep-pad-key-legend">\./);
+  assert.match(s.dom.padKeys.innerHTML,/SMP 007/);
 });
 
 test('missing and unsupported metadata render UNVERIFIED plus escaped raw GET data',async()=>{
@@ -53,6 +61,59 @@ test('missing and unsupported metadata render UNVERIFIED plus escaped raw GET da
 test('sym zero is displayed as UNVERIFIED assignment instead of the source library slot',async()=>{
   const s=setup();s.setAssignment({status:'UNVERIFIED',sampleSlot:null,reason:'sym zero'});await s.selectPad();
   assert.match(s.dom.padAssignment.textContent,/UNVERIFIED/);assert.doesNotMatch(s.dom.padAssignment.textContent,/ASSIGNED SAMPLE 007/);
+});
+
+test('all twelve physical keys render in hardware order and unavailable nodes are disabled',async()=>{
+  const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
+  const html=s.dom.padKeys.innerHTML;
+  assert.equal((html.match(/data-pad-key=/g)||[]).length,12);
+  assert.match(html,/data-pad-key="01"/);
+  assert.match(html,/data-pad-key="02"/);
+  assert.match(html,/data-pad-key="10"/);
+  assert.match(html,/data-pad-key="12" disabled/);
+  assert.ok(html.indexOf('data-pad-key="01"')<html.indexOf('data-pad-key="02"'));
+  assert.ok(html.indexOf('data-pad-key="09"')<html.indexOf('data-pad-key="10"'));
+});
+test('pad keyboard selection updates existing buttons and preserves focused element',async()=>{
+  const s=setup();await s.open();await s.choose('padProject','01');await s.choose('padGroup','A');
+  const markup=s.dom.padKeys.innerHTML;
+  const button=pad=>{
+    const state=new Set(),attrs=new Map();
+    return{
+      dataset:{padKey:pad},disabled:false,
+      classList:{toggle:(name,enabled)=>enabled?state.add(name):state.delete(name)},
+      setAttribute:(name,value)=>attrs.set(name,value),
+      closest:()=>null,
+      focus(){s.documentRef.activeElement=this;},
+      active:()=>state.has('is-selected'),
+      pressed:()=>attrs.get('aria-pressed')
+    };
+  };
+  const first=button('01'),second=button('02');
+  first.closest=()=>first;second.closest=()=>second;
+  s.dom.padKeys.querySelectorAll=selector=>{
+    assert.equal(selector,'[data-pad-key]');return[first,second];
+  };
+  s.dom.padKeys.contains=element=>element===first||element===second;
+  first.focus();
+  await s.choose('padSelect','01');
+  assert.equal(first.active(),true);assert.equal(first.pressed(),'true');
+  await s.choose('padSelect','02');
+  assert.equal(first.active(),false);assert.equal(first.pressed(),'false');
+  assert.equal(second.active(),true);assert.equal(second.pressed(),'true');
+  assert.equal(s.dom.padKeys.innerHTML,markup,'no keycap subtree replacement on selection');
+  assert.equal(s.documentRef.activeElement,first,'focused button remains attached');
+  second.focus();
+  let prevented=0,stopped=0;
+  s.documentRef.listeners.get('keydown')({
+    key:'Enter',target:second,
+    stopImmediatePropagation(){stopped++;},
+    preventDefault(){prevented++;}
+  });
+  assert.equal(stopped,1);assert.equal(prevented,1);
+  assert.equal(s.documentRef.activeElement,second);
+  assert.equal(s.dom.padKeys.innerHTML,markup);
+  assert.equal(s.calls.at(-1)[0],'GET');
 });
 
 test('rapid pad switching discards a late answer for the previous pad',async()=>{
