@@ -16,9 +16,21 @@ export function readSampleDependencyRequest(operation){
   if(!slots.length)throw new Error('Sample dependency guard request contains no valid source slots.');
   if(request.confirmReferencedDelete!=null&&typeof request.confirmReferencedDelete!=='function')
     throw new Error('Invalid referenced-sample delete confirmation.');
+  if(request.onMovePreflight!=null&&typeof request.onMovePreflight!=='function')
+    throw new Error('Invalid MOVE preflight receiver.');
+  const moves=request.moves==null?null:Array.from(request.moves,pair=>Object.freeze({
+    sourceId:Number(pair?.sourceId),targetId:Number(pair?.targetId)
+  }));
+  if(moves&&(!moves.length||moves.some(pair=>
+    !Number.isInteger(pair.sourceId)||pair.sourceId<1||pair.sourceId>999||
+    !Number.isInteger(pair.targetId)||pair.targetId<1||pair.targetId>999||
+    pair.sourceId===pair.targetId
+  )))throw new Error('Invalid MOVE source/destination plan.');
   return Object.freeze({
     slots:Object.freeze(slots),
     operation:String(request.operation||'modify'),
+    ...(moves?{moves:Object.freeze(moves)}:{}),
+    ...(request.onMovePreflight?{onMovePreflight:request.onMovePreflight}:{}),
     ...(request.confirmReferencedDelete?{confirmReferencedDelete:request.confirmReferencedDelete}:{})
   });
 }
@@ -96,10 +108,17 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
       results.push({
         project:node.fileName.slice(-2),
         nodeId:node.nodeId,
+        // Keep exact pre-MOVE TAR bytes under the strict FILE lease for readback.
+        data:archive.data.slice(),
         model:readProjectPadDependencies(archive.data,{profile})
       });
     }
-    return buildSampleDependencyIndex(results);
+    return Object.freeze({
+      ...buildSampleDependencyIndex(results),
+      projectSnapshots:Object.freeze(results.map(result=>Object.freeze({
+        project:result.project,nodeId:result.nodeId,data:result.data
+      })))
+    });
   };
 
   const assertOperationSafe=async(fileOps,operation)=>{
@@ -107,6 +126,33 @@ export function createSampleDependencyGuard({getConnectedDeviceInfo}={}){
     if(!request)return null;
     const index=await buildIndex(fileOps);
     const blockers=getSampleDependencyBlockers(index,request.slots);
+    if(request.operation==='move'&&request.moves){
+      const sources=request.moves.map(pair=>pair.sourceId).sort((a,b)=>a-b);
+      const targets=request.moves.map(pair=>pair.targetId);
+      if(sources.length!==request.slots.length||
+         sources.some((slot,i)=>slot!==request.slots[i])||
+         new Set(sources).size!==sources.length||
+         new Set(targets).size!==targets.length||
+         targets.some(slot=>request.slots.includes(slot)))
+        throw new Error('MOVE preflight plan does not match its complete source slot set.');
+      if(getSampleDependencyBlockers(index,targets).length)
+        throw new Error('MOVE destination is already referenced by a saved project.');
+    }
+    if(request.operation==='move'&&blockers.length){
+      const info=getConnectedDeviceInfo();
+      // Hardware evidence for firmware-managed multi-project remap is currently
+      // limited to the exact EP-133 2.5.1 identity. Never generalize to EP-40.
+      if(info?.sku!=='TE032AS001'||info?.metadata?.os_version!=='2.5.1'||
+         !request.moves||typeof request.onMovePreflight!=='function')
+        assertSampleSlotsUnreferenced(index,request.slots,{operation:'move'});
+      request.onMovePreflight(Object.freeze({
+        projectSnapshots:Object.freeze(index.projectSnapshots.filter(item=>
+          blockers.some(blocker=>blocker.projects.includes(item.project))
+        )),
+        references:Object.freeze(blockers.flatMap(blocker=>blocker.references))
+      }));
+      return index;
+    }
     if(!blockers.length)return index;
     if(request.operation==='delete'&&request.confirmReferencedDelete){
       // Project pads remain unchanged. The user must explicitly accept that
