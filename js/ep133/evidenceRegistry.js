@@ -39,6 +39,18 @@ const sampleBars=(sku)=>entry(
 );
 
 export const EVIDENCE_REGISTRY=Object.freeze([
+  entry('ep133-pad-metadata-captures-os-2.5.1','TE032AS001',CAPABILITY_KEYS.PAD_METADATA,CAPABILITY_EVIDENCE.CAPTURE_OBSERVED,{
+    read:true,firmwareRange:'2.5.1',sourceType:'capture',recordedAt:'2026-10-21',
+    artifactId:'docs/testing/ep133-pad-read-capture-audit.md',
+    source:'Owner-supplied sanitized capture audit, EP-133 OS 2.5.1. Capture A SHA-256 e962c91cf1ac5fe274c89bad257dcc536f97702b98c2357082b0ba53001d9126; Capture B SHA-256 f25620432bdf565002bf453a7adda6a31fc53ea624d8ad4ed6ac81de40a85688. Each: 21 outbound READ requests, 20 successful responses, no writes; complete METADATA GET pair for FID 3201 confirms 12 fields.',
+    reason:'Incomplete captures: final RX for FID 3202 is absent in both raw traces; application summary is not raw RX evidence. Capture-observed READ only; no pad WRITE or complete UI hardware acceptance.'
+  }),
+  entry('ep40-pad-metadata-unverified','TE032AS006',CAPABILITY_KEYS.PAD_METADATA,CAPABILITY_EVIDENCE.UNVERIFIED,{
+    reason:'Pad metadata READ and WRITE are unverified on EP-40.'
+  }),
+  entry('ep1320-pad-metadata-unverified','TE032AS005',CAPABILITY_KEYS.PAD_METADATA,CAPABILITY_EVIDENCE.UNVERIFIED,{
+    reason:'Pad metadata READ and WRITE are unverified on EP-1320.'
+  }),
   entry('ep133-sample-metadata-os-2.5.1','TE032AS001',CAPABILITY_KEYS.SAMPLE_METADATA,CAPABILITY_EVIDENCE.HARDWARE_VERIFIED,{
     read:true,preserve:true,firmwareRange:'2.5.1',sourceType:'hil',
     source:'ep-series-sysex live verification on EP-133 OS 2.5.1'

@@ -1,5 +1,5 @@
 import{resolveRegisteredCapabilityEvidence}from './evidenceRegistry.js?v=20261001-1';
-import{assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
+import{CAPABILITY_KEYS,assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
 import{decodeFileRights}from './deviceCapabilities.js?v=20261001-1';
 import{assertFileMetadata}from './coreContracts.js?v=20261008-1';
 
@@ -7,13 +7,17 @@ import{assertFileMetadata}from './coreContracts.js?v=20261008-1';
 // payload preparation, archive fallback or recovery dependency belongs here.
 export function getPadReadAvailability(device={}){
   const sku=String(device?.sku||'');
-  const firmware=String(device?.metadata?.os_version||device?.metadata?.sw_version||device?.firmware||'');
+  // Only OS reported by the current connected device qualifies. Handshake
+  // firmware/sw_version fallbacks cannot supply this capture's exact OS scope.
+  const firmware=String(device?.metadata?.os_version||'');
   const compatibility=assessEpFirmwareCompatibility(sku,firmware);
-  // This capability is absent in current main. Do not infer it from sample
-  // metadata, project archive/reload permissions or raw FILE capability flags.
-  const evidence=resolveRegisteredCapabilityEvidence(sku,'project.pad-metadata',firmware);
-  return Object.freeze({read:compatibility.supported&&evidence.read===true,write:false,evidence,
-    reason:compatibility.supported?(evidence.read?'':('Pad metadata READ is not authorized. '+evidence.reason)):compatibility.reason});
+  const evidence=resolveRegisteredCapabilityEvidence(sku,CAPABILITY_KEYS.PAD_METADATA,firmware);
+  // Generic evidence intentionally retains some READ rights on range mismatch.
+  // Pad READ is narrower: never infer it from another capability or FILE flags.
+  const read=sku==='TE032AS001'&&firmware==='2.5.1'&&compatibility.supported===true&&
+    evidence.read===true&&evidence.firmwareMatch===true;
+  return Object.freeze({read,write:false,evidence,
+    reason:read?'':'Pad metadata READ is not authorized. Requires EP-133 with metadata OS 2.5.1 and matching capture evidence.'});
 }
 
 const validFid=value=>Number.isInteger(value)&&value>0&&value<=0xffff;

@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import{createFileScheduler}from '../js/ep133/fileScheduler.js';
 import{getPadReadAvailability,createPadMetadataReader}from '../js/ep133/padMetadataReadOnly.js';
 
-// Synthetic read leases; production evidence is deliberately NOT changed.
+// Injected synthetic leases exercise identity guards independently of production evidence.
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
-const harness=({sku='TE032AS001',production=false}={})=>{
+const harness=({sku='TE032AS001',production=false,deviceInfo=null}={})=>{
   let session='one',permission=true,current=true,beforeRead=null,beforeLease=null,infoOverride=null;
-  let device={sku,metadata:{os_version:'2.5.1',serial:'synthetic-device'}};
+  let device=deviceInfo||{sku,metadata:{os_version:'2.5.1',serial:'synthetic-device'}};
   const scheduler=createFileScheduler(),traffic=[];
   const nodes=[{nodeId:1800,parentId:0,fileName:'projects',flags:6},
     {nodeId:2101,parentId:1800,fileName:'01',flags:6},
@@ -40,6 +40,7 @@ const harness=({sku='TE032AS001',production=false}={})=>{
   const options={sessionToken:session,isCurrent:()=>current};
   return{reader,target,options,nodes,metadata,traffic,scheduler,
     changeSession:()=>{session='two';},revoke:()=>{permission=false;},cancel:()=>{current=false;},
+    setOs:os=>{device.metadata.os_version=os;},
     replaceDevice:()=>{device={...device,metadata:{...device.metadata,serial:'replacement'}};},
     overrideInfo:fn=>{infoOverride=fn;},
     deferRead:()=>{const gate={entered:deferred(),release:deferred()};beforeRead=gate;return gate;},
@@ -59,7 +60,7 @@ for(const sku of ['TE032AS001','TE032AS006']){
     assert.ok(h.traffic.some(a=>a[0]==='INFO'&&a[1]===6107));noMutations(h);
     assert.deepEqual(Object.keys(h.reader).sort(),['listTargets','readTarget']);
   });
-  test(sku+': production has no pad READ evidence and dispatches nothing',async()=>{
+  if(sku!=='TE032AS001')test(sku+': production has no pad READ evidence and dispatches nothing',async()=>{
     const h=harness({sku,production:true});
     await assert.rejects(()=>h.reader.listTargets({sampleSlot:7},h.options),/READ|evidence|permission/i);
     assert.deepEqual(h.traffic,[]);
@@ -129,4 +130,41 @@ test(transition+' during GET discards the late result and sends no further reads
   const h=harness(),gate=h.deferRead();const read=h.reader.readTarget(h.target,h.options);
   await gate.entered.promise;const count=h.traffic.length;h[transition]();gate.release.resolve();await assert.rejects(()=>read);
   assert.equal(h.traffic.length,count);noMutations(h);
+});
+
+// Exercise the production gate, not the injected synthetic permission above.
+test('production EP-133 metadata OS 2.5.1 authorizes only READ',async()=>{
+  const device={sku:'TE032AS001',metadata:{os_version:'2.5.1'}};
+  const permission=getPadReadAvailability(device);
+  assert.equal(permission.read,true);assert.equal(permission.write,false);
+  assert.equal(permission.evidence.firmwareMatch,true);
+  const h=harness({production:true,deviceInfo:device});
+  const snapshot=await h.reader.readTarget(h.target,h.options);
+  assert.equal(snapshot.metadata['sound.pitch'],-2.25);noMutations(h);
+});
+for(const device of [
+  ...['2.5.2','2.0.5','','unknown','2.5.1 '].map(os=>({sku:'TE032AS001',metadata:{os_version:os}})),
+  {sku:'TE032AS001',firmware:'2.5.1'},
+  {sku:'TE032AS001',metadata:{sw_version:'2.5.1'},firmware:'2.5.1'},
+  ...['TE032AS006','TE032AS005','UNKNOWN'].map(sku=>({sku,metadata:{os_version:'2.5.1'}}))
+])test('production fails before FILE for '+JSON.stringify(device),async()=>{
+  const permission=getPadReadAvailability(device);
+  assert.equal(permission.read,false);assert.equal(permission.write,false);assert.ok(permission.reason);
+  const h=harness({production:true,deviceInfo:device});
+  await assert.rejects(()=>h.reader.listTargets({sampleSlot:7},h.options),/READ|firmware|OS|unsupported/i);
+  await assert.rejects(()=>h.reader.readTarget(h.target,h.options),/READ|firmware|OS|unsupported/i);
+  assert.deepEqual(h.traffic,[]);
+});
+
+test('production queued READ cannot cross a reconnect',async()=>{
+  const h=harness({production:true}),gate=h.deferLease();
+  const pending=h.reader.readTarget(h.target,h.options);
+  await gate.entered.promise;h.changeSession();gate.release.resolve();
+  await assert.rejects(pending,/session/i);assert.deepEqual(h.traffic,[]);
+});
+test('production late GET is rejected after firmware metadata changes',async()=>{
+  const h=harness({production:true}),gate=h.deferRead();
+  const pending=h.reader.readTarget(h.target,h.options);
+  await gate.entered.promise;h.setOs('2.5.2');gate.release.resolve();
+  await assert.rejects(pending,/identity|READ/i);noMutations(h);
 });

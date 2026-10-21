@@ -95,8 +95,20 @@
     [3001,{id:3001,parent:2000,name:'01',data:projectTar}],
     [3002,{id:3002,parent:2000,name:'02',data:projectTarComplete}]
   ]);
-  // Reproduce native scenes that reference implicit (non-serialized) pattern
-  // members. This must not disable checking pad sample dependencies.
+  // Synthetic read-only hierarchy: discovered FIDs/parents, never a FID formula.
+  // These fixtures do not reconstruct the missing hardware RX for FID 3202.
+  const padNodes=new Map([
+    [3100,{id:3100,parent:3001,name:'groups',flags:CAP.DIR|CAP.READ}],
+    [3200,{id:3200,parent:3100,name:'A',flags:CAP.DIR|CAP.READ}],
+    [3201,{id:3201,parent:3200,name:'01',flags:CAP.FILE|CAP.READ}],
+    [3202,{id:3202,parent:3200,name:'02',flags:CAP.FILE|CAP.READ}]
+  ]);
+  const padMetadata=new Map([
+    [3201,{sym:7,'sound.pitch':-2.25,'sound.playmode':'key','time.mode':'bpm'}],
+    [3202,{sym:0,'sound.pitch':4,'sound.playmode':'oneshot','time.mode':'off'}]
+  ]);
+  // Reproduce native scenes referencing implicit (non-serialized) patterns.
+  // This must not disable checking pad sample dependencies.
   const setProjectMissingPattern=(projectNumber)=>{
     const id=3000+Number(projectNumber),project=projects.get(id);
     if(!project)throw new Error('Unknown test project '+projectNumber);
@@ -296,6 +308,7 @@
       ];
       else if(node===1000)body=[...samples.values()].sort((a,b)=>a.id-b.id).map(s=>listEntry(s.id,flagsFile,s.reportedSize??s.data.length,s.name));
       else if(node===2000)body=[...projects.values()].map(project=>listEntry(project.id,CAP.DIR|CAP.READ,project.data.length,project.name));
+      else body=[...padNodes.values()].filter(n=>n.parent===node).map(n=>listEntry(n.id,n.flags,0,n.name));
       const reply=response(request,concat(be16(page),...body.slice(page*listPageSize,(page+1)*listPageSize)));
       if(node===1000&&heldListPage===page){
         delayedListResponses.push(()=>emitLater(reply));return;
@@ -304,7 +317,7 @@
     }
     if(sub===F.METADATA&&raw[1]===2){
       const id=u16(raw,2),page=u16(raw,4);
-      const meta=id===1000?soundsMeta():id===2000?{active:3001,name:'projects'}:samples.get(id)?.meta||{};
+      const meta=id===1000?soundsMeta():id===2000?{active:3001,name:'projects'}:padMetadata.get(id)||samples.get(id)?.meta||{};
       if(page>0){emitLater(response(request,Uint8Array.from(be16(page))));return;}
       emitLater(response(request,concat(be16(0),enc.encode(JSON.stringify(meta)),[0])));return;
     }
@@ -320,6 +333,8 @@
     }
     if(sub===F.INFO){
       const id=u16(raw,1),sample=samples.get(id);
+      const node=padNodes.get(id)||projects.get(id)||(id===2000?{id:2000,parent:0,name:'projects',flags:CAP.DIR|CAP.READ}:null);
+      if(node){emitLater(response(request,concat(be16(id),be16(node.parent),[node.flags??(CAP.DIR|CAP.READ)],be32(node.data?.length||0),enc.encode(node.name),[0])));return;}
       if(!sample){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
       emitLater(response(request,fileInfo(sample)));return;
     }
