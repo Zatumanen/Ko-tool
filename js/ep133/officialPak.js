@@ -104,9 +104,15 @@ export async function createOfficialEpPak({
   if(!['device','project+samples'].includes(scope))
     throw new Error('Only whole-device .pak and project+samples .ppak are supported.');
   const sku=String(device?.sku||'').toUpperCase();
+  const identitySku=String(device?.identitySku||'').toUpperCase();
+  const baseSku=String(device?.baseSku||device?.metadata?.base_sku||'').toUpperCase();
   const firmware=String(device?.metadata?.os_version||'');
   if(sku!=='TE032AS001'||firmware!=='2.5.1')
     throw new Error('Official PAK export is verified only for EP-133 TE032AS001 OS 2.5.1.');
+  // The physical reference has MIDI identity AS002 and verified GREET base
+  // AS001. Do not fabricate either from the effective compatibility SKU.
+  if(!/^TE[0-9]{3}AS[0-9]{3}$/.test(identitySku)||baseSku!==sku)
+    throw new Error('Official PAK export needs the exact verified MIDI identity and GREET base SKU.');
   if(!Array.isArray(projects)||!projects.length||
      (scope==='project+samples'&&projects.length!==1))
     throw new Error('Official PAK requires the complete requested project selection.');
@@ -147,9 +153,9 @@ export async function createOfficialEpPak({
     pak_type:scope==='device'?'user':'project',
     pak_release:'1.2.0',
     device_name:String(device?.name||'EP-133'),
-    device_sku:sku,device_version:firmware,
-    generated_at:date.toISOString(),author:'computer',
-    base_sku:String(device?.metadata?.base_sku||sku)
+    device_sku:identitySku,device_version:firmware,
+    generated_at:date.toISOString(),author:'K.O. Tool',
+    base_sku:baseSku
   };
   // Never copy device serial, identity hashes or private device metadata.
   files.push({path:'/meta.json',blob:new Blob([JSON.stringify(info,null,2)],
