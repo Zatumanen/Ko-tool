@@ -1,6 +1,7 @@
 import{test,expect}from '@playwright/test';
 import path from 'node:path';
 import{fileURLToPath}from 'node:url';
+import{inflateRawSync}from 'node:zlib';
 
 const fakeEpScript=path.join(path.dirname(fileURLToPath(import.meta.url)),'fake-ep-browser.js');
 const openBackup=async(page,{projects=2,samples=null,selectProject02=false}={})=>{
@@ -220,4 +221,84 @@ test('picker cancellation is not reported as a completed backup',async({page})=>
   await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:20000});
   await expect(page.locator('#ep133-backup-operation')).toHaveAttribute('data-state','cancelled');
   await expect(page.locator('#ep133-backup-detail')).toContainText('CANCELLED BY USER');
+});
+
+const zipMembers=buffer=>{
+  const files=new Map(),v=new DataView(buffer.buffer,buffer.byteOffset,buffer.byteLength);
+  let p=0;
+  while(p+30<=buffer.length&&v.getUint32(p,true)===0x04034b50){
+    const method=v.getUint16(p+8,true),compressed=v.getUint32(p+18,true),
+      length=v.getUint16(p+26,true),extra=v.getUint16(p+28,true);
+    const name=new TextDecoder().decode(buffer.slice(p+30,p+30+length));
+    const start=p+30+length+extra,data=buffer.slice(start,start+compressed);
+    files.set(name,{method,data:method===8?inflateRawSync(data):data});
+    p=start+compressed;
+  }
+  return files;
+};
+
+test('official project PPAK exports deflated WAV/TAR without changing legacy backup or FILE state',async({page})=>{
+  await openBackup(page,{selectProject02:true});
+  await page.evaluate(()=>{
+    window.__officialSaves=[];
+    window.showSaveFilePicker=async ({suggestedName})=>({
+      async createWritable(){return{
+        async write(blob){
+          window.__officialSaves.push({name:suggestedName,bytes:[...new Uint8Array(await blob.arrayBuffer())]});
+        },async close(){}
+      };}
+    });
+  });
+  const begin=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-backup-official-project').click();
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:25000});
+  await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 1/1 · SAMPLES 2/2');
+  const info=await page.evaluate(start=>({
+    save:window.__officialSaves[0],
+    mutations:window.__fakeEp.requestLog.slice(start).filter(r=>
+      r.command===5&&([2,6,12].includes(r.sub)||(r.sub===7&&r.type===1)))
+  }),begin);
+  expect(info.save.name).toMatch(/\.ppak$/);
+  expect(info.mutations).toEqual([]);
+  const files=zipMembers(Buffer.from(info.save.bytes));
+  expect([...files.keys()]).toEqual([
+    '/projects/P02.tar','/sounds/007 kick808.wav','/sounds/008 snare.wav','/meta.json'
+  ]);
+  for(const item of files.values())expect(item.method).toBe(8);
+  const meta=JSON.parse(new TextDecoder().decode(files.get('/meta.json').data));
+  expect(meta.pak_type).toBe('project');
+  expect(meta.device_version).toBe('2.5.1');
+  expect(Object.hasOwn(meta,'serial')).toBe(false);
+  const wav=files.get('/sounds/007 kick808.wav').data;
+  expect(new TextDecoder().decode(wav.subarray(0,4))).toBe('RIFF');
+  expect(Buffer.from(wav).includes(Buffer.from('TNGE'))).toBe(true);
+  const dataPos=wav.findIndex((_,i)=>i>=12&&
+    wav[i]===100&&wav[i+1]===97&&wav[i+2]===116&&wav[i+3]===97);
+  expect(dataPos).toBeGreaterThan(0);
+  const pcmSize=new DataView(wav.buffer,wav.byteOffset,wav.byteLength).getUint32(dataPos+4,true);
+  expect(pcmSize).toBe(128);
+});
+
+test('official whole-device PAK has project TARs and WAV with no samples rewritten',async({page})=>{
+  await openBackup(page);
+  await page.evaluate(()=>{
+    window.__officialSaves=[];
+    window.showSaveFilePicker=async ({suggestedName})=>({
+      async createWritable(){return{
+        async write(blob){window.__officialSaves.push({
+          name:suggestedName,bytes:[...new Uint8Array(await blob.arrayBuffer())]
+        });},async close(){}
+      };}
+    });
+  });
+  await page.locator('#ep133-backup-official-device').click();
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:30000});
+  const save=await page.evaluate(()=>window.__officialSaves[0]);
+  expect(save.name).toMatch(/\.pak$/);
+  const files=zipMembers(Buffer.from(save.bytes));
+  expect(files.has('/projects/P01.tar')).toBe(true);
+  expect(files.has('/projects/P02.tar')).toBe(true);
+  expect(files.has('/sounds/007 kick808.wav')).toBe(true);
+  expect(files.has('/meta.json')).toBe(true);
+  expect(JSON.parse(new TextDecoder().decode(files.get('/meta.json').data)).pak_type).toBe('user');
 });
