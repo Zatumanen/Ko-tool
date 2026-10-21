@@ -265,6 +265,46 @@
     emitLater(eventFrame(Uint8Array.from([13,...be16(oldId),...be16(1000),...be16(newId)])),0);
     emitMetadata(1000);
   };
+  // Model native EP-133 2.5.1 firmware changing saved pad slot IDs.
+  // This is fake-device behavior, not independent hardware evidence.
+  let suppressFirmwareProjectRemap=false;
+  const visitPadSlots=(project,visit)=>{
+    const bytes=project.data;
+    let offset=0;
+    while(offset+512<=bytes.length){
+      const header=bytes.subarray(offset,offset+512);
+      const name=zstr(header,0);
+      if(!name)break;
+      const size=parseInt(zstr(header,124).trim(),8)||0;
+      const dataStart=offset+512;
+      if(/^pads\\/[abcd]\\/p(?:0[1-9]|1[0-2])$/.test(name)&&size>=3){
+        const slot=bytes[dataStart+1]|bytes[dataStart+2]<<8;
+        visit({name,slot,offset:dataStart+1,bytes});
+      }
+      offset=dataStart+Math.ceil(size/512)*512;
+    }
+  };
+  const remapFirmwareProjects=(sourceId,targetId)=>{
+    for(const project of projects.values()){
+      project.data=project.data.slice();
+      visitPadSlots(project,pad=>{
+        if(pad.slot===sourceId){
+          pad.bytes[pad.offset]=targetId&255;
+          pad.bytes[pad.offset+1]=(targetId>>>8)&255;
+        }
+      });
+    }
+    for(const [id,meta] of padMetadata){
+      if(meta.sym===sourceId){padMetadata.set(id,{...meta,sym:targetId});emitMetadata(id);}
+    }
+  };
+  const projectPadSlots=()=>{
+    const result=[];
+    for(const project of projects.values()){
+      visitPadSlots(project,pad=>result.push({project:project.name,pad:pad.name,slot:pad.slot}));
+    }
+    return result;
+  };
   const listEntry=(id,flags,size,name)=>concat(be16(id),[flags],be32(size),enc.encode(name),[0]);
   const fileInfo=sample=>concat(be16(sample.id),be16(1000),[flagsFile],be32(sample.data.length),enc.encode(sample.name),[0]);
   const parseRequest=data=>{
@@ -350,6 +390,7 @@
       const oldId=u16(raw,1),parent=u16(raw,3),newId=u16(raw,5),sample=samples.get(oldId);
       if(!sample||parent!==1000||samples.has(newId)){emitLater(response(request,enc.encode('invalid move\0'),3));return;}
       samples.delete(oldId);sample.id=newId;samples.set(newId,sample);
+      if(!suppressFirmwareProjectRemap)remapFirmwareProjects(oldId,newId);
       emitLater(response(request,Uint8Array.from([...be16(oldId),...be16(parent),...be16(newId)])));emitMoved(oldId,newId);return;
     }
     if(sub===F.GET&&raw[1]===0){
@@ -449,6 +490,8 @@
       for(const release of delayedListResponses.splice(0))release();
     },
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
+    projectPadSlots,
+    setFirmwareProjectRemapEnabled:value=>{suppressFirmwareProjectRemap=!value;},
     setProjectMissingPattern,setProjectMalformedPad,setProject27BytePads,
     changeProjectBpm,
     disconnect,reconnect,
