@@ -395,6 +395,7 @@
 
 .ep-backup-dialog[data-mode="recovery"] [data-backup-panel],
 .ep-backup-dialog[data-mode="recovery"] [data-restore-panel]{display:none}
+.ep-backup-dialog[data-mode="recovery"] [data-pak-preview-panel]{display:none}
 .ep-backup-dialog[data-mode="backup"] [data-recovery-panel]{display:none}
 
 /* Verified Project Editor */
