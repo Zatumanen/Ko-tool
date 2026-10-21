@@ -3,7 +3,7 @@ import path from 'node:path';
 import{fileURLToPath}from 'node:url';
 
 const fakeEpScript=path.join(path.dirname(fileURLToPath(import.meta.url)),'fake-ep-browser.js');
-const openBackup=async(page,{projects=2,samples=null}={})=>{
+const openBackup=async(page,{projects=2,samples=null,selectProject02=false}={})=>{
   await page.addInitScript({path:fakeEpScript});
   await page.goto('/');
   await page.evaluate(({projects,samples})=>{
@@ -14,6 +14,10 @@ const openBackup=async(page,{projects=2,samples=null}={})=>{
   await expect(page.locator('#ep133-status')).toContainText('SYNCED',{timeout:30000});
   await page.locator('#ep133-view-projects').click();
   await expect(page.locator('.ep-project-row')).toHaveCount(projects,{timeout:30000});
+  if(selectProject02){
+    await page.locator('[data-project="02"]').click();
+    await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
+  }
   await page.locator('#ep133-project-backup').click();
   await expect(page.locator('#ep133-backup-dialog')).toBeVisible();
 };
@@ -52,10 +56,8 @@ test('9 projects / 331 samples: in-dialog counters reach exact completed file to
 });
 
 test('paused FILE_GET leaves visible activity, identifies current project and forbids cancelling',async({page})=>{
-  await openBackup(page);
-  // Finish inspector's own read before holding the BACKUP's P01 FILE_GET.
-  await page.locator('[data-project="02"]').click();
-  await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
+  // Finish inspector's own read before opening the modal and holding P01.
+  await openBackup(page,{selectProject02:true});
   await page.evaluate(()=>{
     window.__fakeEp.holdNextGet(3001);
     window.showSaveFilePicker=async()=>({
