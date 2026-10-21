@@ -53,6 +53,9 @@ test('9 projects / 331 samples: in-dialog counters reach exact completed file to
 
 test('paused FILE_GET leaves visible activity, identifies current project and forbids cancelling',async({page})=>{
   await openBackup(page);
+  // Finish inspector's own read before holding the BACKUP's P01 FILE_GET.
+  await page.locator('[data-project="02"]').click();
+  await expect(page.locator('#ep133-project-inspector')).toContainText('2/2 AVAILABLE');
   await page.evaluate(()=>{
     window.__fakeEp.holdNextGet(3001);
     window.showSaveFilePicker=async()=>({
@@ -91,8 +94,7 @@ test('mid-backup FILE_GET error is visible as FAILED; next backup can retry',asy
   await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 2/2 · SAMPLES 1/2');
   expect(await page.evaluate(()=>window.__saveCount)).toBe(0);
   await expect(page.locator('#ep133-backup-close')).toBeEnabled();
-  const errorDialog=page.locator('#error-dialog');
-  if(await errorDialog.isVisible())await page.locator('#error-ok').click();
+  await expect(page.locator('#error-dialog')).toBeHidden();
   await page.locator('#ep133-backup-device').click();
   await expect(page.locator('#ep133-backup-phase')).toHaveText('RESULT',{timeout:20000});
   await expect(page.locator('#ep133-backup-counts')).toHaveText('PROJECTS 2/2 · SAMPLES 2/2');
@@ -111,8 +113,7 @@ test('picker permission rejection fails visibly without download fallback; close
   await page.locator('#ep133-backup-project').click();
   await expect(page.locator('#ep133-backup-phase')).toHaveText('FAILED',{timeout:20000});
   await expect(page.locator('#ep133-backup-detail')).toContainText('Saving permission denied');
-  const errorDialog=page.locator('#error-dialog');
-  if(await errorDialog.isVisible())await page.locator('#error-ok').click();
+  await expect(page.locator('#error-dialog')).toBeHidden();
   await page.locator('#ep133-backup-close').click();
   await expect(page.locator('#ep133-backup-dialog')).toBeHidden();
   await page.locator('#ep133-project-backup').click();
