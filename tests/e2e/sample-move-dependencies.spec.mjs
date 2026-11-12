@@ -172,3 +172,41 @@ test('dragging onto a tab alone never dispatches native FILE_MOVE',async({page})
   ),before);
   expect(moves).toEqual([]);
 });
+
+test('native MOVE refuses a destination occupied silently after UI synchronization',async({page})=>{
+  await open(page,'native');
+  const before=await page.evaluate(()=>{
+    window.__fakeEp.seedSample(20,{emitEvent:false});
+    return{start:window.__fakeEp.requestLog.length,
+      source:window.__fakeEp.sampleBytes(7),
+      destination:window.__fakeEp.sampleBytes(20)};
+  });
+  await expect(page.locator('[data-slot="20"]')).toHaveClass(/empty/);
+  await drag(page,7,20);
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  const result=await page.evaluate(start=>({
+    requests:window.__fakeEp.requestLog.slice(start),
+    source:window.__fakeEp.sampleBytes(7),
+    destination:window.__fakeEp.sampleBytes(20)
+  }),before.start);
+  expect(mutations(result.requests)).toEqual([]);
+  expect(result.source).toEqual(before.source);
+  expect(result.destination).toEqual(before.destination);
+});
+
+test('native MOVE refuses a source removed silently after UI synchronization',async({page})=>{
+  await open(page,'native');
+  const before=await page.evaluate(()=>{
+    const start=window.__fakeEp.requestLog.length;
+    window.__fakeEp.removeSample(10);
+    return start;
+  });
+  await drag(page,10,20);
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  const result=await page.evaluate(start=>({
+    requests:window.__fakeEp.requestLog.slice(start),
+    destination:window.__fakeEp.sampleBytes(20)
+  }),before);
+  expect(mutations(result.requests)).toEqual([]);
+  expect(result.destination).toBeNull();
+});
