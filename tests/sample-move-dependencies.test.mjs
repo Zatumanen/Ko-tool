@@ -20,6 +20,10 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
   withoutTransaction=false,crcVerified=true,afterRead=()=>{},referenced=[7,12]}={})=>{
   const sampleStore=createSampleStore(),events=[];
   const entry=id=>({nodeId:id,fileName:'/sounds/sample'+id,fileType:'file',fileSize:64});
+  const onDevice=new Map([7,10,12].map(id=>[id,entry(id)]));
+  if(failure==='occupied-target')onDevice.set(20,entry(20));
+  if(failure==='missing-source')onDevice.delete(10);
+  if(failure==='replaced-source')onDevice.set(10,{...entry(10),fileName:'/sounds/replaced10'});
   sampleStore.replaceFiles([7,10,12].map(entry));
   for(const id of [7,10,12])sampleStore.setMetadata(id,{name:'sample'+id,crc:id*1001});
   let session='session-a';
@@ -32,8 +36,9 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
     return[id,bytes];
   }));
   const fileOps={
-    async listDirectory(node){
-      events.push(['list',node]);
+    async listDirectory(node,path){
+      events.push(['list',node,path]);
+      if(node===1000)return [...onDevice.values()];
       if(failure==='missing-projects')return[];
       return node===0?[{nodeId:2000,fileName:'/projects',fileType:'folder'}]
         :[1,2].map(n=>({nodeId:3000+n,fileName:'/projects/0'+n,fileType:'folder'}));
@@ -58,9 +63,14 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
           }
         }
       }
+      const original=onDevice.get(sourceId);
+      if(failure!=='source-survives')onDevice.delete(sourceId);
+      onDevice.set(targetId,{...original,nodeId:targetId});
+      if(failure==='second-target-occupied'&&sourceId===7)onDevice.set(21,entry(21));
       if(failure==='timeout-after-move')throw new Error('FILE_MOVE response timeout');
       return{oldFileId:sourceId,newFileId:targetId,sourceCrc:sourceId*1001,
-        destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},info:entry(targetId)};
+        destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},info:entry(targetId),
+        timedOut:failure==='timeout-with-crc'};
     }
   };
   fileOps.getFileInInitializedSession=async id=>{
@@ -120,7 +130,7 @@ for(const sku of ['TE032AS001','TE032AS006']){
       assert.deepEqual(await h.run([id]),{targetIds:[20]});
       assert.equal(h.events.filter(e=>e[0]==='move').length,1);
       assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
-      assert.deepEqual(h.events.filter(e=>e[0]==='list'),[]);
+      assert.deepEqual(h.events.filter(e=>e[0]==='list'&&e[1]!==1000),[]);
       assert.ok(h.sampleStore.getSlot(20).file);
       assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
     }
@@ -188,7 +198,7 @@ test('EP-133 firmware remaps one sample in two saved projects without TAR writes
   const h=harness({referenced:[7,7]});
   assert.deepEqual(await h.run([7]),{targetIds:[20]});
   assert.deepEqual(h.events.filter(e=>e[0]==='get'),[]);
-  assert.deepEqual(h.events.filter(e=>e[0]==='list'),[]);
+  assert.deepEqual(h.events.filter(e=>e[0]==='list'&&e[1]!==1000),[]);
   assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
   assert.equal(h.events.some(e=>e[0]==='unsafe'),false);
 });
@@ -241,4 +251,57 @@ test('EP-40 retains traditional FILE_GET init before every project read',async()
   assert.deepEqual(await h.run([10]),{targetIds:[20]});
   assert.deepEqual(h.events.filter(e=>e[0]==='fast-get'),[]);
   assert.deepEqual(h.events.filter(e=>e[0]==='get').map(e=>e[1]),[3001,3002]);
+});
+
+// ZAT-76: these scenarios fail against the original cached-slot/CRC-only MOVE path.
+test('MOVE refuses an occupied target hidden by stale UI inventory',async()=>{
+  const h=harness({failure:'occupied-target'});
+  await assert.rejects(()=>h.run([10]),/target.*occupied|target.*changed|target.*empty/i);
+  assertNoMove(h);
+});
+
+test('MOVE refuses a source missing from the authoritative device inventory',async()=>{
+  const h=harness({failure:'missing-source'});
+  await assert.rejects(()=>h.run([10]),/source.*missing|source.*changed|source.*not found/i);
+  assertNoMove(h);
+});
+
+test('MOVE refuses source identity changes in an existing device slot',async()=>{
+  const h=harness({failure:'replaced-source'});
+  await assert.rejects(()=>h.run([10]),/source.*changed|source.*mismatch/i);
+  assertNoMove(h);
+});
+
+test('MOVE lists /sounds within its lease before and after FILE_MOVE',async()=>{
+  const h=harness();
+  await h.run([10]);
+  const index=h.events.findIndex(e=>e[0]==='move');
+  const lists=h.events.map((e,i)=>({e,i})).filter(item=>item.e[0]==='list'&&item.e[1]===1000);
+  assert.ok(lists.some(item=>item.i<index),'missing pre-MOVE list');
+  assert.ok(lists.some(item=>item.i>index),'missing post-MOVE list');
+});
+
+test('CRC success after a MOVE timeout requires unsafe recovery, never MOVED',async()=>{
+  const h=harness({failure:'timeout-with-crc'});
+  await assert.rejects(()=>h.run([10]),/Native MOVE may have changed|timed out|timeout/i);
+  assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[10,20]]);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+  assert.ok(h.sampleStore.getSlot(10).file);
+  assert.equal(h.sampleStore.getSlot(20).file,null);
+});
+
+test('CRC success cannot conceal an unchanged source slot after FILE_MOVE',async()=>{
+  const h=harness({failure:'source-survives'});
+  await assert.rejects(()=>h.run([10]),/Native MOVE may have changed|source.*present|source.*remains/i);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+  assert.ok(h.sampleStore.getSlot(10).file);
+  assert.equal(h.sampleStore.getSlot(20).file,null);
+});
+
+test('partial MOVE batch halts when the next target becomes occupied',async()=>{
+  const h=harness({failure:'second-target-occupied'});
+  await assert.rejects(()=>h.runPlan([{sourceId:7,targetId:20},{sourceId:12,targetId:21}]),/Native MOVE may have changed|target.*occupied/i);
+  assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
+  assert.ok(h.sampleStore.getSlot(12).file);
 });
