@@ -851,8 +851,14 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
     withFileTransaction:async(_label,operation,{strict})=>{
       assert.equal(strict,true);
-      return operation({moveFile:async(sourceId,parentId,targetId,options)=>{
+      let moved=false;
+      return operation({
+        listDirectory:async()=>moved
+          ?[{nodeId:8,fileName:'/sounds/kick',fileSize:100,fileType:'file'}]
+          :[{nodeId:7,fileName:'/sounds/kick',fileSize:100,fileType:'file'}],
+        moveFile:async(sourceId,parentId,targetId,options)=>{
         actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
+        moved=true;
         return{oldFileId:sourceId,newFileId:targetId,sourceCrc:123,destinationCrc:123,crcVerified:true,info:{nodeId:targetId,fileName:'kick',fileSize:100},metadata:{name:'kick',crc:123}};
       }});
     },
@@ -885,9 +891,19 @@ test('sample move controller locks unsafe state without a reverse MOVE after a l
     clearNativeMoveSuppression:(oldId,newId)=>actions.push(['clear-suppress',oldId,newId]),
     withFileTransaction:async(_label,operation,{strict})=>{
       assert.equal(strict,true);
-      return operation({moveFile:async(sourceId,parentId,targetId,options)=>{
+      const physical=new Map([
+        [7,{nodeId:7,fileName:'/sounds/one',fileSize:1,fileType:'file'}],
+        [9,{nodeId:9,fileName:'/sounds/two',fileSize:1,fileType:'file'}]
+      ]);
+      return operation({
+        listDirectory:async()=>[...physical.values()],
+        moveFile:async(sourceId,parentId,targetId,options)=>{
         actions.push(['move',sourceId,targetId,options.verifyCrc]);
-        if(sourceId===7&&targetId===8)return{oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
+        if(sourceId===7&&targetId===8){
+          physical.delete(7);
+          physical.set(8,{nodeId:8,fileName:'/sounds/one',fileSize:1,fileType:'file'});
+          return{oldFileId:7,newFileId:8,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:8,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
+        }
         if(sourceId===9&&targetId===10)throw new Error('second move failed');
         if(sourceId===8&&targetId===7)return{oldFileId:8,newFileId:7,sourceCrc:111,destinationCrc:111,crcVerified:true,info:{nodeId:7,fileName:'one',fileSize:1},metadata:{name:'one',crc:111}};
         throw new Error('unexpected move');
