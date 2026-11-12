@@ -499,11 +499,12 @@
     holdNextGet:id=>{holdNextGetId=Number(id);},
     releaseHeldGet:()=>{const reply=heldGet;heldGet=null;reply?.();},
     get hasHeldGet(){return heldGet!==null;},
-    seedSample:id=>{
+    seedSample:(id,{emitEvent=true}={})=>{
       if(!Number.isInteger(id)||id<1||id>999||samples.has(id))throw new Error('Invalid new fake sample slot');
       const source=samples.get(8),name='sample'+id;
       const sample={...source,id,name,data:source.data.slice(),meta:{...source.meta,name}};
-      samples.set(id,sample);emitAdded(sample);
+      samples.set(id,sample);
+      if(emitEvent)emitAdded(sample);
     },
     rejectUploadSlot:id=>rejectedUploadSlots.add(Number(id)),
     rejectListPage:page=>{rejectedListPage=page==null?null:Number(page);},
