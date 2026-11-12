@@ -18,8 +18,8 @@ cost saving or a live Cloud reload. Archive uses a non-AGENTS basename.
 
 | Detail | Canonical source section |
 | --- | --- |
-| Product identities, priorities, future REPITCH/import-only −12 convention | [Research](PRODUCT_RESEARCH.md): philosophy, REPITCH |
-| Connected Projects, both Saved views/placement, verified Live, AUTO OFF/20s | [Sequencer](SEQUENCER.md): scope, Saved, Live |
+| Approved six-stage sequence, standalone Sequencer, scoped REPITCH and release gates | [23-Oct decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md): sections 1–12 |
+| Connected Projects, standalone Saved/Live Sequencer, legacy AUTO OFF/20s project reads | [Sequencer](SEQUENCER.md): scope, Saved, Live |
 | Seven meters, exact built-in order/weights/minima, hidden/pair resize, restore picker | [Visuals](VISUALS.md): bottom strip, Balanced, configurable strip |
 | Named layouts vs current snapshot, committed writes, failure warning, Close/unload | [Visuals](VISUALS.md): browser-only saved layouts |
 | Three global color modes, verified identity/fallback, Auto Theme | [Visuals](VISUALS.md): theme-only coloring and Auto Theme |
@@ -82,6 +82,9 @@ prove anything about another Codex workspace. Prefer a minimal reproduction
 and normal permission workflow if a similar failure appears.
 
 ## Activation and verification limits
+
+The repository declares **10** `.agents/skills/*/SKILL.md` files; `scripts/check-codex-env.mjs` currently validates only **6**. Green `codex-preflight` is not proof of activation. Check all ten frontmatter/name/description and relative links, both `.codex/agents/*.toml` roles and `.codex/config.toml`. Fresh Codex checkout smoke tests must verify discovery, selected read-only roles and behavior separately. This chat has no Codex CLI/trusted checkout; do not claim runtime success. Extending the preflight script requires code authorization; optional Graphify/REA installations require separate approval.
+
 
 A new Codex Cloud task must discover this checkout's AGENTS.md,
 `.agents/skills/` and selected `.codex/config.toml` roles. Files alone do not

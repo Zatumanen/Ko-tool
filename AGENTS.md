@@ -2,8 +2,8 @@
 
 ## Scope, permission and architecture
 
-- Talk to the owner in Russian. Technical references stay concise English; root README leads with Russian product usage, then engineering.
-- Questions, reviews and research do not authorize edits. Documentation authorization covers documentation only. Follow current approved scope and previous owner decisions.
+- Talk to the owner in Russian. Technical references stay concise English; root README is for shipped user features; engineering belongs in AGENTS/docs.
+- Reviews do not authorize edits. Before app code: align Linear, user README, AGENTS and skills/runtime. Docs permission covers docs only.
 - Inspect branch/status before Git actions. Do not edit main directly, switch/create branches, commit, push, open/merge PRs, rebase, reset or deploy without authorization for that action. Preserve user changes/worktrees. Main can publish GitHub Pages; release needs explicit approval.
 - Use this isolated cloud checkout; no worktree unless explicitly requested. Prefer small reversible patches. Docs/config work must not alter application code, DSP, protocols, tests, dependencies, lockfiles, CI or builds as a side effect.
 - Never disclose credentials, serials, private captures or user data. Check provenance/license before importing third-party code/assets. The repository currently has no root license granting reuse.
@@ -14,10 +14,10 @@
 
 - Classic app stays active. Do not activate the paused OS redesign/PR #110 without a new owner decision; verify live PR status only when relevant.
 - My EP Projects and Saved/Live Sequencer require a physically connected, authorized EP. No offline archive viewer/editor. Disconnect invalidates actionable state and labels cached results stale. Standalone conversion remains independent.
-- Saved Step Sequencer/Piano Roll share project data inside My EP → Projects → project → Sequencer. Existing restricted authoring is not the complete approved read-only viewer. Live playhead requires hardware/protocol evidence, never faster FILE polling.
+- Approved Sequencer is a standalone icon/window using an authorized connected EP. The existing My EP 16-step editor is legacy, not final. Saved Step/Piano Roll and bidirectional Live require protocol/HIL evidence; no fake playhead or faster FILE polling.
 - Saved-project polling is opt-in, AUTO OFF by default, about 20 seconds when enabled; stop when hidden/busy/disconnected. It is not unsaved/live state.
 - Visuals is a separate in-browser icon/dock, not a native OS overlay or My EP panel. It may use another selected audio input without EP. Require explicit permission/source choice; no silent microphone fallback. MIDI/SysEx is not audio.
-- Converter x2/−12 and direct My EP upload are distinct. Future REPITCH requirements are not permission to implement it.
+- Converter x2/−12 and My EP import are distinct. REPITCH is approved but unimplemented; pitch=-12 alone is not provenance. Never double-process.
 
 ## EP and audio safety — always applies
 
@@ -39,7 +39,7 @@
 
 ## Selective references
 
-Read the relevant section, not all linked documents. Specifications define approved behavior; code proves current implementation. Report conflicts rather than silently redefining either.
+Read [23-Oct owner decisions](docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md) if scope conflicts. Six stages: My EP → SpeedUpperCut → Visuals → standalone Sequencer → FX-MIC → EP-136 in Visuals. Read relevant sections only; code proves implementation, not approval.
 
 | Scope | Load only when relevant |
 | --- | --- |
@@ -48,7 +48,7 @@ Read the relevant section, not all linked documents. Specifications define appro
 | DSP/WAV/metadata/import/export names | [audio-regression](.agents/skills/audio-regression/SKILL.md), [audio contract](docs/testing/audio-x2-pipeline.md) |
 | Browser/UI/uploads/Playwright/fake EP | [browser-qa](.agents/skills/browser-qa/SKILL.md), [browser policy](docs/testing/browser-platform-support.md) |
 | Visuals layout/theme/capture | Relevant [Visuals](docs/VISUALS.md) section; audio/browser skill only for affected surface |
-| Saved/Live project views | [Sequencer](docs/SEQUENCER.md), relevant device safety/testing |
+| Saved/Live project views | [Sequencer](docs/SEQUENCER.md), owner decisions and device safety/testing |
 | Owner roadmap/future REPITCH/community | Relevant [research](docs/PRODUCT_RESEARCH.md) section; proposals do not authorize implementation |
 
 [Original AGENTS](docs/history/AGENTS-2026-10-18-before-token-efficient.md) preserves all owner choices verbatim. Unique decisions remain binding unless superseded by the owner. Consult only the needed archived passage if canonical docs omit/conflict; never auto-load the archive. [Codex setup](docs/CODEX.md) indexes decision homes.
