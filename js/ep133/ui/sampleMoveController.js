@@ -51,6 +51,24 @@ export function createSampleMoveController({
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
 
+    // FILE_LIST is authoritative; the sampleStore/UI snapshot may be stale.
+    // All reads run under the same strict FILE lease as the subsequent mutation.
+    const readSoundInventory=async fileOps=>{
+      if(!soundsParentId||typeof fileOps?.listDirectory!=='function')
+        throw new Error('MOVE requires lease-bound /sounds FILE_LIST verification.');
+      const files=await fileOps.listDirectory(soundsParentId,'/sounds');
+      if(!Array.isArray(files))throw new Error('MOVE /sounds FILE_LIST was not available.');
+      const inventory=new Map();
+      for(const item of files){
+        const id=Number(item?.nodeId);
+        if(!Number.isInteger(id)||id<1||id>999)continue;
+        if(!/^\\/sounds\\/[^/]+$/.test(String(item?.fileName||''))||inventory.has(id))
+          throw new Error('MOVE /sounds FILE_LIST contains an ambiguous sample slot '+id+'.');
+        inventory.set(id,item);
+      }
+      return inventory;
+    };
+
     setMutating(true);
     setGlobalProgress('MOVE',0);
     try{
@@ -63,6 +81,17 @@ export function createSampleMoveController({
             const target=sampleStore.getSlot(pair.targetId);
             if(!source||!target)throw new Error('Invalid native MOVE plan.');
             if(target.file)throw new Error('Target sample slot is no longer empty.');
+
+            const before=await readSoundInventory(fileOps);
+            assertBatchSession(sessionToken);
+            const deviceSource=before.get(pair.sourceId);
+            if(!deviceSource)
+              throw new Error('MOVE source sample is missing on the device, slot '+pair.sourceId+'.');
+            if(before.has(pair.targetId))
+              throw new Error('MOVE target slot is occupied on the device, slot '+pair.targetId+'.');
+            if(!source.file||deviceSource.fileName!==source.file.path||
+               Number(deviceSource.fileSize)!==Number(source.file.size))
+              throw new Error('MOVE source sample changed on the device, slot '+pair.sourceId+'.');
 
             const sourceNodeId=Number(source.nodeId||source.id);
             const trustedCrc=source.verification?.file==='verified'&&
@@ -91,8 +120,17 @@ export function createSampleMoveController({
             releaseSuppression();
 
             setGlobalProgress('VERIFY',30+((index+0.55)/plan.length)*65);
+            if(moved.timedOut===true)
+              throw new Error('Native FILE_MOVE timed out; destination CRC alone cannot confirm the source was removed.');
             if(moved.crcVerified!==true)
               throw new Error('Native FILE_MOVE CRC verification failed for slot '+source.id+' -> '+target.id+'.');
+
+            const after=await readSoundInventory(fileOps);
+            assertBatchSession(sessionToken);
+            if(after.has(pair.sourceId))
+              throw new Error('Native FILE_MOVE source is still present on the device, slot '+pair.sourceId+'.');
+            if(!after.has(pair.targetId))
+              throw new Error('Native FILE_MOVE destination is missing on the device, slot '+pair.targetId+'.');
 
             // For the exact verified firmware, re-read every affected saved TAR.
             // No project upload, pad METADATA_SET or manual remap is performed.
