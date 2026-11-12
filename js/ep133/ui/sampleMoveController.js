@@ -62,7 +62,7 @@ export function createSampleMoveController({
       for(const item of files){
         const id=Number(item?.nodeId);
         if(!Number.isInteger(id)||id<1||id>999)continue;
-        if(!/^\\/sounds\\/[^/]+$/.test(String(item?.fileName||''))||inventory.has(id))
+        if(!/^\/sounds\/[^/]+$/.test(String(item?.fileName||''))||inventory.has(id))
           throw new Error('MOVE /sounds FILE_LIST contains an ambiguous sample slot '+id+'.');
         inventory.set(id,item);
       }
