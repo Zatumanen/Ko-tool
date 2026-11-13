@@ -170,6 +170,22 @@ export function createEpWorkspace({
     confirmDialog,confirmMessage,confirmOk,confirmCancel
   });
 
+  // REPITCH is session-local. Tests without a real My EP toolbar retain the
+  // legacy direct-upload behavior; production checkbox starts ON.
+  const repitchLabel=documentRef?.createElement?.('label')||null;
+  const repitchCheckbox=documentRef?.createElement?.('input')||null;
+  if(repitchLabel&&repitchCheckbox){
+    repitchCheckbox.type='checkbox';
+    repitchCheckbox.id='ep133-repitch-enabled';
+    repitchCheckbox.checked=true;
+    repitchCheckbox.setAttribute('aria-label','Automatically REPITCH new uploads ×2 with −12 compensation');
+    repitchLabel.className='ep133-repitch-toggle';
+    repitchLabel.title='When enabled, raw audio is accelerated ×2. Verified SpeedUpperCut audio is not processed twice.';
+    repitchLabel.style.cssText='display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;font-size:11px;';
+    repitchLabel.append(repitchCheckbox,' REPITCH ×2 / −12');
+    samplesPanel?.querySelector?.('.ep133-sample-nav')?.append?.(repitchLabel);
+  }
+
   let projectEditorController=null;
   let projectSequencerController=null;
   const projectReadOnlyController=createProjectReadOnlyController({
@@ -345,7 +361,14 @@ export function createEpWorkspace({
     uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,fileItemFromInfo,getFileInfo,getFileMetadata,
     renderDeviceStats,markUploadPending,clearUploadPending,waitForMetadataUpdate,deleteFile,
     syncMetadataAfterMutation,assertSlotsDeleted,logTechnical,showError:message=>showError?.(message),
-    chooseUploadTargets:options=>chooseSampleUploadTargets({documentRef,...options})
+    chooseUploadTargets:options=>chooseSampleUploadTargets({documentRef,...options}),
+    getRepitchEnabled:()=>repitchCheckbox?.isConnected===true&&repitchCheckbox.checked===true,
+    confirmAmbiguousRepitch:({count,total})=>confirmAction(
+      'REPITCH: '+count+' of '+total+' WAV files contain PITCH -12 with no verified ×2 provenance. '+
+      'UPLOAD THESE '+count+' FILES WITHOUT ×2 (format conversion may still occur)? '+
+      'Cancel to stop the whole batch with no device writes.',
+      {confirmLabel:'UPLOAD WITHOUT ×2'}
+    )
   });
   const uploadFilesToSlot=(slot,files)=>sampleUploadController.uploadFilesToSlot(slot,files);
   const sampleMoveController=createSampleMoveController({
@@ -488,7 +511,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{dom.padOpen?.removeEventListener('click',openPadProperties);padReadController.dispose();propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{dom.padOpen?.removeEventListener('click',openPadProperties);repitchLabel?.remove?.();padReadController.dispose();propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({

@@ -16,9 +16,12 @@ selected file or a directory batch:
 Do not add a second DSP implementation inside the folder UI, ZIP writer, or
 single-file UI. ZIP only packages the already-processed WAV blobs.
 
-**My EP's direct sample upload is a separate product path**, not a second
-implementation of x2: it can fast-path an already compatible WAV or resample
-the source to the supported device rate without x2 or -12 semitone repitch.
+**My EP's direct upload is a separate device-transport path.** With REPITCH OFF,
+it fast-paths compatible PCM WAV or resamples to the device rate without x2.
+With REPITCH ON, unprepared audio delegates x2 to the same `processAudio`;
+WAV with verified K.O. Tool RIFF KORP provenance bypasses repeat processing.
+Old TE `sound.pitch=-12` is ambiguous and needs a single explicit batch choice.
+Corrupt provenance or metadata must be rejected before FILE PUT.
 Both products delegate actual resampling and WAV encoding to the shared
 `js/audio/audioEngine.js` reference ABI.
 

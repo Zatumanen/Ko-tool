@@ -1,4 +1,5 @@
 import{prepareEp133Sample}from '../audio.js?v=20261001-1';
+import{preflightRepitchBatch,prepareMyEpRepitchSample}from '../myEpRepitch.js?v=20261113-1';
 import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
 import{numberedSampleSlot,planSampleUploadTargets}from './sampleUploadPlan.js?v=20261001-1';
 
@@ -18,6 +19,9 @@ export function createSampleUploadController({
   logTechnical,showError,
   chooseUploadTargets=async()=> 'sequential',
   prepareSample=prepareEp133Sample,
+  prepareRepitchSample=prepareMyEpRepitchSample,
+  getRepitchEnabled=()=>false,
+  confirmAmbiguousRepitch=async()=>false,
   setTimeoutFn=(callback,delay)=>setTimeout(callback,delay)
 }={}){
   let placementChoiceOpen=false;
@@ -83,7 +87,22 @@ export function createSampleUploadController({
     // Upload transaction records createdId on each item for rollback tracking.
     // Keep the preview plan immutable, but hand mutable copies to the writer.
     const targets=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode}).targets.map(item=>({...item}));
+    // Resolve the entire batch before the first FILE lease/PUT. A malformed
+    // input or declined ambiguous -12 origin aborts with no device mutation.
+    const repitchMode=getRepitchEnabled()===true;
     const sessionToken=captureBatchSession();
+    let approvedLegacy=new Set();
+    if(repitchMode){
+      placementChoiceOpen=true;
+      try{
+        approvedLegacy=await preflightRepitchBatch(targets.map(item=>item.file),{
+          assertSession:()=>assertBatchSession(sessionToken),
+          confirmAmbiguous:confirmAmbiguousRepitch
+        });
+        if(approvedLegacy===null)return{successes:[],failures:[],cancelled:true};
+      }finally{placementChoiceOpen=false;}
+    }
+    assertBatchSession(sessionToken);
     const soundsParentId=Number(getSoundsParentId())||0;
     setMutating(true);
     const successes=[];
@@ -112,8 +131,12 @@ export function createSampleUploadController({
 
           try{
             sampleStore.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
-            const prepared=await prepareSample(item.file,{
+            const prepareAudio=repitchMode?prepareRepitchSample:prepareSample;
+            const prepared=await prepareAudio(item.file,{
               formats:getSoundFormats(),
+              ...(repitchMode?{confirmAmbiguous:async()=>{
+                return approvedLegacy.has(item.file);
+              }}:{}),
               onProgress:(value,info)=>{
                 const progress=Math.max(0,Math.min(100,Number(value)||0));
                 const phase=String(info?.status||'preparing').toUpperCase();

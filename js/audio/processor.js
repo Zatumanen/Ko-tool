@@ -1,5 +1,6 @@
 import{resampleAudioBufferReference,encodeReferenceEpWav}from './audioEngine.js?v=20261001-1';
 import{parseKo2Metadata}from '../ep133/audio.js?v=20261001-1';
+import{markSpeedUppercutWav}from '../ep133/repitchProvenance.js?v=20261113-1';
 export const EP_REPITCH_FACTOR=2;
 export const EP_REPITCH_COMPENSATION=-12;
 export const EP_OUTPUT_BIT_DEPTH=16;
@@ -145,7 +146,8 @@ export async function processAudio(input,{
   const epStorage=measureEpStorage(buffer);
   const metadata=buildSpeedUppercutMetadata(resolvedPlaymode.mode);
   stage(6,.94,'Reference WAV encoding');
-  const blob=await encodeEpReadyWav(buffer,hooks,resolvedPlaymode.mode);
+  const rawBlob=await encodeEpReadyWav(buffer,hooks,resolvedPlaymode.mode);
+  const blob=await markSpeedUppercutWav(rawBlob);
   checkCancel(hooks);
   hooks.progress?.(1,'Done');
   return{

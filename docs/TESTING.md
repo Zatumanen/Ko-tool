@@ -98,10 +98,11 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 ### My EP REPITCH (owner-approved behavior)
 
 - REPITCH **ON by default**, manually switchable OFF.
-- ON + valid Teenage Engineering WAV `LIST/INFO/TNGE` with exact `sound.pitch=-12`: **no second x2**; if formatting is required, preserve pitch and playback duration.
-- ON without that marker: apply the existing x2 pipeline and set `sound.pitch=-12` before upload. Corrupt metadata must fail explicitly.
+- ON + valid K.O. Tool `KORP` RIFF provenance (v1, original x2 processor identity, matching PCM SHA-256 and TE `sound.pitch=-12`): **no second x2**. This is a content-integrity marker, not cryptographic proof of which app authored the WAV.
+- ON + legacy TE `sound.pitch=-12` **without verified KORP**: ambiguous origin; ask **once per upload batch** before bypassing x2. Decline => zero FILE writes. Do not treat pitch by itself as conversion evidence.
+- ON + unmarked raw WAV or other audio: use the canonical SpeedUpperCut x2 pipeline, set `sound.pitch=-12`, and verify output metadata before upload. Invalid RIFF/TNGE, corrupt or mismatching marker, and unsafe sample regions must fail before the first PUT.
 - OFF: use current direct upload path without automatic x2.
-- All three cases: preserve original local file, device capability and upload transaction guards, occupied-slot policy, metadata verification, and batch cancellation.
+- Preserve the local file, device capability and upload transaction guards, occupied-slot policy, metadata verification, session ownership and batch cancellation in every mode. Full Node/Chromium CI and separate authorized HIL remain acceptance gates.
 
 ### Sample Library settings (limited ZAT-61 integration)
 
