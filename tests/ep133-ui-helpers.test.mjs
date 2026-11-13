@@ -856,6 +856,7 @@ test('sample move controller performs CRC-verified FILE_MOVE and remaps local st
         listDirectory:async()=>moved
           ?[{nodeId:8,fileName:'/sounds/kick',fileSize:100,fileType:'file'}]
           :[{nodeId:7,fileName:'/sounds/kick',fileSize:100,fileType:'file'}],
+        getFileMetadata:async()=>({crc:123}),
         moveFile:async(sourceId,parentId,targetId,options)=>{
         actions.push(['move',sourceId,parentId,targetId,options.verifyCrc]);
         moved=true;
@@ -897,6 +898,7 @@ test('sample move controller locks unsafe state without a reverse MOVE after a l
       ]);
       return operation({
         listDirectory:async()=>[...physical.values()],
+        getFileMetadata:async id=>({crc:id===7?111:222}),
         moveFile:async(sourceId,parentId,targetId,options)=>{
         actions.push(['move',sourceId,targetId,options.verifyCrc]);
         if(sourceId===7&&targetId===8){

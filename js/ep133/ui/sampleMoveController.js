@@ -50,6 +50,11 @@ export function createSampleMoveController({
     const projectSnapshots=new Map();
     const sessionToken=captureBatchSession();
     const soundsParentId=Number(getSoundsParentId())||0;
+    const knownCrc=value=>{
+      if(value===null||value===undefined||value==='')return null;
+      const crc=Number(value);
+      return Number.isInteger(crc)&&crc>=0&&crc<=0xffffffff?crc:null;
+    };
 
     // FILE_LIST is authoritative; the sampleStore/UI snapshot may be stale.
     // All reads run under the same strict FILE lease as the subsequent mutation.
@@ -89,17 +94,25 @@ export function createSampleMoveController({
               throw new Error('MOVE source sample is missing on the device, slot '+pair.sourceId+'.');
             if(before.has(pair.targetId))
               throw new Error('MOVE target slot is occupied on the device, slot '+pair.targetId+'.');
-            if(!source.file||deviceSource.fileName!==source.file.path||
-               Number(deviceSource.fileSize)!==Number(source.file.size))
+            if(!source.file||deviceSource.fileName!==source.file.path)
               throw new Error('MOVE source sample changed on the device, slot '+pair.sourceId+'.');
+            // On EP-133 2.5.1 FILE_INFO can briefly report 15 bytes after
+            // a native MOVE. Never trust that size without live CRC readback.
+            const cachedSize=Number(source.file.size);
+            const deviceSize=Number(deviceSource.fileSize);
+            if(!Number.isSafeInteger(deviceSize)||deviceSize<=0||
+               (cachedSize!==deviceSize&&!(cachedSize===15&&deviceSize>15)))
+              throw new Error('MOVE source sample size changed on the device, slot '+pair.sourceId+'.');
 
             const sourceNodeId=Number(source.nodeId||source.id);
-            const trustedCrc=source.verification?.file==='verified'&&
-              source.verification?.metadata==='verified'?source.meta?.crc:null;
-            const expectedSourceCrc=Number.isInteger(Number(trustedCrc))&&
-              trustedCrc!==null&&trustedCrc!==undefined&&
-              Number(trustedCrc)>=0&&Number(trustedCrc)<=0xffffffff
-              ?Number(trustedCrc):null;
+            const expectedSourceCrc=knownCrc(source.meta?.crc);
+            if(expectedSourceCrc===null||typeof fileOps?.getFileMetadata!=='function')
+              throw new Error('MOVE source CRC cannot be verified before mutation, slot '+pair.sourceId+'.');
+            const liveMetadata=await fileOps.getFileMetadata(sourceNodeId);
+            assertBatchSession(sessionToken);
+            const liveCrc=knownCrc(liveMetadata?.crc);
+            if(liveCrc===null||liveCrc!==expectedSourceCrc)
+              throw new Error('MOVE source sample CRC changed on the device, slot '+pair.sourceId+'.');
 
             sampleStore.setOperation(target.id,{status:'moving',label:'MOVING',progress:0});
             setGlobalProgress('MOVE',30+(index/plan.length)*65);
@@ -129,8 +142,15 @@ export function createSampleMoveController({
             assertBatchSession(sessionToken);
             if(after.has(pair.sourceId))
               throw new Error('Native FILE_MOVE source is still present on the device, slot '+pair.sourceId+'.');
-            if(!after.has(pair.targetId))
+            const destination=after.get(pair.targetId);
+            if(!destination)
               throw new Error('Native FILE_MOVE destination is missing on the device, slot '+pair.targetId+'.');
+            if(Number(destination.fileSize)!==deviceSize)
+              throw new Error('Native FILE_MOVE destination size differs from the source on the device, slot '+pair.targetId+'.');
+
+            // FILE_INFO may transiently return 15 bytes after an acknowledged
+            // MOVE; the verified post-MOVE FILE_LIST is the display source.
+            moved={...moved,info:{...moved.info,fileSize:deviceSize}};
 
             // For the exact verified firmware, re-read every affected saved TAR.
             // No project upload, pad METADATA_SET or manual remap is performed.

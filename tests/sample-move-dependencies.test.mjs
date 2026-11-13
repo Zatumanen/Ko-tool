@@ -24,8 +24,10 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
   if(failure==='occupied-target')onDevice.set(20,entry(20));
   if(failure==='missing-source')onDevice.delete(10);
   if(failure==='replaced-source')onDevice.set(10,{...entry(10),fileName:'/sounds/replaced10'});
-  sampleStore.replaceFiles([7,10,12].map(entry));
-  for(const id of [7,10,12])sampleStore.setMetadata(id,{name:'sample'+id,crc:id*1001});
+  sampleStore.replaceFiles([7,10,12].map(id=>failure==='cached-move-info-size'&&id===10
+    ?{...entry(id),fileSize:15}:entry(id)));
+  for(const id of [7,10,12])sampleStore.setMetadata(id,
+    failure==='missing-baseline-crc'&&id===10?{name:'sample'+id}:{name:'sample'+id,crc:id*1001});
   let session='session-a';
   const guard=createSampleDependencyGuard({
     getConnectedDeviceInfo:()=>({sku,metadata:{os_version:firmware}})
@@ -42,6 +44,10 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
       if(failure==='missing-projects')return[];
       return node===0?[{nodeId:2000,fileName:'/projects',fileType:'folder'}]
         :[1,2].map(n=>({nodeId:3000+n,fileName:'/projects/0'+n,fileType:'folder'}));
+    },
+    async getFileMetadata(id){
+      events.push(['metadata',id]);
+      return{crc:id*1001+(failure==='same-fingerprint-new-crc'&&id===10?1:0)};
     },
     async getFile(id){
       events.push(['get',id]);
@@ -65,11 +71,13 @@ const harness=({sku='TE032AS001',firmware='2.5.1',failure=null,
       }
       const original=onDevice.get(sourceId);
       if(failure!=='source-survives')onDevice.delete(sourceId);
-      onDevice.set(targetId,{...original,nodeId:targetId});
+      onDevice.set(targetId,{...original,nodeId:targetId,
+        fileSize:failure==='post-list-size-mismatch'?15:original.fileSize});
       if(failure==='second-target-occupied'&&sourceId===7)onDevice.set(21,entry(21));
       if(failure==='timeout-after-move')throw new Error('FILE_MOVE response timeout');
       return{oldFileId:sourceId,newFileId:targetId,sourceCrc:sourceId*1001,
-        destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},info:entry(targetId),
+        destinationCrc:sourceId*1001,crcVerified,metadata:{crc:sourceId*1001},
+        info:failure==='file-info-15'?{...entry(targetId),fileSize:15}:entry(targetId),
         timedOut:failure==='timeout-with-crc'};
     }
   };
@@ -304,4 +312,39 @@ test('partial MOVE batch halts when the next target becomes occupied',async()=>{
   assert.deepEqual(h.events.filter(e=>e[0]==='move').map(e=>e.slice(1,3)),[[7,20]]);
   assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
   assert.ok(h.sampleStore.getSlot(12).file);
+});
+
+// Physical EP-133 2.5.1 FILE_INFO has reported 15 immediately after MOVE.
+test('MOVE accepts a cached 15-byte FILE_INFO only after live CRC matches the source',async()=>{
+  const h=harness({failure:'cached-move-info-size'});
+  assert.deepEqual(await h.run([10]),{targetIds:[20]});
+  assert.equal(h.sampleStore.getSlot(20).file.size,64);
+  const get=h.events.findIndex(e=>e[0]==='metadata'&&e[1]===10);
+  const move=h.events.findIndex(e=>e[0]==='move');
+  assert.ok(get>=0&&get<move,'live source CRC must be read before FILE_MOVE');
+});
+
+test('MOVE uses post-MOVE FILE_LIST size instead of transient FILE_INFO 15',async()=>{
+  const h=harness({failure:'file-info-15'});
+  assert.deepEqual(await h.run([10]),{targetIds:[20]});
+  assert.equal(h.sampleStore.getSlot(20).file.size,64);
+});
+
+test('MOVE refuses a same-name, same-size replacement with different live CRC',async()=>{
+  const h=harness({failure:'same-fingerprint-new-crc'});
+  await assert.rejects(()=>h.run([10]),/source sample CRC changed/);
+  assertNoMove(h);
+});
+
+test('MOVE refuses an unknown cached CRC rather than trusting filename and size',async()=>{
+  const h=harness({failure:'missing-baseline-crc'});
+  await assert.rejects(()=>h.run([10]),/source CRC cannot be verified/);
+  assertNoMove(h);
+});
+
+test('MOVE fails unsafe if post-MOVE FILE_LIST shows changed audio size',async()=>{
+  const h=harness({failure:'post-list-size-mismatch'});
+  await assert.rejects(()=>h.run([10]),/Native MOVE may have changed.*destination size/);
+  assert.equal(h.events.filter(e=>e[0]==='move').length,1);
+  assert.equal(h.events.filter(e=>e[0]==='unsafe').length,1);
 });
