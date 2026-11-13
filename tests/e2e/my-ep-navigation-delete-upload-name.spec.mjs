@@ -183,7 +183,7 @@ test('plain internal drag previews MOVE without Option',async({page})=>{
  // Native MOVE is verified separately in the My EP transfer E2E.
 });
 
-test('verified EP MOVE skips redundant source CRC MIDI request but checks destination CRC',async({page})=>{
+test('verified EP MOVE reads fresh source CRC once and checks destination CRC',async({page})=>{
  await open(page);
  await page.evaluate(()=>window.__fakeEp.seedSample(10));
  await expect(page.locator('[data-slot="10"] [data-name-input]')).toHaveValue('sample10');
@@ -211,9 +211,9 @@ test('verified EP MOVE skips redundant source CRC MIDI request but checks destin
  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(x=>x.id===10))).toBe(false);
  await expect(page.locator('[data-slot="11"]')).toHaveClass(/occupied/);
  await expect.poll(async()=>await countMetadataGets(11)).toBeGreaterThan(targetBefore);
- // We already read the source CRC in the authoritative device sync. No
- // repeat METADATA_GET may delay this move; destination is still verified.
- expect(await countMetadataGets(10)).toBe(sourceBefore);
+ // A fresh source CRC is mandatory within the strict pre-MOVE FILE lease.
+ // Destination metadata must also be read back after the firmware move.
+ expect(await countMetadataGets(10)).toBe(sourceBefore+1);
  const activity=await page.evaluate(()=>window.__fakeEp.requestLog);
  expect(activity.some(item=>item.command===5&&item.sub===12)).toBe(true);
 });
