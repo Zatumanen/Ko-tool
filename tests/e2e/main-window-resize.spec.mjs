@@ -1,9 +1,14 @@
 import{test,expect}from '@playwright/test';
 
 async function expectWindowTitleInViewport(page){
-  const title=await page.locator('#main-window .title-bar').boundingBox();
-  expect(title).not.toBeNull();
   const viewport=page.viewportSize();
+  const bar=page.locator('#main-window .title-bar');
+  await expect.poll(async()=>{
+    const title=await bar.boundingBox();
+    return !!title && title.x>=-1 && title.y>=-1 &&
+      title.x+title.width<=viewport.width+1 && title.y<viewport.height;
+  },{message:'SpeedUpperCut title must remain inside the resized viewport'}).toBe(true);
+  const title=await bar.boundingBox();
   expect(title.x).toBeGreaterThanOrEqual(-1);
   expect(title.y).toBeGreaterThanOrEqual(-1);
   expect(title.x+title.width).toBeLessThanOrEqual(viewport.width+1);
