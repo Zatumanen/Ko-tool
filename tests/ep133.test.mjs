@@ -1005,7 +1005,9 @@ test('EP MOVE reuses a verified source CRC without skipping destination CRC veri
   assert.match(section,/if\(sourceCrc===null\)\{[\s\S]*?getMetadataByNodeId\(fileId\)/);
   assert.match(section,/metadata=await getMetadataByNodeId\(moved\.newFileId\)/);
   assert.match(section,/crcVerified=destinationCrc!==null&&destinationCrc===sourceCrc/);
-  assert.match(move,/source\.verification\?\.metadata==='verified'/);
+  assert.match(move,/expectedSourceCrc=knownCrc\(source\.meta\?\.crc\)/);
+  assert.match(move,/await fileOps\.getFileMetadata\(sourceNodeId\)/);
+  assert.match(move,/liveCrc!==expectedSourceCrc/);
   assert.match(move,/expectedSourceCrc/);
   assert.match(move,/verifyCrc:true/);
 });
@@ -1024,7 +1026,7 @@ test('EP sample reorder uses one native FILE_MOVE transaction and resolves the a
   assert.match(move,/const item=fileItemFromInfo\(moved\.info\)/);
   assert.match(move,/await fileOps\.getFile\(snapshot\.nodeId\)/);
   assert.doesNotMatch(move,/getFile\(sourceNodeId\)/);
-  assert.doesNotMatch(move,/getFileMetadata\(/);
+  assert.match(move,/await fileOps\.getFileMetadata\(sourceNodeId\)/);
   assert.match(transfer,/return moveTransfer\(plan,sourceById\)/);
   assert.doesNotMatch(transfer,/NATIVE FILE_MOVE FAILED/);
 });
