@@ -123,3 +123,54 @@ test('raw WAV REPITCH uploads compensation metadata through the fake EP transpor
   expect(putRequests(result.requests).length).toBeGreaterThan(0);
   expect(result.sample?.meta?.['sound.pitch']).toBe(-12);
 });
+
+
+test('actual SpeedUpperCut crop dragged into My EP has trusted provenance and no second x2 prompt',async({page})=>{
+  await page.addInitScript({path:fakeEpScript});
+  await page.goto('/');
+  await page.locator('#audio-upload').setInputFiles({
+    name:'raw-edit.wav',mimeType:'audio/wav',
+    buffer:Buffer.from(wav(0,{},4096))
+  });
+  await expect(page.locator('.result-item')).toHaveCount(1,{timeout:15000});
+  await page.locator('#preview-window .preview-close').click();
+  await page.locator('.edit-waveform').click();
+  await expect(page.locator('#waveform-editor')).toBeVisible();
+  await page.locator('[data-waveform-start]').fill('0.010');
+  await page.locator('[data-waveform-start]').press('Tab');
+  await page.locator('[data-waveform-apply]').click();
+  await expect(page.locator('#waveform-editor')).toHaveCount(0);
+  await expect(page.locator('.result-item')).toHaveAttribute('data-edited','true');
+
+  const kind=await page.evaluate(async()=>{
+    const item=[...window.__speedUpperCutFiles.values()][0];
+    const {classifyRepitchInput}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
+    return (await classifyRepitchInput(new Uint8Array(await item.result.blob.arrayBuffer()),{
+      filename:'raw-edit_x2.wav'
+    })).kind;
+  });
+  expect(kind).toBe('trusted');
+
+  await page.locator('#my-ep-icon').click();
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED');
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.evaluate(()=>{
+    const target=document.querySelector('[data-slot="56"]');
+    const row=document.querySelector('.result-item');
+    if(!target||!row)throw new Error('Missing drag source or target');
+    const dataTransfer=new DataTransfer();
+    row.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer}));
+    target.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer}));
+    target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer}));
+    row.dispatchEvent(new DragEvent('dragend',{bubbles:true,cancelable:true,dataTransfer}));
+  });
+  await expect(page.locator('[data-slot="56"]')).toHaveClass(/occupied/);
+  await expect(page.locator('#ep133-confirm-dialog')).toBeHidden();
+  const result=await page.evaluate(index=>({
+    requests:window.__fakeEp.requestLog.slice(index),
+    sample:window.__fakeEp.snapshot().find(sample=>sample.id===56)
+  }),before);
+  expect(putRequests(result.requests).length).toBeGreaterThan(0);
+  expect(result.sample?.meta?.['sound.pitch']).toBe(-12);
+});

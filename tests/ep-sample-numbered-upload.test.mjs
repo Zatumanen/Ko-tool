@@ -58,10 +58,10 @@ test('duplicate numeric prefixes and insufficient empty slots fail BEFORE any wr
  }),/Unknown sample upload destination mode/);
 });
 
-const harness=choice=>{
+const harness=(choice,{timingObserver=()=>{}}={})=>{
  const store=withFiles([7,8]);let mutations=0,chosenOptions=null;
  const preflights=[],uploadedNames=new Map();
- const created=[],sampleNames=[];
+ const created=[],sampleNames=[],timings=[];let tick=0;
  const memory={selectSlots(){}};
  const controller=createSampleUploadController({
   sampleStore:store,getMemory:()=>memory,getSoundsParentId:()=>1000,
@@ -90,10 +90,12 @@ const harness=choice=>{
   waitForMetadataUpdate:async()=>null,deleteFile:async()=>{},
   syncMetadataAfterMutation:async()=>{},assertSlotsDeleted:async()=>{},
   logTechnical(){},showError(){},setTimeoutFn:()=>1,
+  clock:()=>{tick+=10;return tick;},
+  onUploadTiming:timing=>{timings.push(timing);timingObserver(timing);},
   prepareSample:async()=>({data:new Uint8Array(12),channels:1,samplerate:46875,format:'s16',metadata:{}}),
   chooseUploadTargets:async options=>{chosenOptions=options;return typeof choice==='function'?choice(options):choice;}
  });
- return{controller,store,created,sampleNames,get mutations(){return mutations;},
+ return{controller,store,created,sampleNames,timings,get mutations(){return mutations;},
   get preflights(){return preflights;},get chosenOptions(){return chosenOptions;}};
 };
 test('cancelled numbered upload sends no FILE mutation and does not set busy',async()=>{
@@ -167,4 +169,22 @@ test('a second drag or paste cannot mutate while numbered target dialog is unres
  dismiss(null);
  assert.equal((await pending).cancelled,true);
  assert.deepEqual(h.created,[]);
+});
+
+test('successful FILE upload reports PREPARING, UPLOADING and VERIFY durations without file names',async()=>{
+ const h=harness('sequential');
+ const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('private sample.wav')]);
+ assert.deepEqual(result.successes,[9]);
+ assert.deepEqual(h.timings,[{
+  slot:9,preflightMs:0,preparingMs:10,uploadingMs:10,verifyingMs:10
+ }]);
+ assert.equal(Object.keys(h.timings[0]).includes('name'),false);
+});
+
+test('optional diagnostics failure never downgrades a verified FILE PUT',async()=>{
+ const h=harness('sequential',{timingObserver:()=>{throw Error('Logging broke');}});
+ const result=await h.controller.uploadFilesToSlot(h.store.getSlot(9),[file('safe.wav')]);
+ assert.deepEqual(result.successes,[9]);
+ assert.deepEqual(result.failures,[]);
+ assert.deepEqual(h.created,[9]);
 });

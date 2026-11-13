@@ -93,8 +93,44 @@ test('SpeedUpperCut waveform editor crops, adjusts gain, normalizes and replaces
   expect(after.edit).toMatchObject({start:.1,end:.3,gainDb:-6,normalize:true});
   expect(after.type).toBe('audio/wav');
   expect(after.size).toBeGreaterThan(100);
+  const provenance=await page.evaluate(async()=>{
+    const item=[...window.__speedUpperCutFiles.values()][0];
+    const {classifyRepitchInput}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
+    return classifyRepitchInput(new Uint8Array(await item.result.blob.arrayBuffer()),{filename:'edited.wav'});
+  });
+  expect(provenance.kind).toBe('trusted');
 
   await page.locator('.result-item .download').last().click();
+});
+
+
+test('SpeedUpperCut refuses to tag a crop when the source PCM no longer matches its provenance',async({page})=>{
+  await page.goto('/');
+  await page.locator('#audio-upload').setInputFiles({
+    name:'provenance-tamper.wav',mimeType:'audio/wav',buffer:wav16Mono(48000,24000)
+  });
+  await expect(page.locator('.result-item')).toHaveCount(1,{timeout:15000});
+  await page.locator('#preview-window .preview-close').click();
+  await page.evaluate(async()=>{
+    const item=[...window.__speedUpperCutFiles.values()][0];
+    const bytes=new Uint8Array(await item.result.blob.arrayBuffer());
+    const view=new DataView(bytes.buffer);
+    let edited=false;
+    for(let offset=12;offset+8<=bytes.length;){
+      const name=String.fromCharCode(...bytes.subarray(offset,offset+4));
+      const size=view.getUint32(offset+4,true);
+      if(name==='data'&&size>0){bytes[offset+8]^=1;edited=true;break;}
+      offset+=8+size+(size&1);
+    }
+    if(!edited)throw new Error('Expected PCM data in SpeedUpperCut WAV');
+    item.result.blob=new Blob([bytes],{type:'audio/wav'});
+  });
+  await page.locator('.edit-waveform').click();
+  await page.locator('[data-waveform-apply]').click();
+  await expect(page.locator('#error-dialog')).toBeVisible();
+  await expect(page.locator('#error-message')).toContainText('PCM changed');
+  await expect(page.locator('#waveform-editor')).toBeVisible();
+  await expect(page.locator('.result-item')).not.toHaveAttribute('data-edited','true');
 });
 
 test('waveform editor Reset restores full-range selection and neutral processing controls',async({page})=>{
@@ -163,12 +199,27 @@ test('waveform chop modes detect transients, build even slices, allow manual mar
   await page.evaluate(()=>{
     window.__savedChopZip=null;
     window.showSaveFilePicker=async options=>{
-      const record={name:options?.suggestedName||'',size:0,type:''};
+      const record={name:options?.suggestedName||'',size:0,type:'',entries:[]};
       window.__savedChopZip=record;
       return{
         async createWritable(){
           return{
-            async write(blob){record.size=blob?.size||0;record.type=blob?.type||'';},
+            async write(blob){
+              record.size=blob?.size||0;record.type=blob?.type||'';
+              const bytes=new Uint8Array(await blob.arrayBuffer()),view=new DataView(bytes.buffer);
+              const {classifyRepitchInput}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
+              let offset=0;
+              while(offset+30<=bytes.length&&view.getUint32(offset,true)===0x04034b50){
+                const compressed=view.getUint32(offset+18,true);
+                const nameSize=view.getUint16(offset+26,true);
+                const extraSize=view.getUint16(offset+28,true);
+                const name=new TextDecoder().decode(bytes.subarray(offset+30,offset+30+nameSize));
+                const dataOffset=offset+30+nameSize+extraSize;
+                const verdict=await classifyRepitchInput(bytes.subarray(dataOffset,dataOffset+compressed),{filename:name});
+                record.entries.push({name,kind:verdict.kind});
+                offset=dataOffset+compressed;
+              }
+            },
             async close(){record.closed=true;}
           };
         }
@@ -182,6 +233,9 @@ test('waveform chop modes detect transients, build even slices, allow manual mar
     closed:true
   });
   expect(await page.evaluate(()=>window.__savedChopZip.size)).toBeGreaterThan(200);
+  const entries=await page.evaluate(()=>window.__savedChopZip.entries);
+  expect(entries).toHaveLength(4);
+  expect(entries.every(entry=>entry.kind==='trusted')).toBe(true);
   await expect(page.locator('#status-bar')).toContainText('Exported 4 chops');
 });
 
