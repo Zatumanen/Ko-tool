@@ -93,6 +93,12 @@ test('SpeedUpperCut waveform editor crops, adjusts gain, normalizes and replaces
   expect(after.edit).toMatchObject({start:.1,end:.3,gainDb:-6,normalize:true});
   expect(after.type).toBe('audio/wav');
   expect(after.size).toBeGreaterThan(100);
+  const provenance=await page.evaluate(async()=>{
+    const item=[...window.__speedUpperCutFiles.values()][0];
+    const {classifyRepitchInput}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
+    return classifyRepitchInput(new Uint8Array(await item.result.blob.arrayBuffer()),{filename:'edited.wav'});
+  });
+  expect(provenance.kind).toBe('trusted');
 
   await page.locator('.result-item .download').last().click();
 });
@@ -163,12 +169,27 @@ test('waveform chop modes detect transients, build even slices, allow manual mar
   await page.evaluate(()=>{
     window.__savedChopZip=null;
     window.showSaveFilePicker=async options=>{
-      const record={name:options?.suggestedName||'',size:0,type:''};
+      const record={name:options?.suggestedName||'',size:0,type:'',entries:[]};
       window.__savedChopZip=record;
       return{
         async createWritable(){
           return{
-            async write(blob){record.size=blob?.size||0;record.type=blob?.type||'';},
+            async write(blob){
+              record.size=blob?.size||0;record.type=blob?.type||'';
+              const bytes=new Uint8Array(await blob.arrayBuffer()),view=new DataView(bytes.buffer);
+              const {classifyRepitchInput}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
+              let offset=0;
+              while(offset+30<=bytes.length&&view.getUint32(offset,true)===0x04034b50){
+                const compressed=view.getUint32(offset+18,true);
+                const nameSize=view.getUint16(offset+26,true);
+                const extraSize=view.getUint16(offset+28,true);
+                const name=new TextDecoder().decode(bytes.subarray(offset+30,offset+30+nameSize));
+                const dataOffset=offset+30+nameSize+extraSize;
+                const verdict=await classifyRepitchInput(bytes.subarray(dataOffset,dataOffset+compressed),{filename:name});
+                record.entries.push({name,kind:verdict.kind});
+                offset=dataOffset+compressed;
+              }
+            },
             async close(){record.closed=true;}
           };
         }
@@ -182,6 +203,9 @@ test('waveform chop modes detect transients, build even slices, allow manual mar
     closed:true
   });
   expect(await page.evaluate(()=>window.__savedChopZip.size)).toBeGreaterThan(200);
+  const entries=await page.evaluate(()=>window.__savedChopZip.entries);
+  expect(entries).toHaveLength(4);
+  expect(entries.every(entry=>entry.kind==='trusted')).toBe(true);
   await expect(page.locator('#status-bar')).toContainText('Exported 4 chops');
 });
 
