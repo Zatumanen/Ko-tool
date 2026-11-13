@@ -103,6 +103,36 @@ test('SpeedUpperCut waveform editor crops, adjusts gain, normalizes and replaces
   await page.locator('.result-item .download').last().click();
 });
 
+
+test('SpeedUpperCut refuses to tag a crop when the source PCM no longer matches its provenance',async({page})=>{
+  await page.goto('/');
+  await page.locator('#audio-upload').setInputFiles({
+    name:'provenance-tamper.wav',mimeType:'audio/wav',buffer:wav16Mono(48000,24000)
+  });
+  await expect(page.locator('.result-item')).toHaveCount(1,{timeout:15000});
+  await page.locator('#preview-window .preview-close').click();
+  await page.evaluate(async()=>{
+    const item=[...window.__speedUpperCutFiles.values()][0];
+    const bytes=new Uint8Array(await item.result.blob.arrayBuffer());
+    const view=new DataView(bytes.buffer);
+    let edited=false;
+    for(let offset=12;offset+8<=bytes.length;){
+      const name=String.fromCharCode(...bytes.subarray(offset,offset+4));
+      const size=view.getUint32(offset+4,true);
+      if(name==='data'&&size>0){bytes[offset+8]^=1;edited=true;break;}
+      offset+=8+size+(size&1);
+    }
+    if(!edited)throw new Error('Expected PCM data in SpeedUpperCut WAV');
+    item.result.blob=new Blob([bytes],{type:'audio/wav'});
+  });
+  await page.locator('.edit-waveform').click();
+  await page.locator('[data-waveform-apply]').click();
+  await expect(page.locator('#error-dialog')).toBeVisible();
+  await expect(page.locator('#error-message')).toContainText('PCM changed');
+  await expect(page.locator('#waveform-editor')).toBeVisible();
+  await expect(page.locator('.result-item')).not.toHaveAttribute('data-edited','true');
+});
+
 test('waveform editor Reset restores full-range selection and neutral processing controls',async({page})=>{
   await page.goto('/');
   await page.locator('#audio-upload').setInputFiles({
