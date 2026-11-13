@@ -17,6 +17,7 @@ export function createSampleUploadController({
   markUploadPending,clearUploadPending,
   waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
   logTechnical,showError,
+  onUploadTiming=()=>{},clock=()=>performance.now(),
   chooseUploadTargets=async()=> 'sequential',
   prepareSample=prepareEp133Sample,
   prepareRepitchSample=prepareMyEpRepitchSample,
@@ -92,6 +93,7 @@ export function createSampleUploadController({
     const repitchMode=getRepitchEnabled()===true;
     const sessionToken=captureBatchSession();
     let approvedLegacy=new Set();
+    const preflightStart=clock();
     if(repitchMode){
       placementChoiceOpen=true;
       try{
@@ -103,6 +105,7 @@ export function createSampleUploadController({
       }finally{placementChoiceOpen=false;}
     }
     assertBatchSession(sessionToken);
+    const preflightMs=repitchMode?Math.max(0,clock()-preflightStart):0;
     const soundsParentId=Number(getSoundsParentId())||0;
     setMutating(true);
     const successes=[];
@@ -119,6 +122,7 @@ export function createSampleUploadController({
         assertBatchSession(sessionToken);
         const item=targets[index];
         const target=item.slot;
+        let uploadTiming=null;
         try{
           await runUploadTransaction(async fileOps=>{
               await assertSlotsEmpty([target.id],fileOps);
@@ -131,6 +135,7 @@ export function createSampleUploadController({
 
           try{
             sampleStore.setOperation(target.id,{status:'preparing',label:'PREPARING',progress:0});
+            const preparingStart=clock();
             const prepareAudio=repitchMode?prepareRepitchSample:prepareSample;
             const prepared=await prepareAudio(item.file,{
               formats:getSoundFormats(),
@@ -150,6 +155,7 @@ export function createSampleUploadController({
             });
 
             assertBatchSession(sessionToken);
+            const preparingMs=Math.max(0,clock()-preparingStart);
             const metadata={
               channels:prepared.channels,
               samplerate:prepared.samplerate,
@@ -162,6 +168,7 @@ export function createSampleUploadController({
               throw new Error('Not enough free sample memory on the connected EP.');
 
             sampleStore.setOperation(target.id,{status:'uploading',label:'UPLOADING',progress:0});
+            const uploadingStart=clock();
             let createdId=null;
             markUploadPending(target.id);
 
@@ -192,6 +199,8 @@ export function createSampleUploadController({
             });
 
             assertBatchSession(sessionToken);
+            const uploadingMs=Math.max(0,clock()-uploadingStart);
+            const verifyingStart=clock();
             if(Number(fileId)!==Number(target.id))
               throw new Error('The device wrote a sample to an unexpected slot.');
 
@@ -216,6 +225,10 @@ export function createSampleUploadController({
               preserveMetadata:false
             });
             sampleStore.setMetadata(target.id,actual,{verification:'verified'});
+            uploadTiming={
+              slot:target.id,preflightMs,preparingMs,uploadingMs,
+              verifyingMs:Math.max(0,clock()-verifyingStart)
+            };
 
             if(remainingFreeSpace!=null){
               remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
@@ -251,6 +264,7 @@ export function createSampleUploadController({
 
             }
           });
+          if(uploadTiming)onUploadTiming(uploadTiming);
         }catch(error){
           failures.push({file:item.file,error});
           sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
