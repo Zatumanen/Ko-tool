@@ -102,7 +102,7 @@ test('content-verified SpeedUpperCut WAV is uploaded without a legacy prompt',as
   const marked=await page.evaluate(async source=>{
     const {markSpeedUppercutWav}=await import('/js/ep133/repitchProvenance.js?v=20261113-1');
     return [...new Uint8Array(await (await markSpeedUppercutWav(new Blob([new Uint8Array(source)]))).arrayBuffer())];
-  },wav(-12,{},4096));
+  },wav(-12,{'envelope.release':255,'sound.rootnote':60},4096));
   const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
   await drop(page,54,marked);
   await expect(page.locator('[data-slot="54"]')).toHaveClass(/occupied/);
