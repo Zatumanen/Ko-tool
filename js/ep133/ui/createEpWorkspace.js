@@ -92,6 +92,18 @@ export function createEpWorkspace({
     const log=documentRef?.getElementById?.('log-tab');
     if(log)log.insertAdjacentHTML('beforeend','<div><i class="fas fa-exclamation-triangle"></i> MY EP · '+escapeHtml(label)+' · '+escapeHtml(detail)+'</div>');
   };
+  const logUploadTiming=({slot,preflightMs,preparingMs,uploadingMs,verifyingMs})=>{
+    const log=documentRef?.getElementById?.('log-tab');
+    if(!log)return;
+    const seconds=value=>(Math.max(0,Number(value)||0)/1000).toFixed(2)+'s';
+    const row=documentRef.createElement('div');
+    row.textContent='MY EP · SLOT '+String(slot).padStart(3,'0')+
+      ' · PREFLIGHT (BATCH) '+seconds(preflightMs)+
+      ' · PREPARING '+seconds(preparingMs)+
+      ' · UPLOADING '+seconds(uploadingMs)+
+      ' · VERIFY '+seconds(verifyingMs);
+    log.append(row);
+  };
   const reportError=(message,error)=>{
     logTechnical(message,error);
     const reason=String(error?.message||'').trim();
@@ -360,7 +372,8 @@ export function createEpWorkspace({
     withFileTransaction,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,fileItemFromInfo,getFileInfo,getFileMetadata,
     renderDeviceStats,markUploadPending,clearUploadPending,waitForMetadataUpdate,deleteFile,
-    syncMetadataAfterMutation,assertSlotsDeleted,logTechnical,showError:message=>showError?.(message),
+    syncMetadataAfterMutation,assertSlotsDeleted,logTechnical,
+    onUploadTiming:logUploadTiming,showError:message=>showError?.(message),
     chooseUploadTargets:options=>chooseSampleUploadTargets({documentRef,...options}),
     getRepitchEnabled:()=>repitchCheckbox?.isConnected===true&&repitchCheckbox.checked===true,
     confirmAmbiguousRepitch:({count,total})=>confirmAction(
