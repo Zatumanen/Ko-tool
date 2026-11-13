@@ -201,10 +201,13 @@ function makeMainWindowDraggable(){
   bar.addEventListener('pointerup',stop);
   bar.addEventListener('pointercancel',stop);
   window.addEventListener('resize',()=>{
+    const rect=win.getBoundingClientRect();
+    win.style.position='fixed';
+    win.style.transform='none';
     const maxX=Math.max(0,window.innerWidth-win.offsetWidth);
     const maxY=Math.max(0,window.innerHeight-win.offsetHeight);
-    win.style.left=Math.min(maxX,Math.max(0,parseFloat(win.style.left)||0))+'px';
-    win.style.top=Math.min(maxY,Math.max(0,parseFloat(win.style.top)||0))+'px';
+    win.style.left=Math.min(maxX,Math.max(0,rect.left))+'px';
+    win.style.top=Math.min(maxY,Math.max(0,rect.top))+'px';
   });
 }
 window.addEventListener('DOMContentLoaded',()=>{openMain();makeMainWindowDraggable();updatePlatformNotice();const drop=$('drop-zone'),fi=$('audio-upload'),folder=$('folder-upload');drop.setAttribute('role','button');drop.setAttribute('tabindex','0');drop.setAttribute('aria-label','Select or drop audio files and folders');drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}});drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',async e=>{e.preventDefault();drop.classList.remove('dragover');try{const traversed=e.dataTransfer.items?.length?await filesFromDropItems(e.dataTransfer.items):[];const files=traversed.length?traversed:[...e.dataTransfer.files];const fromFolder=files.some(f=>f.webkitRelativePath)||[...e.dataTransfer.items||[]].some(i=>i.webkitGetAsEntry?.()?.isDirectory);addFiles(files,fromFolder);}catch(err){showError(err?.message||err);}});drop.addEventListener('click',e=>{if(e.target!==fi)fi.click()});fi.addEventListener('change',e=>{addFiles(e.target.files,false);e.target.value=''});folder.addEventListener('change',e=>{addFiles(e.target.files,true);e.target.value=''});$('select-file-button').onclick=()=>fi.click();$('select-folder-button').onclick=()=>folder.click();$('clear-button').onclick=clearAll;$('cancel-button').onclick=()=>{state.cancelled=true;status('Cancelling…')};$('error-ok').onclick=hideError;$('error-close').onclick=hideError;$('app-icon').onclick=openMain;$('app-icon').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMain();}});$('main-window').querySelector('.close').onclick=closeMain;$('main-window').querySelector('.minimize').onclick=closeMain;document.querySelectorAll('.win95-list').forEach(g=>{
