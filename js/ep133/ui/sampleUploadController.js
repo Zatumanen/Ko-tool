@@ -225,10 +225,7 @@ export function createSampleUploadController({
               preserveMetadata:false
             });
             sampleStore.setMetadata(target.id,actual,{verification:'verified'});
-            uploadTiming={
-              slot:target.id,preflightMs,preparingMs,uploadingMs,
-              verifyingMs:Math.max(0,clock()-verifyingStart)
-            };
+            const verifyingMs=Math.max(0,clock()-verifyingStart);
 
             if(remainingFreeSpace!=null){
               remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
@@ -243,6 +240,7 @@ export function createSampleUploadController({
             sampleStore.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
             successes.push(target.id);
             setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
+            uploadTiming={slot:target.id,preflightMs,preparingMs,uploadingMs,verifyingMs};
           }catch(error){
             clearUploadPending(target.id);
             failures.push({file:item.file,error});
@@ -264,7 +262,10 @@ export function createSampleUploadController({
 
             }
           });
-          if(uploadTiming)onUploadTiming(uploadTiming);
+          if(uploadTiming){
+            try{onUploadTiming(uploadTiming);}
+            catch{/* Optional diagnostics must not turn a verified upload into a failure. */}
+          }
         }catch(error){
           failures.push({file:item.file,error});
           sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
