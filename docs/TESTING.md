@@ -95,6 +95,23 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 
 ## Feature-specific acceptance (implemented and planned)
 
+### My EP anonymized diagnostic export (ZAT-78)
+
+- The exporter is **session-local** and collects a bounded list of fixed error
+  codes/categories, known operation stages and runtime state enums. It never
+  reads the raw Logs tab, Error.message/stack/details, SysEx, PCM, filenames,
+  serials, deviceKey, project data or arbitrary operation labels.
+- Unknown or malformed error codes are recorded only as `EP_UNKNOWN/internal`;
+  unknown runtime values use fixed conservative fallback states.
+- My EP exposes **EXPORT DIAGNOSTICS**. Download is local JSON via Blob/Object URL
+  only, after a separate explicit confirmation. Cancel produces no file.
+  No cloud upload, auto-download, MIDI command or FILE operation is triggered.
+- Test with `tests/diagnostic-log.test.mjs` and
+  `tests/e2e/my-ep-diagnostics.spec.mjs` plus full Node/Chromium/Pages CI.
+  Fake EP tests do not prove real-device behavior; no USB-interruption HIL is
+  authorized by this change.
+
+
 ### My EP REPITCH (owner-approved behavior)
 
 - REPITCH **ON by default**, manually switchable OFF.

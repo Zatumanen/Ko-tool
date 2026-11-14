@@ -912,3 +912,9 @@
   filter:grayscale(1);
   pointer-events:none;
 }
+
+/* ZAT-78: local diagnostic export, independent of device mutation controls. */
+.ep133-diagnostics-actions{display:flex;align-items:center;margin-left:auto;flex:0 0 auto}
+.ep133-browser-window .title-bar .ep133-diagnostics-export{width:auto;height:22px;min-height:22px;margin-left:4px;padding:2px 7px;white-space:nowrap;background:var(--win-gray,#c0c0c0);border:2px outset var(--win-gray,#c0c0c0);font:700 10px "Courier New",monospace;cursor:pointer}
+.ep133-diagnostics-export:focus-visible{outline:3px solid #152fa0;outline-offset:2px}
+.ep133-diagnostics-export:disabled{opacity:.5;cursor:wait}
