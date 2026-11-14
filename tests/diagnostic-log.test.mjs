@@ -134,11 +134,15 @@ const fakeDom=()=>{
   const button={listeners:new Map(),disabled:false,removeEventListener(k){this.listeners.delete(k)},
     addEventListener(k,fn){this.listeners.set(k,fn)},setAttribute(){} };
   const toolbar={append:el=>{assert.equal(el,button)},remove:()=>actions.push('removed')};
-  const tabs={insertAdjacentElement:(position,node)=>{
-    assert.equal(position,'afterend');assert.equal(node,toolbar);actions.push('inserted');
-  }};
+  const closeButton={};
+  const titleBar={
+    querySelector:query=>query==='#ep133-close'?closeButton:null,
+    insertBefore:(node,reference)=>{
+      assert.equal(node,toolbar);assert.equal(reference,closeButton);actions.push('inserted');
+    }
+  };
   const documentRef={createElement:tag=>tag==='div'?toolbar:tag==='button'?button:null};
-  const panel={querySelector:query=>query==='.ep133-view-tabs'?tabs:null};
+  const panel={querySelector:query=>query==='.ep133-browser-window > .title-bar'?titleBar:null};
   return {documentRef,panel,button,actions};
 };
 
