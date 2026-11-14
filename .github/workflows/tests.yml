@@ -10,7 +10,7 @@ on:
 
 jobs:
   codex-preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +19,7 @@ jobs:
       - run: node scripts/check-codex-env.mjs
 
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,22 +28,27 @@ jobs:
       - run: npm test
 
   build-pages:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm run build:pages
+      - run: npm run verify:pages
 
   browser-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Lockfile not yet available; move to npm ci only after generating and verifying it.
-      - run: npm install --no-audit --no-fund
+      # npm ci uses the committed, exact-version lockfile.
+      - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # Test the actual versioned production dist under /Ko-tool/, not only source files.
+      - run: npm run build:pages
+      - run: npm run verify:pages
+      - run: npm run test:pages:e2e

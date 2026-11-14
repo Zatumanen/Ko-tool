@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -31,7 +31,7 @@ jobs:
         run: node scripts/check-codex-env.mjs
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Unit and behavior tests
         run: npm test
@@ -39,16 +39,30 @@ jobs:
       - name: Build GitHub Pages
         run: npm run build:pages
 
+      - name: Validate versioned Pages artifact
+        run: npm run verify:pages
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Browser E2E with fake EP
         run: npm run test:e2e
 
+      - name: Browser E2E on versioned /Ko-tool/ dist
+        run: npm run test:pages:e2e
+
+      - name: Upload exact tested dist for deploy
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-pages-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
   deploy:
     needs: verify
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -63,10 +77,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build versioned site
-        env:
-          SPEEDUPPERCUT_BUILD_VERSION: ${{ github.sha }}
-        run: npm run build:pages
+      - name: Download exact tested dist
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-pages-dist
+          path: dist
+
+      - name: Verify artifact SHA again
+        run: npm run verify:pages
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
