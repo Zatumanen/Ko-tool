@@ -138,8 +138,9 @@ export function installMyEpDiagnosticExport({
   documentRef=globalThis.document,panel,
   confirmAction,diagnostics,download=downloadDiagnosticJson,onError=()=>{}
 }={}){
-  const tabBar=panel?.querySelector?.('.ep133-view-tabs');
-  if(!tabBar||!documentRef?.createElement||typeof confirmAction!=='function'||!diagnostics)
+  const titleBar=panel?.querySelector?.('.ep133-browser-window > .title-bar');
+  const closeButton=titleBar?.querySelector?.('#ep133-close');
+  if(!titleBar||!closeButton||!documentRef?.createElement||typeof confirmAction!=='function'||!diagnostics)
     return ()=>{};
   const actions=documentRef.createElement('div');
   actions.className='ep133-diagnostics-actions';
@@ -151,7 +152,8 @@ export function installMyEpDiagnosticExport({
   button.setAttribute('aria-label','Export anonymized My EP diagnostics');
   button.title='Download a local diagnostic log with allowlisted codes and states only';
   actions.append(button);
-  tabBar.insertAdjacentElement('afterend',actions);
+  // Keep sample-list geometry unchanged: native drag/drop uses visible row positions.
+  titleBar.insertBefore(actions,closeButton);
 
   let pending=false;
   const onClick=async()=>{
