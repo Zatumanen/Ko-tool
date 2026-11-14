@@ -327,6 +327,12 @@ test('read-only official PAK inspection lists sample slots and pad references wi
   await expect(summary).toContainText('P02');
   await expect(summary).toContainText('007 ·');
   await expect(summary).toContainText('008 ·');
+  await expect(summary).toContainText('CANDIDATE EMPTY SLOTS (UI)');
+  await expect(summary).toContainText('UNKNOWN SLOT STATES');
+  await expect(summary).toContainText('PROJECT TARGET UNVERIFIED');
+  await expect(summary).toContainText('protected status and write rights');
+  await expect(summary).toContainText('UNVERIFIED');
+  await expect(summary).toContainText('FREE SPACE, PROTECTED SLOTS AND FILE WRITE RIGHTS ARE UNVERIFIED');
   await expect(summary).toContainText('READ-ONLY PREVIEW');
   await expect(summary).toContainText('RESTORE FROM .PAK/.PPAK IS DISABLED');
   await expect(page.locator('#ep133-restore-run')).toBeDisabled();
