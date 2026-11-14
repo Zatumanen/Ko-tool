@@ -51,6 +51,14 @@ jobs:
       - name: Browser E2E on versioned /Ko-tool/ dist
         run: npm run test:pages:e2e
 
+      - name: Upload exact tested dist for deploy
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-pages-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
   deploy:
     needs: verify
     if: github.ref == 'refs/heads/main'
@@ -69,10 +77,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build versioned site
-        env:
-          SPEEDUPPERCUT_BUILD_VERSION: ${{ github.sha }}
-        run: npm run build:pages
+      - name: Download exact tested dist
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-pages-dist
+          path: dist
+
+      - name: Verify artifact SHA again
+        run: npm run verify:pages
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
