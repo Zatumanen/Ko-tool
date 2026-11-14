@@ -45,8 +45,8 @@ test('PR CI tests versioned Pages artifact and uses frozen Playwright dependenci
     read('.github/workflows/tests.yml'),read('package.json'),read('package-lock.json')
   ]);
   const packageJson=JSON.parse(pkg),locked=JSON.parse(lock);
-  assert.equal(packageJson.devDependencies['@playwright/test'],'1.55.0');
-  assert.equal(locked.packages['node_modules/@playwright/test'].version,'1.55.0');
+  assert.equal(packageJson.devDependencies['@playwright/test'],'1.65.0');
+  assert.equal(locked.packages['node_modules/@playwright/test'].version,'1.65.0');
   assert.match(workflow,/run: npm ci --no-audit --no-fund/);
   assert.match(workflow,/run: npm run build:pages/);
   assert.match(workflow,/run: npm run verify:pages/);
