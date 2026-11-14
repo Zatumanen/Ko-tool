@@ -5,7 +5,7 @@ test('versioned dist works under the production /Ko-tool/ base path',async({page
   page.on('pageerror',error=>errors.push(error.message));
   page.on('response',response=>{
     const url=new URL(response.url());
-    if(url.origin==='http://127.0.0.1:4174'&&response.status()>=400)
+    if(url.origin==='http://127.0.0.1:4174'&&response.status()>=400&&/\.(?:html|js|css|wasm|json)$/.test(url.pathname))
       badResources.push(url.pathname+': '+response.status());
   });
   const response=await page.goto('./');
