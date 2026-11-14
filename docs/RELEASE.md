@@ -34,7 +34,7 @@ This repository's own `deploy-pages.yml` remains **manual only**. Choosing Sourc
 
 ## Build contract
 
-- `package-lock.json` locks `@playwright/test` and transitive packages; use `npm ci --no-audit --no-fund`, Node 22.
+- `package-lock.json` locks `@playwright/test` 1.65.0 and transitive packages; use `npm ci --no-audit --no-fund`, Node 22.
 - `npm run build:pages` copies only `index.html`, `js/`, `css/` into `dist/`, plus `build-version.json`; it stamps local JS/CSS links with the chosen SHA. Do not assume Jekyll applies this transformation.
 - `npm run verify:pages` rejects wrong/missing versions, incomplete assets and leaked source-only directories.
 - `npm run test:pages:e2e` opens the **built** bundle under `/Ko-tool/` and checks browser errors and same-origin JS/CSS versions. Existing `npm run test:e2e` still exercises fake-EP behavior from the source tree.
