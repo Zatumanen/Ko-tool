@@ -10,7 +10,7 @@
     "test:pages:e2e": "playwright test --config=playwright.pages.config.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.0"
+    "@playwright/test": "1.65.0"
   },
   "engines": {
     "node": ">=22 <23"
