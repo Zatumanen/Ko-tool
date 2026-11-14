@@ -4,6 +4,7 @@ import{
 import{getEpProjectProfile}from '../projectProfile.js?v=20261001-1';
 import{createOfficialEpPak}from '../officialPak.js?v=20261022-1';
 import{inspectOfficialPak}from '../officialPakReader.js?v=20261022-1';
+import{buildOfficialPakPreviewPlan}from '../officialPakPreviewPlan.js?v=20261114-1';
 import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
 import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
 
@@ -559,53 +560,52 @@ export function createBackupRestoreController({
       const archive=await inspectOfficialPak(raw);
       const info=getConnectedDeviceInfo();
       if(!info)throw new Error('Connect and sync a supported EP to compare archive contents.');
-      const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
-      const archiveIdentity=String(archive.metadata.device_sku||'').toUpperCase();
-      const archiveBase=String(archive.metadata.base_sku||'').toUpperCase();
-      const deviceIdentity=String(info.identitySku||'').toUpperCase();
-      const deviceBase=String(info.baseSku||info.metadata?.base_sku||'').toUpperCase();
-      const identityMatch=archiveIdentity===deviceIdentity&&
-        archiveBase===deviceBase&&archive.metadata.device_version===firmware;
-      const occupancy=archive.sounds.map(sound=>{
-        const slot=sampleStore?.getSlot?.(sound.slot);
-        const occupied=!!slot?.file;
-        return{sound,occupied};
+      // A preview assessment contains only scalar inventory descriptions.
+      // Never pass it into legacy ZIP/TAR restorePlan or any FILE write path.
+      const plan=buildOfficialPakPreviewPlan(archive,{
+        device:info,getSlot:slot=>sampleStore?.getSlot?.(slot)||null
       });
-      const conflicts=occupancy.filter(x=>x.occupied).length;
-      const free=occupancy.length-conflicts;
-      const missing=archive.dependencies.flatMap(x=>x.missing.map(slot=>'P'+x.project+' → '+pad(slot)));
-      const warnings=[...archive.warnings];
-      if(!identityMatch)warnings.push('ARCHIVE SKU / BASE SKU / FIRMWARE DOES NOT MATCH CONNECTED EP');
-      warnings.push('SLOT OCCUPANCY IS FROM CURRENT SYNCHRONIZED UI, NOT AUTHORITATIVE FILE READBACK.');
-      warnings.push('DEVICE FREE SPACE AND PROTECTED/UNWRITABLE SLOTS ARE NOT VERIFIED.');
+      const missing=plan.projects.flatMap(project=>
+        project.missingInArchive.map(slot=>'P'+project.number+' → '+pad(slot)));
+      const slotLabel={
+        'occupied-unverified':'OCCUPIED IN UI · UNVERIFIED CONFLICT',
+        'ui-empty-unverified':'EMPTY IN UI · UNVERIFIED',
+        unknown:'UNKNOWN · UNVERIFIED'
+      };
       const rows=[
         '<div class="ep-pak-report">',
         '<div class="ep-pak-row"><strong>FORMAT</strong><span>',archive.format.toUpperCase(),'</span></div>',
-        '<div class="ep-pak-row"><strong>ARCHIVE SKU</strong><span>',escapeHtml(archiveIdentity),' / ',escapeHtml(archiveBase),'</span></div>',
-        '<div class="ep-pak-row"><strong>FIRMWARE</strong><span>',escapeHtml(archive.metadata.device_version||'?'),'</span></div>',
-        '<div class="ep-pak-row"><strong>CONNECTED DEVICE</strong><span>',identityMatch?'IDENTITY MATCH':'MISMATCH / UNVERIFIED','</span></div>',
-        '<div class="ep-pak-row"><strong>PROJECTS</strong><span>',archive.projects.length,'</span></div>',
-        '<div class="ep-pak-row"><strong>SAMPLES</strong><span>',archive.sounds.length,'</span></div>',
-        '<div class="ep-pak-row"><strong>CANDIDATE EMPTY SLOTS</strong><span>',free,'</span></div>',
-        '<div class="ep-pak-row"><strong>OCCUPIED / POTENTIAL CONFLICTS</strong><span>',conflicts,'</span></div>',
-        '<div class="ep-pak-row"><strong>MISSING REFERENCED SAMPLES</strong><span>',missing.length,'</span></div>',
-        '<strong>PROJECTS / PAD DEPENDENCIES</strong>',
+        '<div class="ep-pak-row"><strong>ARCHIVE SKU</strong><span>',escapeHtml(plan.source.sku),' / ',escapeHtml(plan.source.baseSku),'</span></div>',
+        '<div class="ep-pak-row"><strong>FIRMWARE</strong><span>',escapeHtml(plan.source.firmware||'?'),'</span></div>',
+        '<div class="ep-pak-row"><strong>CONNECTED DEVICE</strong><span>',
+        plan.identity==='match'?'IDENTITY MATCH · NOT WRITE PERMISSION':
+          plan.identity==='mismatch'?'MISMATCH · RESTORE BLOCKED':'IDENTITY UNVERIFIED','</span></div>',
+        '<div class="ep-pak-row"><strong>PROJECTS</strong><span>',plan.projects.length,'</span></div>',
+        '<div class="ep-pak-row"><strong>SAMPLES</strong><span>',plan.slots.length,'</span></div>',
+        '<div class="ep-pak-row"><strong>CANDIDATE EMPTY SLOTS (UI)</strong><span>',plan.summary.candidateEmpty,'</span></div>',
+        '<div class="ep-pak-row"><strong>OCCUPIED / POTENTIAL CONFLICTS</strong><span>',plan.summary.occupied,'</span></div>',
+        '<div class="ep-pak-row"><strong>UNKNOWN SLOT STATES</strong><span>',plan.summary.unknown,'</span></div>',
+        '<div class="ep-pak-row"><strong>MISSING REFERENCES IN ARCHIVE</strong><span>',plan.summary.missingReferences,'</span></div>',
+        '<div class="ep-pak-row"><strong>ARCHIVED PCM BYTES (NOT FREE-SPACE CHECK)</strong><span>',
+          plan.summary.requiredPcmBytes,'</span></div>',
+        '<strong>PROJECTS / PAD DEPENDENCIES / TARGET STATUS</strong>',
         '<div class="ep-pak-inventory">',
-        archive.projects.map(p=>{
-          const m=archive.dependencies.find(d=>d.project===p.number);
-          return '<div>P'+escapeHtml(p.number)+' · '+p.size+' B · '+p.padReferences.length+
-            ' PAD ASSIGNMENTS · '+(m?.missing?.length||0)+' MISSING IN ARCHIVE</div>';
-        }).join(''),
+        plan.projects.map(p=>
+          '<div>P'+escapeHtml(p.number)+' · '+p.size+' B · '+p.padAssignments+
+          ' PAD ASSIGNMENTS · '+p.missingInArchive.length+
+          ' MISSING IN ARCHIVE · PROJECT TARGET UNVERIFIED · '+escapeHtml(p.reason)+'</div>'
+        ).join(''),
         '</div><strong>ARCHIVED SAMPLES · SLOT / NAME / DEVICE VIEW</strong>',
         '<div class="ep-pak-inventory">',
-        occupancy.map(({sound,occupied})=>
-          '<div>'+pad(sound.slot)+' · '+escapeHtml(sound.name)+' · '+
-          sound.sampleFrames+' FRAMES · '+(occupied?'OCCUPIED · REVIEW':'EMPTY IN UI')+'</div>'
+        plan.slots.map(sample=>
+          '<div>'+pad(sample.slot)+' · '+escapeHtml(sample.name)+' · '+
+          sample.sampleFrames+' FRAMES · '+escapeHtml(slotLabel[sample.state]||slotLabel.unknown)+
+          ' · '+escapeHtml(sample.reason)+'</div>'
         ).join(''),
         '</div>',
-        missing.length?'<div class="ep-pak-warning">MISSING PAD REFERENCES: '+
+        missing.length?'<div class="ep-pak-warning">REFERENCES MISSING IN ARCHIVE (NOT VERIFIED ON DEVICE): '+
           escapeHtml(missing.join(', '))+'</div>':'',
-        ...warnings.map(w=>'<div class="ep-pak-warning">'+escapeHtml(w)+'</div>'),
+        ...plan.warnings.map(w=>'<div class="ep-pak-warning">'+escapeHtml(w)+'</div>'),
         '<div class="ep-pak-disabled">READ-ONLY PREVIEW · RESTORE FROM .PAK/.PPAK IS DISABLED. '+
         'NO MIDI WRITES. ANY FUTURE RESTORE NEEDS A SEPARATE VERIFIED PREFLIGHT AND OWNER APPROVAL.</div>',
         '</div>'
