@@ -42,6 +42,10 @@ test('My EP exports a local allowlisted JSON without upload, raw logs or extra F
     target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
   },filename);
   await expect(page.locator('#log-tab')).toContainText('COULD NOT UPLOAD SAMPLE');
+  // The user closes the blocking error modal before using another My EP control.
+  await expect(page.locator('#error-dialog')).toBeVisible();
+  await page.locator('#error-ok').click();
+  await expect(page.locator('#error-dialog')).toBeHidden();
   const requests=[];
   page.on('request',req=>{if(req.method()!=='GET')requests.push(req.method()+' '+req.url());});
   await page.locator('#ep133-export-diagnostics').click();
@@ -94,6 +98,9 @@ test('denied MIDI permission is recorded only as an allowlisted connection failu
   });
   await page.locator('#my-ep-icon').click();
   await expect(page.locator('#error-message')).toContainText('MIDI/SysEx access was denied');
+  await expect(page.locator('#error-dialog')).toBeVisible();
+  await page.locator('#error-ok').click();
+  await expect(page.locator('#error-dialog')).toBeHidden();
   await page.locator('#ep133-export-diagnostics').click();
   const pending=page.waitForEvent('download');
   await page.locator('#ep133-confirm-ok').click();
