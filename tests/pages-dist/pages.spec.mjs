@@ -22,7 +22,9 @@ test('versioned dist works under the production /Ko-tool/ base path',async({page
   await page.locator('#app-icon').click();
   await expect(page.locator('#main-window')).toBeVisible();
   await page.locator('#visuals-icon').click();
-  await expect(page.locator('#visuals-root')).toBeVisible();
+  await expect(page.locator('.vis-dock')).toBeVisible();
+  await expect(page.locator('.vis-meter')).toHaveCount(7);
+  await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-app/);
 
   const resources=await page.evaluate(()=>performance.getEntriesByType('resource')
     .map(entry=>entry.name).filter(url=>{
