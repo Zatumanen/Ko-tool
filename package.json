@@ -5,7 +5,9 @@
   "scripts": {
     "build:pages": "node scripts/build-pages.mjs",
     "test": "node --test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify:pages": "node scripts/check-pages-dist.mjs",
+    "test:pages:e2e": "playwright test --config=playwright.pages.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"
