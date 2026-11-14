@@ -17,6 +17,7 @@ import{createReadOnlyPadPropertiesController}from './padPropertiesReadOnlyContro
 import{createSampleStore}from '../sampleStore.js?v=20261001-1';
 import{createSessionGuard}from './sessionGuard.js?v=20261001-1';
 import{createFeedbackController}from './feedback.js?v=20261001-1';
+import{createDiagnosticLog,installMyEpDiagnosticExport}from './diagnosticLog.js?v=20261114-1';
 import{buildFileItemFromInfo}from './fileModel.js?v=20261001-1';
 import{createFileEventController}from './fileEvents.js?v=20261001-1';
 import{createConnectionLifecycle}from './connectionLifecycle.js?v=20261001-1';
@@ -86,7 +87,10 @@ export function createEpWorkspace({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
   const humanError=message=>String(message||'OPERATION FAILED.').toUpperCase();
+  const diagnostics=createDiagnosticLog();
   const logTechnical=(label,error)=>{
+    // Diagnostic export never stores this label, Error, stack or details.
+    try{diagnostics.logError(label,error);}catch{/* Observer only. */}
     const detail=String(error?.stack||error?.message||error||'unknown error');
     console.error(label,error);
     const log=documentRef?.getElementById?.('log-tab');
@@ -131,6 +135,7 @@ export function createEpWorkspace({
   let padReadController=null;
   let memory=null;
   let runtimeSnapshot=getDeviceRuntimeSnapshot();
+  try{diagnostics.logRuntime(runtimeSnapshot);}catch{/* Observer only. */}
   const runtimeUnsafe=()=>runtimeSnapshot?.status==='unsafe';
   const runtimeReady=()=>runtimeSnapshot?.status==='ready';
   const sampleStore=createSampleStore();
@@ -171,6 +176,7 @@ export function createEpWorkspace({
   };
   const unsubscribeRuntime=onDeviceRuntimeChange(snapshot=>{
     runtimeSnapshot=snapshot;
+    try{diagnostics.logRuntime(snapshot);}catch{/* Observer only. */}
     updateMutationAvailability();
     if(snapshot?.status==='disconnected'||snapshot?.status==='unsafe'){
       propertiesController?.reset();padReadController?.invalidate();
@@ -180,6 +186,9 @@ export function createEpWorkspace({
   const{setGlobalProgress,hideGlobalProgress,confirmAction,resolveConfirm}=createFeedbackController({
     globalProgress,globalProgressLabel,globalProgressFill,globalProgressText,
     confirmDialog,confirmMessage,confirmOk,confirmCancel
+  });
+  const disposeDiagnosticExport=installMyEpDiagnosticExport({
+    documentRef,panel,diagnostics,confirmAction,onError:reportError
   });
 
   // REPITCH is session-local. Tests without a real My EP toolbar retain the
@@ -481,7 +490,8 @@ export function createEpWorkspace({
 
   const connectionLifecycle=createConnectionLifecycle({
     connectEp133,isConnected,isUnsafe:()=>runtimeUnsafe()||legacyConnectionUnsafe,
-    setConnectionOverlay,setSessionNotice:message=>setStatus(message),showError:message=>showError?.(message),logTechnical
+    setConnectionOverlay,setSessionNotice:message=>setStatus(message),showError:message=>showError?.(message),logTechnical,
+    onDiagnosticError:(stage,error)=>{try{diagnostics.logError(stage,error);}catch{/* Observer only. */}}
   });
   connectionLifecycle.start();
 
@@ -524,7 +534,7 @@ export function createEpWorkspace({
     if(panel.style.display!=='none'){event.preventDefault();closePanel();}
   };
   const handleMidiActivity=({direction})=>deviceView.pulseMidiActivity(direction);
-  const dispose=()=>{dom.padOpen?.removeEventListener('click',openPadProperties);repitchLabel?.remove?.();padReadController.dispose();propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
+  const dispose=()=>{dom.padOpen?.removeEventListener('click',openPadProperties);repitchLabel?.remove?.();disposeDiagnosticExport();padReadController.dispose();propertiesController.reset();devicePadSelectionController.reset();projectReadOnlyController.dispose?.();unsubscribeRuntime?.();connectionLifecycle.dispose?.();};
 
   renderConnection({connected:false});
   return Object.freeze({
