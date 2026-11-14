@@ -10,6 +10,7 @@ export function createConnectionLifecycle({
   setSessionNotice=()=>{},
   showError=()=>{},
   logTechnical=()=>{},
+  onDiagnosticError=()=>{},
   navigatorRef=globalThis.navigator,
   windowRef=globalThis.window,
   BroadcastChannelRef=globalThis.BroadcastChannel,
@@ -76,6 +77,8 @@ export function createConnectionLifecycle({
       const supportError=explainMidiAccessError(error);
       if(supportError?.blocked){
         midiPermissionBlocked=true;
+        // The private browser error is not logged; only known diagnostic enums.
+        try{onDiagnosticError('AUTO CONNECT',error);}catch{/* Observer only. */}
         showError(supportError.message);
         return;
       }
