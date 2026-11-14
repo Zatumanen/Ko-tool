@@ -406,7 +406,7 @@ export function createEpWorkspace({
     setMutating,setGlobalProgress,hideGlobalProgress,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
     getFile,getFileMetadata,prepareSampleTransferMetadata,createTransferFileName,uploadSampleToSlot,
     waitForMetadataUpdate,syncMetadataAfterMutation,getFileInfo,fileItemFromInfo,prepareSampleLocalMetadata,
-    renderDeviceStats,deleteFile,readDevice:()=>readDevice(),logTechnical
+    renderDeviceStats,deleteFile,readDevice:()=>readDevice(),markDeviceUnsafe,logTechnical
   });
   const sampleTransferCoordinator=createSampleTransferCoordinator({
     sampleStore,getActiveDeviceProfile:()=>activeDeviceProfile,isConnected,isSynchronized:()=>synchronized,

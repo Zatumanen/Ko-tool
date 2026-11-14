@@ -9,7 +9,7 @@ export function createSampleCopyController({
   uploadSampleToSlot,waitForMetadataUpdate,syncMetadataAfterMutation,
   getFileInfo,fileItemFromInfo,
   prepareSampleLocalMetadata,renderDeviceStats,
-  deleteFile,readDevice,logTechnical
+  deleteFile,readDevice,markDeviceUnsafe,logTechnical
 }={}){
   const runCopyTransaction=operation=>typeof withFileTransaction==='function'
     ?withFileTransaction('sample copy transaction',operation,{strict:true})
@@ -30,6 +30,7 @@ export function createSampleCopyController({
     const profile=getActiveDeviceProfile();
     const created=[];
     let needsResync=false;
+    let unverifiedReadback=false;
 
     setMutating(true);
     try{
@@ -114,6 +115,35 @@ export function createSampleCopyController({
         if(!item||Number(item.nodeId)!==Number(target.id))
           throw new Error('The destination slot could not be verified.');
 
+        // FILE_INFO proves the slot exists, not that FILE_PUT preserved PCM.
+        // Read back the full destination stream under the same strict FILE lease.
+        // Byte equality also detects every difference that a CRC could detect,
+        // without trusting a device-reported checksum or risking a collision.
+        setGlobalProgress('VERIFY',((index+.9)/plan.length)*100);
+        try{
+          const verified=await fileOps.getFile(fileId,(done,total)=>{
+            const local=total?done/total:0;
+            setGlobalProgress('VERIFY',((index+.9+local*.05)/plan.length)*100);
+          });
+          assertBatchSession(sessionToken);
+          const actual=verified?.data;
+          if(!(actual instanceof Uint8Array)||actual.byteLength!==bytes.byteLength)
+            throw new Error('Destination PCM length differs from the source.');
+          for(let offset=0;offset<bytes.byteLength;offset++){
+            if(actual[offset]!==bytes[offset])
+              throw new Error('Destination PCM differs from the source.');
+          }
+        }catch(error){
+          unverifiedReadback=true;
+          // The destination may contain data. Never delete/retry it on an
+          // ambiguous readback failure; require an explicit recovery decision.
+          if(getDeviceSessionToken()===sessionToken){
+            sampleStore.upsertFile(item,{state:'unverified',verification:'unverified',preserveMetadata:false});
+            markDeviceUnsafe?.('COPY destination PCM readback was not verified.');
+          }
+          throw new Error('COPY PCM verification failed: '+String(error?.message||error),{cause:error});
+        }
+
         sampleStore.upsertFile(item,{state:'ready',verification:'verified',preserveMetadata:false});
 
         const localMetadata=prepareSampleLocalMetadata(expectedMetadata,{
@@ -136,7 +166,7 @@ export function createSampleCopyController({
       setGlobalProgress('COPY',100);
       return{targetIds:plan.map(pair=>pair.targetId)};
         }catch(error){
-      if(isConnected()){
+      if(!unverifiedReadback&&isConnected()){
         for(const id of [...created].reverse()){
           try{
             assertBatchSession(sessionToken);
@@ -150,9 +180,13 @@ export function createSampleCopyController({
         }
       }
 
-      sampleStore.clearOperations();
+      if(unverifiedReadback&&getDeviceSessionToken()===sessionToken){
+        for(const id of created){
+          sampleStore.setOperation(id,{status:'failed',label:'UNVERIFIED',progress:0});
+        }
+      }else if(!unverifiedReadback)sampleStore.clearOperations();
 
-      needsResync=true;
+      needsResync=!unverifiedReadback;
 
       throw error;
         }
