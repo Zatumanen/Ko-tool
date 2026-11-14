@@ -31,7 +31,7 @@ jobs:
         run: node scripts/check-codex-env.mjs
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Unit and behavior tests
         run: npm test
@@ -39,11 +39,17 @@ jobs:
       - name: Build GitHub Pages
         run: npm run build:pages
 
+      - name: Validate versioned Pages artifact
+        run: npm run verify:pages
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Browser E2E with fake EP
         run: npm run test:e2e
+
+      - name: Browser E2E on versioned /Ko-tool/ dist
+        run: npm run test:pages:e2e
 
   deploy:
     needs: verify
