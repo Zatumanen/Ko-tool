@@ -83,14 +83,13 @@ and normal permission workflow if a similar failure appears.
 
 ## Activation and verification limits
 
-The repository declares **10** `.agents/skills/*/SKILL.md` files; `scripts/check-codex-env.mjs` currently validates only **6**. Green `codex-preflight` is not proof of activation. Check all ten frontmatter/name/description and relative links, both `.codex/agents/*.toml` roles and `.codex/config.toml`. Fresh Codex checkout smoke tests must verify discovery, selected read-only roles and behavior separately. This chat has no Codex CLI/trusted checkout; do not claim runtime success. Extending the preflight script requires code authorization; optional Graphify/REA installations require separate approval.
+The repository has **10** `.agents/skills/*/SKILL.md` files. The checkout preflight verifies the complete inventory, each skill's frontmatter/relative links, both read-only role files and their explicit registration in `.codex/config.toml`. A green `codex-preflight` verifies **static contracts**, not actual agent/skill activation. A separate trusted Codex session must confirm discovery and read-only behavior before relying on these features. This chat has no Codex CLI/trusted checkout; do not claim runtime success. Extending the preflight script requires code authorization; optional Graphify/REA installations require separate approval.
 
 
 A new Codex Cloud task must discover this checkout's AGENTS.md,
 `.agents/skills/` and selected `.codex/config.toml` roles. Files alone do not
 prove skill/role activation, environment trust or published Cloud settings.
-Verify discovery in a fresh session; do not alter sandbox/network protection
-or install optional global tools solely to make discovery work. The 2026-10-19
+Verify discovery in a fresh session by having Codex identify root AGENTS, list skill names, load only the relevant skill for a bounded read-only question, and confirm any chosen reviewer cannot write files. Do not alter sandbox/network protection or install optional global tools just to make discovery work. The 2026-10-19
 Cloud start-skill/environment observations were draft state, not a portable
 or activated guarantee. No new MCP/plugin is required by default.
 
