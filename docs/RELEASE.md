@@ -6,16 +6,14 @@
 
 - [Actual Pages deployment #43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943) on `main@7e89fdd` was GitHub-managed `dynamic/pages/pages-build-deployment` **Jekyll build from the branch**, not `scripts/build-pages.mjs`/`dist`. It started at the same time as post-merge [tests #43586791491](https://github.com/Zatumanen/Ko-tool/actions/runs/43586791491), without waiting for their result.
 - [Manual workflow](../.github/workflows/deploy-pages.yml) has `workflow_dispatch` only; **its trigger does not stop** branch-sourced Pages. [GitHub's publishing-source documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) distinguishes the two sources.
-- The GitHub connector does **not** expose repository administrative Pages source changes. The source has **NOT** been changed by this code patch. Until an admin completes the change, merging to `main` can auto-publish immediately. Do not merge under the manual-release policy.
+- On 2026-11-15 the owner **confirmed switching Pages Source to GitHub Actions**. [Merge CI #43707438664](https://github.com/Zatumanen/Ko-tool/actions/runs/43707438664) completed on PR #166 / `main@49bd79f` without a new automatic Jekyll deployment. Repository admin settings cannot be read independently through the available connector; this is owner confirmation plus GitHub Actions observation, not an API-attested setting.
 
-## One-time administrator setting (required before controlled merge)
+## Pages source and release gate
 
-1. Open [repository Settings → Pages](https://github.com/Zatumanen/Ko-tool/settings/pages) with repository admin/maintainer access.
-2. Under **Build and deployment → Source**, select **GitHub Actions**, not **Deploy from a branch**; save.
-3. Confirm the selector displays **GitHub Actions**. Inspect the `github-pages` environment deployment restrictions/reviewer rules, and protected branch checks where available. These settings are not verified through the current connector.
-4. Record dated evidence that the source is switched. No blind release or probe commit to test this setting.
-
-This repository's own `deploy-pages.yml` remains **manual only**. Choosing Source=GitHub Actions does not automatically trigger it; the workflow must be intentionally dispatched. A GitHub environment reviewer, if configured, adds a separate authorization gate.
+- The owner completed **Settings → Pages → Build and deployment → Source: GitHub Actions** on 2026-11-15. This resolved the previously observed automatic Jekyll publication path for PR #166.
+- Before relying on this setting after an unexpected deployment or permissions change, verify the selector at [repository Settings → Pages](https://github.com/Zatumanen/Ko-tool/settings/pages). Check branch rulesets and the `github-pages` environment reviewer requirements in Settings; those controls are **not independently verified** via the connector.
+- The checked-in `deploy-pages.yml` remains **manual-only**. Changing Source to GitHub Actions does **not** dispatch it automatically. The first complete manual production deployment using this workflow **has not been tested** and requires a separate explicit owner release decision.
+- If Source reverts to branch publishing, **STOP** merges under the manual-release policy until the intended source and current publication behavior are confirmed.
 
 ## PR and release candidate
 
@@ -38,6 +36,6 @@ This repository's own `deploy-pages.yml` remains **manual only**. Choosing Sourc
 - `npm run build:pages` copies only `index.html`, `js/`, `css/` into `dist/`, plus `build-version.json`; it stamps local JS/CSS links with the chosen SHA. Do not assume Jekyll applies this transformation.
 - `npm run verify:pages` rejects wrong/missing versions, incomplete assets and leaked source-only directories.
 - `npm run test:pages:e2e` opens the **built** bundle under `/Ko-tool/` and checks browser errors and same-origin JS/CSS versions. Existing `npm run test:e2e` still exercises fake-EP behavior from the source tree.
-- The current deployment source is independent of these CI commands **until the admin switch** above.
+- The owner-confirmed GitHub Actions source is separate from CI triggers; only an authorized `workflow_dispatch` publishes a tested artifact. The first manual deployment remains pending.
 
 **Evidence and status:** [PROJECT_STATE](PROJECT_STATE.md) is a dated source snapshot; [Linear](https://linear.app/clouded/project/ko-tool-release-10-2f713ebc0fca) is the live tracker. Never report GitHub Pages source changes, production rollout, physical HIL, or release 1.0 without separate verified evidence.
