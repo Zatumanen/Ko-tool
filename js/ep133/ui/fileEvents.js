@@ -105,6 +105,8 @@ export function createFileEventController({
       if(event.type===TE_SYSEX_FILE_EVENT_FILE_ADDED||event.type===TE_SYSEX_FILE_EVENT_FILE_UPDATED){
         if(pendingUploadEvents.has(Number(payload.nodeId)))return;
         const nodeId=Number(payload.nodeId);
+        // INFO/metadata cannot establish PCM integrity after a failed readback.
+        if(sampleStore.getSlot(nodeId)?.verification?.file==='unverified')return;
         sampleStore.invalidateMetadata(nodeId);
         const{item,metadata,metadataError}=await runEventReadTransaction(async fileOps=>{
           const info=await fileOps.getFileInfo(nodeId);
@@ -118,6 +120,7 @@ export function createFileEventController({
           return{item,metadata,metadataError};
         });
         if(!item)return;
+        if(sampleStore.getSlot(nodeId)?.verification?.file==='unverified')return;
         sampleStore.upsertFile(item,{preserveMetadata:false});
         if(/^\/sounds\/[^/]+$/.test(item.fileName)&&item.nodeId>=1&&item.nodeId<=999){
           if(metadata)sampleStore.setMetadata(item.nodeId,metadata);

@@ -747,6 +747,7 @@ test('sample upload controller verifies each sample inside its own FILE transact
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
     isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
     captureBatchSession:()=> 'session-a',assertBatchSession:token=>assert.equal(token,'session-a'),
+    getDeviceSessionToken:()=> 'session-a',getDeviceConnectionEpoch:()=>1,markDeviceUnsafe:()=>{},
     setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
     withFileTransaction:async(label,op,options)=>{
       transactionCalls++;
@@ -761,6 +762,7 @@ test('sample upload controller verifies each sample inside its own FILE transact
         },
         getFileInfo:async id=>({nodeId:id,parentId:1000,fileSize:written.get(id).size,fileName:written.get(id).name}),
         getFileMetadata:async id=>({name:written.get(id).name,channels:1,samplerate:46875,format:'s16'}),
+        getFile:async id=>({data:new Uint8Array(written.get(id).size)}),
         deleteFile:async()=>{}
       });
     },
@@ -800,6 +802,7 @@ test('sample upload controller rolls back a created slot through DELETE metadata
     getSoundsParentId:()=>1000,getSoundFormats:()=>[],getSoundsMetadata:()=>({free_space_in_bytes:100}),setSoundsMetadata(){},
     getActiveDeviceProfile:()=>({playModes:['oneshot','key','legato'],advancedSampleMetadataWrites:true}),
     isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,captureBatchSession:()=> 'session-a',assertBatchSession(){},
+    getDeviceSessionToken:()=> 'session-a',getDeviceConnectionEpoch:()=>1,markDeviceUnsafe(){},
     setMutating(){},setGlobalProgress(){},hideGlobalProgress(){},
     withFileTransaction:async(label,op,options)=>op({
       uploadSampleToSlot:async uploadOptions=>{uploadOptions.onCreated?.(2);throw new Error('simulated stream failure');},

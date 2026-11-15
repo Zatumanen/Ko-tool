@@ -55,6 +55,7 @@ A merged PR, green CI, or passing fake device test does **not** automatically cl
 | x2, channels, metadata, WASM | `tests/audio-pipeline-golden.test.mjs`, `tests/processor.test.mjs`, `tests/resampler-zip.test.mjs`, converter E2E |
 | Folder/ZIP/names | `tests/audio-import-policy.test.mjs`, `tests/output-name.test.mjs`, `tests/e2e/folder-import-recovery.spec.mjs`, `tests/e2e/output-file-names.spec.mjs` |
 | Sample upload and slot numbering | `tests/ep-sample-numbered-upload.test.mjs`, `tests/sample-upload-name-normalization.test.mjs`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs` |
+| Upload/COPY destination PCM | `tests/sample-upload-pcm-readback.test.mjs`, `tests/sample-copy-pcm-readback.test.mjs`, matching `tests/e2e/sample-*-pcm-readback.spec.mjs`, `tests/filesystem-get-failure.behavior.test.mjs`; [contract and pinned references](testing/sample-upload-pcm-readback.md) |
 | Sample Library metadata | `tests/sample-properties-controller.test.mjs`, `tests/ep133-ui-helpers.test.mjs`, `tests/e2e/my-ep-sample-editing.spec.mjs`; keep sample MOVE/COPY and dependency regressions green |
 | Read-only pad metadata | `tests/pad-metadata-readonly.test.mjs`, `tests/pad-properties-readonly.test.mjs`, `tests/e2e/my-ep-pad-readonly.spec.mjs`; production READ only for EP-133 metadata OS 2.5.1 with matching evidence; every other scope blocks before FILE traffic |
 | MOVE/COPY/DELETE and dependencies | `tests/sample-dependency-index.test.mjs`, `tests/e2e/sample-dependency-guard.spec.mjs`, sample transaction and recovery tests |
@@ -124,6 +125,13 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 - ON + unmarked raw WAV or other audio: use the canonical SpeedUpperCut x2 pipeline, set `sound.pitch=-12`, and verify output metadata before upload. Invalid RIFF/TNGE, corrupt or mismatching marker, and unsafe sample regions must fail before the first PUT.
 - OFF: use current direct upload path without automatic x2.
 - Preserve the local file, device capability and upload transaction guards, occupied-slot policy, metadata verification, session ownership and batch cancellation in every mode. Full Node/Chromium CI and separate authorized HIL remain acceptance gates.
+
+### Ordinary Upload PCM verification
+
+- Verify the complete destination raw PCM against the exact prepared bytes passed to PUT, after the existing slot/path/size/name/channel/rate checks and before WRITTEN/verified or the next sample. REPITCH verification uses the final prepared output, not the original WAV or pre-conversion PCM.
+- Keep GET under the same strict FILE lease, validate the session around awaits, and include readback in VERIFY progress/timing. The transaction and recovery journal must finish before UI success.
+- Same-size byte mismatch, invalid/short data, GET error or session loss cannot announce success. Stop the batch after ambiguous verification; do not DELETE, retry, resync automatically or update a replacement session. Keep the existing recovery/safety lock. Earlier verified successes remain recorded; a preparation-only failure can still allow later files.
+- Fake EP scenarios cover held GET/queue order, same-size corrupt bytes with unchanged INFO/metadata, incomplete/rejected GET, no DELETE/retry, recovery-required journal and REPITCH output. Node regressions also cover expanded/invalid data, session replacement and delayed callbacks/events. These are synthetic checks, not new hardware evidence; physical acceptance is separate.
 
 ### Sample Library settings (limited ZAT-61 integration)
 

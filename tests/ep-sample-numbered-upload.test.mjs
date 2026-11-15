@@ -69,6 +69,7 @@ const harness=(choice,{timingObserver=()=>{}}={})=>{
   setSoundsMetadata:()=>{},getActiveDeviceProfile:()=>({playModes:['oneshot'],advancedSampleMetadataWrites:true}),
   isConnected:()=>true,isSynchronized:()=>true,isDeviceUnsafe:()=>false,
   captureBatchSession:()=> 'S1',assertBatchSession:token=>assert.equal(token,'S1'),
+  getDeviceSessionToken:()=> 'S1',getDeviceConnectionEpoch:()=>1,markDeviceUnsafe:()=>{},
   setMutating:flag=>{if(flag)mutations++;},setGlobalProgress(){},hideGlobalProgress(){},
   withFileTransaction:async(_name,op)=>op({
    uploadSampleToSlot:async options=>{
@@ -77,7 +78,8 @@ const harness=(choice,{timingObserver=()=>{}}={})=>{
      uploadedNames.set(options.destinationId,options.filename.replace(/\.wav$/i,'').toLowerCase());
     options.onCreated?.(options.destinationId);
     return options.destinationId;
-   },getFileInfo:async id=>({nodeId:id,parentId:1000,fileSize:12,fileName:uploadedNames.get(id)}),
+   },getFile:async()=>({data:new Uint8Array(12)}),
+    getFileInfo:async id=>({nodeId:id,parentId:1000,fileSize:12,fileName:uploadedNames.get(id)}),
     getFileMetadata:async id=>({name:uploadedNames.get(id),channels:1,samplerate:46875,format:'s16'}),
     deleteFile:async()=>{throw new Error('Should not delete existing samples');}
   }),

@@ -322,8 +322,9 @@ test('My EP upload records are verified by the connected EP before showing succe
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleUploadController.js',import.meta.url),'utf8');
   assert.match(source,/await fileOps\.getFileInfo\(fileId\)/);
   assert.match(source,/await fileOps\.getFileMetadata\(fileId\)/);
-  assert.match(source,/sampleStore\.upsertFile\(fileItem,[\s\S]*state:'ready'[\s\S]*verification:'verified'/);
-  assert.match(source,/sampleStore\.setMetadata\(target\.id,actual,\{verification:'verified'\}\)/);
+  assert.match(source,/await verifySamplePcm\(fileOps,fileId,expectedPcm/);
+  assert.match(source,/sampleStore\.upsertFile\(completedUpload\.fileItem,\{state:'ready',verification:'verified'/);
+  assert.match(source,/sampleStore\.setMetadata\(target\.id,completedUpload\.actual,\{verification:'verified'\}\)/);
   assert.match(source,/void hydrateUploadedFileItem\(id\)/);
 });
 
@@ -506,7 +507,9 @@ test('My EP cache-busting chain keeps deep EP modules on the same release token'
   assert.equal(workspace.includes("./devicePadSelectionController.js?v="+token),true);
   assert.equal(sampleUploadController.includes("./fileModel.js?v="+token),false);
   assert.doesNotMatch(sampleMoveController,/from [\'\"]/);
-  assert.doesNotMatch(sampleCopyController,/from [\'\"]/);
+  for(const controller of [sampleCopyController,sampleUploadController])
+    assert.equal(controller.includes('./samplePcmVerification.js?v='+token),true);
+  assert.doesNotMatch(await read('js/ep133/ui/samplePcmVerification.js'),/from [\'\"]/);
   assert.equal(sampleLibrarySync.includes("../sampleStore.js?v="+token),true);
   assert.equal(sampleStore.includes("./sampleMemory.js?v="+token),true);
   assert.equal(sampleMemory.includes("./ui/globalSearchController.js?v="+token),true);
@@ -2098,7 +2101,7 @@ test('My EP queues separately protected sample transfers without overlapping FIL
   assert.match(block,/await fileOps\.uploadSampleToSlot\(\{/);
   assert.match(block,/await fileOps\.getFileInfo\(fileId\)/);
   assert.match(block,/await fileOps\.getFileMetadata\(fileId\)/);
-  assert.match(block,/if\(isDeviceUnsafe\(\)\)break/);
+  assert.match(block,/if\(stopBatch\|\|isDeviceUnsafe\(\)\|\|!sessionIsCurrent\(\)\)break/);
   assert.doesNotMatch(block,/verifyPcmReadback\(fileId,prepared\.data/);
 });
 

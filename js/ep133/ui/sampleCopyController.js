@@ -1,3 +1,5 @@
+import{verifySamplePcm}from './samplePcmVerification.js?v=20261001-1';
+
 export function createSampleCopyController({
   sampleStore,
   getSoundsParentId,getSoundsMetadata,getActiveDeviceProfile,
@@ -121,18 +123,13 @@ export function createSampleCopyController({
         // without trusting a device-reported checksum or risking a collision.
         setGlobalProgress('VERIFY',((index+.9)/plan.length)*100);
         try{
-          const verified=await fileOps.getFile(fileId,(done,total)=>{
-            const local=total?done/total:0;
-            setGlobalProgress('VERIFY',((index+.9+local*.05)/plan.length)*100);
+          await verifySamplePcm(fileOps,fileId,bytes,{
+            assertSession:()=>assertBatchSession(sessionToken),
+            onProgress:(done,total)=>{
+              const local=total?done/total:0;
+              setGlobalProgress('VERIFY',((index+.9+local*.05)/plan.length)*100);
+            }
           });
-          assertBatchSession(sessionToken);
-          const actual=verified?.data;
-          if(!(actual instanceof Uint8Array)||actual.byteLength!==bytes.byteLength)
-            throw new Error('Destination PCM length differs from the source.');
-          for(let offset=0;offset<bytes.byteLength;offset++){
-            if(actual[offset]!==bytes[offset])
-              throw new Error('Destination PCM differs from the source.');
-          }
         }catch(error){
           unverifiedReadback=true;
           // The destination may contain data. Never delete/retry it on an

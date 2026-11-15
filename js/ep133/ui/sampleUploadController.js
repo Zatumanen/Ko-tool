@@ -2,17 +2,18 @@ import{prepareEp133Sample}from '../audio.js?v=20261001-1';
 import{preflightRepitchBatch,prepareMyEpRepitchSample}from '../myEpRepitch.js?v=20261113-1';
 import{stripSampleUploadPrefix}from '../sampleFilesystem.js?v=20261001-1';
 import{numberedSampleSlot,planSampleUploadTargets}from './sampleUploadPlan.js?v=20261001-1';
+import{verifySamplePcm}from './samplePcmVerification.js?v=20261001-1';
 
 export function createSampleUploadController({
   sampleStore,getMemory,
   getSoundsParentId,getSoundFormats,getSoundsMetadata,setSoundsMetadata,
   getActiveDeviceProfile,
   isConnected,isSynchronized,isDeviceUnsafe,
-  captureBatchSession,assertBatchSession,
+  captureBatchSession,assertBatchSession,getDeviceSessionToken,getDeviceConnectionEpoch,markDeviceUnsafe,
   setMutating,setGlobalProgress,hideGlobalProgress,
   withFileTransaction,assertSlotsEmpty,refreshSoundsRuntimeMetadata,
   uploadSampleToSlot,prepareSampleLocalMetadata,normalizeFileName,
-  fileItemFromInfo,getFileInfo,getFileMetadata,
+  fileItemFromInfo,getFileInfo,getFileMetadata,getFile,
   renderDeviceStats,
   markUploadPending,clearUploadPending,
   waitForMetadataUpdate,deleteFile,syncMetadataAfterMutation,assertSlotsDeleted,
@@ -31,10 +32,18 @@ export function createSampleUploadController({
     :operation({getFileInfo,getFileMetadata});
   const hydrateUploadedFileItem=async nodeId=>{
     try{
-      const{info,metadata}=await runHydrationTransaction(async fileOps=>({
-        info:await fileOps.getFileInfo(nodeId),
-        metadata:await fileOps.getFileMetadata(nodeId)
-      }));
+      if(sampleStore.getSlot(nodeId)?.verification?.file==='unverified')return;
+      const sessionToken=captureBatchSession();
+      const{info,metadata}=await runHydrationTransaction(async fileOps=>{
+        assertBatchSession(sessionToken);
+        const info=await fileOps.getFileInfo(nodeId);
+        assertBatchSession(sessionToken);
+        const metadata=await fileOps.getFileMetadata(nodeId);
+        assertBatchSession(sessionToken);
+        return{info,metadata};
+      });
+      assertBatchSession(sessionToken);
+      if(sampleStore.getSlot(nodeId)?.verification?.file==='unverified')return;
       const item=fileItemFromInfo(info);
       if(!item)return;
       sampleStore.upsertFile(item,{state:'ready',verification:'verified'});
@@ -47,7 +56,7 @@ export function createSampleUploadController({
 
   const runUploadTransaction=operation=>typeof withFileTransaction==='function'
     ?withFileTransaction('sample upload batch',operation,{strict:true})
-    :operation({uploadSampleToSlot,deleteFile});
+    :operation({uploadSampleToSlot,deleteFile,getFileInfo,getFileMetadata,getFile});
   const uploadFilesToSlot=async(slot,files)=>{
     if(placementChoiceOpen)throw new Error('Finish or cancel the open upload destination choice first.');
     if(!isConnected())throw new Error('EP device is disconnected.');
@@ -92,6 +101,12 @@ export function createSampleUploadController({
     // input or declined ambiguous -12 origin aborts with no device mutation.
     const repitchMode=getRepitchEnabled()===true;
     const sessionToken=captureBatchSession();
+    const connectionEpoch=getDeviceConnectionEpoch();
+    const sessionIsCurrent=()=>getDeviceSessionToken()===sessionToken;
+    // Transport safety lock invalidates the token but preserves this inventory.
+    // A real disconnect/reconnect advances the runtime epoch and must not repaint.
+    const ownsInventory=()=>sessionIsCurrent()||
+      (isDeviceUnsafe()&&getDeviceConnectionEpoch()===connectionEpoch);
     let approvedLegacy=new Set();
     const preflightStart=clock();
     if(repitchMode){
@@ -110,6 +125,7 @@ export function createSampleUploadController({
     setMutating(true);
     const successes=[];
     const failures=[];
+    const unverifiedSlots=new Set();
 
     try{
       // One independent guarded FILE transaction per sample. Other uploads
@@ -123,10 +139,16 @@ export function createSampleUploadController({
         const item=targets[index];
         const target=item.slot;
         let uploadTiming=null;
+        let stopBatch=false;
+        let completedUpload=null;
+        let recoverableFailure=null;
         try{
           await runUploadTransaction(async fileOps=>{
+              assertBatchSession(sessionToken);
               await assertSlotsEmpty([target.id],fileOps);
+              assertBatchSession(sessionToken);
               const latestSounds=await refreshSoundsRuntimeMetadata(fileOps);
+              assertBatchSession(sessionToken);
               remainingFreeSpace=Number(latestSounds?.free_space_in_bytes);
               if(!Number.isFinite(remainingFreeSpace)||remainingFreeSpace<0)remainingFreeSpace=null;
           // Only the device-facing name changes. The audio File and bytes stay intact.
@@ -143,6 +165,7 @@ export function createSampleUploadController({
                 return approvedLegacy.has(item.file);
               }}:{}),
               onProgress:(value,info)=>{
+                assertBatchSession(sessionToken);
                 const progress=Math.max(0,Math.min(100,Number(value)||0));
                 const phase=String(info?.status||'preparing').toUpperCase();
                 sampleStore.setOperation(target.id,{
@@ -156,6 +179,7 @@ export function createSampleUploadController({
 
             assertBatchSession(sessionToken);
             const preparingMs=Math.max(0,clock()-preparingStart);
+            const expectedPcm=prepared.data;
             const metadata={
               channels:prepared.channels,
               samplerate:prepared.samplerate,
@@ -175,7 +199,7 @@ export function createSampleUploadController({
             const profile=getActiveDeviceProfile();
             const fileId=await fileOps.uploadSampleToSlot({
               file:item.file,
-              data:prepared.data,
+              data:expectedPcm,
               filename:deviceSampleName,
               parentId:soundsParentId,
               destinationId:target.id,
@@ -184,17 +208,19 @@ export function createSampleUploadController({
               allowAdvancedMetadata:profile.advancedSampleMetadataWrites,
               barWriteMode:'omit',
               onCreated:id=>{
+                assertBatchSession(sessionToken);
                 createdId=Number(id)||target.id;
                 item.createdId=createdId;
               },
               onProgress:(done,total)=>{
+                assertBatchSession(sessionToken);
                 const local=total?done/total:0;
                 sampleStore.setOperation(target.id,{
                   status:'uploading',
                   label:'UPLOADING',
                   progress:local*100
                 });
-                setGlobalProgress('UPLOAD',((index+.35+local*.65)/targets.length)*100);
+                setGlobalProgress('UPLOAD',((index+.35+local*.50)/targets.length)*100);
               }
             });
 
@@ -207,7 +233,9 @@ export function createSampleUploadController({
             // Confirm the device's actual FILE record and metadata before
             // advancing the queue or telling the user this file completed.
             const info=await fileOps.getFileInfo(fileId);
+            assertBatchSession(sessionToken);
             const actual=await fileOps.getFileMetadata(fileId);
+            assertBatchSession(sessionToken);
             const fileItem=fileItemFromInfo(info);
             if(!fileItem||Number(fileItem.nodeId)!==Number(target.id)||
               !fileItem.fileName.startsWith('/sounds/')||fileItem.fileName.slice(8).includes('/'))
@@ -219,64 +247,100 @@ export function createSampleUploadController({
             if(Number(actual?.channels)!==Number(prepared.channels)||
               Number(actual?.samplerate)!==Number(prepared.samplerate))
               throw new Error('Uploaded sample audio parameters differ from device readback.');
-            sampleStore.upsertFile(fileItem,{
-              state:'ready',
-              verification:'verified',
-              preserveMetadata:false
-            });
-            sampleStore.setMetadata(target.id,actual,{verification:'verified'});
-            const verifyingMs=Math.max(0,clock()-verifyingStart);
 
-            if(remainingFreeSpace!=null){
-              remainingFreeSpace=Math.max(0,remainingFreeSpace-prepared.data.byteLength);
-              currentSoundsMetadata={
-                ...getSoundsMetadata(),
-                free_space_in_bytes:remainingFreeSpace
-              };
-              setSoundsMetadata(currentSoundsMetadata);
+            sampleStore.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:0});
+            setGlobalProgress('VERIFY',((index+.85)/targets.length)*100);
+            try{
+              await verifySamplePcm(fileOps,fileId,expectedPcm,{
+                assertSession:()=>assertBatchSession(sessionToken),
+                onProgress:(done,total)=>{
+                  const local=total?done/total:0;
+                  sampleStore.setOperation(target.id,{status:'verifying',label:'VERIFYING',progress:local*100});
+                  setGlobalProgress('VERIFY',((index+.85+local*.14)/targets.length)*100);
+                }
+              });
+            }catch(error){
+              stopBatch=true;
+              unverifiedSlots.add(target.id);
+              if(ownsInventory()){
+                sampleStore.upsertFile(fileItem,{state:'unverified',verification:'unverified',preserveMetadata:false});
+                sampleStore.setOperation(target.id,{status:'failed',label:'UNVERIFIED',progress:0});
+                if(!isDeviceUnsafe())markDeviceUnsafe('UPLOAD destination PCM readback was not verified.');
+              }
+              throw new Error('UPLOAD PCM verification failed: '+String(error?.message||error),{cause:error});
             }
-
-            renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
-            sampleStore.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
-            successes.push(target.id);
-            setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
+            const verifyingMs=Math.max(0,clock()-verifyingStart);
+            completedUpload={fileItem,actual,byteLength:expectedPcm.byteLength};
             uploadTiming={slot:target.id,preflightMs,preparingMs,uploadingMs,verifyingMs};
           }catch(error){
-            clearUploadPending(target.id);
-            failures.push({file:item.file,error});
-            sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
-            logTechnical('UPLOAD '+item.file.name,error);
-
+            // PCM failures must reach the recovery journal, never legacy rollback.
+            // Keep existing per-file handling for clean pre-readback failures.
+            if(stopBatch||!sessionIsCurrent())throw error;
             const createdId=Number(item.createdId)||0;
             if(createdId&&isConnected()&&!isDeviceUnsafe()){
               try{
+                assertBatchSession(sessionToken);
                 const rollbackMetadataUpdate=waitForMetadataUpdate(soundsParentId);
                 await fileOps.deleteFile(createdId);
+                assertBatchSession(sessionToken);
                 await syncMetadataAfterMutation(soundsParentId,rollbackMetadataUpdate,fileOps);
+                assertBatchSession(sessionToken);
                 await assertSlotsDeleted([createdId],fileOps);
+                assertBatchSession(sessionToken);
                 sampleStore.removeFile(createdId);
               }catch(rollbackError){
                 logTechnical('UPLOAD ROLLBACK SLOT '+createdId,rollbackError);
+                stopBatch=true;
+                throw rollbackError;
               }
             }
-
+            recoverableFailure=error;
             }
           });
+          assertBatchSession(sessionToken);
+          if(recoverableFailure){
+            failures.push({file:item.file,error:recoverableFailure});
+            sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+            logTechnical('UPLOAD '+item.file.name,recoverableFailure);
+          }else{
+          // The strict transaction/journal must also finish before UI success.
+          sampleStore.upsertFile(completedUpload.fileItem,{state:'ready',verification:'verified',preserveMetadata:false});
+          sampleStore.setMetadata(target.id,completedUpload.actual,{verification:'verified'});
+          if(remainingFreeSpace!=null){
+            remainingFreeSpace=Math.max(0,remainingFreeSpace-completedUpload.byteLength);
+            currentSoundsMetadata={...getSoundsMetadata(),free_space_in_bytes:remainingFreeSpace};
+            setSoundsMetadata(currentSoundsMetadata);
+          }
+          renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
+          sampleStore.setOperation(target.id,{status:'complete',label:'WRITTEN',progress:100});
+          successes.push(target.id);
+          setGlobalProgress('UPLOAD',((index+1)/targets.length)*100);
           if(uploadTiming){
             try{onUploadTiming(uploadTiming);}
             catch{/* Optional diagnostics must not turn a verified upload into a failure. */}
           }
+          }
         }catch(error){
+          if(completedUpload){
+            stopBatch=true;
+            unverifiedSlots.add(target.id);
+            if(ownsInventory()){
+              sampleStore.upsertFile(completedUpload.fileItem,{state:'unverified',verification:'unverified',preserveMetadata:false});
+              sampleStore.setOperation(target.id,{status:'failed',label:'UNVERIFIED',progress:0});
+              if(!isDeviceUnsafe())markDeviceUnsafe('UPLOAD transaction did not finalize successfully.');
+            }
+          }
           failures.push({file:item.file,error});
-          sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
+          if(sessionIsCurrent()&&!unverifiedSlots.has(target.id))
+            sampleStore.setOperation(target.id,{status:'failed',label:'FAILED',progress:0});
           logTechnical('UPLOAD QUEUE '+item.file.name,error);
         }
-        if(isDeviceUnsafe())break;
+        if(stopBatch||isDeviceUnsafe()||!sessionIsCurrent())break;
       }
 
       renderDeviceStats(getSoundsMetadata(),sampleStore.countOccupied());
 
-      if(successes.length){
+      if(successes.length&&sessionIsCurrent()&&!isDeviceUnsafe()){
         const memory=getMemory();
         memory?.selectSlots?.(successes,{
           activeId:successes[0],
@@ -284,6 +348,7 @@ export function createSampleUploadController({
           navigate:true
         });
         setTimeoutFn(()=>{
+          if(!sessionIsCurrent()||isDeviceUnsafe())return;
           for(const id of successes){
             const current=sampleStore.getSlot(id)?.node;
             if(
@@ -302,7 +367,7 @@ export function createSampleUploadController({
         showError?.('COULD NOT UPLOAD:\n'+names);
       }
 
-      if(successes.length){
+      if(successes.length&&sessionIsCurrent()&&!isDeviceUnsafe()){
         void refreshSoundsRuntimeMetadata().catch(error=>
           logTechnical('UPLOAD FREE SPACE REFRESH',error)
         );
@@ -312,7 +377,10 @@ export function createSampleUploadController({
     }finally{
       for(const item of targets)clearUploadPending(item.slot.id);
       setTimeoutFn(()=>{
-        for(const item of targets)sampleStore.clearOperation(item.slot.id);
+        if(!sessionIsCurrent())return;
+        for(const item of targets){
+          if(!unverifiedSlots.has(item.slot.id))sampleStore.clearOperation(item.slot.id);
+        }
       },900);
       hideGlobalProgress();
       setMutating(false);

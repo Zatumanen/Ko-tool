@@ -48,6 +48,8 @@ Evidence anchors below are searchable symbols in the supplied bundle, rather tha
 
 Relevant existing verification surfaces: `tests/audio-pipeline-golden.test.mjs`, `filesystem-metadata.behavior.test.mjs`, `sample-upload-name-normalization.test.mjs`, and FILE golden fixture/replay tests. Their presence is not a new passing test or hardware result.
 
+**2026-11-15 scoped follow-up:** [Upload PCM readback comparison](testing/sample-upload-pcm-readback.md) re-obtained U02 by its official asset URL, verified its exact registered SHA-256 and traced upload completion, event-driven metadata reads and error handling. It also compares G02/G15/G17 at their pinned revisions. Ordinary Upload's new verification deliberately requires stronger evidence than the official queue's completion condition; no reference code or binary was imported and no EP was contacted.
+
 ## Secondary references
 
 | Source and evidence level | Already present in K.O. Tool | Useful next research / limits |
