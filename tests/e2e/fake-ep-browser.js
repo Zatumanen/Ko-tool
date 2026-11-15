@@ -198,6 +198,7 @@
   let rejectedListPage=null,heldListPage=null;
   const delayedListResponses=[];
   const rejectedGetIds=new Set();
+  const corruptGetIds=new Set(),truncatedGetIds=new Set();
   let heldGet=null,holdNextGetId=null;
   const requestLog=[];
   const listPageSize=24;
@@ -410,7 +411,13 @@
         emitLater(response(request,enc.encode('fake file read refused\0'),3));return;
       }
       if(!file){emitLater(response(request,enc.encode('invalid id\0'),3));return;}
-      currentGet={file,pageSize:96};
+      let readFile=file;
+      if(corruptGetIds.delete(id)){
+        const data=file.data.slice();data[0]^=1;
+        readFile={...file,data};
+      }
+      if(truncatedGetIds.delete(id))readFile={...file,data:file.data.slice(0,-2)};
+      currentGet={file:readFile,pageSize:96};
       const flags=projects.has(id)?CAP.DIR|CAP.READ:flagsFile;
       emitLater(response(request,concat(be16(id),[flags],be32(file.data.length),enc.encode(file.name),[0])));return;
     }
@@ -496,6 +503,9 @@
     seedSamples,
     seedProjects,
     rejectNextGet:id=>rejectedGetIds.add(Number(id)),
+    // Corrupt/shorten only the read stream; INFO and stored PCM stay unchanged.
+    corruptNextGet:id=>corruptGetIds.add(Number(id)),
+    truncateNextGet:id=>truncatedGetIds.add(Number(id)),
     holdNextGet:id=>{holdNextGetId=Number(id);},
     releaseHeldGet:()=>{const reply=heldGet;heldGet=null;reply?.();},
     get hasHeldGet(){return heldGet!==null;},

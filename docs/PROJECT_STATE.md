@@ -6,7 +6,7 @@
 
 - Static JS/CSS/HTML, Node 22, classic SpeedUpperCut active. [OS redesign #110](https://github.com/Zatumanen/Ko-tool/pull/110) remains paused Draft.
 - **Converter:** x2/−12, HI/MID/LO, channels/playmode, file/folder WAV/ZIP and waveform/chop. SpeedUpperCut → My EP batch preview pending ZAT-79.
-- **My EP:** firmware-scoped Sample Library/FILE, MOVE/COPY/DELETE, projects/read-only pads, restricted legacy 16-step editor, guarded legacy ZIP/TAR recovery. COPY performs full PCM GET after PUT (PR #163); **ordinary Upload does not** (only FILE_INFO/metadata/size).
+- **My EP:** firmware-scoped Sample Library/FILE, MOVE/COPY/DELETE, projects/read-only pads, restricted legacy 16-step editor, guarded legacy ZIP/TAR recovery. COPY performs full PCM GET after PUT (PR #163). Ordinary Upload now also compares full destination PCM against the prepared PUT bytes (including REPITCH) after FILE_INFO/metadata/size checks. Unverified readback stops the batch without automatic DELETE/retry; [contract and references](testing/sample-upload-pcm-readback.md). Physical acceptance remains separate.
 - **REPITCH implemented**: ON-by-default per-session toggle; provenance preflight and x2/−12 preparation. Physical playback not accepted: [ZAT-77](https://linear.app/clouded/issue/ZAT-77) In Review.
 - **Official .pak/.ppak:** read-only archive/slot preview (PR #164); detached offline PCM/TAR staging (PR #165); **actual Restore OFF** ([ZAT-92](https://linear.app/clouded/issue/ZAT-92) In Progress).
 - **Pads:** EP-133 2.5.1 scoped READ; WRITE disabled, [PR #139](https://github.com/Zatumanen/Ko-tool/pull/139) still Draft.

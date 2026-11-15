@@ -10,6 +10,9 @@ const open=async page=>{
   await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','false');
   await expect(page.locator('#ep133-status')).toContainText('SYNCED',{timeout:12000});
   await expect(page.locator('[data-slot="7"] [data-name-input]')).toHaveValue('kick808');
+  await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  await expect(page.locator('[data-slot="7"]')).toHaveAttribute('draggable','true');
 };
 const wav16=()=>{
  const samples=80;
