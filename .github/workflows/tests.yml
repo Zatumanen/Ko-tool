@@ -52,3 +52,13 @@ jobs:
       - run: npm run build:pages
       - run: npm run verify:pages
       - run: npm run test:pages:e2e
+      # The CI suite uses fake EP and generated fixtures only. Keep traces
+      # from failures briefly for reproducible diagnostics; never upload HIL captures.
+      - name: Upload failed Playwright traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failures-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/
+          retention-days: 3
+          if-no-files-found: ignore
