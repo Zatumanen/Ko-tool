@@ -4,7 +4,7 @@
 
 - Talk to the owner in Russian. Technical references stay concise English; root README is for shipped user features; engineering belongs in AGENTS/docs.
 - Reviews do not authorize edits. Before app code: align Linear, README, AGENTS and skills/runtime. Docs permission covers docs only. Linear issues, comments, statuses, blockers, CI/HIL results and PR links need no separate approval. Done requires acceptance evidence.
-- Verify branch and approvals before branch/commit/PR/merge/deploy; never edit main directly. Preserve user changes. Pages currently auto-publishes main via Jekyll despite manual workflow; do not merge under manual-release policy until an admin confirms Settings → Pages → Source = GitHub Actions. See docs/RELEASE.md.
+- Verify branch and approvals before branch/commit/PR/merge/deploy; never edit main directly. Preserve user changes. Pages Source was owner-confirmed GitHub Actions on 2026-11-15; no automatic Jekyll run followed PR #166. Manual deployment still requires separate approval; see docs/RELEASE.md.
 - Use isolated checkout, no worktree unless requested, and reversible patches. Docs-only edits must not change app code, tests, dependencies or CI as a side effect.
 - Never disclose credentials, serials, private captures or user data. Check provenance/license before importing third-party code/assets. The repository currently has no root license granting reuse.
 - K.O. Tool is the browser virtual desktop; SpeedUpperCut prepares audio; My EP manages physical EP; Visuals analyzes a selected browser audio input. Stack: static HTML/CSS/native JS, Node.js 22 for builds/tests; no production API/database or template/framework replacement.

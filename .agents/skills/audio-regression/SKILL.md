@@ -27,7 +27,8 @@ callers and vectors. Do not load device internals for a converter-only task.
    does not justify those suites; filename-only fixes start with naming/import and
    matching download checks. Store long logs in scratch, report summaries.
 
-My EP direct upload is currently separate from converter x2/−12. Future REPITCH
-is specified in [research](../../../docs/PRODUCT_RESEARCH.md); incoming −12 is a
-convention, not proof of a prior transform. Implementation needs owner authorization;
-malformed metadata must fail transparently. Report actual results and evidence limits.
+My EP direct upload is a separate path from converter x2/−12. REPITCH is
+implemented with an ON-by-default toggle, provenance-aware preflight and guarded
+import; physical playback acceptance remains open in ZAT-77. Incoming −12 alone
+is not proof of prior x2 processing. Preserve original audio and fail transparently
+on malformed metadata; never apply x2 twice. Report evidence and HIL limits.

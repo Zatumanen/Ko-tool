@@ -1,6 +1,6 @@
 # K.O. Tool — current project state
 
-**Snapshot:** 2026-11-14, audited `main@7e89fdd2b5e6772905a8ee0a44106f4007a2a7e4` (PR #165), **not a live HEAD guarantee**. Recheck branch/Linear before edits. [12-Nov historical HIL and CI evidence](history/PROJECT_STATE-2026-11-12.md) preserved intact.
+**Snapshot:** 2026-11-15, audited `main@49bd79f7bd637c39f42b9ad00d18154db5d210df` (PR #166), **not a live HEAD guarantee**. Recheck branch/Linear before edits. [12-Nov historical HIL and CI evidence](history/PROJECT_STATE-2026-11-12.md) preserved intact.
 
 ## Implemented vs pending
 
@@ -14,7 +14,7 @@
 
 ## Evidence and release
 
-- [CI #43586791491](https://github.com/Zatumanen/Ko-tool/actions/runs/43586791491): 847/847 Node, 113/113 fake-EP Chromium and Pages/preflight PASS on snapshot SHA. Fake EP is **not hardware acceptance**.
+- [CI #43707438664](https://github.com/Zatumanen/Ko-tool/actions/runs/43707438664): 848/848 Node, 113/113 fake-EP Chromium, 1/1 versioned-dist Chromium, Pages/preflight PASS on snapshot SHA. Fake EP is **not hardware acceptance**.
 - Scoped owner-observed EP-133 2.5.1 Pad READ/UI HIL (P01/A) recorded in [TESTING](TESTING.md) and [history](history/PROJECT_STATE-2026-11-12.md). COPY/REPITCH/restore/interruption acceptance remains open; further HIL deferred by owner 2026-11-14 ([ZAT-68](https://linear.app/clouded/issue/ZAT-68)).
-- [Actual Pages #43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943) was **automatic branch/Jekyll**, not versioned manual dist. Admin must change **Settings → Pages → Source = GitHub Actions** before controlled merge/deploy. Change not verified. See [RELEASE](RELEASE.md) and [ZAT-93](https://linear.app/clouded/issue/ZAT-93). Never assume manual workflow suppresses branch publishing.
+- [Earlier Pages #43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943) was automatic Jekyll. Owner switched Settings → Pages → Source to GitHub Actions on 15-Nov; no automatic Pages deployment followed PR #166. Admin setting not independently readable here. First manual deploy remains untested and requires explicit approval. See [RELEASE](RELEASE.md) and [ZAT-93](https://linear.app/clouded/issue/ZAT-93).
 - Release 1.0 not accepted; [owner decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md) prescribe six sequential stages. [AGENTS](../AGENTS.md) controls permissions; [Linear](https://linear.app/clouded/project/ko-tool-release-10-2f713ebc0fca) tracks live tasks.
