@@ -61,9 +61,8 @@ activation in Cloud merely because repository files exist.
 
 For every **new** checkout/session, inspect actual branch/status and execute
 `node scripts/check-codex-env.mjs`. Use Node.js 22, then install dependencies
-with `npm install --no-audit --no-fund` until a verified `package-lock.json`
-is available; only then switch the setup/CI to `npm ci`. Run focused tests
-first; full gates are selected by docs/TESTING.md and AGENTS.md. For E2E use
+with `npm ci --no-audit --no-fund` from the committed `package-lock.json`.
+Run focused tests first; full gates are selected by docs/TESTING.md and AGENTS.md. For E2E use
 `npx playwright install chromium` followed by `npm run test:e2e`.
 The test server owns port 4173: stop only a manual server you started.
 Generated assets and diagnostics belong in ignored `dist/`, `work/`,
