@@ -56,6 +56,13 @@ function checkFrontmatter(skill) {
 }
 
 function checkRole(name, file) {
+  const config = readText('.codex/config.toml');
+  const section = config.match(new RegExp('\\[agents\\.' + name + '\\]([\\s\\S]*?)(?=\\n\\[|$)'));
+  const expectedPath = file.slice('.codex/'.length);
+  const registered = section && section[1].split('\n').some(line =>
+    line.trim() === 'config_file = "' + expectedPath + '"');
+  check(name + ' registered', Boolean(registered),
+    'config.toml must bind role to ' + expectedPath);
   const present = existsSync(path.join(root, file));
   check(`${name} role file`, present, present ? file : `missing: ${file}`);
   if (!present) return;
@@ -101,7 +108,8 @@ const discoveredSkills = existsSync(path.join(root, '.agents/skills'))
   ? readdirSync(path.join(root, '.agents/skills'), { withFileTypes: true })
     .filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
   : [];
-check('skill inventory', requiredSkills.every(skill => discoveredSkills.includes(skill)),
+check('skill inventory', requiredSkills.length === discoveredSkills.length &&
+  requiredSkills.every(skill => discoveredSkills.includes(skill)),
   `required: ${requiredSkills.length}; discovered: ${discoveredSkills.length}`);
 for (const skill of requiredSkills) checkFrontmatter(skill);
 for (const [name, file] of Object.entries(requiredRoles)) checkRole(name, file);
