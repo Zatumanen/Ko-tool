@@ -10,14 +10,18 @@ The project is static HTML/CSS/JavaScript. CI in [tests.yml](../.github/workflow
 | --- | --- |
 | `npm test` | Node built-in unit and behavioral tests (`node --test`) |
 | `npm run build:pages` | Build versioned GitHub Pages bundle in `dist/` |
+| `npm run verify:pages` | Check dist SHA, local resource versions and required JS/CSS/WASM |
+| `npm run test:pages:e2e` | Playwright Chromium smoke against **dist** under `/Ko-tool/` |
 | `npm run test:e2e` | Playwright **Chromium** browser E2E, one worker, fake EP |
 
 ```bash
-npm install --no-audit --no-fund
+npm ci --no-audit --no-fund
 npx playwright install chromium
 npm test
 npm run build:pages
+npm run verify:pages
 npm run test:e2e
+npm run test:pages:e2e
 ```
 
 For focused checks:
@@ -32,7 +36,7 @@ npx playwright test tests/e2e/my-ep-live-project-refresh.spec.mjs
 
 For native sample dragging after an upload, wait for the global progress indicator to hide and the source to become `draggable`: a file appearing in the fake device is earlier than verified readback and release of the mutation lock. Delayed operation-indicator cleanup must update existing cells without replacing drag nodes. [Cleanup regressions](../tests/e2e/sample-operation-cleanup.spec.mjs) clear single/all indicators during a real pointer drag, verify row identity and complete the transfer gesture. Do not hide this interval by waiting for cleanup before dragging, substituting synthetic drop events or adding a fixed sleep.
 
-**This document is instructions, not a claim that these commands were run during documentation work.** GitHub Actions runs tests and Pages builds for pushes/PRs. [Pages deployment](../.github/workflows/deploy-pages.yml) requires a separately authorized manual dispatch and passing unit, build and browser verification. Configure environment reviewer protection in GitHub Settings where required; fake EP tests do not replace release HIL gates.
+**This document is instructions, not a claim that these commands were run during documentation work.** PR/main Actions run Node, source fake-EP Chromium and versioned-dist /Ko-tool/ Chromium smoke. The [manual deploy workflow](../.github/workflows/deploy-pages.yml) verifies then deploys the **same** dist artifact only on authorized dispatch. **Current actual Pages source is branch/Jekyll auto-publish** as observed in [run 43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943); the manual workflow alone does not stop it. An admin must change Settings → Pages → Source to GitHub Actions before relying on manual release controls. See [release runbook](RELEASE.md). Fake EP tests never replace HIL.
 
 ## Evidence levels
 

@@ -4,8 +4,8 @@
 
 - Talk to the owner in Russian. Technical references stay concise English; root README is for shipped user features; engineering belongs in AGENTS/docs.
 - Reviews do not authorize edits. Before app code: align Linear, README, AGENTS and skills/runtime. Docs permission covers docs only. Linear issues, comments, statuses, blockers, CI/HIL results and PR links need no separate approval. Done requires acceptance evidence.
-- Inspect branch/status before Git actions. Do not edit main directly, switch/create branches, commit, push, open/merge PRs, rebase, reset or deploy without authorization for that action. Preserve user changes/worktrees. Main can publish GitHub Pages; release needs explicit approval.
-- Use this isolated cloud checkout; no worktree unless explicitly requested. Prefer small reversible patches. Docs/config work must not alter application code, DSP, protocols, tests, dependencies, lockfiles, CI or builds as a side effect.
+- Verify branch and approvals before branch/commit/PR/merge/deploy; never edit main directly. Preserve user changes. Pages currently auto-publishes main via Jekyll despite manual workflow; do not merge under manual-release policy until an admin confirms Settings → Pages → Source = GitHub Actions. See docs/RELEASE.md.
+- Use isolated checkout, no worktree unless requested, and reversible patches. Docs-only edits must not change app code, tests, dependencies or CI as a side effect.
 - Never disclose credentials, serials, private captures or user data. Check provenance/license before importing third-party code/assets. The repository currently has no root license granting reuse.
 - K.O. Tool is the browser virtual desktop; SpeedUpperCut prepares audio; My EP manages physical EP; Visuals analyzes a selected browser audio input. Stack: static HTML/CSS/native JS, Node.js 22 for builds/tests; no production API/database or template/framework replacement.
 - Paths: converter `js/app.js`, `js/audio/`; device/protocol `js/ep133/`, UI `js/ep133/ui/`; Visuals `js/visuals/`; `index.html`, `css/`; Pages `scripts/build-pages.mjs`; tests `tests/`.
@@ -17,7 +17,7 @@
 - Approved Sequencer is a standalone icon/window using an authorized connected EP. The existing My EP 16-step editor is legacy, not final. Saved Step/Piano Roll and bidirectional Live require protocol/HIL evidence; no fake playhead or faster FILE polling.
 - Saved-project polling is opt-in, AUTO OFF by default, about 20 seconds when enabled; stop when hidden/busy/disconnected. It is not unsaved/live state.
 - Visuals is a separate in-browser icon/dock, not a native OS overlay or My EP panel. It may use another selected audio input without EP. Require explicit permission/source choice; no silent microphone fallback. MIDI/SysEx is not audio.
-- Converter x2/−12 and My EP import are distinct. REPITCH is approved but unimplemented; pitch=-12 alone is not provenance. Never double-process.
+- Converter x2/−12 and My EP import are distinct. REPITCH is implemented (toggle ON by default, provenance preflight), but physical playback acceptance ZAT-77 remains open. Pitch=-12 alone is not provenance; never double-process.
 
 ## EP and audio safety — always applies
 
@@ -49,7 +49,7 @@ Read [23-Oct owner decisions](docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md) 
 | Browser/UI/uploads/Playwright/fake EP | [browser-qa](.agents/skills/browser-qa/SKILL.md), [browser policy](docs/testing/browser-platform-support.md) |
 | Visuals layout/theme/capture | Relevant [Visuals](docs/VISUALS.md) section; audio/browser skill only for affected surface |
 | Saved/Live project views | [Sequencer](docs/SEQUENCER.md), owner decisions and device safety/testing |
-| Owner roadmap/future REPITCH/community | Relevant [research](docs/PRODUCT_RESEARCH.md) section; proposals do not authorize implementation |
+| Owner roadmap/future audio/community | Relevant [research](docs/PRODUCT_RESEARCH.md) section; proposals do not authorize implementation |
 
 [Original AGENTS](docs/history/AGENTS-2026-10-18-before-token-efficient.md) preserves all owner choices verbatim. Unique decisions remain binding unless superseded by the owner. Consult only the needed archived passage if canonical docs omit/conflict; never auto-load the archive. [Codex setup](docs/CODEX.md) indexes decision homes.
 
@@ -58,4 +58,4 @@ Read [23-Oct owner decisions](docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md) 
 - Select by impact using [TESTING](docs/TESTING.md), starting with focused tests. Docs/skills/config need structure/link/schema/consistency checks, not full application E2E.
 - Run npm test, npm run build:pages and npm run test:e2e when scope/risk warrants. Protocol/firmware/FILE writes/recovery/project mutation/DSP retain full mandatory suites and applicable HIL gates. Never weaken assertions or relabel fixtures for green.
 - Reuse successful checks while relevant inputs remain unchanged. Repeat only after changes, failure or unresolved concern. Separate passed/failed/skipped/unrun; zero tests and simulations do not prove hardware readiness.
-- Reply briefly: changed files/reason, branch/base, actual results, limits and next action. No file/diff dumps. Keep Linear current. This never authorizes code/Git changes, merge, deploy, device writes or release acceptance.
+- Report files/reason, branch/base, actual test results and limits. Keep Linear current; status does not grant further code/Git/deploy/device permissions.

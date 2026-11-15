@@ -25,6 +25,7 @@ cost saving or a live Cloud reload. Archive uses a non-AGENTS basename.
 | Three global color modes, verified identity/fallback, Auto Theme | [Visuals](VISUALS.md): theme-only coloring and Auto Theme |
 | Visibility, collapse/auto-hide, height, capture cleanup and start policy | [Visuals](VISUALS.md): visibility, lifecycle, source policy |
 | Exact evidence/firmware, confirmation/readback and captures | [Testing](TESTING.md), [matrix](testing/ep-device-compatibility-matrix.md), [captures](testing/ep-file-capture-workflow.md) |
+| Authorized CI and Pages artifact deployment | [Release](RELEASE.md), [Testing](TESTING.md), [AGENTS](../AGENTS.md) |
 | DSP/WAV/metadata/ABI/names | [Audio contract](testing/audio-x2-pipeline.md), audio-regression skill |
 
 Archive-only operational safeguards remain active in root: authorization,

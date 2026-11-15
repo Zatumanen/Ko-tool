@@ -1,6 +1,6 @@
 # K.O. Tool — Visuals (product specification)
 
-**Status:** owner-approved direction (17 October 2026), interview concluded at question 65. The browser-only Visuals v1 is implemented in [PR #133](https://github.com/Zatumanen/Ko-tool/pull/133); deployment depends on its CI and merge. **Real EP USB Audio verification of the new Visuals flow remains required**, even when simulated Chromium checks pass. This document is the **canonical detailed product specification**; code in `js/visuals/` is the source of truth for current behavior. `README.md`, `AGENTS.md`, `PRODUCT_RESEARCH.md` and `TESTING.md` summarize behavior or verification, not independent product requirements.
+**Status (14 November 2026):** owner-approved design decisions from 17 October, interview through question 65. Browser-only Visuals v1 from [PR #133](https://github.com/Zatumanen/Ko-tool/pull/133) is **merged and present in main** (seven input-driven modules, dock, layout/themes and explicit START); this does **not** imply final advanced-meter or USB Audio acceptance. **Physical EP USB Audio verification remains open** despite fake-EP Chromium success. This document is the canonical **owner-approved v1 product specification**; actual current behavior is defined by `js/visuals/` and current task scope, while advanced LUFS/XY/recorder work is tracked separately in Linear. `README.md`, `AGENTS.md`, `PRODUCT_RESEARCH.md` and `TESTING.md` are not independent owner requirements.
 
 ## Product role and placement
 
