@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+# Keep only the newest run for each PR. Never cancel main push checks or
+# unrelated workflows (including the separately approved Pages deployment).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   codex-preflight:
     runs-on: ubuntu-24.04
