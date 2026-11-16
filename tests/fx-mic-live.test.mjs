@@ -59,7 +59,7 @@ test('serial permission denial sends no command and releases cleanly',async()=>{
  const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>{throw Error('Permission denied');}}});await assert.rejects(()=>adapter.connect(),/Permission denied/);await adapter.disconnect();
 });
 
-function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=false,initialBytes=''}={}){
+function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=false,initialBytes='>>> ',splitPromptTail=false}={}){
  const commands=[];let controller,closed=0;
  const port={
   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{if(initialBytes)controller.enqueue(new TextEncoder().encode(initialBytes));},close:async()=>{closed++;},
@@ -68,7 +68,12 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
    const cmd=new TextDecoder().decode(bytes).trim();commands.push(cmd);
    if(cmd==='\x03')return;
    const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_')?'0 [ 1 LOWPASS ]\n cutoff 0.60':cmd.startsWith('print(fx.param')?'True':'');
-   if(answer!==false){const text=cmd+'\r\n'+answer+'\r\n>>> ';for(let i=0;i<text.length;i+=3)controller.enqueue(new TextEncoder().encode(text.slice(i,i+3)));}
+   if(answer!==false){
+    const text=cmd+'\r\n'+answer+'\r\n>>> ';
+    const upfront=splitPromptTail?text.slice(0,-1):text;
+    for(let i=0;i<upfront.length;i+=3)controller.enqueue(new TextEncoder().encode(upfront.slice(i,i+3)));
+    if(splitPromptTail)setTimeout(()=>controller.enqueue(new TextEncoder().encode(' ')),8);
+   }
    if(holdWrite)return new Promise(()=>{});
   }})
  };
@@ -80,9 +85,11 @@ function stockConfigReply(config, {slot='0',model='EP-2350 1.1.2'}={}) {
  return cmd=>{
   if(cmd.includes('_machine'))return model;
   if(cmd==='print(teenage.fx_pos)')return slot;
-  if(cmd==='print(len(_ko_json))')return String(json.length);
+  if(cmd==='print(os.stat("/fat/config.json")[6])')return String(new TextEncoder().encode(json).length);
+  if(cmd==='print(len(_ko_json.encode("utf-8")))')return String(new TextEncoder().encode(json).length);
+  if(cmd==='print(len(_ko_json))')return String([...json].length);
   const bounds=/^print\(json\.dumps\(_ko_json\[(\d+):(\d+)\]\)\.replace\(">", chr\(92\)\+"u003e"\)\)$/.exec(cmd);
-  if(bounds)return JSON.stringify(json.slice(Number(bounds[1]),Number(bounds[2])))
+  if(bounds)return JSON.stringify([...json].slice(Number(bounds[1]),Number(bounds[2])).join(''))
     .replaceAll('>',String.fromCharCode(92)+'u003e');
   return undefined;
  };
@@ -93,6 +100,21 @@ const referenceConfig={name:'BROKEN RADIO PACK',presets:[
  {pos:1,name:'AM TUNER',list:[{effect:'SSB',frequency:-500},{effect:'SAMPLE'}]},
  {pos:2,name:'EMPTY',list:[]},
  {pos:3,name:'EXTRA',list:[{effect:'FUTURE_FX',privateValue:3}]}]};
+
+test('without Ctrl+C consent no REPL bytes are sent unless a clean prompt arrives passively',async()=>{
+ const h=serialFake({initialBytes:''});
+ await assert.rejects(()=>h.adapter.connect(),/Clean REPL prompt not observed passively/);
+ assert.deepEqual(h.commands,[]);
+ assert.equal(h.closed,1);
+});
+test('partial REPL prompt tail is not mistaken for unsolicited device output',async()=>{
+ const h=serialFake({splitPromptTail:true});
+ await h.adapter.connect();
+ assert.equal((await h.adapter.readState()).slot,0);
+ await new Promise(resolve=>setTimeout(resolve,20));
+ assert.equal(h.closed,0);
+ await h.adapter.disconnect();
+});
 test('serial default evidence gate stops even device selection',async()=>{
  let requested=false;const adapter=createSerialTransport({serial:{requestPort:async()=>{requested=true;}}});
  await assert.rejects(()=>adapter.connect(),/acceptance/);assert.equal(requested,false);
