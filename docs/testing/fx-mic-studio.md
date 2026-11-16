@@ -78,7 +78,7 @@ Fake transport and CI do not satisfy this acceptance.
 
 ## Manual hardware trial
 
-Open FX-MIC Studio → Live in desktop Chrome. Back up the device and select an
+Open FX-MIC Studio → Live in desktop Chrome. **Without Ctrl+C consent, session entry is passive only:** the adapter waits for a clean, complete `>>> ` prompt emitted by the device. It does not send a newline or any command before that prompt, and fails closed when no prompt is observed. Consent to Ctrl+C is single-use, cleared on attempt/mode switch/close. Serial framing requires the complete prompt including its trailing space; trailing CR/LF, close latency and write pacing are covered by synthetic tests. Back up the device and select an
 expendable preset with just one unmodulated LOWPASS row. Keep a record of the
 original cutoff. Select the exact stock OS version and connect using an already
 available serial prompt. Alternatively, a separate unchecked-by-default option
