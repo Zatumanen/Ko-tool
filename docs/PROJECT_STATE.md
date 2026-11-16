@@ -10,7 +10,8 @@
 - **REPITCH implemented**: ON-by-default per-session toggle; provenance preflight and x2/−12 preparation. Physical playback not accepted: [ZAT-77](https://linear.app/clouded/issue/ZAT-77) In Review.
 - **Official .pak/.ppak:** read-only archive/slot preview (PR #164); detached offline PCM/TAR staging (PR #165); **actual Restore OFF** ([ZAT-92](https://linear.app/clouded/issue/ZAT-92) In Progress).
 - **Pads:** EP-133 2.5.1 scoped READ; WRITE disabled, [PR #139](https://github.com/Zatumanen/Ko-tool/pull/139) still Draft.
-- **Visuals:** seven browser-input dock meters, RMS dBFS ≠ LUFS, no verified EP USB Audio or advanced recorder. Approved standalone Sequencer, FX-MIC, EP-136 stages remain future work.
+- **Visuals:** seven browser-input dock meters, RMS dBFS ≠ LUFS, no verified EP USB Audio or advanced recorder. Approved standalone Sequencer and EP-136 stages remain future work.
+- **FX-MIC Studio / ZAT-50:** owner authorized the queue exception on 2026-11-15 ahead of ZAT-63/ZAT-48/ZAT-9 (these gates remain open). Feature branch based on main `bbb8260b649e06374252cd8d6c2113896f870523`: offline four-slot WAV/ZIP builder, FX/modulation editor, local packs and approximate Emulation. Candidate isolated serial codec/session tested with fake transport; **no production Live profile**, UI connection disabled. Exact-firmware physical USB Live and owner acceptance remain mandatory; merge/deploy need separate approval. [Contract, source comparison and HIL scenario](testing/fx-mic-studio.md).
 
 ## Evidence and release
 

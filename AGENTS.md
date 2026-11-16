@@ -2,7 +2,7 @@
 
 ## Scope, permission and architecture
 
-- Talk to the owner in Russian. Technical references stay concise English; root README is for shipped user features; engineering belongs in AGENTS/docs.
+- Use Russian with the owner, concise English for technical references. README describes shipped features; engineering belongs in AGENTS/docs.
 - Reviews do not authorize edits. Before app code: align Linear, README, AGENTS and skills/runtime. Docs permission covers docs only. Linear issues, comments, statuses, blockers, CI/HIL results and PR links need no separate approval. Done requires acceptance evidence.
 - Verify branch and approvals before branch/commit/PR/merge/deploy; never edit main directly. Preserve user changes. Pages Source was owner-confirmed GitHub Actions on 2026-11-15; no automatic Jekyll run followed PR #166. Manual deployment still requires separate approval; see docs/RELEASE.md.
 - Use isolated checkout, no worktree unless requested, and reversible patches. Docs-only edits must not change app code, tests, dependencies or CI as a side effect.
@@ -11,6 +11,8 @@
 - Paths: converter `js/app.js`, `js/audio/`; device/protocol `js/ep133/`, UI `js/ep133/ui/`; Visuals `js/visuals/`; `index.html`, `css/`; Pages `scripts/build-pages.mjs`; tests `tests/`.
 
 ## Binding product boundaries
+
+- Owner authorized ZAT-50 queue exception on 2026-11-15; ZAT-63/48/9 remain open. [FX-MIC contract](docs/testing/fx-mic-studio.md): offline/approximate preview; physical Live acceptance, merge and deploy remain separately gated.
 
 - Classic app stays active. Do not activate the paused OS redesign/PR #110 without a new owner decision; verify live PR status only when relevant.
 - My EP Projects and Saved/Live Sequencer require a physically connected, authorized EP. No offline archive viewer/editor. Disconnect invalidates actionable state and labels cached results stale. Standalone conversion remains independent.
@@ -30,12 +32,12 @@
 ## TOKEN-EFFICIENT
 
 1. Start with request, current branch/status, [PROJECT_STATE](docs/PROJECT_STATE.md) and relevant rules. Verify current code before editing; memory and commit titles are navigation, not proof.
-2. Use rg to locate specific functions/files, immediate callers and tests. Read needed ranges; expand only for real dependencies. Reuse unchanged context. Do not auto-read the repository, all docs/history, archives or every skill.
+2. Use rg for relevant functions/files, callers and tests. Read needed ranges and dependencies; reuse unchanged context. Do not auto-read all code, docs/history, archives or skills.
 3. Load only matching skill bodies. Small tasks: direct work and brief impact assessment, no elaborate plan, forced interview or extra approval round for already authorized work.
 4. Complex bugs: short plan → reproduce/root cause → focused failing test when feasible → minimal patch → verification. Investigate repeated failures; do not retry or rewrite working code without evidence.
-5. No subagents for simple work. Use only the two optional [roles](docs/CODEX.md) for independent work with a concrete benefit; one reviewer per change, no duplicate reviews/recursive spawning. Avoid unnecessary plugins, MCP servers and dependencies.
-6. Prefer repository answers; use authoritative external documentation only for a missing answer. Store long logs in scratch, show results/errors only. Do not repeat completed research without new evidence.
-7. Keep safety checks. This policy is not a token quota, billing setting or guaranteed cost reduction.
+5. No subagents for simple work. Only the two optional [roles](docs/CODEX.md) for useful independent work; one reviewer per change, no duplicates/recursive spawning. Avoid unnecessary plugins, MCP servers and dependencies.
+6. Prefer repository answers; consult authoritative external docs for gaps. Keep long logs in scratch; show results/errors. Repeat research only for new evidence.
+7. Keep safety checks. No token quota, billing or cost guarantee.
 
 ## Selective references
 

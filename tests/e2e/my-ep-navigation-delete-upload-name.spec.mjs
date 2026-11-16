@@ -323,6 +323,10 @@ test('multiple converted outputs are dragged to My EP and uploaded with per-file
   await expect(page.locator('#results-list .result-item.selected')).toHaveCount(2);
   await page.locator('#my-ep-icon').click();
   await expect(page.locator('#ep133-status')).toContainText('SYNCED',{timeout:12000});
+  // SYNCED is also emitted while metadata hydration still disables drops.
+  await expect(page.locator('#ep133-status')).not.toContainText('LOADING');
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  await expect(page.locator('[data-slot="7"]')).toHaveAttribute('draggable','true');
   await page.evaluate(()=>{
     const source=document.querySelector('#results-list .result-item');
     const row=document.querySelector('[data-slot="9"]');

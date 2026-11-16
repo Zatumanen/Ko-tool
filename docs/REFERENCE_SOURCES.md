@@ -183,3 +183,7 @@ These six URLs were collected in earlier research. Direct content retrieval in t
 - Security: preserve transaction ownership, readback, recovery and exact firmware gating; no third-party MCP server with EP write access without explicit scenario-specific owner authorization.
 - Licensing remains unresolved for third-party binary redistribution and missing/ambiguous licenses. Preserve notices and verify any Vibe-derived work/Apache-2.0 conditions before release; no external source code, installers or firmware were added by this documentation update.
 - Canonical home is this file; Linear [ZAT-70](https://linear.app/clouded/issue/ZAT-70) tracks documentation and licensing, while [ZAT-76](https://linear.app/clouded/issue/ZAT-76) tracks the MOVE-specific follow-up. This registry update does not close either issue or authorize application-code changes.
+
+## FX-MIC implementation evidence
+
+[Stage 05 comparison](testing/fx-mic-studio.md) pins the additional Tadao314, open-ting and fx-mic-mod revisions, their code paths and license boundaries alongside O06/O07/G10/G11. Stock and CircuitPython formats remain separate; no third-party code or assets imported. Browser approximations and candidate serial fixtures do not establish exact-firmware physical Live support.
