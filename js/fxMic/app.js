@@ -131,9 +131,9 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    <div class="fx-preset-cards" role="group" aria-label="Choose an FX preset">
     ${Array.from({length:4},(_,i)=>{const slot=pack.config.presets?.find((item,index)=>(item.pos??index)===i);return `<button type="button" data-select-preset="${i}" aria-pressed="${selected===i}" aria-label="Edit FX preset ${i+1}"><span class="fx-preset-index">0${i+1}</span><strong>${esc(slot?.name||'Empty preset')}</strong><small>${slot?.list?.length??0} FX rows</small></button>`;}).join('')}
    </div>
-   <div class="fx-toolbar"><h2>FX Chain Editor</h2><select aria-label="FX preset" data-preset>${Array.from({length:4},(_,i)=>option(i,'Preset '+(i+1),selected)).join('')}</select><label>Preset name<input aria-label="Preset name" data-preset-name maxlength="128" value="${esc(p.name||'')}"></label><label>Preset notes<input aria-label="Preset notes" data-preset-comment maxlength="2048" value="${esc(p.comment||'')}" placeholder="Describe this sound"></label><select aria-label="Add effect type" data-new-effect>${Object.keys(EFFECTS).map(v=>option(v,v,'LOWPASS')).join('')}</select><button data-action="add">Add effect</button></div>
+   <div class="fx-toolbar"><h2>FX Chain Editor</h2><select aria-label="FX preset" data-preset>${Array.from({length:4},(_,i)=>option(i,'Preset '+(i+1),selected)).join('')}</select><label>Preset name<input aria-label="Preset name" data-preset-name maxlength="128" value="${esc(p.name||'')}"></label><label class="fx-preset-note">Preset notes<textarea aria-label="Preset notes" data-preset-comment maxlength="2048" rows="2" placeholder="Describe this sound">${esc(p.comment||'')}</textarea></label><select aria-label="Add effect type" data-new-effect>${Object.keys(EFFECTS).map(v=>option(v,v,'LOWPASS')).join('')}</select><button data-action="add">Add effect</button></div>
    <div class="fx-toolbar fx-preset-actions"><label>Copy to<select aria-label="Copy preset destination" data-copy-destination>${Array.from({length:4},(_,i)=>i!==selected?option(i,'Preset '+(i+1),selected===3?0:selected+1):'').join('')}</select></label><button data-action="duplicate-preset">Copy selected preset</button><button data-action="reset-preset">Reset selected preset</button></div>
-   <ol class="fx-chain">${p.list.map((e,row)=>`<li data-fx-row="${row}"><div class="fx-toolbar"><span class="fx-drag-handle" data-fx-drag-handle="${row}" draggable="true" role="img" aria-label="Drag effect row ${row}" title="Drag to reorder effects, or use arrow buttons">⋮⋮</span><strong>${row} · ${e.effect}</strong><button data-up="${row}" aria-label="Move row ${row} up" ${row?'':'disabled'}>↑</button><button data-down="${row}" aria-label="Move row ${row} down" ${row<p.list.length-1?'':'disabled'}>↓</button><button data-remove="${row}" ${p.list.length>1?'':'disabled'}>Remove</button><label>Routing<select aria-label="Routing row ${row}" data-bus="${row}">${option('','Main',e.BUS??'')}${option(1,'BUS 1',e.BUS)}${option(2,'BUS 2',e.BUS)}</select></label></div><div class="fx-parameters">${Object.entries(EFFECTS[e.effect]).map(([key,[min,max,initial]])=>`<label>${key}<input type="range" aria-label="Row ${row} ${key}" min="${min}" max="${max}" step="${max-min>100?1:.01}" value="${e[key]??initial}" data-param="${esc(key)}" data-row="${row}"><output>${e[key]??initial}</output></label>`).join('')}</div></li>`).join('')}</ol>
+   <ol class="fx-chain">${p.list.map((e,row)=>`<li data-fx-row="${row}"><div class="fx-toolbar"><span class="fx-drag-handle" data-fx-drag-handle="${row}" draggable="true" role="img" aria-label="Drag effect row ${row}" title="Drag to reorder effects, or use arrow buttons">⋮⋮</span><strong>${row} · ${e.effect}</strong><button data-up="${row}" aria-label="Move row ${row} up" ${row?'':'disabled'}>↑</button><button data-down="${row}" aria-label="Move row ${row} down" ${row<p.list.length-1?'':'disabled'}>↓</button><button data-remove="${row}" ${p.list.length>1?'':'disabled'}>Remove</button><label>Routing<select aria-label="Routing row ${row}" data-bus="${row}">${option('','Main',e.BUS??'')}${option(1,'BUS 1',e.BUS)}${option(2,'BUS 2',e.BUS)}</select></label></div><div class="fx-parameters">${Object.entries(EFFECTS[e.effect]).map(([key,[min,max,initial]])=>`<label>${key}<span class="fx-param-control"><input type="range" aria-label="Row ${row} ${key}" min="${min}" max="${max}" step="${max-min>100?1:.01}" value="${e[key]??initial}" data-param="${esc(key)}" data-row="${row}"><input type="number" aria-label="Precise ${key} value for effect ${row}" min="${min}" max="${max}" step="any" value="${e[key]??initial}" data-number-param="${esc(key)}" data-row="${row}"><output>${e[key]??initial}</output></span></label>`).join('')}</div></li>`).join('')}</ol>
    <h2>Modulation Designer</h2><div class="fx-mods">${['handle','shake','lfo'].map(k=>modEditor(k,p)).join('')}<fieldset><legend>Trigger</legend><label>SAMPLE row<select aria-label="Trigger row" data-trigger>${option('','None',p.trigger?.row??'')}${p.list.flatMap((e,i)=>e.effect==='SAMPLE'?[option(i,i,p.trigger?.row)]:[]).join('')}</select></label><p>Other trigger targets are outside this stock-guide profile.</p></fieldset></div></section>
    <section class="fx-section" data-fx-pane="preview" ${workspace==='preview'||workspace==='all'?'':'hidden'}>
    <div class="fx-section-heading"><h2>EMULATION · approximate browser audio</h2></div><p data-fx-preview-note>${coverage.notes.map(esc).join(' ')}</p><p>Filters, balance, DIST, RING, delay and reverb use browser approximations, not the real EP-2350 DSP. Handle and shake are continuous 0–1 preview inputs. Browser microphone monitoring requests permission only when you click Monitor. Use headphones and reduce output volume to avoid feedback; Web Serial does not carry audio.</p>
@@ -311,7 +311,16 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
  });
  root.addEventListener('input',event=>{
   const el=event.target;if(el.dataset.control){controls[el.dataset.control]=Number(el.value);audio.setControls(controls);}
-  if(el.dataset.param){el.nextElementSibling.textContent=el.value;const p=currentPreset();p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);audio.update(p);}
+  if(el.dataset.param||el.dataset.numberParam){
+   if(el.value==='')return;
+   const field=el.dataset.param??el.dataset.numberParam,value=Number(el.value);
+   if(!Number.isFinite(value))return;
+   const label=el.closest('label'),output=label?.querySelector('output');
+   if(output)output.textContent=el.value;
+   const sibling=label?.querySelector(el.dataset.param?'[data-number-param]':'[data-param]');
+   if(sibling)sibling.value=el.value;
+   const p=currentPreset();p.list[Number(el.dataset.row)][field]=value;audio.update(p);
+  }
  });
  root.addEventListener('change',event=>{const el=event.target;void run(async token=>{
   if(el.matches('[data-fx-inspect-slot]')){inspectSlot=Number(el.value);renderLive();return;}
@@ -341,7 +350,11 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    p.files.set(s.file,bytes);audio.stop();changed(p,rev);return;
   }
   if(el.dataset.playmode!==undefined){editConfig(c=>{sampleFor({config:c},Number(el.dataset.playmode)).playmode=el.value;});return;}
-  if(el.dataset.param){editPreset(p=>{p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);});return;}
+  if(el.dataset.param||el.dataset.numberParam){
+   const field=el.dataset.param??el.dataset.numberParam;
+   if(el.value===''||!Number.isFinite(Number(el.value)))throw Error('Enter a valid effect parameter');
+   editPreset(p=>{p.list[Number(el.dataset.row)][field]=Number(el.value);});return;
+  }
   if(el.dataset.bus!==undefined){audio.stop();editPreset(p=>{const e=p.list[Number(el.dataset.bus)];if(el.value)e.BUS=Number(el.value);else delete e.BUS;});return;}
   if(el.dataset.modTarget){editPreset(p=>{
    const k=el.dataset.modTarget;if(!el.value){delete p[k];if(k==='lfo'&&p.handle?.target==='lfo')delete p.handle;return;}
