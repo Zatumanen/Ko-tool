@@ -15,10 +15,6 @@ export function createOfflineDraftFromSavedConfig(state) {
   let config;
   try { config = JSON.parse(state.rawConfigText); }
   catch { throw Error('Stored device config JSON is invalid'); }
-  // Strict validation protects exact casing, extra fields, 16-row limits,
-  // modulation references and singleton effects. It never mutates input.
-  assertConfig(config);
-  if (config.samples?.length)throw Error('Missing WAV bytes prevent an editable offline draft');
   // Reject every nonempty saved slot that became empty or disappeared in the
   // authoring data, rather than silently changing the user's hardware preset.
   for (const slot of state.presets) {
@@ -27,5 +23,9 @@ export function createOfflineDraftFromSavedConfig(state) {
     if (slot.present && slot.rowCount === 0)
       throw Error('Empty saved FX rows cannot be silently changed during conversion');
   }
+  // Strict validation protects exact casing, extra fields, 16-row limits,
+  // modulation references and singleton effects. It never mutates input.
+  assertConfig(config);
+  if (config.samples?.length)throw Error('Missing WAV bytes prevent an editable offline draft');
   return { config: structuredClone(config), files: new Map() };
 }
