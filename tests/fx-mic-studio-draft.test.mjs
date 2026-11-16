@@ -21,8 +21,10 @@ const stored = {
  ]
 };
 
+const fromConfig=config=>{const rawConfigText=JSON.stringify(config);return {...summarizeDeviceConfig(rawConfigText,0),rawConfigText};};
+
 test('reference-shaped saved config produces four locally editable, valid presets',()=>{
- const state=summarizeDeviceConfig(JSON.stringify(stored),0);
+ const state=fromConfig(stored);
  const pack=createOfflineDraftFromSavedConfig(state);
  assert.deepEqual(validatePack(pack).samples,[]);
  assert.equal(pack.files.size,0);
@@ -39,14 +41,22 @@ test('reference-shaped saved config produces four locally editable, valid preset
 test('read-only device summaries never bypass authoring validation or silently drop WAVs',()=>{
  const withUnknown=structuredClone(stored);
  withUnknown.presets[0].list[0].futureField=2;
- assert.throws(()=>createOfflineDraftFromSavedConfig(summarizeDeviceConfig(JSON.stringify(withUnknown),0)),/unknown parameter/);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withUnknown)),/unknown parameter/);
  const withWav=structuredClone(stored);
  withWav.samples=[{pos:0,file:'voice.wav'}];
- assert.throws(()=>createOfflineDraftFromSavedConfig(summarizeDeviceConfig(JSON.stringify(withWav),0)),/Custom device WAVs/);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withWav)),/Custom device WAVs/);
  const withMissing=structuredClone(stored);
  withMissing.presets[1].list=[];
- assert.throws(()=>createOfflineDraftFromSavedConfig(summarizeDeviceConfig(JSON.stringify(withMissing),0)),/Empty or invalid/);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withMissing)),/Empty or invalid/);
  const withUnsupported=structuredClone(stored);
  withUnsupported.presets[0].list[0].label='device only';
- assert.throws(()=>createOfflineDraftFromSavedConfig(summarizeDeviceConfig(JSON.stringify(withUnsupported),0)),/not supported/);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withUnsupported)),/not supported/);
+});
+
+test('local draft requires a complete raw JSON snapshot and rejects extra root fields',()=>{
+ const state=summarizeDeviceConfig(JSON.stringify(stored),0);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(state),/Complete read-only device JSON/);
+ const withRoot=structuredClone(stored);
+ withRoot.deviceOnly={private:1};
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withRoot)),/unsupported field/);
 });
