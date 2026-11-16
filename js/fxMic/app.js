@@ -81,7 +81,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    <label><input type="checkbox" data-live-repl-consent ${liveReplConsent?'checked':''} ${busy||hasSession?'disabled':''}> Prepare REPL with Ctrl+C (interrupts the running program; no automatic reset)</label>
    <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware)+(identity.firmwareVerified?' · firmware verified':' · version selected, not verified'):''}${current?' · '+(current.source==='stored-config'?(current.slot<0?'no active FX slot':'stored config · selected slot '+(current.slot+1)):'preset '+(current.slot+1)):''}</p>
    ${current?.source==='stored-config'?deviceConfigPanel(current):''}
-   ${active&&current?.source==='stored-config'?'<div class="fx-live-offline"><p>Make a local editable draft of these saved presets. This disconnects Web Serial and never writes to your mic. Custom device WAVs cannot be copied through this read-only link.</p><button type="button" data-action="device-to-draft">Open as offline draft</button></div>':''}
+   ${active&&current?.source==='stored-config'?'<div class="fx-live-offline"><p>Make a local editable draft of these saved presets. This disconnects Web Serial and never writes to your mic. Custom device WAVs cannot be copied through this read-only link.</p><button type="button" data-action="device-export">Download saved config.json</button> <button type="button" data-action="device-to-draft">Open as offline draft</button></div>':''}
    ${!win.navigator?.serial?.requestPort?'<p>Web Serial is unavailable. Use Chrome on a desktop and open the site directly.</p>':''}
    ${current?.source!=='stored-config'&&current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
    ${active&&original===null?'<p>Read only. The write trial requires stock 1.0.8 and a preset containing one unmodulated LOWPASS effect.</p>':''}
@@ -163,6 +163,12 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
     }
    }finally{renderLive();}
    return;
+  }
+  if(action==='device-export'){
+   const state=trial.snapshot().current;
+   if(state?.source!=='stored-config'||typeof state.rawConfigText!=='string')throw Error('Saved device JSON is unavailable');
+   download(new Blob([state.rawConfigText+'\n'],{type:'application/json'}),'config.json');
+   status='Downloaded read-only device config.json · WAV files are not included';return;
   }
   if(action==='device-to-draft'){
    const state=trial.snapshot().current;
