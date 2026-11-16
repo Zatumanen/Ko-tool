@@ -164,19 +164,31 @@ test('hardware trial connects explicitly and verifies change and restore through
  await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
 });
 
-test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without writes',async({page})=>{
+test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes',async({page})=>{
  await page.addInitScript(()=>{
   window.fxCommands=[];let reader;
+  const config=JSON.stringify({name:'BROKEN RADIO PACK',samples:[{pos:0,file:'1.wav'}],presets:[
+   {pos:0,name:'WALKIE >>> Error',list:[{effect:'HIGHPASS',cutoff:.1,deviceSpecific:3},
+     {effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE'}],handle:{row:1,param:'cutoff',depth:.5}},
+   {pos:1,name:'AM TUNER',list:[{effect:'SSB',frequency:-500},{effect:'SAMPLE'}]},
+   {pos:2,name:'EMPTY',list:[]},
+   {pos:3,name:'FUTURE',list:[{effect:'FUTURE_FX',magic:9}]}]});
   const port={
    getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),
    open:async()=>{},close:async()=>{},
    readable:new ReadableStream({start(controller){reader=controller;}}),
    writable:new WritableStream({write(bytes){
     const command=new TextDecoder().decode(bytes).trim();window.fxCommands.push(command);
-    const reply=command.includes('implementation.name')?'micropython'
-     :command.includes('_machine')?'EP-2350 1.1.2'
-     :command==='print(teenage.fx_pos)'?'0'
-     :command.startsWith('fx.list_preset(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';
+    let reply='';
+    if(command.includes('implementation.name'))reply='micropython';
+    else if(command.includes('_machine'))reply='EP-2350 1.1.2';
+    else if(command==='print(teenage.fx_pos)')reply='0';
+    else if(command==='print(len(_ko_json))')reply=String(config.length);
+    else if(command.startsWith('print(json.dumps(_ko_json[')){
+     const range=command.match(/\[(\d+):(\d+)\]/);
+     reply=JSON.stringify(config.slice(Number(range[1]),Number(range[2])))
+      .replaceAll('>',String.fromCharCode(92)+'u003e');
+    }
     reader.enqueue(new TextEncoder().encode(command+'\r\n'+reply+'\r\n>>> '));
    }})
   };
@@ -187,13 +199,18 @@ test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without write
  await page.getByLabel('Stock firmware').selectOption('1.1.2');
  await page.getByRole('button',{name:'Connect EP-2350'}).click();
  await expect(page.locator('[data-live-state]')).toContainText('ready · EP-2350 · 1.1.2');
- await expect(page.locator('[data-live-state]')).toContainText('saved preset 1');
+ await expect(page.locator('[data-live-state]')).toContainText('stored config · selected slot 1');
  await expect(page.getByRole('button',{name:'Apply one test change'})).toHaveCount(0);
- await expect(page.getByText('Read only.',{exact:false})).toBeVisible();
- await expect(page.getByText('Saved FX preset definition',{exact:false})).toBeVisible();
+ await expect(page.locator('[data-fx-device-config]')).toContainText('BROKEN RADIO PACK');
+ await expect(page.locator('[data-fx-device-config]')).toContainText('WALKIE >>> Error');
+ await expect(page.locator('[data-fx-device-config]')).toContainText('AM TUNER');
+ await expect(page.locator('[data-fx-device-config]')).toContainText('saved FX presets');
+ await expect(page.locator('[data-fx-error]')).toBeEmpty();
  const commands=await page.evaluate(()=>window.fxCommands);
- expect(commands.filter(cmd=>cmd==='print(teenage.fx_pos)')).toHaveLength(2);
- expect(commands.filter(cmd=>cmd==='fx.list_preset(0)')).toHaveLength(1);
- expect(commands.some(cmd=>cmd.startsWith('fx.load_preset')||cmd.startsWith('fx.list_loaded')||cmd.startsWith('print(fx.param'))).toBe(false);
+ expect(commands.some(cmd=>cmd.includes('open("/fat/config.json", "r")'))).toBe(true);
+ expect(commands.filter(cmd=>cmd.startsWith('print(json.dumps(_ko_json[')).length).toBeGreaterThan(0);
+ expect(commands.some(cmd=>cmd.startsWith('fx.load_preset')||cmd.startsWith('fx.list_loaded')||
+   cmd.startsWith('fx.list_preset')||cmd.startsWith('print(fx.param')||cmd.includes('open("/fat/config.json", "w")'))).toBe(false);
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+ await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
 });

@@ -15,6 +15,17 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
   }
   transport.onDisconnect?.(reason => { invalidate('disconnected', reason ?? Error('Serial disconnected')); void release(); onChange(); });
   function validateState(value) {
+    if (value?.source === 'stored-config') {
+      if (profile?.firmware !== '1.1.2' || Object.keys(profile.parameters ?? {}).length)
+        throw Error('Read-only stored config cannot authorize Live writes');
+      // Diagnostic data is untrusted firmware JSON, never a write authority.
+      // It may contain unknown effects/parameters or no selected FX slot.
+      if (!Number.isInteger(value.slot) || value.slot < -1 || value.slot > 3 ||
+          !Array.isArray(value.list) || value.list.length > 16 ||
+          !Array.isArray(value.presets) || value.presets.length !== 4)
+        throw Error('Invalid read-only device config summary');
+      return structuredClone(value);
+    }
     if (!value || !Number.isInteger(value.slot) || value.slot < 0 || value.slot > 3) throw Error('Invalid active preset');
     if (!Array.isArray(value.list) || value.list.length < 1 || value.list.length > 16) throw Error('Invalid active effect rows');
     for (const item of value.list) {
