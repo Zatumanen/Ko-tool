@@ -9,14 +9,20 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
   const snapshot = () => structuredClone({ state, identity, current });
   const check = token => { if (token !== epoch) throw Error('Live session lost'); };
   const release = () => Promise.resolve().then(() => transport.disconnect()).catch(() => {});
-  function invalidate(next) {
+  function invalidate(next, reason = Error('Live session lost')) {
     epoch++; state = next; current = null; profile = null;
-    cancel?.(Error('Live session lost')); cancel = null;
+    cancel?.(reason); cancel = null;
   }
-  transport.onDisconnect?.(() => { invalidate('disconnected'); void release(); onChange(); });
+  transport.onDisconnect?.(reason => { invalidate('disconnected', reason ?? Error('Serial disconnected')); void release(); onChange(); });
   function validateState(value) {
     if (!value || !Number.isInteger(value.slot) || value.slot < 0 || value.slot > 3) throw Error('Invalid active preset');
-    assertConfig({ presets: [{ list: value.list }] });
+    if (!Array.isArray(value.list) || value.list.length < 1 || value.list.length > 16) throw Error('Invalid active effect rows');
+    for (const item of value.list) {
+      if (item?.effect === 'NONE' && Object.keys(item).some(key => key !== 'effect')) throw Error('Invalid NONE effect row');
+    }
+    // Firmware may pad live chains with NONE rows not present in editable configs.
+    const effects = value.list.filter(item => item?.effect !== 'NONE');
+    if (effects.length) assertConfig({ presets: [{ list: effects }] });
     return structuredClone(value);
   }
   async function bounded(token, action) {
