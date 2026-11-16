@@ -142,7 +142,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       let text = '';
       for (let start = 0; start < count; start += 512) {
         const reply = await command(
-          'print(json.dumps(_ko_json[' + start + ':' + Math.min(count, start + 512) + ']).replace(\\">\\", chr(92)+\\"u003e\\"))',
+          'print(json.dumps(_ko_json[' + start + ':' + Math.min(count, start + 512) + ']).replace(">", chr(92)+"u003e"))',
           'stored config chunk ' + (Math.floor(start / 512) + 1), 2000);
         let chunk;
         try { chunk = JSON.parse(reply); }
