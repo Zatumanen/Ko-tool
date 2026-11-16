@@ -123,11 +123,27 @@ test('local overwrite asks first and cancellation preserves the previous WAV',as
  await expect(sample).toContainText('0.100 s');
 });
 
+test('Ctrl+C REPL interrupt consent is single-use and clears when Live closes',async({page})=>{
+ await open(page);
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await page.getByLabel('Stock firmware').selectOption('1.1.2');
+ const checkbox=page.locator('[data-live-repl-consent]');
+ await checkbox.check();
+ await page.getByRole('button',{name:'Emulation',exact:true}).click();
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await expect(checkbox).not.toBeChecked();
+ await checkbox.check();
+ await page.getByRole('button',{name:'Close FX-MIC Studio'}).click();
+ await page.locator('#fx-mic-icon').click();
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await expect(page.locator('[data-live-repl-consent]')).not.toBeChecked();
+});
+
 test('hardware trial connects explicitly and verifies change and restore through Web Serial',async({page})=>{
  await page.addInitScript(()=>{
   window.fxCommands=[];let cutoff=.4,reader;
   const port={
-   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{},
+   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{reader.enqueue(new TextEncoder().encode('>>> '));},close:async()=>{},
    readable:new ReadableStream({start(controller){reader=controller;}}),
    writable:new WritableStream({write(bytes){
     const command=new TextDecoder().decode(bytes).trim();
@@ -175,7 +191,7 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
    {pos:3,name:'FUTURE',list:[{effect:'FUTURE_FX',magic:9}]}]});
   const port={
    getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),
-   open:async()=>{},close:async()=>{},
+   open:async()=>{reader.enqueue(new TextEncoder().encode('>>> '));},close:async()=>{},
    readable:new ReadableStream({start(controller){reader=controller;}}),
    writable:new WritableStream({write(bytes){
     const command=new TextDecoder().decode(bytes).trim();window.fxCommands.push(command);
@@ -183,6 +199,8 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
     if(command.includes('implementation.name'))reply='micropython';
     else if(command.includes('_machine'))reply='EP-2350 1.1.2';
     else if(command==='print(teenage.fx_pos)')reply='0';
+    else if(command==='print(os.stat("/fat/config.json")[6])')reply=String(new TextEncoder().encode(config).length);
+    else if(command==='print(len(_ko_json.encode("utf-8")))')reply=String(new TextEncoder().encode(config).length);
     else if(command==='print(len(_ko_json))')reply=String(config.length);
     else if(command.startsWith('print(json.dumps(_ko_json[')){
      const range=command.match(/\[(\d+):(\d+)\]/);
@@ -203,6 +221,14 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
  await expect(page.getByRole('button',{name:'Apply one test change'})).toHaveCount(0);
  await expect(page.locator('[data-fx-device-config]')).toContainText('BROKEN RADIO PACK');
  await expect(page.locator('[data-fx-device-config]')).toContainText('WALKIE >>> Error');
+ await expect(page.locator('[data-fx-saved-rows]')).toContainText('HIGHPASS cutoff: 0.1');
+ await expect(page.locator('[data-fx-saved-rows]')).toContainText('deviceSpecific: 3');
+ await expect(page.locator('[data-fx-modulation]')).toContainText('depth: 0.5');
+ await page.getByLabel('Saved FX preset to inspect').selectOption('1');
+ await expect(page.locator('[data-fx-saved-rows]')).toContainText('frequency: -500');
+ await page.getByLabel('Saved FX preset to inspect').selectOption('0');
+ await expect(page.locator('[data-fx-samples]')).toContainText('1.wav');
+
  await expect(page.locator('[data-fx-device-config]')).toContainText('AM TUNER');
  await expect(page.locator('[data-fx-device-config]')).toContainText('saved FX presets');
  await expect(page.locator('[data-fx-error]')).toBeEmpty();
