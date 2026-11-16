@@ -52,6 +52,7 @@ A merged PR, green CI, or passing fake device test does **not** automatically cl
 
 | Change area | Focused tests and evidence |
 | --- | --- |
+| FX-MIC Studio | `tests/fx-mic-*.test.mjs`, `tests/e2e/fx-mic-studio.spec.mjs`; shared ZIP reader also requires official PAK tests. [Contract and separate physical Live scenario](testing/fx-mic-studio.md). Candidate serial fixtures are synthetic; no supported production firmware yet. |
 | x2, channels, metadata, WASM | `tests/audio-pipeline-golden.test.mjs`, `tests/processor.test.mjs`, `tests/resampler-zip.test.mjs`, converter E2E |
 | Folder/ZIP/names | `tests/audio-import-policy.test.mjs`, `tests/output-name.test.mjs`, `tests/e2e/folder-import-recovery.spec.mjs`, `tests/e2e/output-file-names.spec.mjs` |
 | Sample upload and slot numbering | `tests/ep-sample-numbered-upload.test.mjs`, `tests/sample-upload-name-normalization.test.mjs`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs` |

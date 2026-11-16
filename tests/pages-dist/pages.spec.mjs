@@ -25,6 +25,11 @@ test('versioned dist works under the production /Ko-tool/ base path',async({page
   await expect(page.locator('.vis-dock')).toBeVisible();
   await expect(page.locator('.vis-meter')).toHaveCount(7);
   await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-app/);
+  await page.locator('#fx-mic-icon').click();
+  await expect(page.getByRole('dialog',{name:'FX-MIC Studio'})).toBeVisible();
+  await expect(page.locator('[data-fx-slot]')).toHaveCount(4);
+  await page.getByRole('button',{name:'Close FX-MIC Studio'}).click();
+  await expect(page.locator('#fx-mic-window')).toBeHidden();
 
   const resources=await page.evaluate(()=>performance.getEntriesByType('resource')
     .map(entry=>entry.name).filter(url=>{
