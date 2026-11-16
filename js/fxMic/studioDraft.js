@@ -1,35 +1,31 @@
 import { assertConfig } from './config.js';
 
-// Builds a LOCAL, editable draft only. Never uploads, selects an FX slot or
-// turns read-only device observations into physical write permissions.
+// A saved EP-2350 configuration can become a LOCAL draft only when the complete
+// device JSON is available and valid for the offline authoring schema.
+// Do not rebuild it from the diagnostic summary: that would drop unknown fields,
+// optional parameters or long comments without the user's knowledge.
 export function createOfflineDraftFromSavedConfig(state) {
-  if (state?.source !== 'stored-config' || !Array.isArray(state.presets) || state.presets.length !== 4)
-    throw Error('A complete saved device configuration is required');
+  if (state?.source !== 'stored-config' || !Array.isArray(state.presets) || state.presets.length !== 4 ||
+      typeof state.rawConfigText !== 'string' || state.rawConfigText.length < 2)
+    throw Error('Complete read-only device JSON is required to create a local draft');
   if (state.unknownFields)
-    throw Error('Some device fields are not supported by the editor; keep the original config.json as the authoritative backup');
+    throw Error('Some device fields are not supported by the editor; save the original config.json instead');
   if (state.sampleCount || state.samples?.length)
     throw Error('Custom device WAVs are not available over this read-only import; import a complete ZIP with the WAV files instead');
-  const presets = [];
-  for (const [pos, slot] of state.presets.entries()) {
-    if (!slot || slot.slot !== pos) throw Error('Invalid saved FX slot order');
-    if (!slot.present) continue;
-    if (!Array.isArray(slot.rows) || !slot.rows.length || slot.rows.length > 16)
-      throw Error('Empty or invalid saved FX rows cannot be silently changed during conversion');
-    const preset = {
-      pos, name: slot.name || 'PRESET ' + (pos + 1),
-      list: structuredClone(slot.rows)
-    };
-    if (slot.comment) preset.comment = slot.comment;
-    for (const key of ['handle', 'shake', 'lfo', 'trigger']) {
-      if (slot.modulation?.includes(key)) {
-        if (!slot.modulationValues?.[key])
-          throw Error('Missing saved ' + key + ' details');
-        preset[key] = structuredClone(slot.modulationValues[key]);
-      }
-    }
-    presets.push(preset);
-  }
-  const config = { name: state.packName || 'FX-MIC LOCAL DRAFT', presets };
+  let config;
+  try { config = JSON.parse(state.rawConfigText); }
+  catch { throw Error('Stored device config JSON is invalid'); }
+  // Strict validation protects exact casing, extra fields, 16-row limits,
+  // modulation references and singleton effects. It never mutates input.
   assertConfig(config);
-  return { config, files: new Map() };
+  if (config.samples?.length)throw Error('Missing WAV bytes prevent an editable offline draft');
+  // Reject every nonempty saved slot that became empty or disappeared in the
+  // authoring data, rather than silently changing the user's hardware preset.
+  for (const slot of state.presets) {
+    if (!slot || !Number.isInteger(slot.slot) || slot.slot < 0 || slot.slot > 3)
+      throw Error('Invalid saved FX slot order');
+    if (slot.present && slot.rowCount === 0)
+      throw Error('Empty saved FX rows cannot be silently changed during conversion');
+  }
+  return { config: structuredClone(config), files: new Map() };
 }
