@@ -140,6 +140,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
  root.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||b.disabled)return;void run(async token=>{
   const action=b.dataset.action;
   if(action==='close'){close();return;}
+  if(b.dataset.workspace){workspace=b.dataset.workspace;render();return;}
+  if(b.dataset.selectPreset!==undefined){audio.stop();selected=Number(b.dataset.selectPreset);render();return;}
   if(action==='emulation'||action==='live'){
    if(mode==='live'&&action==='emulation'){await trial.disconnect();ensureActive(token);liveConfirmed=false;}
    liveReplConsent=false;audio.stop();mode=action;status=action==='live'?'Hardware trial · not yet accepted':'Offline';render();return;
@@ -162,6 +164,14 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    }finally{renderLive();}
    return;
   }
+  if(action==='device-to-draft'){
+   const state=trial.snapshot().current;
+   const draft=createOfflineDraftFromSavedConfig(state);
+   if(!win.confirm('Open saved device presets in the offline editor? Your current pack stays in Undo history. No changes will be sent to the mic.'))return;
+   await trial.disconnect();ensureActive(token);
+   mode='emulation';workspace='presets';audio.stop();changed(draft);
+   status='Local draft created · device not modified · original config stays on the mic';return;
+  }
   if(action==='stop'){audio.stop();status='Stopped';return;}
   if(action==='undo'){audio.stop();if(history.length)store.replace(history.pop());render();return;}
   if(action==='export'){const blob=await writePack(store.snapshot());ensureActive(token);download(blob,'fx-mic-pack.zip');status='Exported ZIP';return;}
@@ -179,12 +189,46 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   }
   if(action==='load'){const rev=store.revision,p=await local.load(selectedLocal);ensureActive(token);audio.stop();changed(p,rev);status='Loaded local pack';return;}
   if(action==='add'){const type=q('[data-new-effect]').value;audio.stop();editPreset(p=>{p.list.push(newEffect(type));});return;}
+  if(action==='duplicate-preset'){
+   const destination=Number(q('[data-copy-destination]').value);
+   if(!Number.isInteger(destination)||destination<0||destination>3||destination===selected)throw Error('Choose a different destination preset');
+   if(!win.confirm('Replace preset '+(destination+1)+' with a local copy of preset '+(selected+1)+'? This can be undone.'))return;
+   const source=structuredClone(currentPreset());
+   audio.stop();editConfig(config=>{
+    const copy={...source,pos:destination,name:(source.name||'PRESET')+' COPY'};
+    const i=config.presets.findIndex((item,index)=>(item.pos??index)===destination);
+    if(i>=0)config.presets[i]=copy;else config.presets.push(copy);
+   });
+   selected=destination;status='Preset copied locally · no device write';render();return;
+  }
+  if(action==='reset-preset'){
+   if(!win.confirm('Reset preset '+(selected+1)+' to LOWPASS and SAMPLE? This can be undone.'))return;
+   audio.stop();editPreset(()=>({pos:selected,name:'PRESET '+(selected+1),
+    list:[{effect:'LOWPASS',cutoff:1},{effect:'SAMPLE'}],trigger:{row:1}}));
+   status='Preset reset locally · no device write';return;
+  }
   if(action==='apply-json'){const next=packWithConfig(store.snapshot(),JSON.parse(q('[data-config]').value));validatePack(next);audio.stop();changed(next);return;}
   if(action==='audition'){
    const p=store.snapshot(),s=sampleFor(p,previewSlot);if(!s)throw Error('Choose a custom WAV for browser audition');
    if(await audio.play(p.files.get(s.file),currentPreset(),{route})){ensureActive(token);status='Playing · approximate Emulation';}return;
   }
-  for(const key of ['up','down','remove'])if(b.dataset[key]!==undefined){const row=Number(b.dataset[key]);audio.stop();editPreset(p=>key==='remove'?removeEffect(p,row):moveEffect(p,row,row+(key==='up'?-1:1)));return;}
+  for(const key of ['up','down','remove'])if(b.dataset[key]!==undefined){
+   const row=Number(b.dataset[key]);audio.stop();
+   if(key==='remove'){
+    const original=currentPreset();const assigned=['handle','shake','lfo','trigger'].filter(k=>original[k]?.row===row);
+    if(assigned.length&&!win.confirm('This effect is used by '+assigned.join(', ')+'. Remove those assignments as well? This can be undone.'))return;
+    editPreset(p=>removeEffect(p,row,{removeAssignments:assigned.length>0}));return;
+   }
+   editPreset(p=>moveEffect(p,row,row+(key==='up'?-1:1)));return;
+  }
+  if(b.dataset.factorySample!==undefined){
+   const slot=Number(b.dataset.factorySample),before=store.snapshot(),sample=sampleFor(before,slot);
+   if(!sample)return;
+   if(!win.confirm('Use the built-in sound for WAV slot '+(slot+1)+'? This removes the custom WAV from the local pack; Undo remains available.'))return;
+   before.config.samples=before.config.samples.filter((item,index)=>(item.pos??index)!==slot);
+   if(!before.config.samples.some(item=>item.file===sample.file))before.files.delete(sample.file);
+   audio.stop();changed(before);status='Factory sound selected locally · no device write';return;
+  }
   for(const key of ['prepare','playSlot','download'])if(b.dataset[key]!==undefined){
    const slot=Number(b.dataset[key]),p=store.snapshot(),s=sampleFor(p,slot);if(!s)return;const bytes=p.files.get(s.file);
    if(key==='download'){download(new Blob([bytes],{type:'audio/wav'}),s.file);return;}
@@ -207,6 +251,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(el.matches('[data-live-confirm]')){liveConfirmed=el.checked;q('[data-action="live-apply"]').disabled=!liveConfirmed;return;}
   if(el.matches('[data-pack-name]')){editConfig(c=>{c.name=el.value;});return;}
   if(el.matches('[data-preset-name]')){editPreset(p=>{p.name=el.value;});return;}
+  if(el.matches('[data-preset-comment]')){editPreset(p=>{p.comment=el.value;});return;}
   if(el.matches('[data-preset]')){audio.stop();selected=Number(el.value);render();return;}
   if(el.matches('[data-local]')){selectedLocal=el.value;render();return;}
   if(el.matches('[data-preview-slot]')){audio.stop();previewSlot=Number(el.value);render();return;}
