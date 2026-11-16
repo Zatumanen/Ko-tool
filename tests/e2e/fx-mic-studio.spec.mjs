@@ -302,6 +302,14 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
  await expect(page.locator('[data-fx-device-config]')).toContainText('AM TUNER');
  await expect(page.locator('[data-fx-device-config]')).toContainText('saved FX presets');
  await expect(page.locator('[data-fx-error]')).toBeEmpty();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download saved config.json'}).click();
+ const configFile=await download;
+ expect(configFile.suggestedFilename()).toBe('config.json');
+ const {readFile}=await import('node:fs/promises');
+ const saved=JSON.parse(await readFile(await configFile.path(),'utf8'));
+ expect(saved.presets[0].list[0].deviceSpecific).toBe(3);
+ expect(saved.samples[0].file).toBe('1.wav');
  const commands=await page.evaluate(()=>window.fxCommands);
  expect(commands.some(cmd=>cmd.includes('open("/fat/config.json", "r")'))).toBe(true);
  expect(commands.filter(cmd=>cmd.startsWith('print(json.dumps(_ko_json[')).length).toBeGreaterThan(0);
@@ -309,4 +317,54 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
    cmd.startsWith('fx.list_preset')||cmd.startsWith('print(fx.param')||cmd.includes('open("/fat/config.json", "w")'))).toBe(false);
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
  await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
+});
+
+test('stock read-only 1.1.2 presets can become a validated local draft without hardware writes',async({page})=>{
+ await page.addInitScript(()=>{
+  window.fxCommands=[];let reader;let closed=false;
+  window.getFxClosed=()=>closed;
+  const config=JSON.stringify({name:'BROKEN RADIO PACK',presets:[
+   {pos:0,name:'WALKIE TALKIE',comment:'bandpass filter',list:[
+    {effect:'HIGHPASS',cutoff:.1},{effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE'}],
+    handle:{row:1,param:'cutoff',depth:.5},trigger:{row:2}},
+   {pos:1,name:'AM TUNER',list:[{effect:'SSB',frequency:-500},{effect:'SAMPLE'}]},
+   {pos:2,name:'CRYPTIC',list:[{effect:'RING',frequency:100,mix:.8},{effect:'SAMPLE'}]},
+   {pos:3,name:'LOSING SIGNAL',list:[{effect:'BALANCE',balance:.5},{effect:'SAMPLE'}]}
+  ]});
+  const port={
+   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),
+   open:async()=>{reader.enqueue(new TextEncoder().encode('>>> '));},
+   close:async()=>{closed=true;},
+   readable:new ReadableStream({start(c){reader=c;}}),
+   writable:new WritableStream({write(bytes){
+    const cmd=new TextDecoder().decode(bytes).trim();window.fxCommands.push(cmd);
+    let reply='';
+    if(cmd.includes('implementation.name'))reply='micropython';
+    else if(cmd.includes('_machine'))reply='EP-2350 1.1.2';
+    else if(cmd==='print(teenage.fx_pos)')reply='0';
+    else if(cmd==='print(os.stat("/fat/config.json")[6])'||cmd==='print(len(_ko_json.encode("utf-8")))')reply=String(new TextEncoder().encode(config).length);
+    else if(cmd==='print(len(_ko_json))')reply=String(config.length);
+    else if(cmd.startsWith('print(json.dumps(_ko_json[')){
+     const m=cmd.match(/\[(\d+):(\d+)\]/);
+     reply=JSON.stringify(config.slice(Number(m[1]),Number(m[2])))
+      .replaceAll('>',String.fromCharCode(92)+'u003e');
+    }
+    reader.enqueue(new TextEncoder().encode(cmd+'\r\n'+reply+'\r\n>>> '));
+   }})
+  };
+  Object.defineProperty(navigator,'serial',{value:{requestPort:async()=>port},configurable:true});
+ });
+ await open(page);
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await page.getByLabel('Stock firmware').selectOption('1.1.2');
+ await page.getByRole('button',{name:'Connect EP-2350'}).click();
+ await expect(page.locator('[data-live-state]')).toContainText('ready');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Open as offline draft'}).click();
+ await expect(page.getByLabel('Preset name')).toHaveValue('WALKIE TALKIE');
+ await expect(page.getByLabel('Preset notes')).toHaveValue('bandpass filter');
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ expect(await page.evaluate(()=>window.getFxClosed())).toBe(true);
+ const commands=await page.evaluate(()=>window.fxCommands);
+ expect(commands.some(cmd=>cmd.includes('fx.param')||cmd.includes('fx.load_preset')||cmd.includes('open("/fat/config.json", "w")'))).toBe(false);
 });
