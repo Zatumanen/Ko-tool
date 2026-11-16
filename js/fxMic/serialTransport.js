@@ -60,7 +60,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
           if (initializing) {
             startupBuffer += fragment;
             if (startupBuffer.length > 4096) throw Error('REPL startup output too large');
-            if (/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/.test(startupBuffer)) {
+            if (/(?:^|\n)>>> [\t]*(?:\r?\n)?$/.test(startupBuffer)) {
               readyObserved = true;
               readyResolve?.(); readyResolve = null;
               startupBuffer = '';
@@ -68,15 +68,15 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
             continue;
           }
           // A complete prompt can be followed by CR/LF in another USB packet.
-          if (/^[\\r\\n \\t]*$/.test(fragment)) continue;
+          if (/^[\r\n \t]*$/.test(fragment)) continue;
           throw Error('Unsolicited serial output');
         }
         pending.text += fragment;
         if (pending.text.length > 16384) throw Error('Serial response too large');
         // Require a complete prompt with its trailing space; bare >>> may
         // be a partial USB packet, not an answer boundary.
-        if (/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/.test(pending.text)) {
-          const reply = pending.text.replace(/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/, '').replace(/\\r/g, '');
+        if (/(?:^|\n)>>> [\t]*(?:\r?\n)?$/.test(pending.text)) {
+          const reply = pending.text.replace(/(?:^|\n)>>> [\t]*(?:\r?\n)?$/, '').replace(/\r/g, '');
           pending.resolve(reply); pending = null;
         }
       }
