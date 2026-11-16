@@ -57,16 +57,16 @@ export function summarizeDeviceConfig(text, activeSlot) {
     }
     saved[pos] = {
       slot: pos,
-      name: nameOf(preset.name),
+      name: nameOf(preset.name), comment: nameOf(preset.comment,2048),
       rows: rows.map(item => item.effect),
       modulation, modulationValues,
       effects: rows.map(item => item.effect.effect)
     };
   }
   const presets = saved.map((item, slot) => item
-    ? { slot, name: item.name, rowCount: item.rows.length, effects: item.effects,
+    ? { slot, name: item.name, comment:item.comment, rowCount: item.rows.length, effects: item.effects,
         rows: item.rows, modulation: item.modulation, modulationValues: item.modulationValues, present: true }
-    : { slot, name: '', rowCount: 0, effects: [], rows: [], modulation: [], modulationValues: {}, present: false });
+    : { slot, name: '', comment:'', rowCount: 0, effects: [], rows: [], modulation: [], modulationValues: {}, present: false });
   const samples = [];
   if (Array.isArray(config.samples)) {
     for (let i = 0; i < Math.min(4, config.samples.length); i++) {
