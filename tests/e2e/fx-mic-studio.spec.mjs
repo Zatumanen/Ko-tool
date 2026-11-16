@@ -73,6 +73,24 @@ test('browser microphone monitoring is explicit and releases tracks on Stop',asy
  await page.evaluate(()=>window.__fxMicStreams[0].ctx.close());
 });
 
+test('precise FX numeric input persists and rejects out-of-range values without changing the pack',async({page})=>{
+ await open(page);
+ const precise=page.getByLabel('Precise cutoff value for effect 0');
+ await precise.fill('0.37');
+ await precise.press('Tab');
+ await expect(page.getByLabel('Row 0 cutoff')).toHaveValue('0.37');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Precise cutoff value for effect 0')).toHaveValue('0.37');
+ const invalid=page.getByLabel('Precise cutoff value for effect 0');
+ await invalid.fill('1.5');
+ await invalid.press('Tab');
+ await expect(page.locator('[data-fx-error]')).toContainText('expected 0');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Precise cutoff value for effect 0')).toHaveValue('0.37');
+});
+
 test('dragging an FX row retains its modulation target and arrow controls',async({page})=>{
  await open(page);
  await page.getByLabel('Handle target').selectOption('0:cutoff');
