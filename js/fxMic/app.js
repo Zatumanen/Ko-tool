@@ -1,5 +1,5 @@
 import{makeDraggableWindow}from '../ep133/ui/windowShell.js?v=20261001-1';
-import{createPackStore,validatePack,writePack,configText}from './pack.js';
+import{createPackStore,validatePack,writePack,configText,packWithConfig}from './pack.js';
 import{defaultConfig,validateConfig,moveEffect,removeEffect}from './config.js';
 import{EFFECTS,PLAYMODES,SHAPES,STOCK_PROFILE,newEffect}from './profile.js';
 import{inspectWav,prepareWav}from './wav.js';
@@ -79,10 +79,20 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(action==='undo'){audio.stop();if(history.length)store.replace(history.pop());render();return;}
   if(action==='export'){const blob=await writePack(store.snapshot());ensureActive(token);download(blob,'fx-mic-pack.zip');status='Exported ZIP';return;}
   if(action==='json'){download(new Blob([configText(store.snapshot().config)],{type:'application/json'}),'config.json');return;}
-  if(action==='save'){const p=store.snapshot(),name=p.config.name||'MY FX-MIC PACK';await local.save(name,p);localNames=await local.list();ensureActive(token);selectedLocal=name;status='Saved locally: '+name;render();return;}
+  if(action==='save'){
+   const pack=store.snapshot(),name=pack.config.name||'MY FX-MIC PACK';
+   try{await local.save(name,pack);}
+   catch(error){
+    if(error.name!=='ConstraintError')throw error;
+    ensureActive(token);
+    if(!win.confirm('Replace the locally saved pack "'+name+'"?')){status='Local save cancelled';return;}
+    await local.save(name,pack,{overwrite:true});
+   }
+   localNames=await local.list();ensureActive(token);selectedLocal=name;status='Saved locally: '+name;render();return;
+  }
   if(action==='load'){const rev=store.revision,p=await local.load(selectedLocal);ensureActive(token);audio.stop();changed(p,rev);status='Loaded local pack';return;}
   if(action==='add'){const type=q('[data-new-effect]').value;audio.stop();editPreset(p=>{p.list.push(newEffect(type));});return;}
-  if(action==='apply-json'){const p=store.snapshot();p.config=JSON.parse(q('[data-config]').value);audio.stop();changed(p);return;}
+  if(action==='apply-json'){const next=packWithConfig(store.snapshot(),JSON.parse(q('[data-config]').value));validatePack(next);audio.stop();changed(next);return;}
   if(action==='audition'){
    const p=store.snapshot(),s=sampleFor(p,previewSlot);if(!s)throw Error('Choose a custom WAV for browser audition');
    if(await audio.play(p.files.get(s.file),currentPreset(),{route})){ensureActive(token);status='Playing · approximate Emulation';}return;
@@ -113,7 +123,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(el.matches('[data-import]')){
    const file=el.files[0];if(!file)return;const rev=store.revision;
    if(file.size>1100000)throw Error('Import exceeds pack size limit');
-   if(/\.json$/i.test(file.name)){const next=store.snapshot();next.config=JSON.parse(await file.text());ensureActive(token);validatePack(next);audio.stop();changed(next,rev);}
+   if(/\.json$/i.test(file.name)){const config=JSON.parse(await file.text());ensureActive(token);const next=packWithConfig(store.snapshot(),config);validatePack(next);audio.stop();changed(next,rev);}
    else{const before=store.snapshot(),bytes=await file.arrayBuffer();ensureActive(token);if(store.revision!==rev)throw Error('Working pack changed during import');await store.importZip(bytes,()=>opened&&token===lifecycle);history.push(before);if(history.length>10)history.shift();audio.stop();render();}
    error='';status='Imported and validated';return;
   }

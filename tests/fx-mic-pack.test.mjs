@@ -54,3 +54,16 @@ test('closing the editor while ZIP decoding is pending cancels its commit',async
  active=false;finish(new Uint8Array(await(await writePack(pack())).arrayBuffer()));
  await assert.rejects(()=>pending,/cancelled/);assert.deepEqual(store.snapshot(),before);assert.equal(store.revision,0);
 });
+
+test('factory JSON drops old WAVs from the active pack and its ZIP',async()=>{
+ const store=createPackStore(pack());
+ await store.importConfig(JSON.stringify(defaultConfig()));
+ const active=store.snapshot();
+ assert.equal(active.files.size,0);
+ assert.equal((await readPack(await (await writePack(active)).arrayBuffer())).files.size,0);
+});
+
+test('ZIP export omits WAVs left in a legacy pack without a sample reference',async()=>{
+ const legacy={...pack(),config:defaultConfig()};
+ assert.equal((await readPack(await (await writePack(legacy)).arrayBuffer())).files.size,0);
+});

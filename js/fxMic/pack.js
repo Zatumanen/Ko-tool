@@ -7,6 +7,12 @@ import{STOCK_PROFILE}from './profile.js';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 export const configText=config=>JSON.stringify(config,null,2)+'\n';
 const copy=pack=>({config:structuredClone(pack.config),files:new Map([...pack.files].map(([k,v])=>[k,v.slice()]))});
+export function packWithConfig(pack,config){
+ assertConfig(config);
+ const filenames=new Set((config.samples||[]).map(sample=>sample.file));
+ const files=new Map([...pack.files].filter(([name])=>filenames.has(name)));
+ return{config,files};
+}
 export function validatePack(pack){
   assertConfig(pack.config);
   if(!(pack.files instanceof Map)||pack.files.size>4)throw Error('Pack: at most four WAV files');
@@ -29,7 +35,9 @@ export async function readPack(input){
   const pack={config,files:entries};validatePack(pack);return pack;
 }
 export async function writePack(pack){
-  validatePack(pack);return createZip([{path:'config.json',blob:new Blob([configText(pack.config)])},...[...pack.files].map(([path,bytes])=>({path,blob:new Blob([bytes])}))]);
+  const exported=packWithConfig(pack,pack.config);
+ validatePack(exported);
+ return createZip([{path:'config.json',blob:new Blob([configText(exported.config)])},...[...exported.files].map(([path,bytes])=>({path,blob:new Blob([bytes])}))]);
 }
 export function createPackStore(initial={config:defaultConfig(),files:new Map()}){
   validatePack(initial);let current=copy(initial),revision=0;
@@ -41,7 +49,7 @@ export function createPackStore(initial={config:defaultConfig(),files:new Map()}
     snapshot:()=>copy(current),get revision(){return revision;},
     replace:(next,expected)=>commit(next,expected),
     editConfig:edit=>{const next=copy(current);edit(next.config);return commit(next);},
-    importConfig:async text=>commit({config:JSON.parse(text),files:current.files}),
+    importConfig:async text=>commit(packWithConfig(current,JSON.parse(text))),
     importZip:async(input,isActive=()=>true)=>{
       const expected=revision,next=await readPack(await input);
       if(!isActive())throw Error('Pack import cancelled');

@@ -80,3 +80,45 @@ test('invalid inherited modulation target cannot replace the working pack',async
  await expect(page.locator('[data-fx-error]')).toContainText('unknown target parameter');
  await expect(page.getByLabel('Pack name')).toHaveValue('PRESERVED');await expect(page.getByLabel('Handle target')).toHaveValue('');
 });
+
+test('factory config omits detached audio from ZIP and undo restores it',async({page})=>{
+ await open(page);
+ await page.getByLabel('WAV slot 1').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav()});
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+ const config={name:'Factory',presets:[{list:[{effect:'SAMPLE'}]}]};
+ await page.getByLabel('Import ZIP or config').setInputFiles({
+  name:'config.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(config))
+ });
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('Factory sample');
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Export ZIP'}).click();
+ const zip=await download;
+ const{readFile}=await import('node:fs/promises');
+ const{readPack}=await import('../../js/fxMic/pack.js');
+ expect((await readPack(await readFile(await zip.path()))).files.size).toBe(0);
+ await page.getByRole('button',{name:'Undo edit'}).click();
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+});
+
+test('local overwrite asks first and cancellation preserves the previous WAV',async({page})=>{
+ await open(page);
+ const slot=page.getByLabel('WAV slot 1'),sample=page.locator('[data-fx-slot="0"]');
+ const save=page.getByRole('button',{name:'Save local pack'});
+ await slot.setInputFiles({name:'first.wav',mimeType:'audio/wav',buffer:wav()});
+ await expect(sample).toContainText('0.100 s');
+ await save.click();
+ await expect(page.locator('[data-fx-status]')).toContainText('Saved locally');
+ const replacement=Buffer.from(encodePcmWav(new Float32Array(4410),{sampleRate:22050,channels:1}));
+ await slot.setInputFiles({name:'second.wav',mimeType:'audio/wav',buffer:replacement});
+ await expect(sample).toContainText('0.200 s');
+ let confirmation;
+ page.once('dialog',async dialog=>{
+  confirmation=dialog.message();
+  await dialog.dismiss();
+ });
+ await save.click();
+ await expect(page.locator('[data-fx-status]')).toHaveText('Local save cancelled');
+ expect(confirmation).toContain('MY FX-MIC PACK');
+ await page.getByRole('button',{name:'Load local pack'}).click();
+ await expect(sample).toContainText('0.100 s');
+});
