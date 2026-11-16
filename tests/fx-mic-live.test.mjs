@@ -184,8 +184,8 @@ test('stock 1.1.2 diagnostic reports Python exception type and fixed read stage 
 
 test('stock 1.1.2 diagnostic reports exact failing initial command without writing',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
- const h=serialFake({probe,reply:cmd=>cmd.startsWith('import fx')
-  ?'Traceback (most recent call last):\nImportError: PRIVATE_MODULE_NAME':undefined});
+ const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
+  :cmd.startsWith('import fx')?'Traceback (most recent call last):\nImportError: PRIVATE_MODULE_NAME':undefined});
  const error=await h.adapter.connect().then(()=>null,e=>e);
  assert.match(error.message,/FX-MIC stock module import: ImportError/);
  assert.doesNotMatch(error.message,/PRIVATE_MODULE_NAME/);
