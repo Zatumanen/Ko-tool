@@ -1,7 +1,77 @@
 import{test,expect}from '@playwright/test';
 import{encodePcmWav}from '../../js/fxMic/wav.js';
 const wav=()=>Buffer.from(encodePcmWav(Float32Array.from({length:2205},(_,i)=>Math.sin(i*.1)*.15),{sampleRate:22050,channels:1}));
-const open=async page=>{await page.goto('/');await page.locator('#fx-mic-icon').click();await expect(page.getByRole('dialog',{name:'FX-MIC Studio'})).toBeVisible();};
+const open=async page=>{await page.goto('/');await page.locator('#fx-mic-icon').click();await expect(page.getByRole('dialog',{name:'FX-MIC Studio'})).toBeVisible();await page.getByRole('button',{name:'All sections'}).click();};
+
+test('studio starts in the focused Presets workspace with accessible workspace tabs',async({page})=>{
+ await page.goto('/');await page.locator('#fx-mic-icon').click();
+ await expect(page.getByRole('button',{name:'Presets',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeHidden();
+ await page.getByRole('button',{name:'Samples',exact:true}).click();
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeHidden();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeVisible();
+ await page.getByRole('button',{name:'Audition',exact:true}).click();
+ await expect(page.locator('[data-fx-pane="preview"]')).toBeVisible();
+ await page.getByRole('button',{name:'All sections'}).click();
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeVisible();
+});
+
+test('preset notes, copying, resetting and Undo are local-only and reversible',async({page})=>{
+ await open(page);
+ await page.getByLabel('Preset notes').fill('Dark radio voice');await page.getByLabel('Preset notes').press('Tab');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+ await page.getByLabel('Copy preset destination').selectOption('1');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Copy selected preset'}).click();
+ await expect(page.getByLabel('FX preset')).toHaveValue('1');
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+ await expect(page.getByLabel('Preset name')).toHaveValue(/COPY/);
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Reset selected preset'}).click();
+ await expect(page.getByLabel('Preset name')).toHaveValue('PRESET 2');
+ await page.getByRole('button',{name:'Undo edit'}).click();
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+});
+
+test('factory sample removal keeps Undo and never opens the hardware transport',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__fxUsbRequests=0;
+  Object.defineProperty(navigator,'serial',{value:{requestPort:()=>{window.__fxUsbRequests++;throw Error('must not connect');}},configurable:true});
+ });
+ await open(page);
+ await page.getByLabel('WAV slot 1').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav()});
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Use factory sample in slot 1'}).click();
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('Factory sample');
+ await page.getByRole('button',{name:'Undo edit'}).click();
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+ expect(await page.evaluate(()=>window.__fxUsbRequests)).toBe(0);
+});
+
+test('browser microphone monitoring is explicit and releases tracks on Stop',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__fxMicRequests=0;window.__fxMicStreams=[];
+  Object.defineProperty(navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+   window.__fxMicRequests++;
+   const ctx=new AudioContext();const stream=ctx.createMediaStreamDestination().stream;
+   window.__fxMicStreams.push({stream,ctx});return stream;
+  }},configurable:true});
+ });
+ await open(page);
+ expect(await page.evaluate(()=>window.__fxMicRequests)).toBe(0);
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Monitor browser microphone'}).click();
+ await expect(page.locator('[data-fx-status]')).toContainText('Browser microphone monitoring');
+ expect(await page.evaluate(()=>window.__fxMicRequests)).toBe(1);
+ await page.getByRole('button',{name:'Stop audio'}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__fxMicStreams[0].stream.getAudioTracks().every(t=>t.readyState==='ended'))).toBe(true);
+ await page.evaluate(()=>window.__fxMicStreams[0].ctx.close());
+});
 
 test('desktop icons remain independently reachable at desktop and mobile widths',async({page})=>{
  for(const width of [1280,375]){
