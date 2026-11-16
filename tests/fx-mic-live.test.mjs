@@ -44,6 +44,7 @@ test('rejects BUS, structural/unknown parameters and off-grid values before traf
 test('loaded preset parser rejects partial/unrecognized output instead of inventing values',()=>{
  assert.deepEqual(parseLoadedPreset('0 [ 1 LOWPASS ]\n cutoff 0.40\n1 [ 9 SAMPLE ]\n speed 1.00'),[{effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE',speed:1}]);
  assert.deepEqual(parseLoadedPreset('0 [ 0 NONE ]\n1 [ 8 HIGHPASS ] -> 2\n cutoff 0.30'),[{effect:'NONE'},{effect:'HIGHPASS',BUS:2,cutoff:.3}]);
+ assert.deepEqual(parseLoadedPreset('0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5'),[{effect:'LOWPASS',cutoff:.4}]);
  for(const text of ['', 'Traceback Error','0 [ 1 LOWPASS ]\n cutoff NaN','1 [ 1 LOWPASS ]\n cutoff 0.40'])assert.throws(()=>parseLoadedPreset(text));
 });
 test('serial permission denial sends no command and releases cleanly',async()=>{
@@ -71,7 +72,7 @@ test('serial default evidence gate stops even device selection',async()=>{
 });
 test('fixed serial codec handles fragmented echo/prompt and reads back without arbitrary commands',async()=>{
  const h=serialFake();const info=await h.adapter.connect();assert.equal(info.model,identity.model);assert.equal(info.firmware,identity.firmware);assert.equal(info.firmwareVerified,true);
- assert.deepEqual(await h.adapter.readState(),{slot:0,list:[{effect:'LOWPASS',cutoff:.6}]});
+ assert.deepEqual(await h.adapter.readState(),{slot:0,list:[{effect:'LOWPASS',cutoff:.6}],hasModulation:false});
  assert.equal(await h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff',value:.6}),true);
  await assert.rejects(()=>h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff";bad',value:.6}));
  assert.equal(h.commands.length,5);assert.equal('sendCommand'in h.adapter,false);await h.adapter.disconnect();assert.equal(h.closed,1);
@@ -119,7 +120,7 @@ test('stock 1.1.2 REPL opt-in handles boot output and reports unverified version
  const identity=await h.adapter.connect();
  assert.equal(identity.model,'EP-2350');assert.equal(identity.firmware,'1.1.2');
  assert.equal(identity.firmwareVerified,false);
- assert.deepEqual((await h.adapter.readState()).list,[{effect:'LOWPASS',cutoff:.6}]);
+ const loaded=await h.adapter.readState();assert.deepEqual(loaded.list,[{effect:'LOWPASS',cutoff:.6}]);assert.equal(loaded.hasModulation,false);
  assert.deepEqual(h.commands.slice(0,3),['\x03','\x03','']);
  await h.adapter.disconnect();
 });
@@ -128,4 +129,14 @@ test('stock-only guard rejects CircuitPython before loading presets',async()=>{
  const h=serialFake({reply:cmd=>cmd.includes('implementation.name')?'circuitpython':undefined});
  await assert.rejects(()=>h.adapter.connect(),/Stock MicroPython required/);
  assert.equal(h.commands.some(cmd=>cmd.startsWith('import fx')),false);
+});
+
+test('loaded stock modulation sections are detected for read-only safety',async()=>{
+ const raw='0\n0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5\n0';
+ const h=serialFake({reply:cmd=>cmd.startsWith('print(teenage.fx_pos)')?raw:undefined});
+ await h.adapter.connect();
+ const state=await h.adapter.readState();
+ assert.equal(state.hasModulation,true);
+ assert.deepEqual(state.list,[{effect:'LOWPASS',cutoff:.4}]);
+ await h.adapter.disconnect();
 });
