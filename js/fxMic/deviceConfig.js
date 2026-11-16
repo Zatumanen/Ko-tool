@@ -54,7 +54,7 @@ export function summarizeDeviceConfig(text, activeSlot) {
   return {
     source: 'stored-config',
     slot: activeSlot,
-    list: active?.rows.map(item => item.effect) ?? [],
+    list: active?.rows ?? [],
     presets,
     packName: typeof config.name === 'string' ? config.name.slice(0,128) : '',
     sampleCount: Array.isArray(config.samples) ? config.samples.length : 0,
