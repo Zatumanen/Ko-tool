@@ -14,10 +14,10 @@ const number=(label,value,attrs='')=>`<label>${esc(label)}<input aria-label="${e
 
 export function initFxMicApp({documentRef=document,windowRef=window}={}){
  const doc=documentRef,win=windowRef,icon=doc.getElementById('fx-mic-icon');if(!icon)return;
- const root=doc.createElement('section');root.id='fx-mic-window';root.className='window fx-mic-window';root.hidden=true;root.setAttribute('role','dialog');root.setAttribute('aria-label','FX-MIC Studio');doc.body.append(root);
+ const root=doc.createElement('section');root.id='fx-mic-window';root.className='window fx-mic-window';root.hidden=true;root.tabIndex=-1;root.setAttribute('role','dialog');root.setAttribute('aria-label','FX-MIC Studio');doc.body.append(root);
  const store=createPackStore(),local=createLocalPacks(),history=[];
  let selected=0,workspace='presets',mode='emulation',opened=false,lifecycle=0,error='',status='Offline · your files stay in this browser',localNames=[],selectedLocal='',route='mic',previewSlot=0;
- let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false,liveReplConsent=false,inspectSlot=0;
+ let draggedRow=-1,controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false,liveReplConsent=false,inspectSlot=0;
  const trial=createHardwareTrial({onChange:renderLive});
  const audio=createEmulation({onEnd:()=>{status='Stopped';updateStatus();}});
  const q=selector=>root.querySelector(selector);
@@ -126,17 +126,17 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    </div>
    <div class="fx-toolbar"><h2>FX Chain Editor</h2><select aria-label="FX preset" data-preset>${Array.from({length:4},(_,i)=>option(i,'Preset '+(i+1),selected)).join('')}</select><label>Preset name<input aria-label="Preset name" data-preset-name maxlength="128" value="${esc(p.name||'')}"></label><label>Preset notes<input aria-label="Preset notes" data-preset-comment maxlength="2048" value="${esc(p.comment||'')}" placeholder="Describe this sound"></label><select aria-label="Add effect type" data-new-effect>${Object.keys(EFFECTS).map(v=>option(v,v,'LOWPASS')).join('')}</select><button data-action="add">Add effect</button></div>
    <div class="fx-toolbar fx-preset-actions"><label>Copy to<select aria-label="Copy preset destination" data-copy-destination>${Array.from({length:4},(_,i)=>i!==selected?option(i,'Preset '+(i+1),selected===3?0:selected+1):'').join('')}</select></label><button data-action="duplicate-preset">Copy selected preset</button><button data-action="reset-preset">Reset selected preset</button></div>
-   <ol class="fx-chain">${p.list.map((e,row)=>`<li><div class="fx-toolbar"><strong>${row} · ${e.effect}</strong><button data-up="${row}" aria-label="Move row ${row} up" ${row?'':'disabled'}>↑</button><button data-down="${row}" aria-label="Move row ${row} down" ${row<p.list.length-1?'':'disabled'}>↓</button><button data-remove="${row}" ${p.list.length>1?'':'disabled'}>Remove</button><label>Routing<select aria-label="Routing row ${row}" data-bus="${row}">${option('','Main',e.BUS??'')}${option(1,'BUS 1',e.BUS)}${option(2,'BUS 2',e.BUS)}</select></label></div><div class="fx-parameters">${Object.entries(EFFECTS[e.effect]).map(([key,[min,max,initial]])=>`<label>${key}<input type="range" aria-label="Row ${row} ${key}" min="${min}" max="${max}" step="${max-min>100?1:.01}" value="${e[key]??initial}" data-param="${esc(key)}" data-row="${row}"><output>${e[key]??initial}</output></label>`).join('')}</div></li>`).join('')}</ol>
+   <ol class="fx-chain">${p.list.map((e,row)=>`<li data-fx-row="${row}"><div class="fx-toolbar"><span class="fx-drag-handle" data-fx-drag-handle="${row}" draggable="true" role="img" aria-label="Drag effect row ${row}" title="Drag to reorder effects, or use arrow buttons">⋮⋮</span><strong>${row} · ${e.effect}</strong><button data-up="${row}" aria-label="Move row ${row} up" ${row?'':'disabled'}>↑</button><button data-down="${row}" aria-label="Move row ${row} down" ${row<p.list.length-1?'':'disabled'}>↓</button><button data-remove="${row}" ${p.list.length>1?'':'disabled'}>Remove</button><label>Routing<select aria-label="Routing row ${row}" data-bus="${row}">${option('','Main',e.BUS??'')}${option(1,'BUS 1',e.BUS)}${option(2,'BUS 2',e.BUS)}</select></label></div><div class="fx-parameters">${Object.entries(EFFECTS[e.effect]).map(([key,[min,max,initial]])=>`<label>${key}<input type="range" aria-label="Row ${row} ${key}" min="${min}" max="${max}" step="${max-min>100?1:.01}" value="${e[key]??initial}" data-param="${esc(key)}" data-row="${row}"><output>${e[key]??initial}</output></label>`).join('')}</div></li>`).join('')}</ol>
    <h2>Modulation Designer</h2><div class="fx-mods">${['handle','shake','lfo'].map(k=>modEditor(k,p)).join('')}<fieldset><legend>Trigger</legend><label>SAMPLE row<select aria-label="Trigger row" data-trigger>${option('','None',p.trigger?.row??'')}${p.list.flatMap((e,i)=>e.effect==='SAMPLE'?[option(i,i,p.trigger?.row)]:[]).join('')}</select></label><p>Other trigger targets are outside this stock-guide profile.</p></fieldset></div></section>
    <section class="fx-section" data-fx-pane="preview" ${workspace==='preview'||workspace==='all'?'':'hidden'}>
    <div class="fx-section-heading"><h2>EMULATION · approximate browser audio</h2></div><p data-fx-preview-note>${coverage.notes.map(esc).join(' ')}</p><p>Filters, balance, DIST, RING, delay and reverb use browser approximations, not the real EP-2350 DSP. Handle and shake are continuous 0–1 preview inputs. Browser microphone monitoring requests permission only when you click Monitor. Use headphones and reduce output volume to avoid feedback; Web Serial does not carry audio.</p>
-   <div class="fx-toolbar"><select aria-label="Preview WAV slot" data-preview-slot>${Array.from({length:4},(_,i)=>option(i,'WAV '+(i+1),previewSlot)).join('')}</select><select aria-label="Preview route" data-route>${option('mic','Mic route (WAV as voice)',route)}${option('sample','Sample route',route)}</select><button data-action="audition" ${coverage.playable&&sampleFor(pack,previewSlot)?'':'disabled'}>Audition sample through FX</button><button data-action="monitor-mic" ${coverage.playable&&win.navigator?.mediaDevices?.getUserMedia?'':'disabled'}>Monitor browser microphone</button><button data-action="stop">Stop audio</button><label>Handle<input aria-label="Handle preview" type="range" min="0" max="1" step="0.01" value="${controls.handle}" data-control="handle"></label><label>Shake<input aria-label="Shake preview" type="range" min="0" max="1" step="0.01" value="${controls.shake}" data-control="shake"></label></div></section>
+   <div class="fx-toolbar"><select aria-label="Preview WAV slot" data-preview-slot>${Array.from({length:4},(_,i)=>option(i,'WAV '+(i+1),previewSlot)).join('')}</select><select aria-label="Preview route" data-route>${option('mic','Mic route (WAV as voice)',route)}${option('sample','Sample route',route)}</select><button data-action="audition" ${coverage.playable&&sampleFor(pack,previewSlot)?'':'disabled'}>Audition sample through FX</button><button data-action="monitor-mic" ${coverage.playable&&win.navigator?.mediaDevices?.getUserMedia?'':'disabled'}>Monitor browser microphone</button><button data-action="stop">Stop audio</button><label>Handle<input aria-label="Handle preview" type="range" min="0" max="1" step="0.01" value="${controls.handle}" data-control="handle"></label><label>Shake<input aria-label="Shake preview" type="range" min="0" max="1" step="0.01" value="${controls.shake}" data-control="shake"></label></div><p class="fx-shortcuts">Shortcuts in this panel: Space = play/stop WAV · H = handle on/off · hold S = shake. Arrow buttons or the drag handle reorder effects.</p></section>
    ${validation.warnings.length?`<details><summary>Profile limitations (${validation.warnings.length})</summary><ul>${validation.warnings.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></details>`:''}
    <details><summary>config.json</summary><textarea aria-label="Config JSON" data-config spellcheck="false">${esc(configText(pack.config))}</textarea><button data-action="apply-json">Apply config</button></details></div></div>`;
   Object.assign(root.style,position);makeDraggableWindow(root,{windowRef:win});
  }
- async function open(){if(opened){root.focus();return;}opened=true;lifecycle++;root.hidden=false;render();await run(async token=>{localNames=await local.list();ensureActive(token);render();});}
- function close(){opened=false;lifecycle++;audio.stop();void trial.disconnect();liveConfirmed=false;liveReplConsent=false;root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
+ async function open(){if(opened){root.focus();return;}opened=true;lifecycle++;root.hidden=false;render();root.focus();await run(async token=>{localNames=await local.list();ensureActive(token);render();});}
+ function close(){opened=false;lifecycle++;draggedRow=-1;audio.stop();void trial.disconnect();liveConfirmed=false;liveReplConsent=false;root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
  root.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||b.disabled)return;void run(async token=>{
   const action=b.dataset.action;
   if(action==='close'){close();return;}
@@ -250,6 +250,58 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    ensureActive(token);p.files.set(s.file,prepared);audio.stop();changed(p,rev);status='Prepared s16 WAV · speed unchanged';return;
   }
  });});
+ root.addEventListener('dragstart',event=>{
+  const handle=event.target.closest?.('[data-fx-drag-handle]');
+  if(!handle||!opened||mode!=='emulation')return;
+  draggedRow=Number(handle.dataset.fxDragHandle);
+  event.dataTransfer?.setData('text/plain',String(draggedRow));
+  if(event.dataTransfer)event.dataTransfer.effectAllowed='move';
+ });
+ root.addEventListener('dragover',event=>{
+  if(draggedRow<0||mode!=='emulation'||!event.target.closest?.('[data-fx-row]'))return;
+  event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='move';
+ });
+ root.addEventListener('drop',event=>{
+  const item=event.target.closest?.('[data-fx-row]');
+  if(!item||draggedRow<0||mode!=='emulation')return;
+  event.preventDefault();const from=draggedRow,to=Number(item.dataset.fxRow);draggedRow=-1;
+  if(from===to)return;
+  void run(async()=>{audio.stop();editPreset(p=>moveEffect(p,from,to));status='Effect reordered locally · modulation assignments followed the row';updateStatus();});
+ });
+ root.addEventListener('dragend',()=>{draggedRow=-1;});
+ root.addEventListener('keydown',event=>{
+  if(!opened||mode!=='emulation'||!['preview','all'].includes(workspace))return;
+  if(event.target.closest?.('button,input,select,textarea,[contenteditable="true"]'))return;
+  const key=event.key.toLowerCase();
+  if(key==='h'&&!event.repeat){
+   event.preventDefault();controls.handle=controls.handle>=.5?0:1;
+   const slider=q('[data-control="handle"]');if(slider)slider.value=controls.handle;
+   audio.setControls(controls);return;
+  }
+  if(key==='s'){
+   event.preventDefault();controls.shake=1;const slider=q('[data-control="shake"]');
+   if(slider)slider.value=1;audio.setControls(controls);return;
+  }
+  if(event.code==='Space'&&!event.repeat){
+   event.preventDefault();if(audio.active){audio.stop();status='Stopped';updateStatus();return;}
+   void run(async token=>{
+    const pack=store.snapshot(),sample=sampleFor(pack,previewSlot);
+    if(!sample)throw Error('Choose a WAV in Samples to preview with Space');
+    if(await audio.play(pack.files.get(sample.file),currentPreset(),{route})){
+     ensureActive(token);status='Playing · approximate browser preview';
+    }
+   });
+  }
+ });
+ root.addEventListener('keyup',event=>{
+  if(event.key.toLowerCase()==='s'&&controls.shake!==0){
+   controls.shake=0;const slider=q('[data-control="shake"]');
+   if(slider)slider.value=0;audio.setControls(controls);
+  }
+ });
+ win.addEventListener('blur',()=>{
+  if(controls.shake!==0){controls.shake=0;audio.setControls(controls);}
+ });
  root.addEventListener('input',event=>{
   const el=event.target;if(el.dataset.control){controls[el.dataset.control]=Number(el.value);audio.setControls(controls);}
   if(el.dataset.param){el.nextElementSibling.textContent=el.value;const p=currentPreset();p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);audio.update(p);}
