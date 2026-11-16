@@ -81,6 +81,11 @@
 .fx-preset-cards strong{font-size:13px;overflow-wrap:anywhere}
 .fx-preset-cards small{font-size:11px;color:#687991}
 .fx-preset-actions{padding:11px 0;margin-top:8px;border-top:1px dashed #d3deec}
+.fx-body .fx-preset-note{display:flex;flex-direction:column;align-items:stretch;flex:1 1 230px;min-width:170px}
+.fx-body .fx-preset-note textarea{height:61px;min-height:56px;resize:vertical;font-size:12px;line-height:1.5;padding:6px 8px;border:1px solid #a7b6cf;border-radius:4px;background:#fff;color:#243248}
+.fx-param-control{display:grid;grid-template-columns:minmax(72px,1fr) 70px auto;align-items:center;gap:7px}
+.fx-body .fx-param-control input[type=number]{width:70px;min-width:0}
+.fx-param-control output{min-width:27px;text-align:right;overflow-wrap:anywhere}
 .fx-samples,.fx-mods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .fx-samples fieldset{min-width:0}
 .fx-samples label,.fx-mods label{display:flex;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:7px}
