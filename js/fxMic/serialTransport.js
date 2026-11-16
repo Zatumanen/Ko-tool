@@ -4,15 +4,17 @@ import { EFFECTS } from './profile.js';
 // Fixed commands only; there is deliberately no public send/execute/REPL API.
 export function parseLoadedPreset(text) {
   const list = [];
-  let effect;
+  let effect, modulationSection = false;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim(); if (!line) continue;
+    if (/^(HANDLE|SHAKE|LFO|TRIGGER):$/.test(line)) { modulationSection = true; continue; }
     const header = /^(\d+)\s*\[\s*\d+\s+([A-Z]+)\s*\](?:\s*->\s*([12]))?$/.exec(line);
     if (header) {
       if (Number(header[1]) !== list.length || (header[2] !== 'NONE' && !Object.hasOwn(EFFECTS, header[2])) || list.length >= 16) throw Error('Invalid loaded effect row');
-      effect = { effect: header[2], ...(header[3] ? { BUS: Number(header[3]) } : {}) }; list.push(effect); continue;
+      effect = { effect: header[2], ...(header[3] ? { BUS: Number(header[3]) } : {}) }; modulationSection = false; list.push(effect); continue;
     }
     const field = /^([A-Za-z-]+)\s+(-?\d+(?:\.\d+)?)$/.exec(line);
+    if (modulationSection && /^(row|param|depth|shape|speed|phase|target)\s+[A-Za-z0-9._+-]+$/.test(line)) continue;
     const range = field && effect && Object.hasOwn(EFFECTS[effect.effect] || {},field[1]) && EFFECTS[effect.effect][field[1]];
     if (!range || Object.hasOwn(effect, field[1])) throw Error('Unrecognized loaded preset output');
     const value = Number(field[2]);
@@ -54,8 +56,8 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         }
         pending.text += decoder.decode(value, { stream: true });
         if (pending.text.length > 16384) throw Error('Serial response too large');
-        if (/>>>[ \t]*$/.test(pending.text)) {
-          const reply = pending.text.replace(/>>>[ \t]*$/, '').replace(/\r/g, '');
+        if (/>>>[ \t]*(?:\r?\n)?$/.test(pending.text)) {
+          const reply = pending.text.replace(/>>>[ \t]*(?:\r?\n)?$/, '').replace(/\r/g, '');
           pending.resolve(reply); pending = null;
         }
       }
@@ -125,7 +127,9 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       const output = await command('print(teenage.fx_pos); fx.list_loaded(teenage.fx_pos); print(teenage.fx_pos)');
       const lines = output.split('\n'), first = lines.shift(), last = lines.pop();
       if (!/^[0-3]$/.test(first) || first !== last) throw Error('Active preset changed or is unavailable');
-      const loaded = { slot: Number(first), list: parseLoadedPreset(lines.join('\n')) };
+      const rawChain = lines.join('\n');
+      const loaded = { slot: Number(first), list: parseLoadedPreset(rawChain),
+        hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain) };
       initializing = false;
       return loaded;
     },
