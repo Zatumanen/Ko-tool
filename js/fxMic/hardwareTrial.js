@@ -16,18 +16,18 @@ export function createHardwareTrial({makeTransport=createSerialTransport,onChang
  const snapshot=()=>({...(session?.snapshot()??{state:'disconnected',identity:null,current:null}),
   phase,original,target,restorePending,busy,hasSession:Boolean(session)});
 
- async function connect(firmware){
+ async function connect(firmware,{allowReplInterrupt=false}={}){
   if(session||restorePending||busy)throw Error('Disconnect and resolve any pending restoration first');
   if(!Object.hasOwn(profiles,firmware))throw Error('Unsupported stock firmware');
-  const profile=profiles[firmware],transport=makeTransport({probeProfile:profile});
+  const profile=profiles[firmware],transport=makeTransport({probeProfile:profile,allowReplInterrupt});
   const active=createLiveSession({transport,timeoutMs:60000,verifyBeforeWrite:true,onChange:()=>{if(session===active)onChange();},
    resolveProfile:identity=>identity.model===profile.model&&identity.firmware===firmware?profile:null});
   session=active;busy=true;phase='idle';original=target=null;
   try{
-   const{current}=await active.connect();
+   const{current,identity}=await active.connect();
    if(session!==active)return;
    const row=current.list[0],value=row?.cutoff,rounded=Math.round(value*100);
-   if(firmware==='1.0.8'&&current.list.length===1&&row?.effect==='LOWPASS'&&Math.abs(value*100-rounded)<1e-7){
+   if(firmware==='1.0.8'&&identity.firmwareVerified!==false&&current.list.length===1&&row?.effect==='LOWPASS'&&Math.abs(value*100-rounded)<1e-7){
     original=value;target=(rounded>=50?rounded-5:rounded+5)/100;
    }
    phase='read';
