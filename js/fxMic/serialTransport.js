@@ -1,4 +1,5 @@
 import { EFFECTS } from './profile.js';
+import { summarizeDeviceConfig } from './deviceConfig.js';
 
 // Manual trial codec. Production profiles require exact-firmware evidence.
 // Fixed commands only; there is deliberately no public send/execute/REPL API.
@@ -26,10 +27,10 @@ export function parseLoadedPreset(text) {
 }
 
 export function createSerialTransport({ serial = globalThis.navigator?.serial, probeProfile = null, timeoutMs = 1000, allowReplInterrupt = false } = {}) {
-  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false;
+  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false, lastCommandAt = 0;
   const encoder = new TextEncoder();
   async function disconnect() {
-    epoch++; connected = false; initializing = false;
+    epoch++; connected = false; initializing = false; lastCommandAt = 0;
     pending?.reject(Error('Serial disconnected')); pending = null;
     const oldReader = reader, oldWriter = writer, oldPort = port;
     reader = writer = port = null;
@@ -63,27 +64,62 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       }
     } catch (error) { if (token === epoch) failed(error); }
   }
-  async function command(text, stage = 'serial command') {
+  async function command(text, stage = 'serial command', deadlineMs = timeoutMs) {
     if (!connected || pending) throw Error('Serial session unavailable or busy');
     const token = epoch;
+    // The working stock reference spaces REPL commands to avoid flooding.
+    const wait = 50 - (Date.now() - lastCommandAt);
+    if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+    if (token !== epoch || !connected || pending) throw Error('Serial session changed before command');
+    lastCommandAt = Date.now();
     let timer;
     const response = new Promise((resolve, reject) => { pending = { resolve, reject, text: '' }; });
     // Attach handlers before awaiting the writer: the stream may fail immediately.
-    const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Serial response timeout')), timeoutMs); });
+    const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Serial response timeout')), deadlineMs); });
     try {
       const [, reply] = await Promise.race([Promise.all([writer.write(encoder.encode(text + '\r\n')), response]), deadline]);
       const lines = reply.split('\n');
       if (lines[0] === text) lines.shift();
       const output = lines.join('\n').trim();
-      if (/Traceback|Error|>>>/.test(output)) {
+      // A JSON string or preset name may legitimately contain "Error" or ">>>".
+      // Only an actual Python exception line is a command failure.
+      const exception = /(?:^|\n)([A-Za-z_]\w*(?:Error|Exception))\s*:/.exec(output)?.[1];
+      if (/^Traceback \(most recent call last\):/.test(output) || exception) {
         // Report a fixed diagnostic stage and Python exception type, never raw
         // device output (which could contain private files or user data).
-        const kind = /(?:^|\n)([A-Za-z_]\w*(?:Error|Exception))\s*:/.exec(output)?.[1];
-        throw Error('FX-MIC '+stage+': '+(kind|| (output.includes('>>>')?'unexpected REPL prompt':'unexpected device response')));
+        throw Error('FX-MIC '+stage+': '+(exception||'Python exception'));
       }
       return output;
     } catch (error) { if (token === epoch) failed(error); throw error; }
     finally { clearTimeout(timer); }
+  }
+  async function readStoredConfig() {
+    // Read only /fat/config.json. These fixed REPL assignments are volatile
+    // variables, not filesystem writes. Chunks bound serial output and preserve
+    // whitespace and Unicode via JSON-encoded string fragments.
+    await command('import json', 'JSON module import');
+    await command('_ko_file = open("/fat/config.json", "r")', 'open stored config');
+    await command('_ko_data = json.load(_ko_file)', 'parse stored config', 5000);
+    await command('_ko_file.close()', 'close stored config');
+    await command('_ko_json = json.dumps(_ko_data)', 'encode stored config', 5000);
+    await command('del _ko_data, _ko_file', 'release config variables');
+    const count = Number(await command('print(len(_ko_json))', 'stored config length'));
+    if (!Number.isSafeInteger(count) || count < 2 || count > 65536)
+      throw Error('Device config size is outside the read-only 64 KiB limit');
+    let text = '';
+    for (let start = 0; start < count; start += 512) {
+      const reply = await command(
+        'print(json.dumps(_ko_json[' + start + ':' + Math.min(count, start + 512) + ']))',
+        'stored config chunk ' + (Math.floor(start / 512) + 1), 2000);
+      let chunk;
+      try { chunk = JSON.parse(reply); }
+      catch { throw Error('Invalid JSON-encoded device config chunk'); }
+      if (typeof chunk !== 'string' || chunk.length === 0)
+        throw Error('Empty or invalid device config chunk');
+      text += chunk;
+    }
+    await command('del _ko_json', 'release stored config buffer');
+    return text;
   }
   return {
     onDisconnect(fn) { onLoss = fn; },
@@ -133,20 +169,24 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       // REPL calls. A combined Python statement is not a stable response format
       // across stock firmware versions.
       const before = await command('print(teenage.fx_pos)', 'active FX slot before read');
+      // Stock 1.1.2 follows the reference's config.json import instead of
+      // treating fx.list_preset() text as a validated active DSP chain.
+      if (probeProfile.firmware === '1.1.2') {
+        if (!/^(?:-1|[0-3])$/.test(before)) throw Error('Unexpected active FX slot response');
+        const stored = await readStoredConfig();
+        const after = await command('print(teenage.fx_pos)', 'active FX slot after read');
+        if (after !== before) throw Error('FX slot changed while reading saved config');
+        const diagnostic = summarizeDeviceConfig(stored, Number(before));
+        initializing = false;
+        return diagnostic;
+      }
       if (before === '-1') throw Error('No FX preset is active on the device; choose a preset on the mic and reconnect');
       if (!/^[0-3]$/.test(before)) throw Error('Unexpected active FX preset number (expected 0–3)');
-      // Stock 1.1.2 diagnostics inspect the saved preset definition, as the
-      // working reference does. This is NOT the currently loaded DSP chain;
-      // stock 1.0.8 write trials must retain the active-chain readback.
-      const stored = probeProfile.firmware === '1.1.2';
-      const rawChain = await command('fx.'+(stored?'list_preset':'list_loaded')+'(' + Number(before) + ')',
-        stored?'saved FX preset read':'active FX chain read');
-      // Never silently switch or load a slot just to satisfy a read-only probe.
+      const rawChain = await command('fx.list_loaded(' + Number(before) + ')', 'active FX chain read');
       const after = await command('print(teenage.fx_pos)', 'active FX slot after read');
       if (after !== before) throw Error('FX preset changed during readback; keep the hardware buttons idle and reconnect');
       const loaded = { slot: Number(before), list: parseLoadedPreset(rawChain),
-        hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain),
-        ...(stored ? { source: 'stored-preset' } : {}) };
+        hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain) };
       initializing = false;
       return loaded;
     },
