@@ -73,6 +73,33 @@ test('browser microphone monitoring is explicit and releases tracks on Stop',asy
  await page.evaluate(()=>window.__fxMicStreams[0].ctx.close());
 });
 
+test('dragging an FX row retains its modulation target and arrow controls',async({page})=>{
+ await open(page);
+ await page.getByLabel('Handle target').selectOption('0:cutoff');
+ await page.locator('[data-fx-drag-handle="0"]').dragTo(page.locator('[data-fx-row="1"]'));
+ await expect(page.getByLabel('Handle target')).toHaveValue('1:cutoff');
+ await expect(page.locator('[data-fx-row="1"]')).toContainText('LOWPASS');
+ await page.getByRole('button',{name:'Move row 1 up'}).click();
+ await expect(page.getByLabel('Handle target')).toHaveValue('0:cutoff');
+});
+
+test('keyboard preview shortcuts work only when the workspace has focus',async({page})=>{
+ await open(page);
+ await page.getByLabel('WAV slot 1').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav()});
+ await page.getByRole('button',{name:'Audition',exact:true}).click();
+ await page.locator('#fx-mic-window').focus();
+ await page.keyboard.press('h');
+ await expect(page.getByLabel('Handle preview')).toHaveValue('1');
+ await page.keyboard.down('s');
+ await expect(page.getByLabel('Shake preview')).toHaveValue('1');
+ await page.keyboard.up('s');
+ await expect(page.getByLabel('Shake preview')).toHaveValue('0');
+ await page.keyboard.press('Space');
+ await expect(page.locator('[data-fx-status]')).toContainText('Playing');
+ await page.keyboard.press('Space');
+ await expect(page.locator('[data-fx-status]')).toHaveText('Stopped');
+});
+
 test('desktop icons remain independently reachable at desktop and mobile widths',async({page})=>{
  for(const width of [1280,375]){
   await page.setViewportSize({width,height:900});await page.goto('/');
