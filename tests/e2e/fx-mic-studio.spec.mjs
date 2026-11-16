@@ -176,8 +176,8 @@ test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without write
     const reply=command.includes('implementation.name')?'micropython'
      :command.includes('_machine')?'EP-2350 1.1.2'
      :command==='print(teenage.fx_pos)'?'0'
-     :command.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\\n cutoff 0.40':'';
-    reader.enqueue(new TextEncoder().encode(command+'\\r\\n'+reply+'\\r\\n>>> '));
+     :command.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';
+    reader.enqueue(new TextEncoder().encode(command+'\r\n'+reply+'\r\n>>> '));
    }})
   };
   Object.defineProperty(navigator,'serial',{value:{requestPort:async()=>port},configurable:true});
