@@ -16,7 +16,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
  const root=doc.createElement('section');root.id='fx-mic-window';root.className='window fx-mic-window';root.hidden=true;root.setAttribute('role','dialog');root.setAttribute('aria-label','FX-MIC Studio');doc.body.append(root);
  const store=createPackStore(),local=createLocalPacks(),history=[];
  let selected=0,mode='emulation',opened=false,lifecycle=0,error='',status='Offline · your files stay in this browser',localNames=[],selectedLocal='',route='mic',previewSlot=0;
- let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false;
+ let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false,liveReplConsent=false;
  const trial=createHardwareTrial({onChange:renderLive});
  const audio=createEmulation({onEnd:()=>{status='Stopped';updateStatus();}});
  const q=selector=>root.querySelector(selector);
@@ -53,7 +53,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   const canApply=active&&phase==='read'&&original!==null&&liveConfirmed&&!busy;
   const canRestore=active&&phase==='changed'&&!busy;
   return `<h2>LIVE · EP-2350 hardware trial</h2>
-   <p>This trial uses a serial prompt that is already available. The app does not interrupt or reset the mic.
+   <p>Connection expects a ready REPL prompt unless you opt in to preparation. Ctrl+C preparation interrupts the running program and may stop audio until reboot; it never writes device files.
    Listen to the physical analog output through an audio interface.</p>
    <div class="fx-toolbar">
     <label>Stock firmware<select aria-label="Stock firmware" data-live-firmware ${active||busy||restorePending?'disabled':''}>
@@ -62,7 +62,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
     <button data-action="live-connect" ${canConnect?'':'disabled'}>Connect EP-2350</button>
     <button data-action="live-disconnect" ${hasSession?'':'disabled'}>Disconnect</button>
    </div>
-   <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware):''}${current?' · preset '+(current.slot+1):''}</p>
+   <label><input type="checkbox" data-live-repl-consent ${liveReplConsent?'checked':''} ${busy||hasSession?'disabled':''}> Prepare REPL with Ctrl+C (interrupts the running program; no automatic reset)</label>
+   <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware)+(identity.firmwareVerified?' · firmware verified':' · version selected, not verified'):''}${current?' · preset '+(current.slot+1):''}</p>
    ${!win.navigator?.serial?.requestPort?'<p>Web Serial is unavailable. Use Chrome on a desktop and open the site directly.</p>':''}
    ${current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
    ${active&&original===null?'<p>Read only. The write trial requires stock 1.0.8 and a preset containing one unmodulated LOWPASS effect.</p>':''}
@@ -116,7 +117,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(['live-connect','live-disconnect','live-apply','live-restore','live-recovered'].includes(action)){
    if(action==='live-connect'||action==='live-disconnect')liveConfirmed=false;
    try{
-    const operation=action==='live-connect'?trial.connect(liveFirmware)
+    const operation=action==='live-connect'?trial.connect(liveFirmware,{allowReplInterrupt:liveReplConsent})
       :action==='live-disconnect'?trial.disconnect()
       :action==='live-apply'?trial.apply(liveConfirmed)
       :action==='live-restore'?trial.restore():trial.acknowledgeRecovery();
@@ -164,7 +165,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(el.dataset.param){el.nextElementSibling.textContent=el.value;const p=currentPreset();p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);audio.update(p);}
  });
  root.addEventListener('change',event=>{const el=event.target;void run(async token=>{
-  if(el.matches('[data-live-firmware]')){liveFirmware=el.value;liveConfirmed=false;renderLive();return;}
+  if(el.matches('[data-live-firmware]')){liveFirmware=el.value;liveConfirmed=false;liveReplConsent=false;renderLive();return;}
+   if(el.matches('[data-live-repl-consent]')){liveReplConsent=el.checked;return;}
   if(el.matches('[data-live-confirm]')){liveConfirmed=el.checked;q('[data-action="live-apply"]').disabled=!liveConfirmed;return;}
   if(el.matches('[data-pack-name]')){editConfig(c=>{c.name=el.value;});return;}
   if(el.matches('[data-preset-name]')){editPreset(p=>{p.name=el.value;});return;}
