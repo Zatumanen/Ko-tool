@@ -16,6 +16,8 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
   transport.onDisconnect?.(reason => { invalidate('disconnected', reason ?? Error('Serial disconnected')); void release(); onChange(); });
   function validateState(value) {
     if (value?.source === 'stored-config') {
+      if (profile?.firmware !== '1.1.2' || Object.keys(profile.parameters ?? {}).length)
+        throw Error('Read-only stored config cannot authorize Live writes');
       // Diagnostic data is untrusted firmware JSON, never a write authority.
       // It may contain unknown effects/parameters or no selected FX slot.
       if (!Number.isInteger(value.slot) || value.slot < -1 || value.slot > 3 ||
