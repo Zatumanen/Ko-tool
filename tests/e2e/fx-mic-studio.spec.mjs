@@ -13,13 +13,13 @@ test('desktop icons remain independently reachable at desktop and mobile widths'
  }
 });
 
-test('FX-MIC is a separate offline window; Live remains gated without hardware evidence',async({page})=>{
+test('FX-MIC is a separate offline window; Live requires explicit firmware selection',async({page})=>{
  await open(page);await expect(page.locator('[data-fx-slot]')).toHaveCount(4);
  await expect(page.getByLabel('FX preset')).toHaveValue('0');
  await expect(page.getByText('EMULATION · approximate browser audio')).toBeVisible();
  await page.getByRole('button',{name:'Live',exact:true}).click();
  await expect(page.getByRole('button',{name:'Connect EP-2350'})).toBeDisabled();
- await expect(page.locator('[data-fx-live]')).toContainText('No exact-firmware hardware acceptance');
+ await expect(page.getByLabel('Stock firmware')).toHaveValue('');
  await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
  await page.getByRole('button',{name:'Close FX-MIC Studio'}).click();await expect(page.locator('#fx-mic-window')).toBeHidden();
 });
@@ -121,4 +121,43 @@ test('local overwrite asks first and cancellation preserves the previous WAV',as
  expect(confirmation).toContain('MY FX-MIC PACK');
  await page.getByRole('button',{name:'Load local pack'}).click();
  await expect(sample).toContainText('0.100 s');
+});
+
+test('hardware trial connects explicitly and verifies change and restore through Web Serial',async({page})=>{
+ await page.addInitScript(()=>{
+  window.fxCommands=[];let cutoff=.4,reader;
+  const port={
+   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{},
+   readable:new ReadableStream({start(controller){reader=controller;}}),
+   writable:new WritableStream({write(bytes){
+    const command=new TextDecoder().decode(bytes).trim();
+    window.fxCommands.push(command);
+    let reply='';
+    if(command.includes('_machine'))reply='EP-2350 1.0.8';
+    else if(command.startsWith('print(teenage.fx_pos)'))reply='0\n0 [ 1 LOWPASS ]\n cutoff '+cutoff+'\n0';
+    else if(command.startsWith('print(fx.param')){
+     cutoff=Number(command.match(/"cutoff", ([0-9.]+)/)[1]);reply='None';
+    }
+    reader.enqueue(new TextEncoder().encode(command+'\r\n'+reply+'\r\n>>> '));
+   }})
+  };
+  Object.defineProperty(navigator,'serial',{value:{requestPort:async()=>port},configurable:true});
+ });
+ await open(page);
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await page.getByLabel('Stock firmware').selectOption('1.0.8');
+ expect(await page.evaluate(()=>window.fxCommands)).toEqual([]);
+ await page.getByRole('button',{name:'Connect EP-2350'}).click();
+ await expect(page.locator('[data-live-state]')).toContainText('ready · EP-2350 · 1.0.8');
+ const apply=page.getByRole('button',{name:'Apply one test change'});
+ await expect(apply).toBeDisabled();
+ await page.getByRole('checkbox',{name:'I backed up the mic and selected an expendable preset.'}).check();
+ await apply.click();
+ await expect(page.locator('[data-live-state]')).toContainText('verified');
+ await expect(page.getByText('Readback matched.',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'Restore original cutoff'}).click();
+ await expect(page.getByText('Readback matched the original cutoff.',{exact:false})).toBeVisible();
+ expect(await page.evaluate(()=>window.fxCommands.filter(command=>command.startsWith('print(fx.param')))).toHaveLength(2);
+ await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+ await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
 });

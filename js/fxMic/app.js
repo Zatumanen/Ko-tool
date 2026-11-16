@@ -1,3 +1,4 @@
+import{createHardwareTrial}from './hardwareTrial.js';
 import{makeDraggableWindow}from '../ep133/ui/windowShell.js?v=20261001-1';
 import{createPackStore,validatePack,writePack,configText,packWithConfig}from './pack.js';
 import{defaultConfig,validateConfig,moveEffect,removeEffect}from './config.js';
@@ -15,7 +16,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
  const root=doc.createElement('section');root.id='fx-mic-window';root.className='window fx-mic-window';root.hidden=true;root.setAttribute('role','dialog');root.setAttribute('aria-label','FX-MIC Studio');doc.body.append(root);
  const store=createPackStore(),local=createLocalPacks(),history=[];
  let selected=0,mode='emulation',opened=false,lifecycle=0,error='',status='Offline · your files stay in this browser',localNames=[],selectedLocal='',route='mic',previewSlot=0;
- let controls={handle:0,shake:0};
+ let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false;
+ const trial=createHardwareTrial({onChange:renderLive});
  const audio=createEmulation({onEnd:()=>{status='Stopped';updateStatus();}});
  const q=selector=>root.querySelector(selector);
  const currentPreset=()=>{
@@ -44,6 +46,39 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   const range=m?.row!==undefined?EFFECTS[p.list[m.row]?.effect]?.[m.param]:null,base=range?(p.list[m.row][m.param]??range[2]):0,end=base+(m?.depth||0),start=kind==='lfo'?base-(m?.depth||0):base;
   return`<fieldset><legend>${title}</legend><label>Target<select aria-label="${title} target" data-mod-target="${kind}">${options}</select></label>${m?number(title+' depth',m.depth??0,`step="0.01" data-mod="${kind}" data-key="depth"`):''}${range?`<div class="fx-range">${Math.min(start,end).toFixed(2)} → ${Math.max(start,end).toFixed(2)}<meter min="${range[0]}" max="${range[1]}" value="${Math.max(range[0],Math.min(range[1],end))}"></meter></div>`:''}${kind==='lfo'&&m?`<label>Shape<select aria-label="LFO shape" data-mod="lfo" data-key="shape">${SHAPES.map(s=>option(s,s,m.shape??'sine')).join('')}</select></label>${number('LFO speed',m.speed??1,'min="0" step="0.1" data-mod="lfo" data-key="speed"')}${number('LFO phase',m.phase??0,'step="0.1" data-mod="lfo" data-key="phase"')}`:''}</fieldset>`;
  }
+ function livePanel(){
+  const {state,identity,current,phase,original,target,restorePending,busy,hasSession}=trial.snapshot();
+  const canConnect=Boolean(win.navigator?.serial?.requestPort&&liveFirmware&&!restorePending&&!busy&&!hasSession&&state==='disconnected'&&phase==='idle');
+  const active=Boolean(current&&['ready','verified'].includes(state));
+  const canApply=active&&phase==='read'&&original!==null&&liveConfirmed&&!busy;
+  const canRestore=active&&phase==='changed'&&!busy;
+  return `<h2>LIVE · EP-2350 hardware trial</h2>
+   <p>This trial uses a serial prompt that is already available. The app does not interrupt or reset the mic.
+   Listen to the physical analog output through an audio interface.</p>
+   <div class="fx-toolbar">
+    <label>Stock firmware<select aria-label="Stock firmware" data-live-firmware ${active||busy||restorePending?'disabled':''}>
+     ${option('','Select exact version',liveFirmware)}${option('1.0.8','1.0.8 · cutoff trial',liveFirmware)}${option('1.1.2','1.1.2 · read only',liveFirmware)}
+    </select></label>
+    <button data-action="live-connect" ${canConnect?'':'disabled'}>Connect EP-2350</button>
+    <button data-action="live-disconnect" ${hasSession?'':'disabled'}>Disconnect</button>
+   </div>
+   <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware):''}${current?' · preset '+(current.slot+1):''}</p>
+   ${!win.navigator?.serial?.requestPort?'<p>Web Serial is unavailable. Use Chrome on a desktop and open the site directly.</p>':''}
+   ${current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
+   ${active&&original===null?'<p>Read only. The write trial requires stock 1.0.8 and a preset containing one unmodulated LOWPASS effect.</p>':''}
+   ${original!==null?`<p>LOWPASS cutoff: original <strong>${esc(original)}</strong> · test value <strong>${esc(target)}</strong></p>`:''}
+   ${active&&phase==='read'&&original!==null?`<label><input type="checkbox" data-live-confirm ${liveConfirmed?'checked':''}> I backed up the mic and selected an expendable preset.</label>
+    <button data-action="live-apply" ${canApply?'':'disabled'}>Apply one test change</button>`:''}
+   ${phase==='changed'?'<p>Readback matched. Check the mic’s analog output, then restore the original cutoff.</p>':''}
+   ${canRestore?'<button data-action="live-restore">Restore original cutoff</button>':''}
+   ${phase==='restored'?'<p>Readback matched the original cutoff. Disconnect and check the mic’s buttons and audio.</p>':''}
+   ${restorePending&&!canRestore&&!busy?`<p>State uncertain. Disconnect, check the preset on the mic and restore the original cutoff <strong>${esc(original)}</strong> manually.</p>
+    <button data-action="live-recovered" ${!hasSession?'':'disabled'}>Confirm manual recovery</button>`:''}`;
+ }
+ function renderLive(){
+  const section=q('[data-fx-live]');
+  if(opened&&mode==='live'&&section)section.innerHTML=livePanel();
+ }
  function render(){
   if(!opened)return;
   const pack=store.snapshot(),p=currentPreset(),stats=validatePack(pack),validation=validateConfig(pack.config),coverage=previewCoverage(p);
@@ -51,7 +86,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   root.innerHTML=`<div class="title-bar"><span>FX-MIC STUDIO · EP-2350</span><button type="button" aria-label="Close FX-MIC Studio" data-action="close">×</button></div>
    <div class="fx-body"><nav class="fx-toolbar" aria-label="FX-MIC modes"><button data-action="emulation" aria-pressed="${mode==='emulation'}">Emulation</button><button data-action="live" aria-pressed="${mode==='live'}">Live</button><button data-action="undo" ${history.length?'':'disabled'}>Undo edit</button><span data-fx-status role="status">${esc(status)}</span></nav>
    <p data-fx-error role="alert">${esc(error)}</p>
-   <section data-fx-live ${mode==='live'?'':'hidden'}><h2>LIVE · physical EP-2350</h2><p>No exact-firmware hardware acceptance is registered. Connection and writes are unavailable until the approved USB scenario establishes safe identity, readback and session exit.</p><button disabled>Connect EP-2350</button><p>Listen to the physical analog output through an audio interface. Browser Emulation is not that signal.</p></section>
+   <section data-fx-live ${mode==='live'?'':'hidden'}>${mode==='live'?livePanel():''}</section>
    <div ${mode==='emulation'?'':'hidden'} data-fx-offline>
    <div class="fx-toolbar"><label>Pack name<input aria-label="Pack name" data-pack-name maxlength="128" value="${esc(pack.config.name||'')}"></label><label>Import ZIP / config.json<input aria-label="Import ZIP or config" data-import type="file" accept=".zip,.json"></label><button data-action="export">Export ZIP</button><button data-action="json">Export config</button></div>
    <p class="fx-budget">${esc(STOCK_PROFILE.label)}<br><strong>${stats.bytes.toLocaleString()} bytes</strong> WAV + config · ${(STOCK_PROFILE.budgetBytes-stats.bytes).toLocaleString()} bytes budget remaining${stats.nearLimit?' · Near authoring limit':''}. ZIP compression does not increase device capacity.</p>
@@ -70,11 +105,26 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   Object.assign(root.style,position);makeDraggableWindow(root,{windowRef:win});
  }
  async function open(){if(opened){root.focus();return;}opened=true;lifecycle++;root.hidden=false;render();await run(async token=>{localNames=await local.list();ensureActive(token);render();});}
- function close(){opened=false;lifecycle++;audio.stop();root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
+ function close(){opened=false;lifecycle++;audio.stop();void trial.disconnect();liveConfirmed=false;root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
  root.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||b.disabled)return;void run(async token=>{
   const action=b.dataset.action;
   if(action==='close'){close();return;}
-  if(action==='emulation'||action==='live'){audio.stop();mode=action;status=action==='live'?'Live unavailable · HIL required':'Offline';render();return;}
+  if(action==='emulation'||action==='live'){
+   if(mode==='live'&&action==='emulation'){await trial.disconnect();ensureActive(token);liveConfirmed=false;}
+   audio.stop();mode=action;status=action==='live'?'Hardware trial · not yet accepted':'Offline';render();return;
+  }
+  if(['live-connect','live-disconnect','live-apply','live-restore','live-recovered'].includes(action)){
+   if(action==='live-connect'||action==='live-disconnect')liveConfirmed=false;
+   try{
+    const operation=action==='live-connect'?trial.connect(liveFirmware)
+      :action==='live-disconnect'?trial.disconnect()
+      :action==='live-apply'?trial.apply(liveConfirmed)
+      :action==='live-restore'?trial.restore():trial.acknowledgeRecovery();
+    renderLive();
+    await operation;
+   }finally{renderLive();}
+   return;
+  }
   if(action==='stop'){audio.stop();status='Stopped';return;}
   if(action==='undo'){audio.stop();if(history.length)store.replace(history.pop());render();return;}
   if(action==='export'){const blob=await writePack(store.snapshot());ensureActive(token);download(blob,'fx-mic-pack.zip');status='Exported ZIP';return;}
@@ -114,6 +164,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(el.dataset.param){el.nextElementSibling.textContent=el.value;const p=currentPreset();p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);audio.update(p);}
  });
  root.addEventListener('change',event=>{const el=event.target;void run(async token=>{
+  if(el.matches('[data-live-firmware]')){liveFirmware=el.value;liveConfirmed=false;renderLive();return;}
+  if(el.matches('[data-live-confirm]')){liveConfirmed=el.checked;q('[data-action="live-apply"]').disabled=!liveConfirmed;return;}
   if(el.matches('[data-pack-name]')){editConfig(c=>{c.name=el.value;});return;}
   if(el.matches('[data-preset-name]')){editPreset(p=>{p.name=el.value;});return;}
   if(el.matches('[data-preset]')){audio.stop();selected=Number(el.value);render();return;}

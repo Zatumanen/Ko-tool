@@ -1,7 +1,6 @@
 import { EFFECTS } from './profile.js';
 
-// Candidate codec only: no production probe profile is registered. Entry, identity,
-// output grammar and orderly exit need exact-firmware HIL before UI integration.
+// Manual trial codec. Production profiles require exact-firmware evidence.
 // Fixed commands only; there is deliberately no public send/execute/REPL API.
 export function parseLoadedPreset(text) {
   const list = [];
@@ -14,7 +13,7 @@ export function parseLoadedPreset(text) {
       effect = { effect: header[2] }; list.push(effect); continue;
     }
     const field = /^([A-Za-z-]+)\s+(-?\d+(?:\.\d+)?)$/.exec(line);
-    const range = field && effect && EFFECTS[effect.effect][field[1]];
+    const range = field && effect && Object.hasOwn(EFFECTS[effect.effect],field[1]) && EFFECTS[effect.effect][field[1]];
     if (!range || Object.hasOwn(effect, field[1])) throw Error('Unrecognized loaded preset output');
     const value = Number(field[2]);
     if (!Number.isFinite(value) || value < range[0] || value > range[1]) throw Error('Invalid loaded parameter');
@@ -92,9 +91,13 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         if (info.usbVendorId !== 0x2367 || info.usbProductId !== 0x0620) throw Error('Not an EP-2350 serial port');
         reader = selected.readable.getReader(); writer = selected.writable.getWriter(); connected = true;
         void readLoop(reader, token);
+        if (probeProfile.manualTrial && await command('') !== '') throw Error('A clean serial prompt is required');
         const machine = await command("print(__import__('sys').implementation._machine)");
         const match = /^EP-2350 (\d+\.\d+\.\d+)$/.exec(machine);
-        if (!match || match[1] !== probeProfile.firmware) throw Error('Unverified serial identity');
+        if (!match || match[1] !== probeProfile.firmware) {
+          const detail = probeProfile.manualTrial ? ': '+machine.replace(/[^\x20-\x7e]/g,' ').slice(0,120) : '';
+          throw Error('Unverified serial identity'+detail);
+        }
         return { model: 'EP-2350', firmware: match[1] };
       } catch (error) { if (token === epoch) await disconnect(); throw error; }
     },
@@ -112,7 +115,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         || Math.abs((value - rule.min) / rule.step - Math.round((value - rule.min) / rule.step)) > 1e-7) throw Error('Serial parameter not allowlisted');
       // Slot stability is checked again in the same command before the only write.
       const output = await command(`print(fx.param(${slot}, ${row}, "${param}", ${value}) if teenage.fx_pos == ${slot} else False)`);
-      if (output !== 'True') { const error = Error('Parameter write not acknowledged'); failed(error); throw error; }
+      if (output !== 'True' && !(probeProfile.manualTrial && output === 'None')) { const error = Error('Parameter write not acknowledged'); failed(error); throw error; }
       return true;
     },
     disconnect

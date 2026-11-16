@@ -76,18 +76,28 @@ not established, stop before writes. No BUS, chain rebuild, firmware update,
 arbitrary REPL, forced USB interruption, auto-delete or speculative rollback.
 Fake transport and CI do not satisfy this acceptance.
 
-## Candidate Live boundary
+## Manual hardware trial
 
-The serial adapter requires an injected exact-firmware probe profile before even
-requesting a port; production has none and the UI exposes no connection action.
-The fixed codec accepts only an unmodulated, known `fx.list_loaded` grammar,
-requires stable active slot framing, numeric allowlisted parameters and an exact
-`True` acknowledgement before mandatory session readback. Unsupported modulation
-output, clean mode, partial output or unknown firmware fails closed. The identity
-string, prompt grammar, acknowledgement and session entry/exit are **candidate
-contracts tested with synthetic streams**, not confirmed EP-2350 behavior. No
-Ctrl+C, slot selection, config writes or arbitrary command interface is included.
-Actual UI Live integration and registration require the physical evidence above.
+Open FX-MIC Studio → Live in desktop Chrome. Back up the device and select an
+expendable preset with just one unmodulated LOWPASS row. Keep a record of the
+original cutoff. Select the exact stock OS version and connect using an already
+available serial prompt. The app sends no interrupt or reset. If the prompt,
+model/version or readback is not recognized, stop and record the error. The
+CircuitPython mod is a separate firmware and is outside this trial.
+
+Stock 1.0.8 has one guarded, user-confirmed cutoff trial based on the pinned
+reference. Stock 1.1.2 is offered for diagnostics only. Neither profile is
+registered as hardware-accepted. After a successful read, confirm the backup,
+apply one change and confirm the matching readback plus physical analog output.
+Use Restore original cutoff to write back and verify the original value. Then
+disconnect and confirm that the microphone's controls and output still operate.
+If setting or restoration fails, no retry or rollback runs. Restore manually on
+the device and confirm recovery only after checking its state.
+
+The manual trial keeps the fixed commands and mandatory readback, requires a
+clean prompt and rechecks active preset state immediately before each write.
+A void setter return is allowed in the trial only; matching device readback
+establishes success. Neither BUS nor rewriting the preset is available.
 
 ## Software verification scope
 

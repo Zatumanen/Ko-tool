@@ -3,7 +3,7 @@ import { resolveLiveProfile } from './profile.js';
 
 // All operations own an epoch. Ambiguous failures invalidate the entire queue.
 // No retry, automatic restoration or structural write is available here.
-export function createLiveSession({ transport, resolveProfile = resolveLiveProfile, timeoutMs = 1500 }) {
+export function createLiveSession({ transport, resolveProfile = resolveLiveProfile, timeoutMs = 1500, verifyBeforeWrite = false, onChange = () => {} }) {
   let epoch = 0, state = 'disconnected', identity = null, profile = null, current = null;
   let queue = Promise.resolve(), cancel = null;
   const snapshot = () => structuredClone({ state, identity, current });
@@ -13,7 +13,7 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
     epoch++; state = next; current = null; profile = null;
     cancel?.(Error('Live session lost')); cancel = null;
   }
-  transport.onDisconnect?.(() => { invalidate('disconnected'); void release(); });
+  transport.onDisconnect?.(() => { invalidate('disconnected'); void release(); onChange(); });
   function validateState(value) {
     if (!value || !Number.isInteger(value.slot) || value.slot < 0 || value.slot > 3) throw Error('Invalid active preset');
     assertConfig({ presets: [{ list: value.list }] });
@@ -48,7 +48,7 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
         current = validateState(loaded); state = 'ready'; return snapshot();
       });
     },
-    setParameter(update) {
+    setParameter(update, { beforeSend } = {}) {
       const token = epoch, requested = structuredClone(update);
       const operation = queue.then(async () => {
         check(token);
@@ -60,6 +60,11 @@ export function createLiveSession({ transport, resolveProfile = resolveLiveProfi
           || Math.abs((value - rule.min) / rule.step - Math.round((value - rule.min) / rule.step)) > 1e-7) throw Error('Parameter is outside the evidenced Live allowlist');
         const before = structuredClone(current); state = 'writing';
         return bounded(token, async () => {
+          if (verifyBeforeWrite) {
+            const live = validateState(await transport.readState()); check(token);
+            if (JSON.stringify(live) !== JSON.stringify(before)) throw Error('Active preset changed; no parameter was sent');
+          }
+          beforeSend?.();
           const ack = await transport.writeParameter({ slot: before.slot, row, param, value, effect }); check(token);
           if (ack !== true) throw Error('Live write not acknowledged');
           const loaded = await transport.readState(); check(token);
