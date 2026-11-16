@@ -188,7 +188,8 @@ test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without write
  await page.getByRole('button',{name:'Connect EP-2350'}).click();
  await expect(page.locator('[data-live-state]')).toContainText('ready · EP-2350 · 1.1.2');
  await expect(page.locator('[data-live-state]')).toContainText('preset 1');
- await expect(page.getByRole('button',{name:'Apply one test change'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Apply one test change'})).toHaveCount(0);
+ await expect(page.getByText('Read only.',{exact:false})).toBeVisible();
  const commands=await page.evaluate(()=>window.fxCommands);
  expect(commands.filter(cmd=>cmd==='print(teenage.fx_pos)')).toHaveLength(2);
  expect(commands.filter(cmd=>cmd==='fx.list_loaded(0)')).toHaveLength(1);
