@@ -47,7 +47,7 @@ test('read-only device summaries never bypass authoring validation or silently d
  assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withWav)),/Custom device WAVs/);
  const withMissing=structuredClone(stored);
  withMissing.presets[1].list=[];
- assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withMissing)),/Empty or invalid/);
+ assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withMissing)),/Empty saved FX rows/);
  const withUnsupported=structuredClone(stored);
  withUnsupported.presets[0].list[0].label='device only';
  assert.throws(()=>createOfflineDraftFromSavedConfig(fromConfig(withUnsupported)),/not supported/);
