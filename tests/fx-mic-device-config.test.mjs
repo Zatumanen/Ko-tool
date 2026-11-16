@@ -38,6 +38,24 @@ test('read-only firmware config reports four real-shaped presets without authori
  assert.deepEqual(result.list[3], {effect:'SAMPLE'});
  assert.equal(result.hasModulation, true);
 });
+test('all four saved slot parameter and modulation values remain available without changing the active slot',()=>{
+ const state=summarizeDeviceConfig(JSON.stringify(referenceShape),-1);
+ assert.equal(state.slot,-1);
+ assert.deepEqual(state.list,[]);
+ assert.equal(state.presets[0].rows[0].deviceSpecific,6);
+ assert.equal(state.presets[1].rows[0].frequency,-500);
+ assert.equal(state.presets[2].modulationValues.lfo.speed,8);
+ assert.equal(state.presets[0].modulationValues.handle.depth,.5);
+ assert.equal(state.samples[0].file,'1.wav');
+ assert.equal(state.samples[0].slot,0);
+});
+test('64-KiB diagnostic limit measures UTF-8 bytes rather than JS characters',()=>{
+ const raw=JSON.stringify({name:'🎙'.repeat(20000),presets:[]});
+ assert.ok(raw.length<65536);
+ assert.ok(new TextEncoder().encode(raw).length>65536);
+ assert.throws(()=>summarizeDeviceConfig(raw,0),/size limit/);
+});
+
 test('empty saved presets, missing selected slot and no running slot remain readable',()=>{
  const a=summarizeDeviceConfig(JSON.stringify({name:'empty',presets:[{pos:2,name:'EMPTY',list:[]}]}),-1);
  assert.equal(a.slot,-1);assert.deepEqual(a.list,[]);
