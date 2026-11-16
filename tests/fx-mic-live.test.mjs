@@ -181,6 +181,38 @@ test('stock 1.1.2 REPL opt-in imports four reference-shaped saved presets read-o
  await h.adapter.disconnect();
 });
 
+test('stock config refuses oversized UTF-8 file before allocating JSON on device',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const config={presets:[],name:'🎙'.repeat(20000)};
+ const h=serialFake({probe,reply:stockConfigReply(config)});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/Device config file exceeds/);
+ assert.equal(h.commands.some(cmd=>cmd.includes('open("/fat/config.json"')),false);
+ await h.adapter.disconnect();
+});
+test('stock read-only JSON error still closes the opened device file',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const base=stockConfigReply(referenceConfig);
+ const h=serialFake({probe,reply:cmd=>cmd==='_ko_data = json.load(_ko_file)'
+   ?'Traceback (most recent call last):\\nValueError: PRIVATE_TEXT':base(cmd)});
+ await h.adapter.connect();
+ const error=await h.adapter.readState().then(()=>null,e=>e);
+ assert.match(error.message,/FX-MIC parse stored config: ValueError/);
+ assert.doesNotMatch(error.message,/PRIVATE_TEXT/);
+ assert.equal(h.commands.includes('_ko_file.close()'),true);
+ await h.adapter.disconnect();
+});
+test('stock config preserves Unicode names and sentinel-like text across UTF-8 chunks',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const pack={name:'голос 🎙 >>> Error',presets:[{pos:0,name:'тест 🎙',list:[{effect:'SAMPLE',speed:1}]}]};
+ const h=serialFake({probe,reply:stockConfigReply(pack)});
+ await h.adapter.connect();
+ const state=await h.adapter.readState();
+ assert.equal(state.packName,'голос 🎙 >>> Error');
+ assert.equal(state.presets[0].name,'тест 🎙');
+ await h.adapter.disconnect();
+});
+
 test('stock-only guard rejects CircuitPython before loading presets',async()=>{
  const h=serialFake({reply:cmd=>cmd.includes('implementation.name')?'circuitpython':undefined});
  await assert.rejects(()=>h.adapter.connect(),/Stock MicroPython required/);
