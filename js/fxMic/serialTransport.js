@@ -114,8 +114,8 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       let chunk;
       try { chunk = JSON.parse(reply); }
       catch { throw Error('Invalid JSON-encoded device config chunk'); }
-      if (typeof chunk !== 'string' || chunk.length === 0)
-        throw Error('Empty or invalid device config chunk');
+      if (typeof chunk !== 'string' || [...chunk].length !== Math.min(512, count - start))
+        throw Error('Truncated or invalid device config chunk');
       text += chunk;
     }
     await command('del _ko_json', 'release stored config buffer');
