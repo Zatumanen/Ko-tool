@@ -62,6 +62,16 @@ Review focus: malformed binary lengths and ZIP paths; stale asynchronous import
 overwriting edits; preset references after reorder/delete; late serial replies
 crossing session boundaries; preview audio/timers surviving close or mode change.
 
+## Follow-up: Studio workspace, local drafts and browser-mic audition
+
+The pinned A Thing for Ting reference offers 4 editable preset slots, preset names/comments, sample controls, parameter/modulation editing, local JSON import/export and Live device configuration transfer. K.O. TOOL offers an explicit Presets/Samples/Audition workspace with an opt-in All sections view. Browser-only operations include preset copy/reset/notes, clear a custom WAV assignment to return to the built-in sound with undo, and explicit saved-config download while the read-only device session is active.
+
+Stock 1.1.2 read-only diagnostics can be turned into a **local editable draft only after schema validation**. Any unknown/unsupported effect parameters, incomplete saved preset, or custom WAV reference blocks this conversion rather than silently dropping sound data. The flow prompts before replacing the working pack, disconnects Web Serial, and preserves Undo. Downloaded saved config JSON contains no audio and must not be called a full device backup; obtaining the device's original WAVs requires a separate authorized file transfer.
+
+Browser microphone audition uses an explicit user click and browser getUserMedia consent, does not use EP-2350 USB Serial for audio, does not claim DSP parity, and must stop every stream track and close the AudioContext on Stop/close/mode switch, denial or late completion. Headphones and low output are recommended due to acoustic feedback. Preview BUS, HARMONY, SSB and other documented approximations retain honest coverage notices.
+
+No production 1.1.2 parameter write, structural device edit, filesystem restore, or firmware reset was enabled. The reference's automatic `Ctrl+C`, slot selection and device config writes are not safe to clone without operation-specific HIL and owner approval. Verified owner-observed READ success is not evidence of writable Live compatibility.
+
 ## Physical acceptance (not executed)
 
 Record EP-2350 identity, exact stock firmware, Chrome/macOS versions, commit,
