@@ -58,7 +58,7 @@ test('unknown stock fields are diagnostic-only and cannot become writes or valid
 });
 test('bad JSON, duplicate positions, overlong data and invalid rows fail clearly',()=>{
  const invalid=[
-  ['{','invalid JSON'], ['{}','presets array'],
+  ['{{','invalid JSON'], ['{}','presets array'],
   [JSON.stringify({presets:[{pos:0,list:[]},{pos:0,list:[]}]}),'duplicate'],
   [JSON.stringify({presets:[{pos:0,list:[null]}]}),'effect row'],
   [JSON.stringify({presets:[{pos:0,list:Array(17).fill({effect:'SAMPLE'})}]}),'row count'],
