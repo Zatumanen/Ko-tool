@@ -59,7 +59,7 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
   writable:new WritableStream({write(bytes){
    const cmd=new TextDecoder().decode(bytes).trim();commands.push(cmd);
    if(cmd==='\x03')return;
-   const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.60':cmd.startsWith('print(fx.param')?'True':'');
+   const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_')?'0 [ 1 LOWPASS ]\n cutoff 0.60':cmd.startsWith('print(fx.param')?'True':'');
    if(answer!==false){const text=cmd+'\r\n'+answer+'\r\n>>> ';for(let i=0;i<text.length;i+=3)controller.enqueue(new TextEncoder().encode(text.slice(i,i+3)));}
    if(holdWrite)return new Promise(()=>{});
   }})
@@ -121,6 +121,8 @@ test('stock 1.1.2 REPL opt-in handles boot output and reports unverified version
  assert.equal(identity.model,'EP-2350');assert.equal(identity.firmware,'1.1.2');
  assert.equal(identity.firmwareVerified,false);
  const loaded=await h.adapter.readState();assert.deepEqual(loaded.list,[{effect:'LOWPASS',cutoff:.6}]);assert.equal(loaded.hasModulation,false);
+ assert.equal(loaded.source,'stored-preset');
+ assert.deepEqual(h.commands.filter(x=>x.startsWith('fx.list_')),['fx.list_preset(0)']);
  assert.deepEqual(h.commands.slice(0,3),['\x03','\x03','']);
  await h.adapter.disconnect();
 });
@@ -165,5 +167,28 @@ test('stock Live rejects unexpected slot output without touching the preset',asy
  await h.adapter.connect();
  await assert.rejects(()=>h.adapter.readState(),/Unexpected active FX preset number/);
  assert.equal(h.commands.some(x=>x.startsWith('fx.list_loaded(')),false);
+ await h.adapter.disconnect();
+});
+
+test('stock 1.1.2 diagnostic reports Python exception type and fixed read stage without exposing raw trace',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
+  :cmd.startsWith('fx.list_preset(')?'Traceback (most recent call last):\n  File "<stdin>", line 1\nAttributeError: PRIVATE_DEVICE_TEXT':undefined});
+ await h.adapter.connect();
+ const error=await h.adapter.readState().then(()=>null,e=>e);
+ assert.match(error.message,/FX-MIC saved FX preset read: AttributeError/);
+ assert.doesNotMatch(error.message,/PRIVATE_DEVICE_TEXT|Traceback/);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_loaded')||x.startsWith('print(fx.param')||x.startsWith('fx.load_preset')),false);
+ await h.adapter.disconnect();
+});
+
+test('stock 1.1.2 diagnostic reports exact failing initial command without writing',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
+  :cmd.startsWith('import fx')?'Traceback (most recent call last):\nImportError: PRIVATE_MODULE_NAME':undefined});
+ const error=await h.adapter.connect().then(()=>null,e=>e);
+ assert.match(error.message,/FX-MIC stock module import: ImportError/);
+ assert.doesNotMatch(error.message,/PRIVATE_MODULE_NAME/);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_')||x.startsWith('print(fx.param')),false);
  await h.adapter.disconnect();
 });

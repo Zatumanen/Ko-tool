@@ -88,7 +88,7 @@ can stop the audio until the device restarts, and never happens automatically.
 Such physical intervention requires separate scenario-specific authorization.
 A selected stock version is labelled unverified if not reported by the runtime;
 unverified versions cannot enable the 1.0.8 write trial.
-The diagnostic reader requests `teenage.fx_pos`, `fx.list_loaded(slot)`, and `teenage.fx_pos` separately, rejecting an inactive slot (`-1`) or a change during readback. It never loads or switches presets to manufacture an active state. If the prompt, stock runtime or readback is not recognized, stop and record the exact error. The
+For stock 1.1.2, the read-only diagnostic requests `teenage.fx_pos`, `fx.list_preset(slot)` (saved definition, NOT the active DSP chain), then `teenage.fx_pos`. This matches the reference's saved-preset import path without calling `fx.load_preset`, modifying `teenage.fx_pos` or writing files. The 1.0.8 guarded write trial continues to read `fx.list_loaded(slot)` as active readback. The reader rejects inactive slots (`-1`) or changes during the read. Python exceptions surface a fixed operation label and exception type only, without the raw device trace or private text. A successful synthetic test does not establish physical 1.1.2 compatibility. The
 CircuitPython mod is a separate firmware and is outside this trial.
 
 Stock 1.0.8 has one guarded, user-confirmed cutoff trial based on the pinned

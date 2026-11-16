@@ -63,7 +63,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       }
     } catch (error) { if (token === epoch) failed(error); }
   }
-  async function command(text) {
+  async function command(text, stage = 'serial command') {
     if (!connected || pending) throw Error('Serial session unavailable or busy');
     const token = epoch;
     let timer;
@@ -75,7 +75,12 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       const lines = reply.split('\n');
       if (lines[0] === text) lines.shift();
       const output = lines.join('\n').trim();
-      if (/Traceback|Error|>>>/.test(output)) throw Error('Device rejected fixed command');
+      if (/Traceback|Error|>>>/.test(output)) {
+        // Report a fixed diagnostic stage and Python exception type, never raw
+        // device output (which could contain private files or user data).
+        const kind = /(?:^|\n)([A-Za-z_]\w*(?:Error|Exception))\s*:/.exec(output)?.[1];
+        throw Error('FX-MIC '+stage+': '+(kind|| (output.includes('>>>')?'unexpected REPL prompt':'unexpected device response')));
+      }
       return output;
     } catch (error) { if (token === epoch) failed(error); throw error; }
     finally { clearTimeout(timer); }
@@ -108,16 +113,16 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
           await writer.write(encoder.encode('\r\n'));
           await sleep(300);
         }
-        const greeting = probeProfile.manualTrial ? await command('') : '';
+        const greeting = probeProfile.manualTrial ? await command('', 'REPL readiness') : '';
         if (!allowReplInterrupt && greeting !== '') throw Error('REPL is not clean; enable explicit REPL preparation or disconnect');
-        const runtime = await command("print(__import__('sys').implementation.name)");
+        const runtime = await command("print(__import__('sys').implementation.name)", 'MicroPython runtime check');
         if (runtime !== 'micropython') throw Error('Stock MicroPython required; CircuitPython is a different firmware');
-        const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))");
+        const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))", 'device identity check');
         // USB ID and stock-only imports establish the device family. The selected
         // firmware is not verified unless an exact version is reported by REPL.
         const match = /^EP-2350\s+(\d+\.\d+\.\d+)$/.exec(machine);
         if (match && match[1] !== probeProfile.firmware) throw Error('Firmware mismatch: device '+match[1]+', selected '+probeProfile.firmware);
-        const imported = await command('import fx, teenage');
+        const imported = await command('import fx, teenage', 'stock module import');
         if (imported !== '') throw Error('Cannot access stock FX-MIC modules');
         return { model: 'EP-2350', firmware: probeProfile.firmware,
           firmwareVerified: Boolean(match), board: machine.replace(/[^\x20-\x7e]/g,' ').slice(0,120) };
@@ -127,15 +132,21 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       // The working stock reference reads the slot and effect chain in separate
       // REPL calls. A combined Python statement is not a stable response format
       // across stock firmware versions.
-      const before = await command('print(teenage.fx_pos)');
+      const before = await command('print(teenage.fx_pos)', 'active FX slot before read');
       if (before === '-1') throw Error('No FX preset is active on the device; choose a preset on the mic and reconnect');
       if (!/^[0-3]$/.test(before)) throw Error('Unexpected active FX preset number (expected 0–3)');
-      const rawChain = await command('fx.list_loaded(' + Number(before) + ')');
+      // Stock 1.1.2 diagnostics inspect the saved preset definition, as the
+      // working reference does. This is NOT the currently loaded DSP chain;
+      // stock 1.0.8 write trials must retain the active-chain readback.
+      const stored = probeProfile.firmware === '1.1.2';
+      const rawChain = await command('fx.'+(stored?'list_preset':'list_loaded')+'(' + Number(before) + ')',
+        stored?'saved FX preset read':'active FX chain read');
       // Never silently switch or load a slot just to satisfy a read-only probe.
-      const after = await command('print(teenage.fx_pos)');
+      const after = await command('print(teenage.fx_pos)', 'active FX slot after read');
       if (after !== before) throw Error('FX preset changed during readback; keep the hardware buttons idle and reconnect');
       const loaded = { slot: Number(before), list: parseLoadedPreset(rawChain),
-        hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain) };
+        hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain),
+        ...(stored ? { source: 'stored-preset' } : {}) };
       initializing = false;
       return loaded;
     },
@@ -146,7 +157,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         || !Number.isFinite(value) || value < rule.min || value > rule.max || !(rule.step > 0)
         || Math.abs((value - rule.min) / rule.step - Math.round((value - rule.min) / rule.step)) > 1e-7) throw Error('Serial parameter not allowlisted');
       // Slot stability is checked again in the same command before the only write.
-      const output = await command(`print(fx.param(${slot}, ${row}, "${param}", ${value}) if teenage.fx_pos == ${slot} else False)`);
+      const output = await command(`print(fx.param(${slot}, ${row}, "${param}", ${value}) if teenage.fx_pos == ${slot} else False)`, 'parameter write');
       if (output !== 'True' && !(probeProfile.manualTrial && output === 'None')) { const error = Error('Parameter write not acknowledged'); failed(error); throw error; }
       return true;
     },

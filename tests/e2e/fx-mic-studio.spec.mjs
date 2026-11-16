@@ -176,7 +176,7 @@ test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without write
     const reply=command.includes('implementation.name')?'micropython'
      :command.includes('_machine')?'EP-2350 1.1.2'
      :command==='print(teenage.fx_pos)'?'0'
-     :command.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';
+     :command.startsWith('fx.list_preset(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';
     reader.enqueue(new TextEncoder().encode(command+'\r\n'+reply+'\r\n>>> '));
    }})
   };
@@ -187,12 +187,13 @@ test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without write
  await page.getByLabel('Stock firmware').selectOption('1.1.2');
  await page.getByRole('button',{name:'Connect EP-2350'}).click();
  await expect(page.locator('[data-live-state]')).toContainText('ready · EP-2350 · 1.1.2');
- await expect(page.locator('[data-live-state]')).toContainText('preset 1');
+ await expect(page.locator('[data-live-state]')).toContainText('saved preset 1');
  await expect(page.getByRole('button',{name:'Apply one test change'})).toHaveCount(0);
  await expect(page.getByText('Read only.',{exact:false})).toBeVisible();
+ await expect(page.getByText('Saved FX preset definition',{exact:false})).toBeVisible();
  const commands=await page.evaluate(()=>window.fxCommands);
  expect(commands.filter(cmd=>cmd==='print(teenage.fx_pos)')).toHaveLength(2);
- expect(commands.filter(cmd=>cmd==='fx.list_loaded(0)')).toHaveLength(1);
- expect(commands.some(cmd=>cmd.startsWith('fx.load_preset')||cmd.startsWith('print(fx.param'))).toBe(false);
+ expect(commands.filter(cmd=>cmd==='fx.list_preset(0)')).toHaveLength(1);
+ expect(commands.some(cmd=>cmd.startsWith('fx.load_preset')||cmd.startsWith('fx.list_loaded')||cmd.startsWith('print(fx.param'))).toBe(false);
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
 });

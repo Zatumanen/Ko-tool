@@ -63,7 +63,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
     <button data-action="live-disconnect" ${hasSession?'':'disabled'}>Disconnect</button>
    </div>
    <label><input type="checkbox" data-live-repl-consent ${liveReplConsent?'checked':''} ${busy||hasSession?'disabled':''}> Prepare REPL with Ctrl+C (interrupts the running program; no automatic reset)</label>
-   <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware)+(identity.firmwareVerified?' · firmware verified':' · version selected, not verified'):''}${current?' · preset '+(current.slot+1):''}</p>
+   <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware)+(identity.firmwareVerified?' · firmware verified':' · version selected, not verified'):''}${current?' · '+(current.source==='stored-preset'?'saved preset ':'preset ')+(current.slot+1):''}</p>
+   ${current?.source==='stored-preset'?'<p>Saved FX preset definition (read only). This is not the currently loaded audio chain.</p>':''}
    ${!win.navigator?.serial?.requestPort?'<p>Web Serial is unavailable. Use Chrome on a desktop and open the site directly.</p>':''}
    ${current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
    ${active&&original===null?'<p>Read only. The write trial requires stock 1.0.8 and a preset containing one unmodulated LOWPASS effect.</p>':''}
