@@ -27,17 +27,22 @@ export function parseLoadedPreset(text) {
 }
 
 export function createSerialTransport({ serial = globalThis.navigator?.serial, probeProfile = null, timeoutMs = 1000, allowReplInterrupt = false } = {}) {
-  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false, lastCommandAt = 0;
+  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false, lastCommandAt = 0, closePromise = null, startupBuffer = '', readyResolve = null, readyObserved = false;
   const encoder = new TextEncoder();
   async function disconnect() {
+    if (closePromise) return closePromise;
     epoch++; connected = false; initializing = false; lastCommandAt = 0;
+    readyResolve = null; readyObserved = false; startupBuffer = '';
     pending?.reject(Error('Serial disconnected')); pending = null;
     const oldReader = reader, oldWriter = writer, oldPort = port;
     reader = writer = port = null;
-    try { await oldReader?.cancel(); } catch {}
-    try { oldReader?.releaseLock(); } catch {}
-    try { oldWriter?.releaseLock(); } catch {}
-    try { await oldPort?.close(); } catch {}
+    closePromise = (async () => {
+      try { await oldReader?.cancel(); } catch {}
+      try { oldReader?.releaseLock(); } catch {}
+      try { oldWriter?.releaseLock(); } catch {}
+      try { await oldPort?.close(); } catch {}
+    })();
+    try { await closePromise; } finally { closePromise = null; }
   }
   function failed(error) {
     pending?.reject(error); pending = null;
@@ -50,15 +55,28 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const { value, done } = await ownedReader.read();
         if (token !== epoch) return;
         if (done) throw Error('Serial stream ended');
+        const fragment = decoder.decode(value, { stream: true });
         if (!pending) {
-          // Startup messages and control echoes are expected while entering REPL.
-          if (initializing) continue;
+          if (initializing) {
+            startupBuffer += fragment;
+            if (startupBuffer.length > 4096) throw Error('REPL startup output too large');
+            if (/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/.test(startupBuffer)) {
+              readyObserved = true;
+              readyResolve?.(); readyResolve = null;
+              startupBuffer = '';
+            }
+            continue;
+          }
+          // A complete prompt can be followed by CR/LF in another USB packet.
+          if (/^[\\r\\n \\t]*$/.test(fragment)) continue;
           throw Error('Unsolicited serial output');
         }
-        pending.text += decoder.decode(value, { stream: true });
+        pending.text += fragment;
         if (pending.text.length > 16384) throw Error('Serial response too large');
-        if (/>>>[ \t]*(?:\r?\n)?$/.test(pending.text)) {
-          const reply = pending.text.replace(/>>>[ \t]*(?:\r?\n)?$/, '').replace(/\r/g, '');
+        // Require a complete prompt with its trailing space; bare >>> may
+        // be a partial USB packet, not an answer boundary.
+        if (/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/.test(pending.text)) {
+          const reply = pending.text.replace(/(?:^|\\n)>>> [\\t]*(?:\\r?\\n)?$/, '').replace(/\\r/g, '');
           pending.resolve(reply); pending = null;
         }
       }
@@ -71,13 +89,13 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
     const wait = 50 - (Date.now() - lastCommandAt);
     if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
     if (token !== epoch || !connected || pending) throw Error('Serial session changed before command');
-    lastCommandAt = Date.now();
     let timer;
     const response = new Promise((resolve, reject) => { pending = { resolve, reject, text: '' }; });
     // Attach handlers before awaiting the writer: the stream may fail immediately.
     const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Serial response timeout')), deadlineMs); });
     try {
       const [, reply] = await Promise.race([Promise.all([writer.write(encoder.encode(text + '\r\n')), response]), deadline]);
+      lastCommandAt = Date.now();
       const lines = reply.split('\n');
       if (lines[0] === text) lines.shift();
       const output = lines.join('\n').trim();
@@ -125,6 +143,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
     onDisconnect(fn) { onLoss = fn; },
     async connect() {
       if (!probeProfile?.evidenceId || probeProfile.model !== 'EP-2350' || !/^\d+\.\d+\.\d+$/.test(probeProfile.firmware)) throw Error('Serial probe requires exact-firmware acceptance');
+      if (closePromise) await closePromise;
       if (port) throw Error('Serial already connected');
       if (!serial?.requestPort) throw Error('Web Serial unavailable');
       const token = ++epoch;
@@ -137,6 +156,8 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const info = selected.getInfo();
         if (info.usbVendorId !== 0x2367 || info.usbProductId !== 0x0620) throw Error('Not an EP-2350 serial port');
         reader = selected.readable.getReader(); writer = selected.writable.getWriter(); connected = true; initializing = true;
+        readyObserved = false; startupBuffer = '';
+        const ready = new Promise(resolve => { readyResolve = resolve; });
         void readLoop(reader, token);
         if (allowReplInterrupt) {
           // Explicit user opt-in: Ctrl+C interrupts the device's running program.
@@ -149,8 +170,19 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
           await writer.write(encoder.encode('\r\n'));
           await sleep(300);
         }
-        const greeting = probeProfile.manualTrial ? await command('', 'REPL readiness') : '';
-        if (!allowReplInterrupt && greeting !== '') throw Error('REPL is not clean; enable explicit REPL preparation or disconnect');
+        if (!allowReplInterrupt) {
+          // No serial bytes at all until we passively observe a clean prompt.
+          // A newline may execute previously typed MicroPython source.
+          let timer;
+          try {
+            await Promise.race([ready, new Promise((_, reject) => {
+              timer = setTimeout(() => reject(Error('Clean REPL prompt not observed passively; no command sent')), 800);
+            })]);
+            if (!readyObserved) throw Error('REPL readiness was not confirmed');
+          } finally { clearTimeout(timer); readyResolve = null; }
+        } else {
+          await command('', 'REPL readiness');
+        }
         const runtime = await command("print(__import__('sys').implementation.name)", 'MicroPython runtime check');
         if (runtime !== 'micropython') throw Error('Stock MicroPython required; CircuitPython is a different firmware');
         const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))", 'device identity check');
