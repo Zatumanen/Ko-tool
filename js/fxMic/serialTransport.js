@@ -7,27 +7,27 @@ export function parseLoadedPreset(text) {
   let effect;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim(); if (!line) continue;
-    const header = /^(\d+) \[ \d+ ([A-Z]+) \]$/.exec(line);
+    const header = /^(\d+)\s*\[\s*\d+\s+([A-Z]+)\s*\](?:\s*->\s*([12]))?$/.exec(line);
     if (header) {
-      if (Number(header[1]) !== list.length || !Object.hasOwn(EFFECTS, header[2]) || list.length >= 16) throw Error('Invalid loaded effect row');
-      effect = { effect: header[2] }; list.push(effect); continue;
+      if (Number(header[1]) !== list.length || (header[2] !== 'NONE' && !Object.hasOwn(EFFECTS, header[2])) || list.length >= 16) throw Error('Invalid loaded effect row');
+      effect = { effect: header[2], ...(header[3] ? { BUS: Number(header[3]) } : {}) }; list.push(effect); continue;
     }
     const field = /^([A-Za-z-]+)\s+(-?\d+(?:\.\d+)?)$/.exec(line);
-    const range = field && effect && Object.hasOwn(EFFECTS[effect.effect],field[1]) && EFFECTS[effect.effect][field[1]];
+    const range = field && effect && Object.hasOwn(EFFECTS[effect.effect] || {},field[1]) && EFFECTS[effect.effect][field[1]];
     if (!range || Object.hasOwn(effect, field[1])) throw Error('Unrecognized loaded preset output');
     const value = Number(field[2]);
     if (!Number.isFinite(value) || value < range[0] || value > range[1]) throw Error('Invalid loaded parameter');
     effect[field[1]] = value;
   }
-  if (!list.length || list.some(item => Object.keys(item).length < 2)) throw Error('Incomplete loaded preset');
+  if (!list.length || list.some(item => item.effect !== 'NONE' && !Object.keys(item).some(key => key !== 'effect' && key !== 'BUS'))) throw Error('Incomplete loaded preset');
   return list;
 }
 
-export function createSerialTransport({ serial = globalThis.navigator?.serial, probeProfile = null, timeoutMs = 1000 } = {}) {
-  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false;
+export function createSerialTransport({ serial = globalThis.navigator?.serial, probeProfile = null, timeoutMs = 1000, allowReplInterrupt = false } = {}) {
+  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false;
   const encoder = new TextEncoder();
   async function disconnect() {
-    epoch++; connected = false;
+    epoch++; connected = false; initializing = false;
     pending?.reject(Error('Serial disconnected')); pending = null;
     const oldReader = reader, oldWriter = writer, oldPort = port;
     reader = writer = port = null;
@@ -38,7 +38,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
   }
   function failed(error) {
     pending?.reject(error); pending = null;
-    connected = false; void disconnect(); onLoss();
+    connected = false; void disconnect(); onLoss(error);
   }
   async function readLoop(ownedReader, token) {
     const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -47,11 +47,15 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const { value, done } = await ownedReader.read();
         if (token !== epoch) return;
         if (done) throw Error('Serial stream ended');
-        if (!pending) throw Error('Unsolicited serial output');
+        if (!pending) {
+          // Startup messages and control echoes are expected while entering REPL.
+          if (initializing) continue;
+          throw Error('Unsolicited serial output');
+        }
         pending.text += decoder.decode(value, { stream: true });
         if (pending.text.length > 16384) throw Error('Serial response too large');
-        if (pending.text.endsWith('>>> ')) {
-          const reply = pending.text.slice(0, -4).replace(/\r/g, '');
+        if (/>>>[ \t]*$/.test(pending.text)) {
+          const reply = pending.text.replace(/>>>[ \t]*$/, '').replace(/\r/g, '');
           pending.resolve(reply); pending = null;
         }
       }
@@ -89,23 +93,41 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         if (token !== epoch) { await selected.close(); throw Error('Serial connection cancelled'); }
         const info = selected.getInfo();
         if (info.usbVendorId !== 0x2367 || info.usbProductId !== 0x0620) throw Error('Not an EP-2350 serial port');
-        reader = selected.readable.getReader(); writer = selected.writable.getWriter(); connected = true;
+        reader = selected.readable.getReader(); writer = selected.writable.getWriter(); connected = true; initializing = true;
         void readLoop(reader, token);
-        if (probeProfile.manualTrial && await command('') !== '') throw Error('A clean serial prompt is required');
-        const machine = await command("print(__import__('sys').implementation._machine)");
-        const match = /^EP-2350 (\d+\.\d+\.\d+)$/.exec(machine);
-        if (!match || match[1] !== probeProfile.firmware) {
-          const detail = probeProfile.manualTrial ? ': '+machine.replace(/[^\x20-\x7e]/g,' ').slice(0,120) : '';
-          throw Error('Unverified serial identity'+detail);
+        if (allowReplInterrupt) {
+          // Explicit user opt-in: Ctrl+C interrupts the device's running program.
+          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+          await sleep(100);
+          await writer.write(encoder.encode('\x03'));
+          await sleep(300);
+          await writer.write(encoder.encode('\x03'));
+          await sleep(200);
+          await writer.write(encoder.encode('\r\n'));
+          await sleep(300);
         }
-        return { model: 'EP-2350', firmware: match[1] };
+        const greeting = probeProfile.manualTrial ? await command('') : '';
+        if (!allowReplInterrupt && greeting !== '') throw Error('REPL is not clean; enable explicit REPL preparation or disconnect');
+        const runtime = await command("print(__import__('sys').implementation.name)");
+        if (runtime !== 'micropython') throw Error('Stock MicroPython required; CircuitPython is a different firmware');
+        const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))");
+        // USB ID and stock-only imports establish the device family. The selected
+        // firmware is not verified unless an exact version is reported by REPL.
+        const match = /\b(\d+\.\d+\.\d+)\b/.exec(machine);
+        if (match && match[1] !== probeProfile.firmware) throw Error('Firmware mismatch: device '+match[1]+', selected '+probeProfile.firmware);
+        const imported = await command('import fx, teenage');
+        if (imported !== '') throw Error('Cannot access stock FX-MIC modules');
+        return { model: 'EP-2350', firmware: probeProfile.firmware,
+          firmwareVerified: Boolean(match), board: machine.replace(/[^\x20-\x7e]/g,' ').slice(0,120) };
       } catch (error) { if (token === epoch) await disconnect(); throw error; }
     },
     async readState() {
       const output = await command('print(teenage.fx_pos); fx.list_loaded(teenage.fx_pos); print(teenage.fx_pos)');
       const lines = output.split('\n'), first = lines.shift(), last = lines.pop();
       if (!/^[0-3]$/.test(first) || first !== last) throw Error('Active preset changed or is unavailable');
-      return { slot: Number(first), list: parseLoadedPreset(lines.join('\n')) };
+      const loaded = { slot: Number(first), list: parseLoadedPreset(lines.join('\n')) };
+      initializing = false;
+      return loaded;
     },
     async writeParameter({ slot, row, effect, param, value }) {
       const rule = probeProfile?.parameters?.[effect]?.[param];
