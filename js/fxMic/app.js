@@ -16,7 +16,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
  const root=doc.createElement('section');root.id='fx-mic-window';root.className='window fx-mic-window';root.hidden=true;root.setAttribute('role','dialog');root.setAttribute('aria-label','FX-MIC Studio');doc.body.append(root);
  const store=createPackStore(),local=createLocalPacks(),history=[];
  let selected=0,mode='emulation',opened=false,lifecycle=0,error='',status='Offline · your files stay in this browser',localNames=[],selectedLocal='',route='mic',previewSlot=0;
- let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false,liveReplConsent=false;
+ let controls={handle:0,shake:0},liveFirmware='',liveConfirmed=false,liveReplConsent=false,inspectSlot=0;
  const trial=createHardwareTrial({onChange:renderLive});
  const audio=createEmulation({onEnd:()=>{status='Stopped';updateStatus();}});
  const q=selector=>root.querySelector(selector);
@@ -53,7 +53,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   const canApply=active&&phase==='read'&&original!==null&&liveConfirmed&&!busy;
   const canRestore=active&&phase==='changed'&&!busy;
   return `<h2>LIVE · EP-2350 hardware trial</h2>
-   <p>Connection expects a ready REPL prompt unless you opt in to preparation. Ctrl+C preparation interrupts the running program and may stop audio until reboot; it never writes device files.
+   <p>Without Ctrl+C consent, connection waits for a passively observed clean REPL prompt and sends no bytes if one is not received. Ctrl+C preparation interrupts the running program and may stop audio until reboot; it never writes device files.
    Listen to the physical analog output through an audio interface.</p>
    <div class="fx-toolbar">
     <label>Stock firmware<select aria-label="Stock firmware" data-live-firmware ${active||busy||restorePending?'disabled':''}>
@@ -107,18 +107,20 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   Object.assign(root.style,position);makeDraggableWindow(root,{windowRef:win});
  }
  async function open(){if(opened){root.focus();return;}opened=true;lifecycle++;root.hidden=false;render();await run(async token=>{localNames=await local.list();ensureActive(token);render();});}
- function close(){opened=false;lifecycle++;audio.stop();void trial.disconnect();liveConfirmed=false;root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
+ function close(){opened=false;lifecycle++;audio.stop();void trial.disconnect();liveConfirmed=false;liveReplConsent=false;root.hidden=true;mode='emulation';status='Stopped · offline work retained';}
  root.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||b.disabled)return;void run(async token=>{
   const action=b.dataset.action;
   if(action==='close'){close();return;}
   if(action==='emulation'||action==='live'){
    if(mode==='live'&&action==='emulation'){await trial.disconnect();ensureActive(token);liveConfirmed=false;}
-   audio.stop();mode=action;status=action==='live'?'Hardware trial · not yet accepted':'Offline';render();return;
+   liveReplConsent=false;audio.stop();mode=action;status=action==='live'?'Hardware trial · not yet accepted':'Offline';render();return;
   }
   if(['live-connect','live-disconnect','live-apply','live-restore','live-recovered'].includes(action)){
    if(action==='live-connect'||action==='live-disconnect')liveConfirmed=false;
+   const consent=liveReplConsent; // Single-use explicit authorization, never sticky.
+   if(action==='live-connect'||action==='live-disconnect')liveReplConsent=false;
    try{
-    const operation=action==='live-connect'?trial.connect(liveFirmware,{allowReplInterrupt:liveReplConsent})
+    const operation=action==='live-connect'?trial.connect(liveFirmware,{allowReplInterrupt:consent})
       :action==='live-disconnect'?trial.disconnect()
       :action==='live-apply'?trial.apply(liveConfirmed)
       :action==='live-restore'?trial.restore():trial.acknowledgeRecovery();
