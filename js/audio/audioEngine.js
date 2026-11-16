@@ -1,4 +1,9 @@
-import{getLibSampleRateModule}from '../ep133/resampler.js?v=20261001-1';
+// Defer the large reference Emscripten runtime until audio conversion needs it.
+// Keep the same canonical module, ABI and error semantics; no DSP fallback.
+async function loadDefaultReferenceModule(){
+  const{getLibSampleRateModule}=await import('../ep133/resampler.js?v=20261001-1');
+  return getLibSampleRateModule();
+}
 
 const asUint8=value=>value instanceof Uint8Array?value:new Uint8Array(value?.buffer||value||[]);
 const finitePositive=(value,label)=>{
@@ -17,7 +22,7 @@ const makeBuffer=(length,sampleRate,channels)=>{
 };
 
 export async function getReferenceAudioModule({module=null,moduleProvider=null}={}){
-  const resolved=module||await (typeof moduleProvider==='function'?moduleProvider():getLibSampleRateModule());
+  const resolved=module||await (typeof moduleProvider==='function'?moduleProvider():loadDefaultReferenceModule());
   if(!resolved||typeof resolved.resampleAudioData!=='function'||typeof resolved.createWav!=='function')
     throw new Error('EP-series reference audio module is unavailable.');
   return resolved;
