@@ -112,6 +112,13 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    </nav>
    <div class="fx-toolbar fx-pack-toolbar"><label>Pack name<input aria-label="Pack name" data-pack-name maxlength="128" value="${esc(pack.config.name||'')}"></label><label>Import ZIP / config.json<input aria-label="Import ZIP or config" data-import type="file" accept=".zip,.json"></label><button data-action="export">Export ZIP</button><button data-action="json">Export config</button></div>
    <p class="fx-budget">${esc(STOCK_PROFILE.label)}<br><strong>${stats.bytes.toLocaleString()} bytes</strong> WAV + config · ${(STOCK_PROFILE.budgetBytes-stats.bytes).toLocaleString()} bytes budget remaining${stats.nearLimit?' · Near authoring limit':''}. ZIP compression does not increase device capacity.</p>
+   <details class="fx-install-guide"><summary>Install a finished pack on the physical FX-MIC</summary><ol>
+    <li>Back up the original device config.json and custom WAV files first.</li>
+    <li>Export ZIP, then unpack it. Check the effect routing and WAV names before copying.</li>
+    <li>Power the EP-2350 on and connect USB-C. Open its FX-MIC storage disk on your computer.</li>
+    <li>Copy the validated config.json and its custom WAV files into the disk root using your computer's file manager. Eject the disk properly so the mic reloads.</li>
+    <li>This is a <strong>manual device file write</strong>, outside K.O. TOOL's Live read-only connection. Do not overwrite your real presets without a backup. The FX-MIC's exact firmware/audio result is not yet validated here.</li>
+   </ol><p><a href="https://teenage.engineering/guides/ep-2350" target="_blank" rel="noopener noreferrer">Official EP-2350 guide</a></p></details>
    <div class="fx-toolbar"><button data-action="save">Save local pack</button><select aria-label="Local packs" data-local>${option('','Choose saved pack',selectedLocal)}${localNames.map(n=>option(n,n,selectedLocal)).join('')}</select><button data-action="load" ${selectedLocal?'':'disabled'}>Load local pack</button></div>
    <section class="fx-section" data-fx-pane="samples" ${workspace==='samples'||workspace==='all'?'':'hidden'}>
    <div class="fx-section-heading"><h2>Samples</h2><p>Four WAV slots · locally loaded audio or built-in sounds.</p></div>
