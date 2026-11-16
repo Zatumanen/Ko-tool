@@ -124,11 +124,17 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       } catch (error) { if (token === epoch) await disconnect(); throw error; }
     },
     async readState() {
-      const output = await command('print(teenage.fx_pos); fx.list_loaded(teenage.fx_pos); print(teenage.fx_pos)');
-      const lines = output.split('\n'), first = lines.shift(), last = lines.pop();
-      if (!/^[0-3]$/.test(first) || first !== last) throw Error('Active preset changed or is unavailable');
-      const rawChain = lines.join('\n');
-      const loaded = { slot: Number(first), list: parseLoadedPreset(rawChain),
+      // The working stock reference reads the slot and effect chain in separate
+      // REPL calls. A combined Python statement is not a stable response format
+      // across stock firmware versions.
+      const before = await command('print(teenage.fx_pos)');
+      if (before === '-1') throw Error('No FX preset is active on the device; choose a preset on the mic and reconnect');
+      if (!/^[0-3]$/.test(before)) throw Error('Unexpected active FX preset number (expected 0–3)');
+      const rawChain = await command('fx.list_loaded(' + Number(before) + ')');
+      // Never silently switch or load a slot just to satisfy a read-only probe.
+      const after = await command('print(teenage.fx_pos)');
+      if (after !== before) throw Error('FX preset changed during readback; keep the hardware buttons idle and reconnect');
+      const loaded = { slot: Number(before), list: parseLoadedPreset(rawChain),
         hasModulation: /^(HANDLE|SHAKE|LFO|TRIGGER):$/m.test(rawChain) };
       initializing = false;
       return loaded;

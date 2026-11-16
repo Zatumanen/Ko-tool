@@ -88,7 +88,7 @@ can stop the audio until the device restarts, and never happens automatically.
 Such physical intervention requires separate scenario-specific authorization.
 A selected stock version is labelled unverified if not reported by the runtime;
 unverified versions cannot enable the 1.0.8 write trial.
-If the prompt, stock runtime or readback is not recognized, stop and record the exact error. The
+The diagnostic reader requests `teenage.fx_pos`, `fx.list_loaded(slot)`, and `teenage.fx_pos` separately, rejecting an inactive slot (`-1`) or a change during readback. It never loads or switches presets to manufacture an active state. If the prompt, stock runtime or readback is not recognized, stop and record the exact error. The
 CircuitPython mod is a separate firmware and is outside this trial.
 
 Stock 1.0.8 has one guarded, user-confirmed cutoff trial based on the pinned

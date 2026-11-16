@@ -135,7 +135,8 @@ test('hardware trial connects explicitly and verifies change and restore through
     let reply='';
     if(command.includes('implementation.name'))reply='micropython';
     else if(command.includes('_machine'))reply='EP-2350 1.0.8';
-    else if(command.startsWith('print(teenage.fx_pos)'))reply='0\n0 [ 1 LOWPASS ]\n cutoff '+cutoff+'\n0';
+    else if(command==='print(teenage.fx_pos)')reply='0';
+    else if(command.startsWith('fx.list_loaded('))reply='0 [ 1 LOWPASS ]\n cutoff '+cutoff;
     else if(command.startsWith('print(fx.param')){
      cutoff=Number(command.match(/"cutoff", ([0-9.]+)/)[1]);reply='None';
     }
@@ -161,4 +162,37 @@ test('hardware trial connects explicitly and verifies change and restore through
  expect(await page.evaluate(()=>window.fxCommands.filter(command=>command.startsWith('print(fx.param')))).toHaveLength(2);
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
  await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
+});
+
+test('stock FX-MIC 1.1.2 Live reads separate slot and loaded chain without writes',async({page})=>{
+ await page.addInitScript(()=>{
+  window.fxCommands=[];let reader;
+  const port={
+   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),
+   open:async()=>{},close:async()=>{},
+   readable:new ReadableStream({start(controller){reader=controller;}}),
+   writable:new WritableStream({write(bytes){
+    const command=new TextDecoder().decode(bytes).trim();window.fxCommands.push(command);
+    const reply=command.includes('implementation.name')?'micropython'
+     :command.includes('_machine')?'EP-2350 1.1.2'
+     :command==='print(teenage.fx_pos)'?'0'
+     :command.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';
+    reader.enqueue(new TextEncoder().encode(command+'\r\n'+reply+'\r\n>>> '));
+   }})
+  };
+  Object.defineProperty(navigator,'serial',{value:{requestPort:async()=>port},configurable:true});
+ });
+ await open(page);
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await page.getByLabel('Stock firmware').selectOption('1.1.2');
+ await page.getByRole('button',{name:'Connect EP-2350'}).click();
+ await expect(page.locator('[data-live-state]')).toContainText('ready · EP-2350 · 1.1.2');
+ await expect(page.locator('[data-live-state]')).toContainText('preset 1');
+ await expect(page.getByRole('button',{name:'Apply one test change'})).toHaveCount(0);
+ await expect(page.getByText('Read only.',{exact:false})).toBeVisible();
+ const commands=await page.evaluate(()=>window.fxCommands);
+ expect(commands.filter(cmd=>cmd==='print(teenage.fx_pos)')).toHaveLength(2);
+ expect(commands.filter(cmd=>cmd==='fx.list_loaded(0)')).toHaveLength(1);
+ expect(commands.some(cmd=>cmd.startsWith('fx.load_preset')||cmd.startsWith('print(fx.param'))).toBe(false);
+ await page.getByRole('button',{name:'Disconnect',exact:true}).click();
 });
