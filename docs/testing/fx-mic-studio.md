@@ -51,7 +51,7 @@ Persistent local ledger: work/fx-mic-progress.md.
    cancellation and close cleanup. Untouched input WAVs remain original bytes.
 4. `liveSession.js`, `serialTransport.js`: isolated typed command surface,
    exact identity/profile gating, serialized operations, readback, session
-   invalidation and bounded responses. No arbitrary script/eval, Ctrl+C,
+   invalidation and bounded responses. No arbitrary script/eval or automatic Ctrl+C,
    firmware install, filesystem writes, structural edits or retry after
    ambiguity. Production write evidence starts empty. Fake tests cover denied
    permissions, incompatible firmware, timeout, disconnect and mismatch.
@@ -67,7 +67,7 @@ crossing session boundaries; preview audio/timers surviving close or mode change
 Record EP-2350 identity, exact stock firmware, Chrome/macOS versions, commit,
 USB mode and audio interface. Back up config and WAVs; close other managers.
 Use a pre-existing expendable simple preset with an unmodulated, evidenced
-parameter. Establish safe connection without interrupting/replacing device code;
+parameter. Establish safe connection, using an existing REPL where possible; opt-in Ctrl+C preparation interrupts the running firmware program and is not part of an unattended hardware check;
 read active state, authorize one bounded change, send, read back and compare at
 the proven numeric resolution, listen to the analog output via an interface,
 restore original parameter and verify. Disconnect safely and verify hardware
@@ -81,8 +81,14 @@ Fake transport and CI do not satisfy this acceptance.
 Open FX-MIC Studio → Live in desktop Chrome. Back up the device and select an
 expendable preset with just one unmodulated LOWPASS row. Keep a record of the
 original cutoff. Select the exact stock OS version and connect using an already
-available serial prompt. The app sends no interrupt or reset. If the prompt,
-model/version or readback is not recognized, stop and record the error. The
+available serial prompt. Alternatively, a separate unchecked-by-default option
+allows two Ctrl+C characters and a fresh newline, following the documented
+reference startup sequence. This interrupts the running Python application,
+can stop the audio until the device restarts, and never happens automatically.
+Such physical intervention requires separate scenario-specific authorization.
+A selected stock version is labelled unverified if not reported by the runtime;
+unverified versions cannot enable the 1.0.8 write trial.
+If the prompt, stock runtime or readback is not recognized, stop and record the exact error. The
 CircuitPython mod is a separate firmware and is outside this trial.
 
 Stock 1.0.8 has one guarded, user-confirmed cutoff trial based on the pinned
