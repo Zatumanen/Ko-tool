@@ -26,6 +26,14 @@ for(const [name,options]of [['mismatch',{mismatch:true}],['read failure',{failRe
  const h=fake(options);if(name==='mismatch'){await h.session.connect();await assert.rejects(()=>h.session.setParameter({row:0,param:'cutoff',value:.6}),/readback/i);}else await assert.rejects(()=>h.session.connect());
  assert.equal(h.session.snapshot().state,'unsafe');await assert.rejects(()=>h.session.setParameter({row:0,param:'cutoff',value:.7}));assert.equal(h.calls.filter(x=>Array.isArray(x)).length,name==='mismatch'?1:0);
 });
+test('stored config summaries never satisfy a writable 1.0.8 Live profile',async()=>{
+ const h=fake();
+ h.transport.readState=async()=>({source:'stored-config',slot:0,
+  list:[{effect:'LOWPASS',cutoff:.4}],presets:Array.from({length:4},(_,slot)=>({slot,present:false}))});
+ await assert.rejects(()=>h.session.connect(),/cannot authorize Live writes/);
+ await assert.rejects(()=>h.session.setParameter({row:0,param:'cutoff',value:.5}));
+ assert.equal(h.calls.some(x=>Array.isArray(x)),false);
+});
 test('timeout fences late writes and queued updates without retry or false success',async()=>{
  let finish;const h=fake({holdWrite:new Promise(r=>finish=r)});await h.session.connect();
  const first=h.session.setParameter({row:0,param:'cutoff',value:.6}),second=h.session.setParameter({row:0,param:'cutoff',value:.7});
