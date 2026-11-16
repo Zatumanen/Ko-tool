@@ -43,36 +43,39 @@ test('rejects BUS, structural/unknown parameters and off-grid values before traf
 });
 test('loaded preset parser rejects partial/unrecognized output instead of inventing values',()=>{
  assert.deepEqual(parseLoadedPreset('0 [ 1 LOWPASS ]\n cutoff 0.40\n1 [ 9 SAMPLE ]\n speed 1.00'),[{effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE',speed:1}]);
+ assert.deepEqual(parseLoadedPreset('0 [ 0 NONE ]\n1 [ 8 HIGHPASS ] -> 2\n cutoff 0.30'),[{effect:'NONE'},{effect:'HIGHPASS',BUS:2,cutoff:.3}]);
+ assert.deepEqual(parseLoadedPreset('0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5'),[{effect:'LOWPASS',cutoff:.4}]);
  for(const text of ['', 'Traceback Error','0 [ 1 LOWPASS ]\n cutoff NaN','1 [ 1 LOWPASS ]\n cutoff 0.40'])assert.throws(()=>parseLoadedPreset(text));
 });
 test('serial permission denial sends no command and releases cleanly',async()=>{
  const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>{throw Error('Permission denied');}}});await assert.rejects(()=>adapter.connect(),/Permission denied/);await adapter.disconnect();
 });
 
-function serialFake({reply,holdWrite=false}={}){
+function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=false,initialBytes=''}={}){
  const commands=[];let controller,closed=0;
  const port={
-  getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{closed++;},
+  getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{if(initialBytes)controller.enqueue(new TextEncoder().encode(initialBytes));},close:async()=>{closed++;},
   readable:new ReadableStream({start(c){controller=c;}}),
   writable:new WritableStream({write(bytes){
    const cmd=new TextDecoder().decode(bytes).trim();commands.push(cmd);
-   const answer=reply?.(cmd)??(cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('print(fx.param')?'True':'0\n0 [ 1 LOWPASS ]\n cutoff 0.60\n0');
+   if(cmd==='\x03')return;
+   const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd.startsWith('print(fx.param')?'True':'0\n0 [ 1 LOWPASS ]\n cutoff 0.60\n0');
    if(answer!==false){const text=cmd+'\r\n'+answer+'\r\n>>> ';for(let i=0;i<text.length;i+=3)controller.enqueue(new TextEncoder().encode(text.slice(i,i+3)));}
    if(holdWrite)return new Promise(()=>{});
   }})
  };
- return{commands,get closed(){return closed;},controller,adapter:createSerialTransport({serial:{requestPort:async()=>port},probeProfile:profile,timeoutMs:25})};
+ return{commands,get closed(){return closed;},controller,adapter:createSerialTransport({serial:{requestPort:async()=>port},probeProfile:probe,allowReplInterrupt,timeoutMs:25})};
 }
 test('serial default evidence gate stops even device selection',async()=>{
  let requested=false;const adapter=createSerialTransport({serial:{requestPort:async()=>{requested=true;}}});
  await assert.rejects(()=>adapter.connect(),/acceptance/);assert.equal(requested,false);
 });
 test('fixed serial codec handles fragmented echo/prompt and reads back without arbitrary commands',async()=>{
- const h=serialFake();assert.deepEqual(await h.adapter.connect(),identity);
- assert.deepEqual(await h.adapter.readState(),{slot:0,list:[{effect:'LOWPASS',cutoff:.6}]});
+ const h=serialFake();const info=await h.adapter.connect();assert.equal(info.model,identity.model);assert.equal(info.firmware,identity.firmware);assert.equal(info.firmwareVerified,true);
+ assert.deepEqual(await h.adapter.readState(),{slot:0,list:[{effect:'LOWPASS',cutoff:.6}],hasModulation:false});
  assert.equal(await h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff',value:.6}),true);
  await assert.rejects(()=>h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff";bad',value:.6}));
- assert.equal(h.commands.length,3);assert.equal('sendCommand'in h.adapter,false);await h.adapter.disconnect();assert.equal(h.closed,1);
+ assert.equal(h.commands.length,5);assert.equal('sendCommand'in h.adapter,false);await h.adapter.disconnect();assert.equal(h.closed,1);
 });
 for(const [name,options]of [['missing prompt',{reply:()=>false}],['hung writer',{holdWrite:true}],['wrong firmware',{reply:()=> 'EP-2350 1.1.2'}],['device exception',{reply:()=> 'Traceback: Error'}]])test('serial fails closed: '+name,async()=>{
  const h=serialFake(options);await assert.rejects(()=>h.adapter.connect());await assert.rejects(()=>h.adapter.readState());assert.equal(h.commands.length,1);assert.ok(h.closed>=1);
@@ -94,9 +97,46 @@ test('stale serial open cannot disconnect a newer session',async()=>{
  // Reuse the fake's port through an explicit test-only serial selection provider.
  let controller;const port={getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{},
   readable:new ReadableStream({start(c){controller=c;}}),writable:new WritableStream({write(b){
-   const cmd=new TextDecoder().decode(b).trim();controller.enqueue(new TextEncoder().encode(cmd+'\r\n'+(cmd.includes('_machine')?'EP-2350 1.0.8':'0\n0 [ 1 LOWPASS ]\n cutoff 0.40\n0')+'\r\n>>> '));
+   const cmd=new TextDecoder().decode(b).trim();const answer=cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')?'':'0\n0 [ 1 LOWPASS ]\n cutoff 0.40\n0';controller.enqueue(new TextEncoder().encode(cmd+'\r\n'+answer+'\r\n>>> '));
   }})};
  let selections=0;const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>selections++?port:old}});
  const first=adapter.connect();await new Promise(r=>setImmediate(r));await adapter.disconnect();await adapter.connect();
  finishOpen();await assert.rejects(()=>first);assert.equal((await adapter.readState()).slot,0);await adapter.disconnect();
+});
+
+test('Live accepts stock NONE padding without changing indexed hardware rows',async()=>{
+ const h=fake();
+ h.transport.readState=async()=>({slot:0,list:[{effect:'NONE'},{effect:'HIGHPASS',BUS:2,cutoff:.3}]});
+ const ready=await h.session.connect();
+ assert.equal(ready.current.list[0].effect,'NONE');
+ assert.equal(ready.current.list[1].BUS,2);
+ await h.session.disconnect();
+});
+
+test('stock 1.1.2 REPL opt-in handles boot output and reports unverified version read only',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const h=serialFake({probe,allowReplInterrupt:true,initialBytes:'MicroPython boot\r\n>>> ',
+  reply:cmd=>cmd.includes('_machine')?'RP2350':undefined});
+ const identity=await h.adapter.connect();
+ assert.equal(identity.model,'EP-2350');assert.equal(identity.firmware,'1.1.2');
+ assert.equal(identity.firmwareVerified,false);
+ const loaded=await h.adapter.readState();assert.deepEqual(loaded.list,[{effect:'LOWPASS',cutoff:.6}]);assert.equal(loaded.hasModulation,false);
+ assert.deepEqual(h.commands.slice(0,3),['\x03','\x03','']);
+ await h.adapter.disconnect();
+});
+
+test('stock-only guard rejects CircuitPython before loading presets',async()=>{
+ const h=serialFake({reply:cmd=>cmd.includes('implementation.name')?'circuitpython':undefined});
+ await assert.rejects(()=>h.adapter.connect(),/Stock MicroPython required/);
+ assert.equal(h.commands.some(cmd=>cmd.startsWith('import fx')),false);
+});
+
+test('loaded stock modulation sections are detected for read-only safety',async()=>{
+ const raw='0\n0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5\n0';
+ const h=serialFake({reply:cmd=>cmd.startsWith('print(teenage.fx_pos)')?raw:undefined});
+ await h.adapter.connect();
+ const state=await h.adapter.readState();
+ assert.equal(state.hasModulation,true);
+ assert.deepEqual(state.list,[{effect:'LOWPASS',cutoff:.4}]);
+ await h.adapter.disconnect();
 });

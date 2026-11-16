@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createHardwareTrial}from '../js/fxMic/hardwareTrial.js';
 
-function fixture({firmware='1.0.8',cutoff=.4,wrongReadback=false}={}){
+function fixture({firmware='1.0.8',cutoff=.4,wrongReadback=false,hasModulation=false,firmwareVerified=true}={}){
  const calls=[];
  const trial=createHardwareTrial({makeTransport:({probeProfile})=>({
-  connect:async()=>({model:'EP-2350',firmware:probeProfile.firmware}),
-  readState:async()=>({slot:0,list:[{effect:'LOWPASS',cutoff}]}),
+  connect:async()=>({model:'EP-2350',firmware:probeProfile.firmware,firmwareVerified}),
+  readState:async()=>({slot:0,list:[{effect:'LOWPASS',cutoff}],hasModulation}),
   writeParameter:async update=>{calls.push(update);if(!wrongReadback)cutoff=update.value;return true;},
   disconnect:async()=>{}
  })});
@@ -55,4 +55,15 @@ test('a failed readback leaves recovery advice and never writes a rollback',asyn
  assert.equal(trial.snapshot().restorePending,true);
  await assert.rejects(()=>trial.restore());
  assert.equal(calls.length,1);
+});
+
+test('unverified stock OS and modulated live chains cannot enter write trial',async()=>{
+ for(const options of [{firmwareVerified:false},{hasModulation:true}]){
+  const {trial,firmware,calls}=fixture(options);
+  await trial.connect(firmware);
+  assert.equal(trial.snapshot().original,null);
+  await assert.rejects(()=>trial.apply(true),/unavailable/);
+  assert.deepEqual(calls,[]);
+  await trial.disconnect();
+ }
 });

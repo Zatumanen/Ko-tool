@@ -133,7 +133,8 @@ test('hardware trial connects explicitly and verifies change and restore through
     const command=new TextDecoder().decode(bytes).trim();
     window.fxCommands.push(command);
     let reply='';
-    if(command.includes('_machine'))reply='EP-2350 1.0.8';
+    if(command.includes('implementation.name'))reply='micropython';
+    else if(command.includes('_machine'))reply='EP-2350 1.0.8';
     else if(command.startsWith('print(teenage.fx_pos)'))reply='0\n0 [ 1 LOWPASS ]\n cutoff '+cutoff+'\n0';
     else if(command.startsWith('print(fx.param')){
      cutoff=Number(command.match(/"cutoff", ([0-9.]+)/)[1]);reply='None';
