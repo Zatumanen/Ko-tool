@@ -27,7 +27,7 @@ export function createHardwareTrial({makeTransport=createSerialTransport,onChang
    const{current,identity}=await active.connect();
    if(session!==active)return;
    const row=current.list[0],value=row?.cutoff,rounded=Math.round(value*100);
-   if(firmware==='1.0.8'&&identity.firmwareVerified!==false&&current.list.length===1&&row?.effect==='LOWPASS'&&Math.abs(value*100-rounded)<1e-7){
+   if(firmware==='1.0.8'&&identity.firmwareVerified!==false&&!current.hasModulation&&current.list.length===1&&row?.effect==='LOWPASS'&&Math.abs(value*100-rounded)<1e-7){
     original=value;target=(rounded>=50?rounded-5:rounded+5)/100;
    }
    phase='read';
