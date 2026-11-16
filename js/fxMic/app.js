@@ -315,6 +315,7 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    if(el.value==='')return;
    const field=el.dataset.param??el.dataset.numberParam,value=Number(el.value);
    if(!Number.isFinite(value))return;
+   if(el.dataset.numberParam&&(value<Number(el.min)||value>Number(el.max)))return;
    const label=el.closest('label'),output=label?.querySelector('output');
    if(output)output.textContent=el.value;
    const sibling=label?.querySelector(el.dataset.param?'[data-number-param]':'[data-param]');
