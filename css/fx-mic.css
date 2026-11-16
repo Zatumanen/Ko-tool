@@ -94,6 +94,13 @@
   border-radius:7px;padding:10px 12px;margin-bottom:9px;background:#f8faff
 }
 .fx-chain>li .fx-toolbar strong{font-size:13px;color:#1d3670;margin-right:auto}
+.fx-drag-handle{
+ display:inline-flex;align-items:center;justify-content:center;min-width:28px;min-height:30px;
+ cursor:grab;user-select:none;font-size:18px;font-weight:900;letter-spacing:-.15em;
+ border:1px dashed #a9b8d0;border-radius:4px;background:#eaf0fb;color:#344c7c
+}
+.fx-drag-handle:active{cursor:grabbing}
+.fx-shortcuts{font-size:11px;color:#536782;padding-top:10px;border-top:1px dashed #d3deeb}
 .fx-parameters{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-top:11px}
 .fx-parameters label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#546888}
 .fx-parameters output{font-variant-numeric:tabular-nums;font-weight:700;color:#203e7c}
