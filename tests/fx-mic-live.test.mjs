@@ -144,7 +144,7 @@ test('Live wrong active slot and truncated readback cannot be marked verified',a
 test('stale serial open cannot disconnect a newer session',async()=>{
  let finishOpen;const old={open:()=>new Promise(r=>finishOpen=r),close:async()=>{}};
  // Reuse the fake's port through an explicit test-only serial selection provider.
- let controller;const port={getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{},
+ let controller;const port={getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{controller.enqueue(new TextEncoder().encode('>>> '));},close:async()=>{},
   readable:new ReadableStream({start(c){controller=c;}}),writable:new WritableStream({write(b){
    const cmd=new TextDecoder().decode(b).trim();const answer=cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';controller.enqueue(new TextEncoder().encode(cmd+'\r\n'+answer+'\r\n>>> '));
   }})};
@@ -259,6 +259,7 @@ test('stock Live rejects unexpected slot output without touching the preset',asy
 test('stock 1.1.2 reports failing config-file operation, redacting Python details',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
  const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
+  :cmd==='print(os.stat("/fat/config.json")[6])'?'200'
   :cmd.startsWith('_ko_file = open(')?'Traceback (most recent call last):\nOSError: PRIVATE_DEVICE_TEXT':undefined});
  await h.adapter.connect();
  const error=await h.adapter.readState().then(()=>null,e=>e);
