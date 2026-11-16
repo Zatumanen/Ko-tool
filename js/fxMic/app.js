@@ -46,6 +46,21 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   const range=m?.row!==undefined?EFFECTS[p.list[m.row]?.effect]?.[m.param]:null,base=range?(p.list[m.row][m.param]??range[2]):0,end=base+(m?.depth||0),start=kind==='lfo'?base-(m?.depth||0):base;
   return`<fieldset><legend>${title}</legend><label>Target<select aria-label="${title} target" data-mod-target="${kind}">${options}</select></label>${m?number(title+' depth',m.depth??0,`step="0.01" data-mod="${kind}" data-key="depth"`):''}${range?`<div class="fx-range">${Math.min(start,end).toFixed(2)} → ${Math.max(start,end).toFixed(2)}<meter min="${range[0]}" max="${range[1]}" value="${Math.max(range[0],Math.min(range[1],end))}"></meter></div>`:''}${kind==='lfo'&&m?`<label>Shape<select aria-label="LFO shape" data-mod="lfo" data-key="shape">${SHAPES.map(s=>option(s,s,m.shape??'sine')).join('')}</select></label>${number('LFO speed',m.speed??1,'min="0" step="0.1" data-mod="lfo" data-key="speed"')}${number('LFO phase',m.phase??0,'step="0.1" data-mod="lfo" data-key="phase"')}`:''}</fieldset>`;
  }
+
+ function deviceConfigPanel(current){
+  const selected=current.presets[inspectSlot];
+  const mod=selected?.modulationValues||{};
+  return `<div data-fx-device-config>
+    <p>Read only: saved /fat/config.json, not the running DSP chain. No device parameters or files were changed.</p>
+    <p>Pack: ${esc(current.packName||'(unnamed)')} · ${current.presets.filter(p=>p.present).length} saved FX presets · ${current.sampleCount} sample references</p>
+    <ul>${current.presets.map(p=>`<li>Slot ${p.slot+1}: ${esc(p.present?(p.name||'(unnamed)'):'(empty)')} · ${p.rowCount} rows · ${esc(p.effects.join(', ')||'no effects')}${p.modulation.length?' · '+esc(p.modulation.join(', ')):''}</li>`).join('')}</ul>
+    <label>Saved FX preset to inspect<select aria-label="Saved FX preset to inspect" data-fx-inspect-slot>${current.presets.map(p=>option(p.slot,'Slot '+(p.slot+1)+(p.name?' · '+p.name:''),inspectSlot)).join('')}</select></label>
+    <ul data-fx-saved-rows>${selected?.rows.map((fx,row)=>`<li>Row ${row}: ${esc(fx.effect)} ${Object.entries(fx).filter(([k])=>k!=='effect').map(([k,v])=>esc(k)+': '+esc(v)).join(' · ')}</li>`).join('')||'<li>No saved effects in this slot</li>'}</ul>
+    <ul data-fx-modulation>${Object.entries(mod).map(([key,value])=>`<li>${esc(key)}: ${Object.entries(value).map(([k,v])=>esc(k)+': '+esc(v)).join(' · ')||'no supported values'}</li>`).join('')||'<li>No saved modulation</li>'}</ul>
+    <ul data-fx-samples>${(current.samples||[]).map(item=>`<li>WAV ${item.slot+1}: ${esc(item.file||'(unnamed)')} ${esc(item.playmode||'')}</li>`).join('')||'<li>No custom WAV references</li>'}</ul>
+    ${current.unknownFields?'<p>'+current.unknownFields+' unfamiliar fields were excluded from this read-only summary; nothing was written.</p>':''}
+   </div>`;
+ }
  function livePanel(){
   const {state,identity,current,phase,original,target,restorePending,busy,hasSession}=trial.snapshot();
   const canConnect=Boolean(win.navigator?.serial?.requestPort&&liveFirmware&&!restorePending&&!busy&&!hasSession&&state==='disconnected'&&phase==='idle');
@@ -64,9 +79,9 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
    </div>
    <label><input type="checkbox" data-live-repl-consent ${liveReplConsent?'checked':''} ${busy||hasSession?'disabled':''}> Prepare REPL with Ctrl+C (interrupts the running program; no automatic reset)</label>
    <p data-live-state role="status">${esc(state)}${identity?' · '+esc(identity.model)+' · '+esc(identity.firmware)+(identity.firmwareVerified?' · firmware verified':' · version selected, not verified'):''}${current?' · '+(current.source==='stored-config'?(current.slot<0?'no active FX slot':'stored config · selected slot '+(current.slot+1)):'preset '+(current.slot+1)):''}</p>
-   ${current?.source==='stored-config'?'<div data-fx-device-config><p>Read only: saved /fat/config.json, not the running DSP chain. No device parameters or files were changed.</p><p>Pack: '+esc(current.packName||'(unnamed)')+' · '+current.presets.filter(p=>p.present).length+' saved FX presets · '+current.sampleCount+' sample references</p><ul>'+current.presets.map(p=>'<li>Slot '+(p.slot+1)+': '+esc(p.present?(p.name||'(unnamed)'):'(empty)')+' · '+p.rowCount+' rows · '+esc(p.effects.join(', ')||'no effects')+(p.modulation.length?' · '+esc(p.modulation.join(', ')):'')+'</li>').join('')+'</ul>'+(current.unknownFields?'<p>'+current.unknownFields+' unfamiliar fields were excluded from this read-only summary; nothing was written.</p>':'')+'</div>':''}
+   ${current?.source==='stored-config'?deviceConfigPanel(current):''}
    ${!win.navigator?.serial?.requestPort?'<p>Web Serial is unavailable. Use Chrome on a desktop and open the site directly.</p>':''}
-   ${current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
+   ${current?.source!=='stored-config'&&current?`<ul>${current.list.map(({effect,...params})=>`<li>${esc(effect)} ${Object.entries(params).map(([name,value])=>esc(name)+': '+esc(value)).join(' · ')}</li>`).join('')}</ul>`:''}
    ${active&&original===null?'<p>Read only. The write trial requires stock 1.0.8 and a preset containing one unmodulated LOWPASS effect.</p>':''}
    ${original!==null?`<p>LOWPASS cutoff: original <strong>${esc(original)}</strong> · test value <strong>${esc(target)}</strong></p>`:''}
    ${active&&phase==='read'&&original!==null?`<label><input type="checkbox" data-live-confirm ${liveConfirmed?'checked':''}> I backed up the mic and selected an expendable preset.</label>
@@ -126,6 +141,10 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
       :action==='live-restore'?trial.restore():trial.acknowledgeRecovery();
     renderLive();
     await operation;
+    if(action==='live-connect'){
+      const selected=trial.snapshot().current?.slot;
+      inspectSlot=Number.isInteger(selected)&&selected>=0?selected:0;
+    }
    }finally{renderLive();}
    return;
   }
@@ -168,7 +187,8 @@ export function initFxMicApp({documentRef=document,windowRef=window}={}){
   if(el.dataset.param){el.nextElementSibling.textContent=el.value;const p=currentPreset();p.list[Number(el.dataset.row)][el.dataset.param]=Number(el.value);audio.update(p);}
  });
  root.addEventListener('change',event=>{const el=event.target;void run(async token=>{
-  if(el.matches('[data-live-firmware]')){liveFirmware=el.value;liveConfirmed=false;liveReplConsent=false;renderLive();return;}
+  if(el.matches('[data-fx-inspect-slot]')){inspectSlot=Number(el.value);renderLive();return;}
+   if(el.matches('[data-live-firmware]')){liveFirmware=el.value;liveConfirmed=false;liveReplConsent=false;renderLive();return;}
    if(el.matches('[data-live-repl-consent]')){liveReplConsent=el.checked;return;}
   if(el.matches('[data-live-confirm]')){liveConfirmed=el.checked;q('[data-action="live-apply"]').disabled=!liveConfirmed;return;}
   if(el.matches('[data-pack-name]')){editConfig(c=>{c.name=el.value;});return;}
