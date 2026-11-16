@@ -71,7 +71,8 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
    if(answer!==false){
     const text=cmd+'\r\n'+answer+'\r\n>>> ';
     const upfront=splitPromptTail?text.slice(0,-1):text;
-    for(let i=0;i<upfront.length;i+=3)controller.enqueue(new TextEncoder().encode(upfront.slice(i,i+3)));
+    const bytes=new TextEncoder().encode(upfront);
+    for(let i=0;i<bytes.length;i+=3)controller.enqueue(bytes.slice(i,i+3));
     if(splitPromptTail)setTimeout(()=>controller.enqueue(new TextEncoder().encode(' ')),8);
    }
    if(holdWrite)return new Promise(()=>{});
@@ -194,7 +195,7 @@ test('stock read-only JSON error still closes the opened device file',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
  const base=stockConfigReply(referenceConfig);
  const h=serialFake({probe,reply:cmd=>cmd==='_ko_data = json.load(_ko_file)'
-   ?'Traceback (most recent call last):\\nValueError: PRIVATE_TEXT':base(cmd)});
+   ?'Traceback (most recent call last):\nValueError: PRIVATE_TEXT':base(cmd)});
  await h.adapter.connect();
  const error=await h.adapter.readState().then(()=>null,e=>e);
  assert.match(error.message,/FX-MIC parse stored config: ValueError/);
