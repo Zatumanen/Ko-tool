@@ -66,6 +66,25 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
  };
  return{commands,get closed(){return closed;},controller,adapter:createSerialTransport({serial:{requestPort:async()=>port},probeProfile:probe,allowReplInterrupt,timeoutMs:25})};
 }
+// Synthetic MicroPython responses from the reference's config.json read shape.
+function stockConfigReply(config, {slot='0',model='EP-2350 1.1.2'}={}) {
+ const json=JSON.stringify(config);
+ return cmd=>{
+  if(cmd.includes('_machine'))return model;
+  if(cmd==='print(teenage.fx_pos)')return slot;
+  if(cmd==='print(len(_ko_json))')return String(json.length);
+  const bounds=/^print\(json\.dumps\(_ko_json\[(\d+):(\d+)\]\)\.replace\(">", chr\(92\)\+"u003e"\)\)$/.exec(cmd);
+  if(bounds)return JSON.stringify(json.slice(Number(bounds[1]),Number(bounds[2])))
+    .replaceAll('>',String.fromCharCode(92)+'u003e');
+  return undefined;
+ };
+}
+const referenceConfig={name:'BROKEN RADIO PACK',presets:[
+ {pos:0,name:'WALKIE >>> Error',list:[{effect:'HIGHPASS',cutoff:.1},
+  {effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE'}],handle:{row:1,param:'cutoff',depth:.5}},
+ {pos:1,name:'AM TUNER',list:[{effect:'SSB',frequency:-500},{effect:'SAMPLE'}]},
+ {pos:2,name:'EMPTY',list:[]},
+ {pos:3,name:'EXTRA',list:[{effect:'FUTURE_FX',privateValue:3}]}]};
 test('serial default evidence gate stops even device selection',async()=>{
  let requested=false;const adapter=createSerialTransport({serial:{requestPort:async()=>{requested=true;}}});
  await assert.rejects(()=>adapter.connect(),/acceptance/);assert.equal(requested,false);
@@ -113,16 +132,21 @@ test('Live accepts stock NONE padding without changing indexed hardware rows',as
  await h.session.disconnect();
 });
 
-test('stock 1.1.2 REPL opt-in handles boot output and reports unverified version read only',async()=>{
+test('stock 1.1.2 REPL opt-in imports four reference-shaped saved presets read-only',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
  const h=serialFake({probe,allowReplInterrupt:true,initialBytes:'MicroPython boot\r\n>>> ',
-  reply:cmd=>cmd.includes('_machine')?'RP2350':undefined});
+  reply:stockConfigReply(referenceConfig,{model:'RP2350'})});
  const identity=await h.adapter.connect();
- assert.equal(identity.model,'EP-2350');assert.equal(identity.firmware,'1.1.2');
  assert.equal(identity.firmwareVerified,false);
- const loaded=await h.adapter.readState();assert.deepEqual(loaded.list,[{effect:'LOWPASS',cutoff:.6}]);assert.equal(loaded.hasModulation,false);
- assert.equal(loaded.source,'stored-preset');
- assert.deepEqual(h.commands.filter(x=>x.startsWith('fx.list_')),['fx.list_preset(0)']);
+ const state=await h.adapter.readState();
+ assert.equal(state.source,'stored-config');
+ assert.equal(state.packName,'BROKEN RADIO PACK');
+ assert.equal(state.presets.length,4);
+ assert.deepEqual(state.presets.map(p=>p.rowCount),[3,2,0,1]);
+ assert.deepEqual(state.list.map(x=>x.effect),['HIGHPASS','LOWPASS','SAMPLE']);
+ assert.equal(state.hasModulation,true);
+ assert.equal(h.commands.some(cmd=>cmd.startsWith('fx.list_')||cmd.includes('fx.load_preset')||cmd.includes('fx.param')||cmd.includes('open("/fat/config.json", "w")')),false);
+ assert.equal(h.commands.filter(cmd=>cmd.startsWith('print(json.dumps(_ko_json[')).length>=1,true);
  assert.deepEqual(h.commands.slice(0,3),['\x03','\x03','']);
  await h.adapter.disconnect();
 });
@@ -170,15 +194,34 @@ test('stock Live rejects unexpected slot output without touching the preset',asy
  await h.adapter.disconnect();
 });
 
-test('stock 1.1.2 diagnostic reports Python exception type and fixed read stage without exposing raw trace',async()=>{
+test('stock 1.1.2 reports failing config-file operation, redacting Python details',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
  const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
-  :cmd.startsWith('fx.list_preset(')?'Traceback (most recent call last):\n  File "<stdin>", line 1\nAttributeError: PRIVATE_DEVICE_TEXT':undefined});
+  :cmd.startsWith('_ko_file = open(')?'Traceback (most recent call last):\nOSError: PRIVATE_DEVICE_TEXT':undefined});
  await h.adapter.connect();
  const error=await h.adapter.readState().then(()=>null,e=>e);
- assert.match(error.message,/FX-MIC saved FX preset read: AttributeError/);
+ assert.match(error.message,/FX-MIC open stored config: OSError/);
  assert.doesNotMatch(error.message,/PRIVATE_DEVICE_TEXT|Traceback/);
- assert.equal(h.commands.some(x=>x.startsWith('fx.list_loaded')||x.startsWith('print(fx.param')||x.startsWith('fx.load_preset')),false);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_')||x.includes('fx.param')||x.includes('fx.load_preset')),false);
+ await h.adapter.disconnect();
+});
+
+test('stock 1.1.2 reads empty config even when no FX slot is active',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const h=serialFake({probe,reply:stockConfigReply({presets:[]},{slot:'-1'})});
+ await h.adapter.connect();
+ const state=await h.adapter.readState();
+ assert.equal(state.slot,-1);assert.deepEqual(state.list,[]);
+ assert.equal(state.presets.filter(x=>x.present).length,0);
+ await h.adapter.disconnect();
+});
+
+test('stock 1.1.2 refuses corrupt config JSON instead of fabricating an active chain',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const h=serialFake({probe,reply:stockConfigReply({bad:true})});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/presets array/);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_')||x.includes('fx.param')),false);
  await h.adapter.disconnect();
 });
 
