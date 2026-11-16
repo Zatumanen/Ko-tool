@@ -59,7 +59,7 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
   writable:new WritableStream({write(bytes){
    const cmd=new TextDecoder().decode(bytes).trim();commands.push(cmd);
    if(cmd==='\x03')return;
-   const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd.startsWith('print(fx.param')?'True':'0\n0 [ 1 LOWPASS ]\n cutoff 0.60\n0');
+   const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.60':cmd.startsWith('print(fx.param')?'True':'');
    if(answer!==false){const text=cmd+'\r\n'+answer+'\r\n>>> ';for(let i=0;i<text.length;i+=3)controller.enqueue(new TextEncoder().encode(text.slice(i,i+3)));}
    if(holdWrite)return new Promise(()=>{});
   }})
@@ -75,7 +75,7 @@ test('fixed serial codec handles fragmented echo/prompt and reads back without a
  assert.deepEqual(await h.adapter.readState(),{slot:0,list:[{effect:'LOWPASS',cutoff:.6}],hasModulation:false});
  assert.equal(await h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff',value:.6}),true);
  await assert.rejects(()=>h.adapter.writeParameter({slot:0,row:0,effect:'LOWPASS',param:'cutoff";bad',value:.6}));
- assert.equal(h.commands.length,5);assert.equal('sendCommand'in h.adapter,false);await h.adapter.disconnect();assert.equal(h.closed,1);
+ assert.equal(h.commands.length,7);assert.equal('sendCommand'in h.adapter,false);await h.adapter.disconnect();assert.equal(h.closed,1);
 });
 for(const [name,options]of [['missing prompt',{reply:()=>false}],['hung writer',{holdWrite:true}],['wrong firmware',{reply:()=> 'EP-2350 1.1.2'}],['device exception',{reply:()=> 'Traceback: Error'}]])test('serial fails closed: '+name,async()=>{
  const h=serialFake(options);await assert.rejects(()=>h.adapter.connect());await assert.rejects(()=>h.adapter.readState());assert.equal(h.commands.length,1);assert.ok(h.closed>=1);
@@ -97,7 +97,7 @@ test('stale serial open cannot disconnect a newer session',async()=>{
  // Reuse the fake's port through an explicit test-only serial selection provider.
  let controller;const port={getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{},close:async()=>{},
   readable:new ReadableStream({start(c){controller=c;}}),writable:new WritableStream({write(b){
-   const cmd=new TextDecoder().decode(b).trim();const answer=cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')?'':'0\n0 [ 1 LOWPASS ]\n cutoff 0.40\n0';controller.enqueue(new TextEncoder().encode(cmd+'\r\n'+answer+'\r\n>>> '));
+   const cmd=new TextDecoder().decode(b).trim();const answer=cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_loaded(')?'0 [ 1 LOWPASS ]\n cutoff 0.40':'';controller.enqueue(new TextEncoder().encode(cmd+'\r\n'+answer+'\r\n>>> '));
   }})};
  let selections=0;const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>selections++?port:old}});
  const first=adapter.connect();await new Promise(r=>setImmediate(r));await adapter.disconnect();await adapter.connect();
@@ -132,11 +132,38 @@ test('stock-only guard rejects CircuitPython before loading presets',async()=>{
 });
 
 test('loaded stock modulation sections are detected for read-only safety',async()=>{
- const raw='0\n0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5\n0';
- const h=serialFake({reply:cmd=>cmd.startsWith('print(teenage.fx_pos)')?raw:undefined});
+ const raw='0 [ 1 LOWPASS ]\n cutoff 0.40\nHANDLE:\n row 0\n param 0\n depth 0.5';
+ const h=serialFake({reply:cmd=>cmd.startsWith('fx.list_loaded(')?raw:undefined});
  await h.adapter.connect();
  const state=await h.adapter.readState();
  assert.equal(state.hasModulation,true);
  assert.deepEqual(state.list,[{effect:'LOWPASS',cutoff:.4}]);
+ await h.adapter.disconnect();
+});
+
+test('stock read-only Live reports inactive preset before reading effects',async()=>{
+ const h=serialFake({reply:cmd=>cmd==='print(teenage.fx_pos)'?'-1':undefined});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/No FX preset is active/);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_loaded(')),false);
+ assert.equal(h.commands.some(x=>x.startsWith('print(fx.param')),false);
+ await h.adapter.disconnect();
+});
+
+test('stock Live rejects changed hardware slot without silent reload or write',async()=>{
+ let reads=0;
+ const h=serialFake({reply:cmd=>cmd==='print(teenage.fx_pos)'?String(reads++===0?0:1):undefined});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/FX preset changed during readback/);
+ assert.equal(h.commands.filter(x=>x.startsWith('fx.list_loaded(')).length,1);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.load_preset')||x.startsWith('print(fx.param')),false);
+ await h.adapter.disconnect();
+});
+
+test('stock Live rejects unexpected slot output without touching the preset',async()=>{
+ const h=serialFake({reply:cmd=>cmd==='print(teenage.fx_pos)'?'4':undefined});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/Unexpected active FX preset number/);
+ assert.equal(h.commands.some(x=>x.startsWith('fx.list_loaded(')),false);
  await h.adapter.disconnect();
 });
