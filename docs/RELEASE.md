@@ -2,6 +2,8 @@
 
 **Policy:** K.O. TOOL may publish independently completed, explicitly approved intermediate updates. Merge is **not** permission to publish; 1.0 requires all six stages and all agreed acceptance. No physical FILE/HIL permissions follow from this runbook.
 
+**Hosting:** Use the public [K.O. TOOL GitHub Pages site](https://zatumanen.github.io/Ko-tool/) for owner-requested browser builds, including builds for manual testing. Publish through the approved `deploy-pages` workflow on `main`. Private and separately hosted copies are outside the release process. If a candidate cannot use the approved public workflow yet, report what is blocking it.
+
 ## Observed infrastructure (14 November 2026)
 
 - [Actual Pages deployment #43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943) on `main@7e89fdd` was GitHub-managed `dynamic/pages/pages-build-deployment` **Jekyll build from the branch**, not `scripts/build-pages.mjs`/`dist`. It started at the same time as post-merge [tests #43586791491](https://github.com/Zatumanen/Ko-tool/actions/runs/43586791491), without waiting for their result.
