@@ -12,7 +12,7 @@ const profiles={
 };
 
 export function createHardwareTrial({makeTransport=createSerialTransport,onChange=()=>{}}={}){
- let session=null,phase='idle',original=null,target=null,restorePending=false,busy=false;
+ let session=null,phase='idle',original=null,target=null,restorePending=false,busy=false,closing=null;
  const snapshot=()=>({...(session?.snapshot()??{state:'disconnected',identity:null,current:null}),
   phase,original,target,restorePending,busy,hasSession:Boolean(session)});
 
@@ -64,10 +64,14 @@ export function createHardwareTrial({makeTransport=createSerialTransport,onChang
  }
 
  async function disconnect(){
-  const active=session;session=null;busy=false;
+  if(closing)return closing;
+  const active=session;
+  busy=true; // Do not allow new sessions until the physical port has closed.
   if(restorePending)phase='uncertain';
   else{phase='idle';original=target=null;}
-  await active?.disconnect();
+  closing=Promise.resolve().then(()=>active?.disconnect());
+  try{await closing;}
+  finally{session=null;busy=false;closing=null;}
  }
 
  function acknowledgeRecovery(){

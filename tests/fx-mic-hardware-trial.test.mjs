@@ -67,3 +67,26 @@ test('unverified stock OS and modulated live chains cannot enter write trial',as
   await trial.disconnect();
  }
 });
+
+test('reconnect cannot reuse the same physical port before delayed close completes',async()=>{
+ let finishClose;
+ let reads=0;
+ const trial=createHardwareTrial({makeTransport:()=>({
+  connect:async()=>({model:'EP-2350',firmware:'1.1.2',firmwareVerified:true}),
+  readState:async()=>{reads++;return {source:'stored-config',slot:0,list:[{effect:'SAMPLE'}],
+   presets:Array.from({length:4},(_,slot)=>({slot,present:slot===0,rows:[]}))};},
+  disconnect:()=>new Promise(resolve=>{finishClose=resolve;}),
+  onDisconnect:()=>{}
+ })});
+ await trial.connect('1.1.2');
+ const pending=trial.disconnect();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(trial.snapshot().busy,true);
+ await assert.rejects(()=>trial.connect('1.1.2'),/Disconnect and resolve/);
+ finishClose();
+ await pending;
+ assert.equal(trial.snapshot().busy,false);
+ await trial.connect('1.1.2');
+ assert.equal(reads,2);
+ // Do not start a second unresolved close in this synthetic scenario.
+});

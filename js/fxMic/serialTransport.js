@@ -27,17 +27,22 @@ export function parseLoadedPreset(text) {
 }
 
 export function createSerialTransport({ serial = globalThis.navigator?.serial, probeProfile = null, timeoutMs = 1000, allowReplInterrupt = false } = {}) {
-  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false, lastCommandAt = 0;
+  let port = null, reader = null, writer = null, epoch = 0, pending = null, onLoss = () => {}, connected = false, initializing = false, lastCommandAt = 0, closePromise = null, startupBuffer = '', readyResolve = null, readyObserved = false;
   const encoder = new TextEncoder();
   async function disconnect() {
+    if (closePromise) return closePromise;
     epoch++; connected = false; initializing = false; lastCommandAt = 0;
+    readyResolve = null; readyObserved = false; startupBuffer = '';
     pending?.reject(Error('Serial disconnected')); pending = null;
     const oldReader = reader, oldWriter = writer, oldPort = port;
     reader = writer = port = null;
-    try { await oldReader?.cancel(); } catch {}
-    try { oldReader?.releaseLock(); } catch {}
-    try { oldWriter?.releaseLock(); } catch {}
-    try { await oldPort?.close(); } catch {}
+    closePromise = (async () => {
+      try { await oldReader?.cancel(); } catch {}
+      try { oldReader?.releaseLock(); } catch {}
+      try { oldWriter?.releaseLock(); } catch {}
+      try { await oldPort?.close(); } catch {}
+    })();
+    try { await closePromise; } finally { closePromise = null; }
   }
   function failed(error) {
     pending?.reject(error); pending = null;
@@ -50,34 +55,47 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const { value, done } = await ownedReader.read();
         if (token !== epoch) return;
         if (done) throw Error('Serial stream ended');
+        const fragment = decoder.decode(value, { stream: true });
         if (!pending) {
-          // Startup messages and control echoes are expected while entering REPL.
-          if (initializing) continue;
+          if (initializing) {
+            startupBuffer += fragment;
+            if (startupBuffer.length > 4096) throw Error('REPL startup output too large');
+            if (/(?:^|\n)>>> [\t]*(?:\r?\n)?$/.test(startupBuffer)) {
+              readyObserved = true;
+              readyResolve?.(); readyResolve = null;
+              startupBuffer = '';
+            }
+            continue;
+          }
+          // A complete prompt can be followed by CR/LF in another USB packet.
+          if (/^[\r\n \t]*$/.test(fragment)) continue;
           throw Error('Unsolicited serial output');
         }
-        pending.text += decoder.decode(value, { stream: true });
+        pending.text += fragment;
         if (pending.text.length > 16384) throw Error('Serial response too large');
-        if (/>>>[ \t]*(?:\r?\n)?$/.test(pending.text)) {
-          const reply = pending.text.replace(/>>>[ \t]*(?:\r?\n)?$/, '').replace(/\r/g, '');
+        // Require a complete prompt with its trailing space; bare >>> may
+        // be a partial USB packet, not an answer boundary.
+        if (/(?:^|\n)>>> [\t]*(?:\r?\n)?$/.test(pending.text)) {
+          const reply = pending.text.replace(/(?:^|\n)>>> [\t]*(?:\r?\n)?$/, '').replace(/\r/g, '');
           pending.resolve(reply); pending = null;
         }
       }
     } catch (error) { if (token === epoch) failed(error); }
   }
-  async function command(text, stage = 'serial command', deadlineMs = timeoutMs) {
+  async function command(text, stage = 'serial command', deadlineMs = timeoutMs, allowPythonCleanup = false) {
     if (!connected || pending) throw Error('Serial session unavailable or busy');
     const token = epoch;
     // The working stock reference spaces REPL commands to avoid flooding.
     const wait = 50 - (Date.now() - lastCommandAt);
     if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
     if (token !== epoch || !connected || pending) throw Error('Serial session changed before command');
-    lastCommandAt = Date.now();
     let timer;
     const response = new Promise((resolve, reject) => { pending = { resolve, reject, text: '' }; });
     // Attach handlers before awaiting the writer: the stream may fail immediately.
     const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(Error('Serial response timeout')), deadlineMs); });
     try {
       const [, reply] = await Promise.race([Promise.all([writer.write(encoder.encode(text + '\r\n')), response]), deadline]);
+      lastCommandAt = Date.now();
       const lines = reply.split('\n');
       if (lines[0] === text) lines.shift();
       const output = lines.join('\n').trim();
@@ -87,44 +105,62 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       if (/^Traceback \(most recent call last\):/.test(output) || exception) {
         // Report a fixed diagnostic stage and Python exception type, never raw
         // device output (which could contain private files or user data).
-        throw Error('FX-MIC '+stage+': '+(exception||'Python exception'));
+        const failure=Error('FX-MIC '+stage+': '+(exception||'Python exception'));
+        failure.pythonException=true;
+        throw failure;
       }
       return output;
-    } catch (error) { if (token === epoch) failed(error); throw error; }
+    } catch (error) { if (token === epoch && !(allowPythonCleanup && error.pythonException)) failed(error); throw error; }
     finally { clearTimeout(timer); }
   }
   async function readStoredConfig() {
-    // Read only /fat/config.json. These fixed REPL assignments are volatile
-    // variables, not filesystem writes. Chunks bound serial output and preserve
-    // whitespace and Unicode via JSON-encoded string fragments.
-    await command('import json', 'JSON module import');
+    // Fail closed before loading JSON into MicroPython heap.
+    await command('import json, os', 'read-only modules import');
+    const fileSize = Number(await command('print(os.stat("/fat/config.json")[6])', 'stored config file size'));
+    if (!Number.isSafeInteger(fileSize) || fileSize < 2 || fileSize > 65536)
+      throw Error('Device config file exceeds the 64 KiB read-only limit');
     await command('_ko_file = open("/fat/config.json", "r")', 'open stored config');
-    await command('_ko_data = json.load(_ko_file)', 'parse stored config', 5000);
-    await command('_ko_file.close()', 'close stored config');
-    await command('_ko_json = json.dumps(_ko_data)', 'encode stored config', 5000);
-    await command('del _ko_data, _ko_file', 'release config variables');
-    const count = Number(await command('print(len(_ko_json))', 'stored config length'));
-    if (!Number.isSafeInteger(count) || count < 2 || count > 65536)
-      throw Error('Device config size is outside the read-only 64 KiB limit');
-    let text = '';
-    for (let start = 0; start < count; start += 512) {
-      const reply = await command(
-        'print(json.dumps(_ko_json[' + start + ':' + Math.min(count, start + 512) + ']).replace(\">\", chr(92)+\"u003e\"))',
-        'stored config chunk ' + (Math.floor(start / 512) + 1), 2000);
-      let chunk;
-      try { chunk = JSON.parse(reply); }
-      catch { throw Error('Invalid JSON-encoded device config chunk'); }
-      if (typeof chunk !== 'string' || [...chunk].length !== Math.min(512, count - start))
-        throw Error('Truncated or invalid device config chunk');
-      text += chunk;
+    let loadFailure = null;
+    try { await command('_ko_data = json.load(_ko_file)', 'parse stored config', 5000, true); }
+    catch (error) { loadFailure = error; }
+    try { await command('_ko_file.close()', 'close stored config'); }
+    catch (error) { if (!loadFailure) throw error; }
+    if (loadFailure) { failed(loadFailure); throw loadFailure; }
+    try {
+      await command('_ko_json = json.dumps(_ko_data)', 'encode stored config', 5000);
+    } finally {
+      // If the device itself already disconnected, this best-effort command
+      // is skipped; otherwise the decoded object is not retained in REPL.
+      if (connected) try { await command('del _ko_data, _ko_file', 'release config variables'); } catch {}
     }
-    await command('del _ko_json', 'release stored config buffer');
-    return text;
+    try {
+      const byteCount = Number(await command('print(len(_ko_json.encode("utf-8")))', 'encoded config byte length'));
+      const count = Number(await command('print(len(_ko_json))', 'stored config character length'));
+      if (!Number.isSafeInteger(byteCount) || byteCount < 2 || byteCount > 65536 ||
+          !Number.isSafeInteger(count) || count < 2 || count > 65536)
+        throw Error('Device config is outside the 64 KiB read-only output limit');
+      let text = '';
+      for (let start = 0; start < count; start += 512) {
+        const reply = await command(
+          'print(json.dumps(_ko_json[' + start + ':' + Math.min(count, start + 512) + ']).replace(">", chr(92)+"u003e"))',
+          'stored config chunk ' + (Math.floor(start / 512) + 1), 2000);
+        let chunk;
+        try { chunk = JSON.parse(reply); }
+        catch { throw Error('Invalid JSON-encoded device config chunk'); }
+        if (typeof chunk !== 'string' || [...chunk].length !== Math.min(512, count - start))
+          throw Error('Truncated or invalid device config chunk');
+        text += chunk;
+      }
+      return text;
+    } finally {
+      if (connected) try { await command('del _ko_json', 'release stored config buffer'); } catch {}
+    }
   }
   return {
     onDisconnect(fn) { onLoss = fn; },
     async connect() {
       if (!probeProfile?.evidenceId || probeProfile.model !== 'EP-2350' || !/^\d+\.\d+\.\d+$/.test(probeProfile.firmware)) throw Error('Serial probe requires exact-firmware acceptance');
+      if (closePromise) await closePromise;
       if (port) throw Error('Serial already connected');
       if (!serial?.requestPort) throw Error('Web Serial unavailable');
       const token = ++epoch;
@@ -137,6 +173,8 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const info = selected.getInfo();
         if (info.usbVendorId !== 0x2367 || info.usbProductId !== 0x0620) throw Error('Not an EP-2350 serial port');
         reader = selected.readable.getReader(); writer = selected.writable.getWriter(); connected = true; initializing = true;
+        readyObserved = false; startupBuffer = '';
+        const ready = new Promise(resolve => { readyResolve = resolve; });
         void readLoop(reader, token);
         if (allowReplInterrupt) {
           // Explicit user opt-in: Ctrl+C interrupts the device's running program.
@@ -149,8 +187,19 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
           await writer.write(encoder.encode('\r\n'));
           await sleep(300);
         }
-        const greeting = probeProfile.manualTrial ? await command('', 'REPL readiness') : '';
-        if (!allowReplInterrupt && greeting !== '') throw Error('REPL is not clean; enable explicit REPL preparation or disconnect');
+        if (!allowReplInterrupt) {
+          // No serial bytes at all until we passively observe a clean prompt.
+          // A newline may execute previously typed MicroPython source.
+          let timer;
+          try {
+            await Promise.race([ready, new Promise((_, reject) => {
+              timer = setTimeout(() => reject(Error('Clean REPL prompt not observed passively; no command sent')), 800);
+            })]);
+            if (!readyObserved) throw Error('REPL readiness was not confirmed');
+          } finally { clearTimeout(timer); readyResolve = null; }
+        } else {
+          await command('', 'REPL readiness');
+        }
         const runtime = await command("print(__import__('sys').implementation.name)", 'MicroPython runtime check');
         if (runtime !== 'micropython') throw Error('Stock MicroPython required; CircuitPython is a different firmware');
         const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))", 'device identity check');
