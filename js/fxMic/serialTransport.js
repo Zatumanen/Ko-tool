@@ -113,7 +113,7 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))");
         // USB ID and stock-only imports establish the device family. The selected
         // firmware is not verified unless an exact version is reported by REPL.
-        const match = /\b(\d+\.\d+\.\d+)\b/.exec(machine);
+        const match = /^EP-2350\s+(\d+\.\d+\.\d+)$/.exec(machine);
         if (match && match[1] !== probeProfile.firmware) throw Error('Firmware mismatch: device '+match[1]+', selected '+probeProfile.firmware);
         const imported = await command('import fx, teenage');
         if (imported !== '') throw Error('Cannot access stock FX-MIC modules');
