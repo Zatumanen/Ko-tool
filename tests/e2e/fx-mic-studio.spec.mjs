@@ -27,7 +27,7 @@ test('preset notes, copying, resetting and Undo are local-only and reversible',a
  await page.getByLabel('Copy preset destination').selectOption('1');
  page.once('dialog',async dialog=>dialog.accept());
  await page.getByRole('button',{name:'Copy selected preset'}).click();
- await expect(page.getByLabel('FX preset')).toHaveValue('1');
+ await expect(page.getByLabel('FX preset',{exact:true})).toHaveValue('1');
  await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
  await expect(page.getByLabel('Preset name')).toHaveValue(/COPY/);
  page.once('dialog',async dialog=>dialog.accept());
@@ -130,7 +130,7 @@ test('desktop icons remain independently reachable at desktop and mobile widths'
 
 test('FX-MIC is a separate offline window; Live requires explicit firmware selection',async({page})=>{
  await open(page);await expect(page.locator('[data-fx-slot]')).toHaveCount(4);
- await expect(page.getByLabel('FX preset')).toHaveValue('0');
+ await expect(page.getByLabel('FX preset',{exact:true})).toHaveValue('0');
  await expect(page.getByText('EMULATION · approximate browser audio')).toBeVisible();
  await page.getByRole('button',{name:'Live',exact:true}).click();
  await expect(page.getByRole('button',{name:'Connect EP-2350'})).toBeDisabled();
