@@ -233,6 +233,16 @@ test('stock 1.1.2 refuses corrupt config JSON instead of fabricating an active c
  await h.adapter.disconnect();
 });
 
+test('stock config rejects truncated REPL chunk before marking session ready',async()=>{
+ const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
+ const base=stockConfigReply(referenceConfig);
+ const h=serialFake({probe,reply:cmd=>cmd.startsWith('print(json.dumps(_ko_json[')?'""':base(cmd)});
+ await h.adapter.connect();
+ await assert.rejects(()=>h.adapter.readState(),/Truncated or invalid device config chunk/);
+ assert.equal(h.commands.some(cmd=>cmd.startsWith('fx.list_')||cmd.includes('fx.param')),false);
+ await h.adapter.disconnect();
+});
+
 test('stock 1.1.2 diagnostic reports exact failing initial command without writing',async()=>{
  const probe={model:'EP-2350',firmware:'1.1.2',evidenceId:'synthetic-diagnostics',manualTrial:true,parameters:{}};
  const h=serialFake({probe,reply:cmd=>cmd.includes('_machine')?'EP-2350 1.1.2'
