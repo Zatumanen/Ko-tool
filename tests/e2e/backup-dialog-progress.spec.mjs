@@ -333,6 +333,11 @@ test('read-only official PAK inspection lists sample slots and pad references wi
   await expect(summary).toContainText('protected status and write rights');
   await expect(summary).toContainText('UNVERIFIED');
   await expect(summary).toContainText('FREE SPACE, PROTECTED SLOTS AND FILE WRITE RIGHTS ARE UNVERIFIED');
+  await expect(summary).toContainText('OFFLINE RESTORE STAGING · INTEGRITY VERIFIED, RESTORE BLOCKED');
+  await expect(summary).toContainText('PCM/TAR RECHECK');
+  await expect(summary).toContainText('2 SAMPLES · 1 PROJECTS');
+  await expect(summary).toContainText('CAN RESTORE: NO · WRITE AUTHORIZED: NO · DEVICE READBACK REQUIRED');
+  await expect(summary).toContainText('STAGING BLOCKER:');
   await expect(summary).toContainText('READ-ONLY PREVIEW');
   await expect(summary).toContainText('RESTORE FROM .PAK/.PPAK IS DISABLED');
   await expect(page.locator('#ep133-restore-run')).toBeDisabled();
