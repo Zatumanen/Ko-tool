@@ -1,3 +1,4 @@
+import{createRecorderUi}from './recorderUi.js';
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
 import{waveformEnvelope}from './transientTrigger.js';
@@ -15,6 +16,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  const recorderUi=createRecorderUi({root,windowRef:win,canRecord:()=>!!audio?.active}),recorder=recorderUi.recorder;
   let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
   const spectrumSmoother=createSpectrumSmoother();
   const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
@@ -64,6 +66,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     persist();render();
   }
   function audioState(next){
+    recorderUi.update();
     status=next.message||'Аудиовход не выбран';
     const element=root.querySelector('[data-audio-status]');
     if(element){element.textContent=status;element.title=status}
@@ -93,14 +96,15 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     opened=true;captureArmed=false;autoConnecting=false;
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
-    audio=createVisualsAudio({onState:audioState});
+    audio=createVisualsAudio({onState:audioState,recorder});
     audio.configureTrigger(triggerSettings);
     render();
     void attachVerifiedIdentity();
     void refreshInputs();
   }
   function close(){
-    if(!opened)return;
+    if(!opened||!recorderUi.canClose())return;
+    recorderUi.clear();
     opened=false;stop('Захват остановлен');audio=null;picker=false;unsaved=false;autoHide=false;collapsed=false;
     root.innerHTML='';root.className='';
   }
@@ -138,7 +142,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       '<select class="vis-source" data-source aria-label="Выберите аудиовход">'+sourceHtml+'</select>'+
       '<button data-action="unlock" title="Запросить разрешение на список аудиовходов. Системный вход откроется на мгновение и сразу остановится.">ACCESS</button>'+ 
       '<button data-action="refresh" title="Обновить список аудиовходов">↻</button>'+
-      '<button data-action="start">▶ START</button><button data-action="stop">■ STOP</button>'+
+      '<button data-action="start">▶ START</button><button data-action="stop">■ STOP</button><button data-action="recorder" aria-label="WAV Recorder">REC</button>'+
       '<span class="vis-status" data-audio-status role="status" aria-live="polite">'+escapeHtml(status)+'</span>'+
       '<select class="vis-preset" data-preset aria-label="Компоновка"><option value="Custom">Компоновка</option>'+
       presets.map(n=>'<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('')+'</select>'+
@@ -190,7 +194,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('tabindex','0');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
       const canvas=el('canvas');canvas.setAttribute('aria-label',labelId(id)+' — визуализация входящего аудио');meter.append(canvas);meters.append(meter);
     }
-    updateWidths();refreshTheme();drawAll(audio.active?audio.sample():null);
+    recorderUi.mount();updateWidths();refreshTheme();drawAll(audio.active?audio.sample():null);
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture)capture.hidden=!(audio.active&&root.classList.contains('vis-hidden'));
   }
@@ -320,7 +324,8 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const button=e.target.closest('[data-action]');if(!button)return;
     const action=button.dataset.action;
     if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
-    if(action==='stop')stop();
+    if(action==='recorder')recorderUi.toggle();
+    if(action==='stop'){captureArmed=false;void audio.finishAndStop();}
     if(action==='refresh')void refreshInputs();
     if(action==='unlock'&&!audio.active){
       status='Запрос разрешения для списка аудиовходов…';
@@ -428,6 +433,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   doc.addEventListener('visibilitychange',()=>{if(opened&&audio?.active&&!doc.hidden)kick()});
   const media=win.navigator?.mediaDevices||navigator.mediaDevices;
   media?.addEventListener?.('devicechange',()=>{if(opened)void refreshInputs()});
+  win.addEventListener('beforeunload',e=>{const s=recorder.snapshot();if(s.busy||s.frames){e.preventDefault();e.returnValue='';}});
   win.addEventListener('pagehide',()=>{if(opened)stop('Захват остановлен: страница закрыта')});
   icon.addEventListener('click',open);
   icon.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open()}});

@@ -162,3 +162,16 @@ test('enumeration failure leaves permission-only tracks stopped',async()=>{
   await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
   assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
 });
+test('recorder receives the exact existing capture graph and is detached on release',async()=>{
+ let opened=0,attached=null,detached=0;const stream=makeStream();
+ const recorder={attach:g=>{attached=g},detach:()=>{detached++}};
+ const audio=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>{opened++;return stream}}},AudioContextClass:FakeAudioContext,recorder});
+ audio.select('chosen');await audio.start();assert.equal(opened,1);assert.equal(attached.channelCount,2);assert.equal(attached.context.sampleRate,48000);assert.equal(attached.getChannelCount(),2);const before=detached;audio.stop();assert.equal(detached,before+1);assert.equal(stream.track.readyState,'ended');
+});
+test('a pending recorder STOP cannot tear down a superseding audio capture',async()=>{
+ let finish;const pending=new Promise(r=>finish=r),streams=[makeStream(),makeStream()];let requests=0;
+ const recorder={attach(){},detach(){},snapshot:()=>({state:'recording'}),stop:()=>pending};
+ const audio=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>streams[requests++]}},AudioContextClass:FakeAudioContext,recorder});
+ audio.select('old');await audio.start();assert.equal(typeof audio.finishAndStop,'function');const stopping=audio.finishAndStop();
+ audio.select('new');await audio.start();finish(true);assert.equal(await stopping,false);assert.equal(audio.active,true);assert.equal(audio.selectedId,'new');assert.equal(streams[1].track.readyState,'live');audio.stop();
+});

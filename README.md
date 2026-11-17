@@ -33,7 +33,7 @@
 
 ### Visuals
 
-Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters.
+Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters. Кнопка **REC** открывает WAV Recorder: PCM16/24-bit, Pause/Resume, предпрослушивание, сохранение и удаление записи из вкладки. Лимит PCM — **64 MiB**; сохраняйте WAV до закрытия вкладки.
 
 Waveform поддерживает trigger по атаке с удержанием формы, настройками порога чувствительности, времени, амплитуды и hold. Нужен AudioWorklet; форма строится по выбранному аудиовходу.
 

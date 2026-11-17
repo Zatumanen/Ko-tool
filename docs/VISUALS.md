@@ -322,3 +322,11 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## Bounded WAV Recorder software (ZAT-87)
+
+REC records the existing selected Visuals input as PCM16/24 WAV, with sample-frame
+timer, pause/resume, input peak/CLIP, preview/save/discard and explicit interrupted
+prefixes. In-memory PCM payload limit64MiB stops visibly; no unlimited recording
+or4-hour endurance claim. [Contract and limits](testing/visuals-wav-recorder.md).
+Owner visual/performance and physical input acceptance remain pending.

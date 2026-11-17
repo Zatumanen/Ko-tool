@@ -24,6 +24,8 @@ npm run test:e2e
 npm run test:pages:e2e
 ```
 
+WAV Recorder: `node --test tests/visuals-recorder*.test.mjs tests/visuals-audio.test.mjs` and `npx playwright test tests/e2e/visuals-recorder.spec.mjs`. [Contract, payload limit and unverified endurance](testing/visuals-wav-recorder.md).
+
 For focused checks:
 
 ```bash

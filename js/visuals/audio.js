@@ -1,6 +1,6 @@
 // Microphone/USB Audio capture is isolated from EP Web MIDI and FILE operations.
 // No implicit input switch; the selected deviceId must be requested explicitly.
-export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=window.AudioContext||window.webkitAudioContext,onState=()=>{}}={}){
+export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=window.AudioContext||window.webkitAudioContext,onState=()=>{},recorder=null}={}){
   let context=null,stream=null,source=null,left=null,right=null,mix=null,sink=null,track=null;
   let selectedId='',generation=0,active=false,channelCount=1;
   let triggerNode=null,triggerFrame=null,triggerSettings={threshold:.1,timeMs:200,holdMs:200};
@@ -12,6 +12,7 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
   const peak=data=>data.reduce((s,x)=>Math.max(s,Math.abs(x)),0);
   function release(){
     active=false;
+    recorder?.detach();
     if(triggerNode){triggerNode.port.onmessage=null;triggerNode.port.close();try{triggerNode.disconnect()}catch{}}
     triggerNode=null;triggerFrame=null;
     if(track)track.onended=null;
@@ -28,6 +29,12 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     if(previous)Promise.resolve(previous.close()).catch(()=>{});
   }
   function stop(message='Захват остановлен'){generation++;release();state(message)}
+  async function finishAndStop(){
+    const request=generation;let failed=false;
+    try{if(['recording','paused'].includes(recorder?.snapshot?.()?.state))await recorder.stop();}catch{failed=true;}
+    if(request!==generation)return false;
+    stop(failed?'Захват остановлен: запись не подтверждена':undefined);return true;
+  }
   function select(id){if(id!==selectedId){stop('Источник выбран — нажмите START');selectedId=id||''}}
   async function inputs(){
     if(!navigatorRef.mediaDevices?.enumerateDevices)throw Error('Браузер не поддерживает список аудиовходов.');
@@ -91,6 +98,7 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       // The superseding START/STOP already released this request's graph.
       // Shared capture state may now belong to a newer START.
       if(request!==generation)return false;
+      recorder?.attach({context,source,sink,channelCount:Number(track.getSettings?.().channelCount)||0,getChannelCount:()=>Number(track?.getSettings?.().channelCount)});
       active=true;state('LIVE · '+(track.label||'Аудиовход'));
       return true;
     }catch(error){
@@ -116,5 +124,5 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       db:20*Math.log10(Math.max(r,1e-7)),sampleRate:context.sampleRate,channelCount};
   }
   function configureTrigger(settings){triggerSettings={...triggerSettings,...settings};triggerFrame=null;triggerNode?.port.postMessage(triggerSettings);}
-  return{inputs,unlockInputs,start,stop,select,sample,configureTrigger,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
+  return{inputs,unlockInputs,start,stop,finishAndStop,select,sample,configureTrigger,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
 }
