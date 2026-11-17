@@ -26,6 +26,10 @@ const drop=async(page,count=1)=>{
     for(let i=0;i<count;i++)dt.items.add(new File([new Uint8Array(bytes)],`incoming-${i}.wav`,{type:'audio/wav'}));
     document.querySelector('[data-slot="50"]').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
   },{bytes:wav(),count});
+  if(count>1){
+    await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+    await page.locator('[data-upload-mode="sequential"]').click();
+  }
 };
 const requests=page=>page.evaluate(()=>window.__fakeEp.requestLog.slice(window.__uploadReadbackStart).filter(r=>r.command===5));
 const puts=log=>log.filter(r=>r.sub===2&&r.type===0);

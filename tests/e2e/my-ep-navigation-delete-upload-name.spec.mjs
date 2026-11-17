@@ -336,6 +336,10 @@ test('multiple converted outputs are dragged to My EP and uploaded with per-file
     row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
     source.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:transfer}));
   });
+  await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+  await expect(page.locator('.ep133-upload-choice-preview')).toContainText('009 ← Kick_x2.wav');
+  await expect(page.locator('.ep133-upload-choice-preview')).toContainText('010 ← Snare_x2.wav');
+  await page.locator('[data-upload-mode="sequential"]').click();
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id)),{timeout:25000}).toEqual([9,10]);
   const log=await page.evaluate(()=>window.__fakeEp.requestLog);
   const puts=log.map((entry,index)=>entry.command===5&&entry.sub===2&&entry.raw[1]===0?index:-1).filter(index=>index>=0);
@@ -368,6 +372,8 @@ test('failed sample upload is marked FAILED and the next queued sample still upl
     row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
     row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
   },bytes);
+  await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+  await page.locator('[data-upload-mode="sequential"]').click();
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10)),{timeout:25000}).toBe(true);
   const result=await page.evaluate(()=>({
     slots:window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id),

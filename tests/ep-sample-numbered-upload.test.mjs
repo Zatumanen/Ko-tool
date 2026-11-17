@@ -109,6 +109,43 @@ test('cancelled numbered upload sends no FILE mutation and does not set busy',as
  assert.deepEqual(ids(h.chosenOptions.numberedPlan),[56]);
  assert.deepEqual(ids(h.chosenOptions.sequentialPlan),[9]);
 });
+test('unnumbered multi-file batch requires reviewed destination map and Cancel sends zero PUT',async()=>{
+ const h=harness(null);
+ const inputs=[file('Beat 1.wav'),file('Hat.wav')];
+ const cancelled=await h.controller.uploadFilesToSlot(h.store.getSlot(9),inputs);
+ assert.equal(cancelled.cancelled,true);
+ assert.equal(h.chosenOptions.numberedCount,0);
+ assert.equal(h.chosenOptions.numberedPlan,null);
+ assert.deepEqual(ids(h.chosenOptions.sequentialPlan),[9,10]);
+ assert.equal(h.chosenOptions.availableMemoryBytes,500);
+ assert.equal(h.mutations,0);
+ assert.deepEqual(h.created,[]);
+ const accepted=harness('sequential');
+ const result=await accepted.controller.uploadFilesToSlot(accepted.store.getSlot(9),inputs);
+ assert.deepEqual(result.successes,[9,10]);
+ assert.deepEqual(accepted.created,[9,10]);
+ assert.equal(accepted.mutations,1);
+});
+
+test('if free-slot mapping changes while batch preview is open, reject before mutating',async()=>{
+ let h;
+ h=harness(async options=>{
+  assert.deepEqual(ids(options.sequentialPlan),[9,10]);
+  h.store.replaceFiles([
+   {nodeId:1000,fileName:'/sounds',fileType:'folder'},
+   ...[7,8,9].map(id=>({nodeId:id,fileName:'/sounds/'+id,fileType:'file',fileSize:22,
+    isReadable:true,isWritable:true,isDeletable:true}))
+  ]);
+  h.store.setSoundsParentId(1000);
+  return 'sequential';
+ });
+ await assert.rejects(()=>h.controller.uploadFilesToSlot(h.store.getSlot(9),[
+  file('Kick.wav'),file('Hat.wav')
+ ]),/mapping changed after confirmation/);
+ assert.deepEqual(h.created,[]);
+ assert.equal(h.mutations,0);
+});
+
 test('numbered selection preflights exact destinations and cleans names without rewriting local files',async()=>{
  const h=harness('numbered');
  const files=[file('056 Snare.wav'),file('001 Kick.wav')];

@@ -2,6 +2,14 @@
 
 2026-11-15. Reviewed K.O. Tool base `b87c367144881ed375f6235b77b1a4f1f31d2db1`, equal to remote main at review time. Owner authorized implementation after the read-only comparison. [AGENTS](../../AGENTS.md), [TESTING](../TESTING.md) and the [reference registry](../REFERENCE_SOURCES.md) remain authoritative. No physical EP was used.
 
+## Multi-file destination preview (ZAT-79, software-only)
+
+Every drop/paste batch with **two or more files**, including selected SpeedUpperCut items, shows its entire destination mapping before starting any upload. Single numbered filenames retain the existing explicit choice between numbered and sequential placement. A batch without numbered prefixes offers a single reviewed free-slot mapping; cancel/escape produces zero FILE commands. The preview reports total raw input size and currently reported device free space, but **does not** claim this is an authoritative predicted post-conversion PCM requirement.
+
+The user accepts exactly the displayed slots. After dismissal the code recomputes the mapping and fails closed if any selected target changed. During each actual FILE transaction the existing authoritative slot emptiness, free-memory, session, device-firmware and full PCM readback checks still apply. The UI plan is not write permission or a replacement for FILE readback.
+
+Tests: `tests/ep-sample-numbered-upload.test.mjs`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs`, `tests/e2e/my-ep-repitch.spec.mjs`, `tests/e2e/sample-upload-pcm-readback.spec.mjs`. This is fake-EP/browser evidence only; the physical SpeedUpperCut→EP transfer and audio playback acceptance remain deferred.
+
 ## Result contract
 
 `sampleUploadController` passes final `prepared.data` to PUT, including the result of `prepareMyEpRepitchSample` when enabled. After existing INFO/metadata/path/size/name/channel/rate checks it uses `verifySamplePcm` to GET the full destination through the same strict FILE lease and compare length and every byte. COPY shares that helper and retains its existing error, safety and rollback policy from [6cb59c9 / ZAT-59](https://github.com/Zatumanen/Ko-tool/commit/6cb59c9df6931b0d33fde1fda8b92eec5f877f94).

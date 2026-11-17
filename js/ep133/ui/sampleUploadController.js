@@ -75,21 +75,34 @@ export function createSampleUploadController({
     const choiceSession=captureBatchSession();
     const numberedCount=audioFiles.filter(file=>numberedSampleSlot(file.name)!=null).length;
     let mode='sequential';
-    if(numberedCount){
+    let approvedSlotIds=null;
+    // Every multi-file upload must preview its exact free-slot mapping, not
+    // only batches with explicitly numbered names. This includes
+    // SpeedUpperCut multi-drag and ordinary clipboard/file batches.
+    if(numberedCount || audioFiles.length>1){
       let sequentialPlan=null,numberedPlan=null,sequentialError='',numberedError='';
       try{sequentialPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'sequential'});}
       catch(error){sequentialError=String(error?.message||error);}
-      try{numberedPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'numbered'});}
-      catch(error){numberedError=String(error?.message||error);}
+      if(numberedCount){
+        try{numberedPlan=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode:'numbered'});}
+        catch(error){numberedError=String(error?.message||error);}
+      }
       placementChoiceOpen=true;
       try{
         mode=await chooseUploadTargets({
-          files:audioFiles,numberedCount,sequentialPlan,numberedPlan,sequentialError,numberedError
+          files:audioFiles,numberedCount,sequentialPlan,numberedPlan,sequentialError,numberedError,
+          availableMemoryBytes:getSoundsMetadata()?.free_space_in_bytes,
+          repitchEnabled:getRepitchEnabled()===true
         });
       }finally{placementChoiceOpen=false;}
       if(mode==null)return{successes:[],failures:[],cancelled:true};
       if(mode!=='numbered'&&mode!=='sequential')throw new Error('Invalid upload destination selection.');
       assertBatchSession(choiceSession);
+      approvedSlotIds=(mode==='numbered'?numberedPlan:sequentialPlan)?.targets.map(item=>item.slot.id);
+      if(!approvedSlotIds)throw new Error(
+        (mode==='numbered'?numberedError:sequentialError)||
+        'Chosen destination mapping is unavailable; no FILE writes started.'
+      );
     }
     // Recompute after the modal: the cached inventory may have changed
     // while the user was deciding. The strict FILE transaction also checks
@@ -97,6 +110,9 @@ export function createSampleUploadController({
     // Upload transaction records createdId on each item for rollback tracking.
     // Keep the preview plan immutable, but hand mutable copies to the writer.
     const targets=planSampleUploadTargets(audioFiles,{startSlot:slot.id,sampleStore,mode}).targets.map(item=>({...item}));
+    if(approvedSlotIds && (targets.length!==approvedSlotIds.length ||
+      targets.some((item,index)=>item.slot.id!==approvedSlotIds[index])))
+      throw new Error('Sample destination mapping changed after confirmation. Review the batch again; no device write started.');
     // Resolve the entire batch before the first FILE lease/PUT. A malformed
     // input or declined ambiguous -12 origin aborts with no device mutation.
     const repitchMode=getRepitchEnabled()===true;
