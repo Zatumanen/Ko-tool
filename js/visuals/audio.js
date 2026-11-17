@@ -7,7 +7,7 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
   let spectrum=null;
   const spectrumDb=new Float32Array(4096);
   const time=new Float32Array(2048),leftTime=new Float32Array(2048),rightTime=new Float32Array(2048),frequency=new Uint8Array(1024);
-  const state=(message,error=false)=>onState({active,selectedId,message,error,channelCount});
+  const state=(message,error=false,reason=null)=>onState({active,selectedId,message,error,channelCount,reason});
   const rms=data=>Math.sqrt(data.reduce((s,x)=>s+x*x,0)/data.length);
   const peak=data=>data.reduce((s,x)=>Math.max(s,Math.abs(x)),0);
   function release(){
@@ -27,7 +27,7 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     context=null;stream=null;source=null;left=null;right=null;mix=null;sink=null;track=null;
     if(previous)Promise.resolve(previous.close()).catch(()=>{});
   }
-  function stop(message='Захват остановлен'){generation++;release();state(message)}
+  function stop(message='Захват остановлен',reason=null){generation++;release();state(message,false,reason)}
   function select(id){if(id!==selectedId){stop('Источник выбран — нажмите START');selectedId=id||''}}
   async function inputs(){
     if(!navigatorRef.mediaDevices?.enumerateDevices)throw Error('Браузер не поддерживает список аудиовходов.');
@@ -101,6 +101,8 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
   }
   function sample(){
     if(!active||!mix)return null;
+    const reportedChannels=Number(track?.getSettings?.().channelCount);
+    if([1,2].includes(reportedChannels)&&reportedChannels!==channelCount){stop('Формат каналов изменился — нажмите START','channel-format');return null;}
     mix.getFloatTimeDomainData(time);
     mix.getByteFrequencyData(frequency);
     spectrum.getFloatFrequencyData(spectrumDb);

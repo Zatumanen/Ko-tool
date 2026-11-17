@@ -3,11 +3,13 @@ import{createVisualsAudio}from './audio.js';
 import{waveformEnvelope}from './transientTrigger.js';
 import{spectrumCurve,createSpectrumSmoother}from './spectrum.js';
 import{createSpectrogramHistory}from './spectrogram.js';
+import{stereoAnalysis,createPlasmaDensity,createSpectralPlasma,plasmaRaster}from './stereo.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=text;return e}
 const bound=(x,a,b)=>Math.min(b,Math.max(a,x));
+const colorRgb=value=>{let hex=value.trim().replace('#','');if(hex.length===3)hex=[...hex].map(c=>c+c).join('');return[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)||0);};
 export function initVisualsApp({documentRef=document,windowRef=window,storage=(()=>{try{return window.localStorage}catch{return null}})()}={}){
   const doc=documentRef,win=windowRef,icon=doc.getElementById('visuals-icon'),root=doc.getElementById('visuals-root');
   if(!icon||!root)return null;
@@ -15,6 +17,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  const plasma=createPlasmaDensity(),spectralPlasma=createSpectralPlasma();let plasmaBuffer=null;
   let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
   const spectrumSmoother=createSpectrumSmoother();
   const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
@@ -64,6 +67,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     persist();render();
   }
   function audioState(next){
+    if(next.reason==='channel-format')captureArmed=false;
     status=next.message||'Аудиовход не выбран';
     const element=root.querySelector('[data-audio-status]');
     if(element){element.textContent=status;element.title=status}
@@ -74,7 +78,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
+    else{plasma.reset();spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
@@ -227,6 +231,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function paint(id,canvas,data){
     const g=drawingContext(canvas);if(!g)return;
+    if(!data&&id==='stereo'){canvas.dataset.stereoState='stopped';delete canvas.dataset.stereoCorrelation;delete canvas.dataset.stereoBalance;canvas.setAttribute('aria-label','Stereo Meter stopped');}
     if(id!=='spectrogram'||!data)grid(g);
     if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
     const{ctx,w,h,color}=g;
@@ -260,8 +265,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       if(!buffer){buffer=doc.createElement('canvas');spectrogramCanvases.set(canvas,buffer);}
       buffer.width=raster.width;buffer.height=raster.height;
       const target=buffer.getContext('2d'),pixels=target.createImageData(raster.width,raster.height);
-      const rgb=value=>{let hex=value.trim().replace('#','');if(hex.length===3)hex=[...hex].map(c=>c+c).join('');return[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)||0);};
-      const bg=rgb(g.bg),fg=rgb(color);
+      const bg=colorRgb(g.bg),fg=colorRgb(color);
       for(let i=0;i<raster.values.length;i++){
         const v=raster.values[i]/255;for(let c=0;c<3;c++)pixels.data[i*4+c]=Math.round(bg[c]+v*(fg[c]-bg[c]));pixels.data[i*4+3]=255;
       }
@@ -274,9 +278,25 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     }else if(id==='output'){
       grid(g);meter(g,data.leftPeak,Math.max(7,h*.2),'L '+Math.round(data.leftPeak*100)+'%');meter(g,data.channelCount===1?data.leftPeak:data.rightPeak,Math.max(30,h*.6),'R '+Math.round(data.rightPeak*100)+'%');
     }else if(id==='stereo'){
-      grid(g);if(data.channelCount===1){print(g,'MONO INPUT');return}
-      meter(g,data.leftRms*2,Math.max(6,h*.16),'L');meter(g,data.rightRms*2,Math.max(23,h*.48),'R');
-      ctx.fillStyle=color;ctx.font='11px monospace';ctx.fillText('CORR '+data.correlation.toFixed(2),8,h-5);
+      grid(g);const state=stereoAnalysis(data.leftTime,data.rightTime,data.channelCount);
+      canvas.dataset.stereoState=state.status;canvas.dataset.stereoCorrelation=String(state.correlation??'undefined');canvas.dataset.stereoBalance=String(state.balance??'undefined');
+      canvas.setAttribute('aria-label','Stereo Meter: '+state.status+', correlation '+(state.correlation?.toFixed(2)??'undefined')+', balance '+(state.balance?.toFixed(2)??'undefined'));
+      if(state.status==='mono'||state.status==='invalid'){plasma.reset();print(g,state.status==='mono'?'MONO · DISABLED':'INVALID INPUT',9);return;}
+      const density=plasma.update(state.status==='silence'?[]:spectralPlasma.project(data.leftTime,data.rightTime,data.sampleRate),win.performance.now());
+      const side=Math.max(1,Math.min(w-10,h-32)),cx=w/2,cy=side/2+2,scale=side*.48,resolution=side>=64?64:32,levels=plasmaRaster(density,resolution);
+      if(!plasmaBuffer)plasmaBuffer=doc.createElement('canvas');plasmaBuffer.width=resolution;plasmaBuffer.height=resolution;
+      const target=plasmaBuffer.getContext('2d'),pixels=target.createImageData(resolution,resolution),bg=colorRgb(g.bg),fg=colorRgb(color);
+      for(let i=0;i<levels.length;i++){for(let c=0;c<3;c++)pixels.data[i*4+c]=Math.round(bg[c]+levels[i]*(fg[c]-bg[c]));pixels.data[i*4+3]=255;}
+      target.putImageData(pixels,0,0);
+      ctx.imageSmoothingEnabled=true;ctx.drawImage(plasmaBuffer,cx-scale,cy-scale,scale*2,scale*2);
+      ctx.strokeStyle=g.grid;ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(cx,cy-scale);ctx.lineTo(cx+scale,cy);ctx.lineTo(cx,cy+scale);ctx.lineTo(cx-scale,cy);ctx.closePath();ctx.stroke();
+      ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText('L',cx-scale,cy-scale+7);ctx.fillText('R',cx+scale-6,cy-scale+7);
+      const rail=(value,y,label)=>{
+        ctx.fillStyle=g.fg;ctx.fillText(label+' '+(value===null?'—':value.toFixed(2)),3,y+3);
+        const start=Math.min(53,w*.58),length=Math.max(1,w-start-4);ctx.strokeStyle=g.grid;ctx.beginPath();ctx.moveTo(start,y);ctx.lineTo(start+length,y);ctx.stroke();
+        if(value!==null){ctx.fillStyle=color;ctx.fillRect(start+(value+1)*length/2-1,y-3,2,6);}
+      };
+      rail(state.correlation,h-18,'C');rail(state.balance,h-5,'B');
     }
   }
   function drawAll(data){if(!opened)return;for(const panel of root.querySelectorAll('[data-meter]'))paint(panel.dataset.meter,panel.querySelector('canvas'),data)}

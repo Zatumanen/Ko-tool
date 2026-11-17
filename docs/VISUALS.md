@@ -322,3 +322,11 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## Stereo Meter software (ZAT-85)
+
+Stereo Meter now displays an independently defined frequency-aware Plasma Vector,
+compact correlation and RMS balance. Mono is disabled and silence/one-sided
+undefined correlations are labeled. Changed channel format stops capture until
+START. [Projection, sources and evidence](testing/visuals-stereo.md). No audio
+processing or exact Voxengo algorithm claim; owner aesthetics/endurance/HIL pending.

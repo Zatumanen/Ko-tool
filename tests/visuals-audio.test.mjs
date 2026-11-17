@@ -162,3 +162,10 @@ test('enumeration failure leaves permission-only tracks stopped',async()=>{
   await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
   assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
 });
+
+test('a changed channel format invalidates capture instead of retaining stale stereo metrics',async()=>{
+ let channels=2;const stream=makeStream();stream.track.getSettings=()=>({channelCount:channels});
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:FakeAudioContext});
+ a.select('input');assert.equal(await a.start(),true);assert.notEqual(a.sample(),null);
+ channels=1;assert.equal(a.sample(),null);assert.equal(a.active,false);assert.equal(stream.track.readyState,'ended');
+});
