@@ -99,7 +99,10 @@ export function createSampleUploadController({
       if(mode!=='numbered'&&mode!=='sequential')throw new Error('Invalid upload destination selection.');
       assertBatchSession(choiceSession);
       approvedSlotIds=(mode==='numbered'?numberedPlan:sequentialPlan)?.targets.map(item=>item.slot.id);
-      if(!approvedSlotIds)throw new Error('Chosen destination mapping is unavailable; no FILE writes started.');
+      if(!approvedSlotIds)throw new Error(
+        (mode==='numbered'?numberedError:sequentialError)||
+        'Chosen destination mapping is unavailable; no FILE writes started.'
+      );
     }
     // Recompute after the modal: the cached inventory may have changed
     // while the user was deciding. The strict FILE transaction also checks
