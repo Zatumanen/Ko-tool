@@ -19,11 +19,15 @@ const canvas=page=>page.locator('[data-meter="stereo"] canvas');
 const spread=page=>canvas(page).evaluate(c=>{
  const ratio=c.width/c.getBoundingClientRect().width,pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
  let xx=0,yy=0;const side=Math.max(1,Math.min(c.width-10*ratio,c.height-32*ratio)),cx=c.width/2,cy=side/2+2*ratio;
- for(let y=0;y<c.height-30*ratio;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4;if(pixels[i]<100&&pixels[i+1]>140){xx+=(x-cx)**2;yy+=(y-cy)**2;}}
+ // Exclude L/R glyphs and metric rails: text antialiasing is not signal data.
+ for(let y=Math.ceil(12*ratio);y<c.height-30*ratio;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4;if(pixels[i]<100&&pixels[i+1]>140){xx+=(x-cx)**2;yy+=(y-cy)**2;}}
  return{xx,yy};
 });
 test('plasma pixels show phase/antiphase, correlation and one-sided balance without audio writes',async({page})=>{
- await start(page);await expect(canvas(page)).toHaveAttribute('data-stereo-state','stereo');
+ await start(page);
+ // Adversarial foreground: even vector-colored labels must not count as the trace.
+ await page.evaluate(()=>document.getElementById('visuals-root').style.setProperty('--vis-fg','#28e8d2'));
+ await expect(canvas(page)).toHaveAttribute('data-stereo-state','stereo');
  await expect.poll(async()=>Number(await canvas(page).getAttribute('data-stereo-correlation'))).toBeGreaterThan(.99);
  await expect.poll(async()=>{const s=await spread(page);return s.yy/(s.xx||1)}).toBeGreaterThan(3);
  await page.evaluate(()=>{window.__stereo.right.gain.value=-1;});await expect.poll(async()=>Number(await canvas(page).getAttribute('data-stereo-correlation'))).toBeLessThan(-.99);
