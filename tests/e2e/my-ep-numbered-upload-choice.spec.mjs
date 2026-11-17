@@ -30,6 +30,26 @@ const drop=async(page,names,slot=9)=>{
 };
 const snapshot=page=>page.evaluate(()=>window.__fakeEp.snapshot());
 
+test('unnumbered multi-drag shows full free-slot mapping and Escape cancels without FILE writes',async({page})=>{
+ await open(page);
+ const before=await snapshot(page),requestsBefore=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+ const names=Array.from({length:8},(_,i)=>'Sample '+(i+1)+'.wav');
+ await drop(page,names,9);
+ const dialog=page.locator('.ep133-upload-choice-dialog');
+ await expect(dialog).toBeVisible();
+ await expect(page.locator('[data-upload-mode="numbered"]')).toBeDisabled();
+ await expect(page.locator('[data-upload-mode="sequential"]')).toBeEnabled();
+ await expect(page.locator('.ep133-upload-choice-preview')).toContainText('009 ← Sample 1.wav');
+ await expect(page.locator('.ep133-upload-choice-preview')).toContainText('016 ← Sample 8.wav');
+ await expect(page.locator('.ep133-upload-choice-warning')).toContainText('not a post-conversion memory estimate');
+ await page.keyboard.press('Escape');
+ await expect(dialog).toHaveCount(0);
+ expect(await snapshot(page)).toEqual(before);
+ const writes=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index).filter(r=>r.command===5&&
+  ([2,6,12].includes(r.sub)||(r.sub===7&&r.type===1))),requestsBefore);
+ expect(writes).toEqual([]);
+});
+
 test('numbered modal appears before FILE write; cancel leaves device unchanged',async({page})=>{
  await open(page);
  const before=await snapshot(page);
