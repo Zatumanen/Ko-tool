@@ -97,6 +97,21 @@ test('batch with a later unsupported loop refuses all files before FILE PUT',asy
   expect(putRequests(changes)).toEqual([]);
 });
 
+test('a later raw WAV with authored pitch refuses the entire drag batch without FILE PUT',async({page})=>{
+ await open(page);
+ const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+ await dropBatch(page,58,[
+  {name:'raw.wav',bytes:wav(0)},
+  {name:'pitched.wav',bytes:wav(5)}
+ ]);
+ await expect(page.locator('#ep133-confirm-dialog')).toBeHidden();
+ await expect(page.locator('#ep133-global-progress')).toBeHidden();
+ const requests=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),before);
+ expect(putRequests(requests)).toEqual([]);
+ await expect(page.locator('[data-slot="58"]')).not.toHaveClass(/occupied/);
+ await expect(page.locator('[data-slot="59"]')).not.toHaveClass(/occupied/);
+});
+
 test('content-verified SpeedUpperCut WAV is uploaded without a legacy prompt',async({page})=>{
   await open(page);
   const marked=await page.evaluate(async source=>{
