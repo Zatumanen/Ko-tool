@@ -24,6 +24,8 @@ npm run test:e2e
 npm run test:pages:e2e
 ```
 
+Output Meters: `node --test tests/visuals-output-meters.test.mjs tests/visuals-audio.test.mjs` and `npx playwright test tests/e2e/visuals-output-meters.spec.mjs`. [Contract and evidence limits](testing/visuals-output-meters.md).
+
 For focused checks:
 
 ```bash

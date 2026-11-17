@@ -322,3 +322,12 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## Output Meters software (ZAT-86)
+
+Continuous selected-input L/R sample Peak, 1s Peak Hold with 20dB/s release and
+latched CLIP at full-scale samples replace per-paint percentage snapshots. Explicit
+reset, mono R unavailable and stopped/invalid/unsupported states; no RMS or True Peak.
+Compact rails preserve both channels at the 90px dock minimum.
+[Contract and limits](testing/visuals-output-meters.md). Owner visual/endurance and
+physical input acceptance remain pending.

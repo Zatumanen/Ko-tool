@@ -1,3 +1,4 @@
+import{peakDb}from './outputMeters.js';
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
 import{waveformEnvelope}from './transientTrigger.js';
@@ -64,6 +65,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     persist();render();
   }
   function audioState(next){
+    if(next.reason==='channel-format')captureArmed=false;
     status=next.message||'Аудиовход не выбран';
     const element=root.querySelector('[data-audio-status]');
     if(element){element.textContent=status;element.title=status}
@@ -177,6 +179,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
+      if(id==='output'){const reset=el('button','vis-output-reset','↺');reset.dataset.action='reset-output';reset.setAttribute('aria-label','Reset Output Peak Hold and CLIP');reset.title='Reset Peak Hold / CLIP';title.append(reset);}
       if(id==='waveform'){
         const controls=el('details','vis-trigger-controls');
         controls.innerHTML='<summary>Trigger settings</summary>'+[
@@ -227,6 +230,10 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function paint(id,canvas,data){
     const g=drawingContext(canvas);if(!g)return;
+    if(id==='output'){
+      for(const key of Object.keys(canvas.dataset))if(key.startsWith('output'))delete canvas.dataset[key];
+      if(!data){canvas.dataset.outputState='stopped';canvas.setAttribute('aria-label','Output Meters stopped');}
+    }
     if(id!=='spectrogram'||!data)grid(g);
     if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
     const{ctx,w,h,color}=g;
@@ -272,7 +279,24 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     }else if(id==='loudness'){
       grid(g);const db=bound(data.db,-90,0);meter(g,(db+60)/60,Math.max(8,h*.47),'RMS '+db.toFixed(1)+' dBFS');
     }else if(id==='output'){
-      grid(g);meter(g,data.leftPeak,Math.max(7,h*.2),'L '+Math.round(data.leftPeak*100)+'%');meter(g,data.channelCount===1?data.leftPeak:data.rightPeak,Math.max(30,h*.6),'R '+Math.round(data.rightPeak*100)+'%');
+      const state=data.output||{status:'pending'};canvas.dataset.outputState=state.status;
+      if(state.status!=='ready'){
+        const text={pending:'WAITING FOR PCM','unknown-format':'CHANNEL FORMAT UNKNOWN',unsupported:'AudioWorklet REQUIRED',invalid:'INVALID INPUT',stale:'AUDIO PAUSED'}[state.status]||'UNAVAILABLE';
+        canvas.setAttribute('aria-label','Output Meters: '+text);print(g,text,9);return;
+      }
+      canvas.dataset.outputChannels=String(state.channelCount);
+      const description=[];const dbText=db=>Number.isFinite(db)?db.toFixed(1):'−∞';
+      for(let c=0;c<2;c++){
+        const compact=h<40,label=c?'R':'L',x=compact?c*w/2+4:8,y=compact?0:c*h/2+1,barY=compact?Math.max(9,h-6):y+12,barH=compact?4:Math.max(3,Math.min(10,h/2-15)),width=Math.max(1,compact?w/2-8:w-16);
+        if(c>=state.channelCount){canvas.dataset.outputRightDb='unavailable';description.push('R unavailable');ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText(compact?'R N/A':'R N/A · MONO',x,y+9,Math.max(1,width));continue;}
+        const db=peakDb(state.peak[c]),held=peakDb(state.hold[c]),position=value=>width*bound((value+60)/60,0,1);
+        canvas.dataset['output'+(c?'Right':'Left')+'Db']=String(db);canvas.dataset['output'+(c?'Right':'Left')+'HoldDb']=String(held);canvas.dataset['output'+(c?'Right':'Left')+'Clip']=String(state.clip[c]);
+        ctx.fillStyle=g.fg;ctx.font=(compact?8:9)+'px monospace';ctx.fillText(label+(state.clip[c]?' CLIP':' '+dbText(db)+(compact?'':' dBFS')),x,y+9,Math.max(1,width));
+        ctx.fillStyle=g.grid;ctx.fillRect(x,barY,width,barH);ctx.fillStyle=color;ctx.fillRect(x,barY,position(db),barH);
+        if(Number.isFinite(held)){ctx.fillStyle=g.fg;ctx.fillRect(x+Math.min(width-2,position(held)),barY-2,2,barH+4);}
+        description.push(label+' '+dbText(db)+' dBFS, hold '+dbText(held)+' dBFS'+(state.clip[c]?', CLIP':''));
+      }
+      canvas.setAttribute('aria-label','Output Meters '+(state.channelCount===1?'MONO; ':'')+description.join('; '));
     }else if(id==='stereo'){
       grid(g);if(data.channelCount===1){print(g,'MONO INPUT');return}
       meter(g,data.leftRms*2,Math.max(6,h*.16),'L');meter(g,data.rightRms*2,Math.max(23,h*.48),'R');
@@ -319,6 +343,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const stepButton=e.target.closest('[data-step]');if(stepButton){step(stepButton.dataset.for,Number(stepButton.dataset.step));return}
     const button=e.target.closest('[data-action]');if(!button)return;
     const action=button.dataset.action;
+    if(action==='reset-output'){audio.resetOutputMeters();drawAll(audio.active?audio.sample():null);return;}
     if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
     if(action==='stop')stop();
     if(action==='refresh')void refreshInputs();

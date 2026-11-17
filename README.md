@@ -33,7 +33,7 @@
 
 ### Visuals
 
-Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters.
+Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters. Output Meters показывает независимые L/R sample Peak в dBFS, Peak Hold и предупреждение CLIP; кнопка ↺ сбрасывает удержание и CLIP. Для моно правый канал помечен недоступным.
 
 Waveform поддерживает trigger по атаке с удержанием формы, настройками порога чувствительности, времени, амплитуды и hold. Нужен AudioWorklet; форма строится по выбранному аудиовходу.
 
