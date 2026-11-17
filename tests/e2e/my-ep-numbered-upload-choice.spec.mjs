@@ -41,7 +41,7 @@ test('unnumbered multi-drag shows full free-slot mapping and Escape cancels with
  await expect(page.locator('[data-upload-mode="sequential"]')).toBeEnabled();
  await expect(page.locator('.ep133-upload-choice-preview')).toContainText('009 ← Sample 1.wav');
  await expect(page.locator('.ep133-upload-choice-preview')).toContainText('016 ← Sample 8.wav');
- await expect(page.locator('.ep133-upload-choice-warning')).toContainText('not a post-conversion memory estimate');
+ await expect(page.locator('.ep133-upload-choice-warning').first()).toContainText('not a post-conversion memory estimate');
  await page.keyboard.press('Escape');
  await expect(dialog).toHaveCount(0);
  expect(await snapshot(page)).toEqual(before);
