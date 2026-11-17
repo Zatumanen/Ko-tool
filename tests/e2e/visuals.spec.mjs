@@ -87,6 +87,8 @@ test('fake browser-selected stereo input captures without touching Web MIDI; sto
  await page.locator('[data-action="start"]').click();
  await expect(page.locator('[data-action="stop"]').first()).toBeVisible();
  await expect(page.locator('[data-audio-status]')).toContainText('LIVE');
+ await expect(page.locator('[data-meter="spectrum"] canvas')).toHaveAttribute('data-spectrum-scale','log-hz-dbfs');
+ await expect.poll(async()=>Math.abs(Number(await page.locator('[data-meter="spectrum"] canvas').getAttribute('data-spectrum-peak-hz'))-220)).toBeLessThan(20);
  const count=await page.evaluate(()=>window.__visualsAudioTest.started);
  expect(count).toBe(1);
  await page.locator('[data-action="stop"]').first().click();

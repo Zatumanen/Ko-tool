@@ -297,3 +297,11 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - Audio capture latency and performance budget, and supported platforms.
 
 For the broader roadmap and qualitative source research see [PRODUCT_RESEARCH.md](PRODUCT_RESEARCH.md). See [TESTING.md](TESTING.md) for the team's verification rules.
+
+## Spectrum curve software (ZAT-81)
+
+Spectrum uses a continuous logarithmic20Hz–20kHz (Nyquist-limited) curve,
+float8192FFT magnitudes and elapsed-time attack/release. Labels denote dBFS FFT,
+not calibrated SPL or LUFS. Spectrogram data remains independent.
+[Contract, tests and limits](testing/visuals-spectrum.md). Owner aesthetic and
+physical input acceptance remain pending.

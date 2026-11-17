@@ -1,5 +1,6 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
+import{spectrumCurve,createSpectrumSmoother}from './spectrum.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -12,6 +13,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  const spectrumSmoother=createSpectrumSmoother();
   let identityAttached=false;
   async function attachVerifiedIdentity(){
     if(identityAttached)return;
@@ -68,7 +70,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{stopAnimation();drawAll(null)}
+    else{spectrumSmoother.reset();stopAnimation();drawAll(null)}
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
@@ -217,9 +219,16 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       grid(g);line(g,data.time,id==='oscilloscope'?1.55:1);
       ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText(id==='oscilloscope'?'OSC · '+data.sampleRate+' Hz':'TIME · '+data.time.length+' samples',7,11);
     }else if(id==='spectrum'){
-      grid(g);const freq=data.frequency, count=Math.max(12,Math.min(64,Math.floor(w/6)));
-      ctx.fillStyle=color;
-      for(let i=0;i<count;i++){const a=Math.floor(Math.pow(i/count,2)*freq.length),b=Math.max(a+1,Math.floor(Math.pow((i+1)/count,2)*freq.length));let max=0;for(let k=a;k<b;k++)max=Math.max(max,freq[k]);const ht=max/255*(h-18);ctx.fillRect(i*w/count+1,h-ht,w/count-2,ht)}
+      grid(g);const raw=spectrumCurve(data.spectrumDb,data.sampleRate),points=spectrumSmoother.update(raw,win.performance.now());
+      const left=29,right=Math.max(left+1,w-5),top=15,bottom=Math.max(top+1,h-15),upper=points.at(-1).hz;
+      const x=hz=>left+Math.log(hz/20)/Math.log(upper/20)*(right-left),y=db=>bottom-(db+100)/100*(bottom-top);
+      ctx.fillStyle=g.fg;ctx.font='9px monospace';
+      for(const db of [-80,-40,0])ctx.fillText(String(db),1,y(db)+3);
+      for(const hz of [20,100,1000,10000])if(hz<=upper)ctx.fillText(hz>=1000?hz/1000+'k':String(hz),Math.min(right-18,x(hz)),h-3);
+      ctx.fillText('Hz · dBFS FFT',left,10);
+      ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();
+      points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(p.hz),y(p.db));else ctx.lineTo(x(p.hz),y(p.db));});ctx.stroke();
+      const peak=raw.reduce((a,b)=>a.db>b.db?a:b);canvas.dataset.spectrumPeakHz=String(Math.round(peak.hz));canvas.dataset.spectrumScale='log-hz-dbfs';
     }else if(id==='spectrogram'){
       if(!canvas.dataset.visHistory){grid(g);canvas.dataset.visHistory='1'}
       ctx.drawImage(canvas,-2,0,w,h);
