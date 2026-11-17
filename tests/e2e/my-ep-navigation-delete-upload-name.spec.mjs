@@ -368,6 +368,8 @@ test('failed sample upload is marked FAILED and the next queued sample still upl
     row.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
     row.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
   },bytes);
+  await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+  await page.locator('[data-upload-mode="sequential"]').click();
   await expect.poll(()=>page.evaluate(()=>window.__fakeEp.snapshot().some(s=>s.id===10)),{timeout:25000}).toBe(true);
   const result=await page.evaluate(()=>({
     slots:window.__fakeEp.snapshot().filter(s=>s.id===9||s.id===10).map(s=>s.id),
