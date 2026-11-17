@@ -297,3 +297,28 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - Audio capture latency and performance budget, and supported platforms.
 
 For the broader roadmap and qualitative source research see [PRODUCT_RESEARCH.md](PRODUCT_RESEARCH.md). See [TESTING.md](TESTING.md) for the team's verification rules.
+
+## Waveform trigger software implementation (ZAT-80)
+
+Continuous AudioWorklet PCM now drives attack-centered held Waveform capture,
+with blank pre-attack half, threshold/time/amplitude/hold controls and min/max
+Canvas reduction preserving narrow impulses. [Contract and limits](testing/visuals-trigger.md).
+One-inflight ACK bounds UI delivery while analysis remains independent of FPS.
+This changes Waveform only; Oscilloscope remains its existing time-domain view.
+Owner video matching/visual acceptance and physical USB Audio remain unverified.
+
+## Spectrum curve software (ZAT-81)
+
+Spectrum uses a continuous logarithmic20Hz–20kHz (Nyquist-limited) curve,
+float8192FFT magnitudes and elapsed-time attack/release. Labels denote dBFS FFT,
+not calibrated SPL or LUFS. Spectrogram data remains independent.
+[Contract, tests and limits](testing/visuals-spectrum.md). Owner aesthetic and
+physical input acceptance remain pending.
+
+## Spectrogram time history software (ZAT-82)
+
+Timestamped bounded FFT history replaces per-paint bitmap scrolling: newest
+columns right, past left; resize/theme/DPR reprojects the retained measurements.
+Duration4–16seconds and raster detail adapt to module width, with blank sampling
+gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
+Owner visual/endurance and physical input acceptance remain pending.

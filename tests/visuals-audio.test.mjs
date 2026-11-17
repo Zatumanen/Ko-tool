@@ -19,6 +19,7 @@ class FakeAudioContext{
     return{fftSize:2048,smoothingTimeConstant:0,
       connect(){},disconnect(){},
       getFloatTimeDomainData(array){array.fill(.2)},
+      getFloatFrequencyData(array){array.fill(-60)},
       getByteFrequencyData(array){array.fill(64)}};
   }
   createGain(){return{gain:{value:1},connect(){},disconnect(){}}}
@@ -43,6 +44,7 @@ test('capture requests exact selected source, measures genuine graph data and st
   assert.equal(data.channelCount,2);
   assert.ok(data.rms>.15&&data.rms<.25);
   assert.ok(data.frequency[20]===64);
+  assert.equal(data.spectrumDb.length,4096);assert.equal(data.spectrumDb[20],-60);
   assert.ok(data.correlation>.99);
   a.stop();
   assert.equal(a.active,false);
@@ -135,4 +137,28 @@ test('explicit input discovery releases temporary default device before selectin
   assert.deepEqual(found,[{id:'ep-usb',label:'EP USB AUDIO'}]);
   assert.equal(a.active,false);
   assert.equal(a.selectedId,'');
+});
+
+test('permission discovery stops temporary capture before a pending enumeration completes',async()=>{
+  const temporary=makeStream();let finish,entered;
+  const enumerating=new Promise(r=>entered=r);
+  const pending=new Promise(r=>finish=r);
+  const a=createVisualsAudio({navigatorRef:{mediaDevices:{
+    getUserMedia:async()=>temporary,
+    enumerateDevices:()=>{entered();return pending}
+  }},AudioContextClass:FakeAudioContext});
+  const discovery=a.unlockInputs();await enumerating;
+  const during=temporary.track.readyState;
+  finish([]);await discovery;
+  assert.equal(during,'ended','permission-only capture must not wait for device enumeration');
+  assert.equal(a.active,false);
+});
+
+test('enumeration failure leaves permission-only tracks stopped',async()=>{
+  const temporary=makeStream();
+  const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>temporary,
+    enumerateDevices:async()=>{throw Error('enumeration unavailable')}
+  }},AudioContextClass:FakeAudioContext});
+  await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
+  assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
 });

@@ -1,5 +1,8 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
+import{waveformEnvelope}from './transientTrigger.js';
+import{spectrumCurve,createSpectrumSmoother}from './spectrum.js';
+import{createSpectrogramHistory}from './spectrogram.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -12,6 +15,9 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
+  const spectrumSmoother=createSpectrumSmoother();
+  const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
   let identityAttached=false;
   async function attachVerifiedIdentity(){
     if(identityAttached)return;
@@ -68,7 +74,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{stopAnimation();drawAll(null)}
+    else{spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
@@ -88,6 +94,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState});
+    audio.configureTrigger(triggerSettings);
     render();
     void attachVerifiedIdentity();
     void refreshInputs();
@@ -170,6 +177,16 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
+      if(id==='waveform'){
+        const controls=el('details','vis-trigger-controls');
+        controls.innerHTML='<summary>Trigger settings</summary>'+[
+          ['Sensitivity threshold','threshold',triggerSettings.threshold,.001,1,.001],
+          ['Time ms','timeMs',triggerSettings.timeMs,10,1000,10],
+          ['Amplitude','amplitude',waveAmplitude,.1,10,.1],
+          ['Hold ms','holdMs',triggerSettings.holdMs,0,3000,10]
+        ].map(([label,key,value,min,max,step])=>'<label>'+label+'<input type="number" aria-label="Waveform '+label+'" data-trigger-setting="'+key+'" value="'+value+'" min="'+min+'" max="'+max+'" step="'+step+'"></label>').join('');
+        meter.append(controls);
+      }
       if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('tabindex','0');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
       const canvas=el('canvas');canvas.setAttribute('aria-label',labelId(id)+' — визуализация входящего аудио');meter.append(canvas);meters.append(meter);
     }
@@ -210,20 +227,48 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function paint(id,canvas,data){
     const g=drawingContext(canvas);if(!g)return;
-    if(id!=='spectrogram'||!data||!canvas.dataset.visHistory)grid(g);
+    if(id!=='spectrogram'||!data)grid(g);
     if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
     const{ctx,w,h,color}=g;
-    if(id==='waveform'||id==='oscilloscope'){
+    if(id==='waveform'){
+      grid(g);const frame=data.trigger;
+      canvas.dataset.triggerCount=String(frame?.count||0);
+      if(frame?.samples){
+        const columns=waveformEnvelope(frame.samples,w);ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();
+        columns.forEach(([min,max],i)=>{const x=i/(columns.length-1||1)*w;ctx.moveTo(x,h/2-max*h*.43*waveAmplitude);ctx.lineTo(x,h/2-min*h*.43*waveAmplitude+.5);});ctx.stroke();
+        ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText('TRIGGER · '+frame.timeMs+' ms',7,11);
+      }
+      else print(g,frame?.unsupported?'TRIGGER UNAVAILABLE':frame?.error?'TRIGGER ERROR':'TRIGGER WAITING');
+    }else if(id==='oscilloscope'){
       grid(g);line(g,data.time,id==='oscilloscope'?1.55:1);
       ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText(id==='oscilloscope'?'OSC · '+data.sampleRate+' Hz':'TIME · '+data.time.length+' samples',7,11);
     }else if(id==='spectrum'){
-      grid(g);const freq=data.frequency, count=Math.max(12,Math.min(64,Math.floor(w/6)));
-      ctx.fillStyle=color;
-      for(let i=0;i<count;i++){const a=Math.floor(Math.pow(i/count,2)*freq.length),b=Math.max(a+1,Math.floor(Math.pow((i+1)/count,2)*freq.length));let max=0;for(let k=a;k<b;k++)max=Math.max(max,freq[k]);const ht=max/255*(h-18);ctx.fillRect(i*w/count+1,h-ht,w/count-2,ht)}
+      grid(g);const raw=spectrumCurve(data.spectrumDb,data.sampleRate),points=spectrumSmoother.update(raw,win.performance.now());
+      const left=29,right=Math.max(left+1,w-5),top=15,bottom=Math.max(top+1,h-15),upper=points.at(-1).hz;
+      const x=hz=>left+Math.log(hz/20)/Math.log(upper/20)*(right-left),y=db=>bottom-(db+100)/100*(bottom-top);
+      ctx.fillStyle=g.fg;ctx.font='9px monospace';
+      for(const db of [-80,-40,0])ctx.fillText(String(db),1,y(db)+3);
+      for(const hz of [20,100,1000,10000])if(hz<=upper)ctx.fillText(hz>=1000?hz/1000+'k':String(hz),Math.min(right-18,x(hz)),h-3);
+      ctx.fillText('Hz · dBFS FFT',left,10);
+      ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();
+      points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(p.hz),y(p.db));else ctx.lineTo(x(p.hz),y(p.db));});ctx.stroke();
+      const peak=raw.reduce((a,b)=>a.db>b.db?a:b);canvas.dataset.spectrumPeakHz=String(Math.round(peak.hz));canvas.dataset.spectrumScale='log-hz-dbfs';
     }else if(id==='spectrogram'){
-      if(!canvas.dataset.visHistory){grid(g);canvas.dataset.visHistory='1'}
-      ctx.drawImage(canvas,-2,0,w,h);
-      for(let y=0;y<h;y+=2){const p=Math.pow((h-y)/h,2),bin=Math.min(data.frequency.length-1,Math.floor(p*data.frequency.length)),v=data.frequency[bin]/255;ctx.fillStyle=g.bg;ctx.fillRect(w-2,y,2,2);ctx.globalAlpha=v;ctx.fillStyle=color;ctx.fillRect(w-2,y,2,2);ctx.globalAlpha=1}
+      const now=win.performance.now();spectrogram.push(data.frequency,data.sampleRate,now);
+      const raster=spectrogram.raster(w,Math.max(1,h-20),now);
+      let buffer=spectrogramCanvases.get(canvas);
+      if(!buffer){buffer=doc.createElement('canvas');spectrogramCanvases.set(canvas,buffer);}
+      buffer.width=raster.width;buffer.height=raster.height;
+      const target=buffer.getContext('2d'),pixels=target.createImageData(raster.width,raster.height);
+      const rgb=value=>{let hex=value.trim().replace('#','');if(hex.length===3)hex=[...hex].map(c=>c+c).join('');return[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)||0);};
+      const bg=rgb(g.bg),fg=rgb(color);
+      for(let i=0;i<raster.values.length;i++){
+        const v=raster.values[i]/255;for(let c=0;c<3;c++)pixels.data[i*4+c]=Math.round(bg[c]+v*(fg[c]-bg[c]));pixels.data[i*4+3]=255;
+      }
+      target.putImageData(pixels,0,0);ctx.fillStyle=g.bg;ctx.fillRect(0,0,w,h);ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(buffer,0,10,w,Math.max(1,h-20));
+      ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText(Math.round(raster.upperHz/1000)+'k Hz',3,9);ctx.fillText('20 Hz · −'+raster.seconds.toFixed(1)+'s → NOW',3,h-2);
+      canvas.dataset.historyFrames=String(spectrogram.size);canvas.dataset.historySeconds=String(raster.seconds);canvas.dataset.historyDirection='right-to-left';
     }else if(id==='loudness'){
       grid(g);const db=bound(data.db,-90,0);meter(g,(db+60)/60,Math.max(8,h*.47),'RMS '+db.toFixed(1)+' dBFS');
     }else if(id==='output'){
@@ -292,6 +337,13 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(action==='delete')deleteNamed();
   });
   root.addEventListener('change',e=>{
+    if(e.target.dataset.triggerSetting){
+      const input=e.target,key=input.dataset.triggerSetting,value=Number(input.value);
+      if(input.value===''||!input.checkValidity()||!Number.isFinite(value))return;
+      if(key==='amplitude')waveAmplitude=value;
+      else{triggerSettings={...triggerSettings,[key]:value};audio.configureTrigger(triggerSettings);}
+      drawAll(audio.active?audio.sample():null);return;
+    }
     const x=e.target;
     if(x.matches('[data-source]')){captureArmed=false;audio.select(x.value);render();return}
     if(x.matches('[data-preset]')){usePreset(x.value);return}
