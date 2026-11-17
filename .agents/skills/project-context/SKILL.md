@@ -16,10 +16,12 @@ repository survey for every small task.
    [Visuals](../../../docs/VISUALS.md), [research/REPITCH](../../../docs/PRODUCT_RESEARCH.md)
    or [TESTING](../../../docs/TESTING.md). The [decision index](../../../docs/CODEX.md)
    routes historical choices; never auto-load the archive or every skill/document.
-3. Memory, commit titles and tracker state are pointers, not implementation proof.
-   Distinguish shipped, local/uncommitted, planned, simulated and physically verified.
-   A design decision alone authorizes neither code nor deployment. Recheck a remote
-   tip only if scope requires it; preserve checkout changes and report divergence.
+3. Before app edits, follow the [implementation gate](../../../docs/IMPLEMENTATION_GATE.md)
+   and [matrix](../../../docs/IMPLEMENTATION_MATRIX.md): inspect real existing code,
+   direct callers/tests and approved behavior, then identify a reproducible gap.
+   Memory, commit titles and Linear Done are not proof. Distinguish IMPLEMENTED,
+   PARTIAL, MISSING, broken behavior and HIL PENDING; HIL-only is not a code task.
+   A decision authorizes neither physical writes nor Pages deployment.
 4. Read Linear through available authorized tools. If unavailable, say live status
    is unverified; do not invent issues/closure or edit tracker records without
    authorization and acceptance evidence.
