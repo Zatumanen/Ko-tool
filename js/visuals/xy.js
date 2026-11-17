@@ -19,7 +19,7 @@ export function createPhosphorHistory(){
       if(!Number.isFinite(time))throw Error('Invalid XY timestamp');
       if(history.length&&time<history.at(-1).time)history=[];
       const frame={time,points:points.map(p=>p&&[...p])};
-      if(history.length&&Math.floor(history.at(-1).time/(1000/30))===Math.floor(time/(1000/30)))history[history.length-1]=frame;
+      if(history.length&&Math.floor(history.at(-1).time*30/1000)===Math.floor(time*30/1000))history[history.length-1]=frame;
       else history.push(frame);
       while(history.length>16||time-history[0].time>400)history.shift();
     },
