@@ -3,7 +3,8 @@ import{
 }from '../backupBundle.js?v=20261001-1';
 import{getEpProjectProfile}from '../projectProfile.js?v=20261001-1';
 import{createOfficialEpPak}from '../officialPak.js?v=20261022-1';
-import{inspectOfficialPak}from '../officialPakReader.js?v=20261022-1';
+import{inspectOfficialPak,readOfficialPakZip}from '../officialPakReader.js?v=20261022-1';
+import{stageOfficialPakRestoreReadOnly}from '../officialPakRestoreStaging.js?v=20261117-1';
 import{buildOfficialPakPreviewPlan}from '../officialPakPreviewPlan.js?v=20261114-1';
 import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
 import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
@@ -565,6 +566,16 @@ export function createBackupRestoreController({
       const plan=buildOfficialPakPreviewPlan(archive,{
         device:info,getSlot:slot=>sampleStore?.getSlot?.(slot)||null
       });
+      // Recheck all WAV PCM and project TAR fingerprints independently.
+      // Do not persist staging payloads or expose FILE writes from staging.
+      const staged=stageOfficialPakRestoreReadOnly(
+        archive,await readOfficialPakZip(raw),{device:info}
+      );
+      if(staged.canRestore!==false||staged.writeAuthorized!==false||
+        staged.requiresHardwareReadback!==true)
+        throw new Error('Official PAK staging unexpectedly enabled restore');
+      const stageSummary=staged.summary;
+      const stageBlockers=staged.blockers.slice();
       const missing=plan.projects.flatMap(project=>
         project.missingInArchive.map(slot=>'P'+project.number+' → '+pad(slot)));
       const slotLabel={
@@ -588,6 +599,14 @@ export function createBackupRestoreController({
         '<div class="ep-pak-row"><strong>MISSING REFERENCES IN ARCHIVE</strong><span>',plan.summary.missingReferences,'</span></div>',
         '<div class="ep-pak-row"><strong>ARCHIVED PCM BYTES (NOT FREE-SPACE CHECK)</strong><span>',
           plan.summary.requiredPcmBytes,'</span></div>',
+        '<strong>OFFLINE RESTORE STAGING · INTEGRITY VERIFIED, RESTORE BLOCKED</strong>',
+        '<div class="ep-pak-row"><strong>PCM/TAR RECHECK</strong><span>',
+          stageSummary.sampleCount,' SAMPLES · ',stageSummary.projectCount,
+          ' PROJECTS · ',stageSummary.totalPcmBytes,' PCM BYTES</span></div>',
+        '<div class="ep-pak-row"><strong>STAGING PERMISSIONS</strong><span>',
+          'CAN RESTORE: NO · WRITE AUTHORIZED: NO · DEVICE READBACK REQUIRED</span></div>',
+        ...stageBlockers.map(w=>'<div class="ep-pak-warning">STAGING BLOCKER: '+
+          escapeHtml(w)+'</div>'),
         '<strong>PROJECTS / PAD DEPENDENCIES / TARGET STATUS</strong>',
         '<div class="ep-pak-inventory">',
         plan.projects.map(p=>
