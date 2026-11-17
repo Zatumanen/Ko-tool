@@ -28,11 +28,12 @@ export function modulatedPreset(preset,{handle=0,shake=0,time=0}={}){
  return p;
 }
 
-export function createEmulation({AudioContextClass=globalThis.AudioContext,onEnd=()=>{}}={}){
- let context=null,source=null,timer=null,epoch=0,preset=null,controls={handle:0,shake:0},updates=[];
+export function createEmulation({AudioContextClass=globalThis.AudioContext,onEnd=()=>{},getUserMedia=globalThis.navigator?.mediaDevices?.getUserMedia?.bind(globalThis.navigator.mediaDevices)}={}){
+ let context=null,source=null,stream=null,timer=null,epoch=0,preset=null,controls={handle:0,shake:0},updates=[];
  const stop=()=>{
   epoch++;if(timer!==null)clearInterval(timer);timer=null;
-  if(source){source.onended=null;try{source.stop();}catch{}source=null;}
+  if(source){source.onended=null;try{source.stop?.();}catch{}source=null;}
+  if(stream){for(const track of stream.getTracks())try{track.stop();}catch{}stream=null;}
   const old=context;context=null;updates=[];if(old)void old.close().catch(()=>{});
  };
  const tick=()=>{
@@ -40,14 +41,25 @@ export function createEmulation({AudioContextClass=globalThis.AudioContext,onEnd
   const p=modulatedPreset(preset,{...controls,time:context.currentTime});updates.forEach(fn=>fn(p));
  };
  const param=(p,row,key)=>p.list[row]?.[key]??EFFECTS[p.list[row]?.effect]?.[key]?.[2]??0;
- async function play(bytes,nextPreset,{route='mic',loop=true}={}){
+ async function start({bytes=null,liveMic=false},nextPreset,{route='mic',loop=true}={}){
   stop();const generation=epoch;preset=structuredClone(nextPreset);
   if(!previewCoverage(preset).playable)throw Error('BUS preview unavailable');
+  if(!AudioContextClass)throw Error('Web Audio is unavailable in this browser');
   const ctx=new AudioContextClass();context=ctx;
   try{
-   await ctx.resume();const decoded=await ctx.decodeAudioData(bytes.slice().buffer);
-   if(generation!==epoch||context!==ctx)return false;
-   source=ctx.createBufferSource();source.buffer=decoded;source.loop=loop;
+   await ctx.resume();
+   if(liveMic){
+    if(typeof getUserMedia!=='function')throw Error('Browser microphone permission API is unavailable');
+    const captured=await getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+    if(generation!==epoch||context!==ctx){for(const track of captured.getTracks())track.stop();return false;}
+    stream=captured;
+    source=ctx.createMediaStreamSource(stream);
+    for(const track of stream.getTracks())track.addEventListener?.('ended',()=>{if(generation===epoch){stop();onEnd();}},{once:true});
+   }else{
+    const decoded=await ctx.decodeAudioData(bytes.slice().buffer);
+    if(generation!==epoch||context!==ctx)return false;
+    source=ctx.createBufferSource();source.buffer=decoded;source.loop=loop;
+   }
    let tail=source;
    const append=node=>{tail.connect(node);tail=node;};
    const set=(audioParam,value)=>audioParam.setTargetAtTime(value,ctx.currentTime,.015);
@@ -91,8 +103,14 @@ export function createEmulation({AudioContextClass=globalThis.AudioContext,onEnd
     }
    }
    const master=ctx.createGain();master.gain.value=.4;append(master);tail.connect(ctx.destination);
-   tick();source.onended=()=>{if(generation===epoch){stop();onEnd();}};source.start();timer=setInterval(tick,33);return true;
+   tick();if(!liveMic){source.onended=()=>{if(generation===epoch){stop();onEnd();}};source.start();}timer=setInterval(tick,33);return true;
   }catch(error){if(generation===epoch)stop();throw error;}
  }
- return{play,stop,update(next){preset=structuredClone(next);tick();},setControls(next){controls={...controls,...next};tick();},get active(){return !!source;}};
+ return{
+  play(bytes,nextPreset,options){return start({bytes},nextPreset,options);},
+  monitorMicrophone(nextPreset){return start({liveMic:true},nextPreset,{route:'mic',loop:false});},
+  stop,update(next){preset=structuredClone(next);tick();},
+  setControls(next){controls={...controls,...next};tick();},
+  get active(){return !!source;}
+ };
 }

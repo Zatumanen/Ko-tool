@@ -226,6 +226,9 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
         const after = await command('print(teenage.fx_pos)', 'active FX slot after read');
         if (after !== before) throw Error('FX slot changed while reading saved config');
         const diagnostic = summarizeDeviceConfig(stored, Number(before));
+        // Ephemeral full JSON for an explicit user-initiated local download.
+        // Never log this or treat it as hardware-write authorization.
+        diagnostic.rawConfigText = stored;
         initializing = false;
         return diagnostic;
       }

@@ -1,7 +1,122 @@
 import{test,expect}from '@playwright/test';
 import{encodePcmWav}from '../../js/fxMic/wav.js';
 const wav=()=>Buffer.from(encodePcmWav(Float32Array.from({length:2205},(_,i)=>Math.sin(i*.1)*.15),{sampleRate:22050,channels:1}));
-const open=async page=>{await page.goto('/');await page.locator('#fx-mic-icon').click();await expect(page.getByRole('dialog',{name:'FX-MIC Studio'})).toBeVisible();};
+const open=async page=>{await page.goto('/');await page.locator('#fx-mic-icon').click();await expect(page.getByRole('dialog',{name:'FX-MIC Studio'})).toBeVisible();await page.getByRole('button',{name:'All sections'}).click();};
+
+test('studio starts in the focused Presets workspace with accessible workspace tabs',async({page})=>{
+ await page.goto('/');await page.locator('#fx-mic-icon').click();
+ await expect(page.getByRole('button',{name:'Presets',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeHidden();
+ await page.getByRole('button',{name:'Samples',exact:true}).click();
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeHidden();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeVisible();
+ await page.getByRole('button',{name:'Audition',exact:true}).click();
+ await expect(page.locator('[data-fx-pane="preview"]')).toBeVisible();
+ await page.getByRole('button',{name:'All sections'}).click();
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ await expect(page.locator('[data-fx-pane="samples"]')).toBeVisible();
+});
+
+test('preset notes, copying, resetting and Undo are local-only and reversible',async({page})=>{
+ await open(page);
+ await page.getByLabel('Preset notes').fill('Dark radio voice');await page.getByLabel('Preset notes').press('Tab');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+ await page.getByLabel('Copy preset destination').selectOption('1');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Copy selected preset'}).click();
+ await expect(page.getByLabel('FX preset',{exact:true})).toHaveValue('1');
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+ await expect(page.getByLabel('Preset name')).toHaveValue(/COPY/);
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Reset selected preset'}).click();
+ await expect(page.getByLabel('Preset name')).toHaveValue('PRESET 2');
+ await page.getByRole('button',{name:'Undo edit'}).click();
+ await expect(page.getByLabel('Preset notes')).toHaveValue('Dark radio voice');
+});
+
+test('factory sample removal keeps Undo and never opens the hardware transport',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__fxUsbRequests=0;
+  Object.defineProperty(navigator,'serial',{value:{requestPort:()=>{window.__fxUsbRequests++;throw Error('must not connect');}},configurable:true});
+ });
+ await open(page);
+ await page.getByLabel('WAV slot 1').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav()});
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Use factory sample in slot 1'}).click();
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('Factory sample');
+ await page.getByRole('button',{name:'Undo edit'}).click();
+ await expect(page.locator('[data-fx-slot="0"]')).toContainText('0.100 s');
+ expect(await page.evaluate(()=>window.__fxUsbRequests)).toBe(0);
+});
+
+test('browser microphone monitoring is explicit and releases tracks on Stop',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__fxMicRequests=0;window.__fxMicStreams=[];
+  Object.defineProperty(navigator,'mediaDevices',{value:{getUserMedia:async()=>{
+   window.__fxMicRequests++;
+   const ctx=new AudioContext();const stream=ctx.createMediaStreamDestination().stream;
+   window.__fxMicStreams.push({stream,ctx});return stream;
+  }},configurable:true});
+ });
+ await open(page);
+ expect(await page.evaluate(()=>window.__fxMicRequests)).toBe(0);
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Monitor browser microphone'}).click();
+ await expect(page.locator('[data-fx-status]')).toContainText('Browser microphone monitoring');
+ expect(await page.evaluate(()=>window.__fxMicRequests)).toBe(1);
+ await page.getByRole('button',{name:'Stop audio'}).click();
+ await expect.poll(()=>page.evaluate(()=>window.__fxMicStreams[0].stream.getAudioTracks().every(t=>t.readyState==='ended'))).toBe(true);
+ await page.evaluate(()=>window.__fxMicStreams[0].ctx.close());
+});
+
+test('precise FX numeric input persists and rejects out-of-range values without changing the pack',async({page})=>{
+ await open(page);
+ const precise=page.getByLabel('Precise cutoff value for effect 0');
+ await precise.fill('0.37');
+ await precise.press('Tab');
+ await expect(page.getByLabel('Row 0 cutoff')).toHaveValue('0.37');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Precise cutoff value for effect 0')).toHaveValue('0.37');
+ const invalid=page.getByLabel('Precise cutoff value for effect 0');
+ await invalid.fill('1.5');
+ await invalid.press('Tab');
+ await expect(page.locator('[data-fx-error]')).toContainText('expected 0');
+ await page.getByRole('button',{name:'Edit FX preset 2'}).click();
+ await page.getByRole('button',{name:'Edit FX preset 1'}).click();
+ await expect(page.getByLabel('Precise cutoff value for effect 0')).toHaveValue('0.37');
+});
+
+test('dragging an FX row retains its modulation target and arrow controls',async({page})=>{
+ await open(page);
+ await page.getByLabel('Handle target').selectOption('0:cutoff');
+ await page.locator('[data-fx-drag-handle="0"]').dragTo(page.locator('[data-fx-row="1"]'));
+ await expect(page.getByLabel('Handle target')).toHaveValue('1:cutoff');
+ await expect(page.locator('[data-fx-row="1"]')).toContainText('LOWPASS');
+ await page.getByRole('button',{name:'Move row 1 up'}).click();
+ await expect(page.getByLabel('Handle target')).toHaveValue('0:cutoff');
+});
+
+test('keyboard preview shortcuts work only when the workspace has focus',async({page})=>{
+ await open(page);
+ await page.getByLabel('WAV slot 1').setInputFiles({name:'voice.wav',mimeType:'audio/wav',buffer:wav()});
+ await page.getByRole('button',{name:'Audition',exact:true}).click();
+ await page.locator('#fx-mic-window').focus();
+ await page.keyboard.press('h');
+ await expect(page.getByLabel('Handle preview')).toHaveValue('1');
+ await page.keyboard.down('s');
+ await expect(page.getByLabel('Shake preview')).toHaveValue('1');
+ await page.keyboard.up('s');
+ await expect(page.getByLabel('Shake preview')).toHaveValue('0');
+ await page.keyboard.press('Space');
+ await expect(page.locator('[data-fx-status]')).toContainText('Playing');
+ await page.keyboard.press('Space');
+ await expect(page.locator('[data-fx-status]')).toHaveText('Stopped');
+});
 
 test('desktop icons remain independently reachable at desktop and mobile widths',async({page})=>{
  for(const width of [1280,375]){
@@ -15,7 +130,7 @@ test('desktop icons remain independently reachable at desktop and mobile widths'
 
 test('FX-MIC is a separate offline window; Live requires explicit firmware selection',async({page})=>{
  await open(page);await expect(page.locator('[data-fx-slot]')).toHaveCount(4);
- await expect(page.getByLabel('FX preset')).toHaveValue('0');
+ await expect(page.getByLabel('FX preset',{exact:true})).toHaveValue('0');
  await expect(page.getByText('EMULATION · approximate browser audio')).toBeVisible();
  await page.getByRole('button',{name:'Live',exact:true}).click();
  await expect(page.getByRole('button',{name:'Connect EP-2350'})).toBeDisabled();
@@ -232,6 +347,14 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
  await expect(page.locator('[data-fx-device-config]')).toContainText('AM TUNER');
  await expect(page.locator('[data-fx-device-config]')).toContainText('saved FX presets');
  await expect(page.locator('[data-fx-error]')).toBeEmpty();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download saved config.json'}).click();
+ const configFile=await download;
+ expect(configFile.suggestedFilename()).toBe('config.json');
+ const {readFile}=await import('node:fs/promises');
+ const saved=JSON.parse(await readFile(await configFile.path(),'utf8'));
+ expect(saved.presets[0].list[0].deviceSpecific).toBe(3);
+ expect(saved.samples[0].file).toBe('1.wav');
  const commands=await page.evaluate(()=>window.fxCommands);
  expect(commands.some(cmd=>cmd.includes('open("/fat/config.json", "r")'))).toBe(true);
  expect(commands.filter(cmd=>cmd.startsWith('print(json.dumps(_ko_json[')).length).toBeGreaterThan(0);
@@ -239,4 +362,54 @@ test('stock FX-MIC 1.1.2 imports reference-shaped config without hardware writes
    cmd.startsWith('fx.list_preset')||cmd.startsWith('print(fx.param')||cmd.includes('open("/fat/config.json", "w")'))).toBe(false);
  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
  await expect(page.locator('[data-live-state]')).toHaveText('disconnected');
+});
+
+test('stock read-only 1.1.2 presets can become a validated local draft without hardware writes',async({page})=>{
+ await page.addInitScript(()=>{
+  window.fxCommands=[];let reader;let closed=false;
+  window.getFxClosed=()=>closed;
+  const config=JSON.stringify({name:'BROKEN RADIO PACK',presets:[
+   {pos:0,name:'WALKIE TALKIE',comment:'bandpass filter',list:[
+    {effect:'HIGHPASS',cutoff:.1},{effect:'LOWPASS',cutoff:.4},{effect:'SAMPLE'}],
+    handle:{row:1,param:'cutoff',depth:.5},trigger:{row:2}},
+   {pos:1,name:'AM TUNER',list:[{effect:'SSB',frequency:-500},{effect:'SAMPLE'}]},
+   {pos:2,name:'CRYPTIC',list:[{effect:'RING',frequency:100,mix:.8},{effect:'SAMPLE'}]},
+   {pos:3,name:'LOSING SIGNAL',list:[{effect:'BALANCE',balance:.5},{effect:'SAMPLE'}]}
+  ]});
+  const port={
+   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),
+   open:async()=>{reader.enqueue(new TextEncoder().encode('>>> '));},
+   close:async()=>{closed=true;},
+   readable:new ReadableStream({start(c){reader=c;}}),
+   writable:new WritableStream({write(bytes){
+    const cmd=new TextDecoder().decode(bytes).trim();window.fxCommands.push(cmd);
+    let reply='';
+    if(cmd.includes('implementation.name'))reply='micropython';
+    else if(cmd.includes('_machine'))reply='EP-2350 1.1.2';
+    else if(cmd==='print(teenage.fx_pos)')reply='0';
+    else if(cmd==='print(os.stat("/fat/config.json")[6])'||cmd==='print(len(_ko_json.encode("utf-8")))')reply=String(new TextEncoder().encode(config).length);
+    else if(cmd==='print(len(_ko_json))')reply=String(config.length);
+    else if(cmd.startsWith('print(json.dumps(_ko_json[')){
+     const m=cmd.match(/\[(\d+):(\d+)\]/);
+     reply=JSON.stringify(config.slice(Number(m[1]),Number(m[2])))
+      .replaceAll('>',String.fromCharCode(92)+'u003e');
+    }
+    reader.enqueue(new TextEncoder().encode(cmd+'\r\n'+reply+'\r\n>>> '));
+   }})
+  };
+  Object.defineProperty(navigator,'serial',{value:{requestPort:async()=>port},configurable:true});
+ });
+ await open(page);
+ await page.getByRole('button',{name:'Live',exact:true}).click();
+ await page.getByLabel('Stock firmware').selectOption('1.1.2');
+ await page.getByRole('button',{name:'Connect EP-2350'}).click();
+ await expect(page.locator('[data-live-state]')).toContainText('ready');
+ page.once('dialog',async dialog=>dialog.accept());
+ await page.getByRole('button',{name:'Open as offline draft'}).click();
+ await expect(page.getByLabel('Preset name')).toHaveValue('WALKIE TALKIE');
+ await expect(page.getByLabel('Preset notes')).toHaveValue('bandpass filter');
+ await expect(page.locator('[data-fx-pane="presets"]')).toBeVisible();
+ expect(await page.evaluate(()=>window.getFxClosed())).toBe(true);
+ const commands=await page.evaluate(()=>window.fxCommands);
+ expect(commands.some(cmd=>cmd.includes('fx.param')||cmd.includes('fx.load_preset')||cmd.includes('open("/fat/config.json", "w")'))).toBe(false);
 });
