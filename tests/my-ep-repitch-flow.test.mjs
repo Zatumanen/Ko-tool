@@ -92,6 +92,32 @@ test('raw TE WAV preserves validated release/rootnote/pan while setting x2 compe
   assert.equal(result.metadata['sample.end'],undefined);
 });
 
+test('nonzero original TE pitch is never silently overwritten by fixed -12 compensation',async()=>{
+ const {preflightRepitchBatch}=await import('../js/ep133/myEpRepitch.js');
+ const output=await markSpeedUppercutWav(new Blob([wav(-12)]));
+ for(const originalPitch of [7,-7,.5,12]){
+  const input=file(wav(originalPitch),'pitched.wav');
+  let converted=0,prepared=0;
+  await assert.rejects(()=>preflightRepitchBatch([input]),/REPITCH cannot safely preserve source sound.pitch/);
+  await assert.rejects(()=>prepareMyEpRepitchSample(input,{
+   convert:async()=>{converted++;return{blob:output};},
+   prepareDirect:async()=>{prepared++;throw Error('Must not prepare');}
+  }),/REPITCH cannot safely preserve source sound.pitch/);
+  assert.equal(converted,0);assert.equal(prepared,0);
+ }
+ const ok=file(wav(0),'zero.wav');
+ assert.deepEqual(await preflightRepitchBatch([ok]),new Set());
+});
+
+test('a later source with nonzero pitch aborts the whole preflight before legacy confirmation',async()=>{
+ const {preflightRepitchBatch}=await import('../js/ep133/myEpRepitch.js');
+ let dialogs=0;
+ await assert.rejects(()=>preflightRepitchBatch([
+  file(wav(-12),'legacy.wav'),file(wav(5),'pitched.wav')
+ ],{confirmAmbiguous:async()=>{dialogs++;return true;}}),/REPITCH cannot safely preserve source sound.pitch/);
+ assert.equal(dialogs,0);
+});
+
 test('unsafe loop or cropped sample metadata fails before DSP or FILE writes',async()=>{
   const output=await markSpeedUppercutWav(new Blob([wav(-12)]));
   for(const meta of [{'sound.loopstart':0},{'sample.start':1},{'sample.end':3},
