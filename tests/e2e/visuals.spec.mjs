@@ -70,6 +70,7 @@ test('fake browser-selected stereo input captures without touching Web MIDI; sto
        window.__visualsAudioTest.started++;
        const ctx=new AudioContext(),osc=ctx.createOscillator(),destination=ctx.createMediaStreamDestination();
        osc.frequency.value=220;osc.connect(destination);osc.start();
+       window.__visualsAudioTest.osc=osc;
        await ctx.resume();
        live=destination.stream;
        live.getAudioTracks()[0].addEventListener('ended',()=>window.__visualsAudioTest.stopped++);
@@ -87,6 +88,21 @@ test('fake browser-selected stereo input captures without touching Web MIDI; sto
  await page.locator('[data-action="start"]').click();
  await expect(page.locator('[data-action="stop"]').first()).toBeVisible();
  await expect(page.locator('[data-audio-status]')).toContainText('LIVE');
+ const history=page.locator('[data-meter="spectrogram"] canvas');
+ await expect(history).toHaveAttribute('data-history-direction','right-to-left');
+ await expect.poll(async()=>Number(await history.getAttribute('data-history-frames'))).toBeGreaterThan(2);
+ const frames=Number(await history.getAttribute('data-history-frames'));
+ const peakRow=()=>history.evaluate(canvas=>{
+   const ratio=canvas.width/canvas.getBoundingClientRect().width,ctx=canvas.getContext('2d');
+   const pixels=ctx.getImageData(canvas.width-1,0,1,canvas.height).data;
+   let peak=-1,row=-1;for(let y=Math.ceil(10*ratio);y<Math.floor(canvas.height-10*ratio);y++)if(pixels[y*4+1]>peak){peak=pixels[y*4+1];row=y;}
+   return row/canvas.height;
+ });
+ const lowRow=await peakRow();
+ await page.evaluate(()=>{window.__visualsAudioTest.osc.frequency.value=2200;});
+ await expect.poll(peakRow).toBeLessThan(lowRow-.1);
+ await page.setViewportSize({width:1000,height:800});
+ await expect.poll(async()=>Number(await history.getAttribute('data-history-frames'))).toBeGreaterThanOrEqual(frames);
  const count=await page.evaluate(()=>window.__visualsAudioTest.started);
  expect(count).toBe(1);
  await page.locator('[data-action="stop"]').first().click();

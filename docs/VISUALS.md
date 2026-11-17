@@ -297,3 +297,11 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - Audio capture latency and performance budget, and supported platforms.
 
 For the broader roadmap and qualitative source research see [PRODUCT_RESEARCH.md](PRODUCT_RESEARCH.md). See [TESTING.md](TESTING.md) for the team's verification rules.
+
+## Spectrogram time history software (ZAT-82)
+
+Timestamped bounded FFT history replaces per-paint bitmap scrolling: newest
+columns right, past left; resize/theme/DPR reprojects the retained measurements.
+Duration4–16seconds and raster detail adapt to module width, with blank sampling
+gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
+Owner visual/endurance and physical input acceptance remain pending.

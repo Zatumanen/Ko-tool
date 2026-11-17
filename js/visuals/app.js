@@ -1,5 +1,6 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
+import{createSpectrogramHistory}from './spectrogram.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -12,6 +13,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
   let identityAttached=false;
   async function attachVerifiedIdentity(){
     if(identityAttached)return;
@@ -68,7 +70,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{stopAnimation();drawAll(null)}
+    else{spectrogram.reset();stopAnimation();drawAll(null)}
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
@@ -210,7 +212,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function paint(id,canvas,data){
     const g=drawingContext(canvas);if(!g)return;
-    if(id!=='spectrogram'||!data||!canvas.dataset.visHistory)grid(g);
+    if(id!=='spectrogram'||!data)grid(g);
     if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
     const{ctx,w,h,color}=g;
     if(id==='waveform'||id==='oscilloscope'){
@@ -221,9 +223,21 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       ctx.fillStyle=color;
       for(let i=0;i<count;i++){const a=Math.floor(Math.pow(i/count,2)*freq.length),b=Math.max(a+1,Math.floor(Math.pow((i+1)/count,2)*freq.length));let max=0;for(let k=a;k<b;k++)max=Math.max(max,freq[k]);const ht=max/255*(h-18);ctx.fillRect(i*w/count+1,h-ht,w/count-2,ht)}
     }else if(id==='spectrogram'){
-      if(!canvas.dataset.visHistory){grid(g);canvas.dataset.visHistory='1'}
-      ctx.drawImage(canvas,-2,0,w,h);
-      for(let y=0;y<h;y+=2){const p=Math.pow((h-y)/h,2),bin=Math.min(data.frequency.length-1,Math.floor(p*data.frequency.length)),v=data.frequency[bin]/255;ctx.fillStyle=g.bg;ctx.fillRect(w-2,y,2,2);ctx.globalAlpha=v;ctx.fillStyle=color;ctx.fillRect(w-2,y,2,2);ctx.globalAlpha=1}
+      const now=win.performance.now();spectrogram.push(data.frequency,data.sampleRate,now);
+      const raster=spectrogram.raster(w,Math.max(1,h-20),now);
+      let buffer=spectrogramCanvases.get(canvas);
+      if(!buffer){buffer=doc.createElement('canvas');spectrogramCanvases.set(canvas,buffer);}
+      buffer.width=raster.width;buffer.height=raster.height;
+      const target=buffer.getContext('2d'),pixels=target.createImageData(raster.width,raster.height);
+      const rgb=value=>{let hex=value.trim().replace('#','');if(hex.length===3)hex=[...hex].map(c=>c+c).join('');return[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)||0);};
+      const bg=rgb(g.bg),fg=rgb(color);
+      for(let i=0;i<raster.values.length;i++){
+        const v=raster.values[i]/255;for(let c=0;c<3;c++)pixels.data[i*4+c]=Math.round(bg[c]+v*(fg[c]-bg[c]));pixels.data[i*4+3]=255;
+      }
+      target.putImageData(pixels,0,0);ctx.fillStyle=g.bg;ctx.fillRect(0,0,w,h);ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(buffer,0,10,w,Math.max(1,h-20));
+      ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText(Math.round(raster.upperHz/1000)+'k Hz',3,9);ctx.fillText('20 Hz · −'+raster.seconds.toFixed(1)+'s → NOW',3,h-2);
+      canvas.dataset.historyFrames=String(spectrogram.size);canvas.dataset.historySeconds=String(raster.seconds);canvas.dataset.historyDirection='right-to-left';
     }else if(id==='loudness'){
       grid(g);const db=bound(data.db,-90,0);meter(g,(db+60)/60,Math.max(8,h*.47),'RMS '+db.toFixed(1)+' dBFS');
     }else if(id==='output'){
