@@ -2,7 +2,11 @@
 
 ## Loading and budgets
 
-Load root AGENTS, branch/status and PROJECT_STATE, then only the matching skill
+Load root AGENTS, branch/status and PROJECT_STATE, then the
+[implementation matrix](IMPLEMENTATION_MATRIX.md) and
+[pre-implementation gate](IMPLEMENTATION_GATE.md) **for any planned app-code change**.
+Compare live main/open PRs/Linear with the affected callers/tests first; no new
+feature PR when only HIL acceptance is missing. Then load the matching skill
 body and relevant code/spec sections. Descriptions support skill discovery;
 they do not require loading all bodies or the archive. No global plugin/model,
 reasoning, billing or token-limit settings are changed.
@@ -19,6 +23,7 @@ cost saving or a live Cloud reload. Archive uses a non-AGENTS basename.
 | Detail | Canonical source section |
 | --- | --- |
 | Approved six-stage sequence, standalone Sequencer, scoped REPITCH and release gates | [23-Oct decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md): sections 1–12 |
+| Actual implemented vs missing vs HIL, source proof and required PR audit | [Implementation Matrix](IMPLEMENTATION_MATRIX.md), [pre-implementation gate](IMPLEMENTATION_GATE.md), [GitHub PR template](../.github/pull_request_template.md) |
 | Connected Projects, standalone Saved/Live Sequencer, legacy AUTO OFF/20s project reads | [Sequencer](SEQUENCER.md): scope, Saved, Live |
 | Seven meters, exact built-in order/weights/minima, hidden/pair resize, restore picker | [Visuals](VISUALS.md): bottom strip, Balanced, configurable strip |
 | Named layouts vs current snapshot, committed writes, failure warning, Close/unload | [Visuals](VISUALS.md): browser-only saved layouts |
