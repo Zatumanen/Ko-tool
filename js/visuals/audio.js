@@ -33,8 +33,10 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
   async function unlockInputs(){
     if(!navigatorRef.mediaDevices?.getUserMedia)throw Error('В этом браузере нельзя запросить доступ к аудио.');
     const temporary=await navigatorRef.mediaDevices.getUserMedia({audio:true,video:false});
-    try{return await inputs()}
-    finally{for(const t of temporary.getTracks())t.stop()}
+    // Permission is now granted; enumeration does not need a running stream.
+    // A delayed/failed enumerateDevices must not prolong permission-only capture.
+    for(const t of temporary.getTracks())t.stop();
+    return inputs();
   }
   async function start(){
     if(!selectedId)throw Error('Сначала выберите аудиовход.');

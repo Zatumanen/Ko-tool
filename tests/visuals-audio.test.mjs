@@ -136,3 +136,27 @@ test('explicit input discovery releases temporary default device before selectin
   assert.equal(a.active,false);
   assert.equal(a.selectedId,'');
 });
+
+test('permission discovery stops temporary capture before a pending enumeration completes',async()=>{
+  const temporary=makeStream();let finish,entered;
+  const enumerating=new Promise(r=>entered=r);
+  const pending=new Promise(r=>finish=r);
+  const a=createVisualsAudio({navigatorRef:{mediaDevices:{
+    getUserMedia:async()=>temporary,
+    enumerateDevices:()=>{entered();return pending}
+  }},AudioContextClass:FakeAudioContext});
+  const discovery=a.unlockInputs();await enumerating;
+  const during=temporary.track.readyState;
+  finish([]);await discovery;
+  assert.equal(during,'ended','permission-only capture must not wait for device enumeration');
+  assert.equal(a.active,false);
+});
+
+test('enumeration failure leaves permission-only tracks stopped',async()=>{
+  const temporary=makeStream();
+  const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>temporary,
+    enumerateDevices:async()=>{throw Error('enumeration unavailable')}
+  }},AudioContextClass:FakeAudioContext});
+  await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
+  assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
+});

@@ -29,7 +29,7 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 | SUC-X2 | 02 · SpeedUpperCut reference x2 engine | IMPLEMENTED | PASS | HIL PENDING | `js/audio/processor.js`, `tests/audio-pipeline-golden.test.mjs`; synthetic golden ≠ physical playback |
 | SUC-FOLDERS | 02 · Folder WAV/ZIP export | IMPLEMENTED | PASS | NOT APPLICABLE | `js/app.js`, `tests/e2e/folder-import-recovery.spec.mjs`; browser-only export scope |
 | SUC-TO-MYEP | 02 · Multi-drag, destination preview | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleUploadChoice.js`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs`; physical transfer still unaccepted |
-| VIS-BASE | 03 · Seven basic Visuals panels | IMPLEMENTED | PASS | NOT APPLICABLE | `js/visuals/app.js`, `tests/e2e/visuals.spec.mjs`; input-driven browser baseline only, not completed advanced meters |
+| VIS-BASE | 03 · Seven basic Visuals panels | IMPLEMENTED | PASS | NOT APPLICABLE | `js/visuals/app.js`, `tests/e2e/visuals.spec.mjs`; input-driven browser baseline only, not completed advanced meters; permission discovery releases temporary capture before asynchronous device enumeration (`tests/visuals-audio.test.mjs`) |
 | VIS-LUFS | 03 · ITU-R BS.1770 LUFS | MISSING | NOT TESTED | NOT APPLICABLE | `js/visuals/audio.js` provides RMS dBFS, **not LUFS**; ZAT-84 |
 | VIS-RECORDER | 03 · WAV 16/24-bit Recorder | MISSING | NOT TESTED | NOT APPLICABLE | `js/visuals/app.js`; no accepted recorder behavior; ZAT-87 |
 | SEQ-STANDALONE | 04 · Separate Step/Piano Roll app | MISSING | PARTIAL | HIL PENDING | `js/ep133/ui/projectSequencerController.js`, `tests/project-sequencer-ui.test.mjs`; legacy limited My EP editor is not standalone implementation |
