@@ -34,7 +34,7 @@ export function chooseSampleUploadTargets({
       'Review the free-slot mapping before confirming any upload.');
   const sourceBytes=files.reduce((sum,file)=>sum+(Number.isFinite(file?.size)?file.size:0),0);
   const memory=doc.createElement('p');
-  memory.className='ep133-upload-choice-warning';
+  memory.className='ep133-upload-choice-memory';
   const available=Number(availableMemoryBytes);
   memory.textContent='Input file bytes: '+sourceBytes+
     '. EP-reported free sample memory: '+
