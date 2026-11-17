@@ -31,12 +31,12 @@
 
 ## TOKEN-EFFICIENT
 
-1. Start with request, current branch/status, [PROJECT_STATE](docs/PROJECT_STATE.md) and relevant rules. Verify current code before editing; memory and commit titles are navigation, not proof.
-2. Use rg for relevant functions/files, callers and tests. Read needed ranges and dependencies; reuse unchanged context. Do not auto-read all code, docs/history, archives or skills.
+1. Before app code, use [implementation gate](docs/IMPLEMENTATION_GATE.md): verify current main/open PRs/Linear, approved contract, existing code/callers/tests and real gap. Classify IMPLEMENTED/PARTIAL/MISSING/BROKEN/HIL PENDING in the [matrix](docs/IMPLEMENTATION_MATRIX.md). If only HIL is missing, do not recreate code.
+2. Inspect relevant functions, direct callers, tests and dependencies; reuse unchanged context. Never auto-read archives or all docs.
 3. Load only matching skill bodies. Small tasks: direct work and brief impact assessment, no elaborate plan, forced interview or extra approval round for already authorized work.
-4. Complex bugs: short plan → reproduce/root cause → focused failing test when feasible → minimal patch → verification. Investigate repeated failures; do not retry or rewrite working code without evidence.
+4. For bugs: reproduce → focused failing test when feasible → minimal patch → verify. Do not rewrite working code without evidence.
 5. No subagents for simple work. Only the two optional [roles](docs/CODEX.md) for useful independent work; one reviewer per change, no duplicates/recursive spawning. Avoid unnecessary plugins, MCP servers and dependencies.
-6. Prefer repository answers; consult authoritative external docs for gaps. Keep long logs in scratch; show results/errors. Repeat research only for new evidence.
+6. Prefer source evidence; check external references for gaps. Keep long logs outside commits.
 7. Keep safety checks. No token quota, billing or cost guarantee.
 
 ## Selective references
