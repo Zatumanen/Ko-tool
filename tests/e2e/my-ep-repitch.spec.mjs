@@ -91,6 +91,8 @@ test('batch with a later unsupported loop refuses all files before FILE PUT',asy
     {name:'old.wav',bytes:wav(-12)},
     {name:'unsafe.wav',bytes:wav(0,{'sound.loopstart':5})}
   ]);
+  await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+  await page.locator('[data-upload-mode="sequential"]').click();
   await expect(page.locator('#ep133-confirm-dialog')).toBeHidden();
   await expect(page.locator('#ep133-global-progress')).toBeHidden();
   const changes=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),before);
@@ -104,6 +106,8 @@ test('a later raw WAV with authored pitch refuses the entire drag batch without 
   {name:'raw.wav',bytes:wav(0)},
   {name:'pitched.wav',bytes:wav(5)}
  ]);
+ await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
+ await page.locator('[data-upload-mode="sequential"]').click();
  await expect(page.locator('#ep133-confirm-dialog')).toBeHidden();
  await expect(page.locator('#ep133-global-progress')).toBeHidden();
  const requests=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index),before);
