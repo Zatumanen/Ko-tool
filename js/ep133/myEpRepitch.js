@@ -27,6 +27,11 @@ const PLAYMODES = new Set(['oneshot','loop','key','legato']);
 export function assertRawRepitchMetadataSafe(verdict) {
   if (verdict?.kind !== 'raw' || !verdict.metadata) return;
   const metadata = verdict.metadata;
+  // The ×2 conversion needs exactly -12 playback compensation. A nonzero
+  // authored source pitch cannot be preserved without a separate, proven
+  // remapping contract: do not silently replace it with -12 on upload.
+  if (Object.hasOwn(metadata,'sound.pitch') && metadata['sound.pitch'] !== 0)
+    throw new Error('REPITCH cannot safely preserve source sound.pitch other than 0. Disable REPITCH for this file.');
   for (const [key,value] of Object.entries(metadata)) {
     if (!ALLOWED_SOURCE_FIELDS.has(key))
       throw new Error('REPITCH cannot safely preserve unknown sample metadata: ' + key);
