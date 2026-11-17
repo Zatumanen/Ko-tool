@@ -162,3 +162,23 @@ test('enumeration failure leaves permission-only tracks stopped',async()=>{
   await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
   assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
 });
+
+test('LUFS reset epoch and capture generation reject stale worklet results without reopening input',async()=>{
+ const nodes=[];let requested=0;
+ class WorkletNode{
+  constructor(_ctx,name){this.name=name;this.messages=[];this.port={onmessage:null,postMessage:m=>this.messages.push(m),close:()=>{this.closed=true}};nodes.push(this)}
+  connect(){}disconnect(){}
+ }
+ class WorkletContext extends FakeAudioContext{constructor(){super();this.audioWorklet={addModule:async()=>{}}}}
+ globalThis.AudioWorkletNode=WorkletNode;
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>{requested++;return makeStream()}}},AudioContextClass:WorkletContext});
+ try{
+  a.select('input');assert.equal(await a.start(),true);const node=nodes.find(n=>n.name==='visuals-loudness'),epoch=node.messages[0].reset;
+  node.port.onmessage({data:{epoch,integrated:-20}});assert.equal(a.sample().loudness.integrated,-20);
+  a.resetLoudness();assert.equal(requested,1);assert.equal(a.sample().loudness,null);
+  node.port.onmessage({data:{epoch,integrated:-10}});assert.equal(a.sample().loudness,null);
+  const next=node.messages.findLast(m=>m.reset!==undefined).reset;node.port.onmessage({data:{epoch:next,integrated:-30}});assert.equal(a.sample().loudness.integrated,-30);
+  node.onprocessorerror();node.port.onmessage({data:{epoch:next,integrated:0}});a.resetLoudness();assert.match(a.sample().loudness.error,/failed/);
+  const late=node.port.onmessage;a.stop();late({data:{epoch:next,integrated:0}});assert.equal(a.sample(),null);assert.equal(node.closed,true);
+ }finally{a.stop();delete globalThis.AudioWorkletNode;}
+});

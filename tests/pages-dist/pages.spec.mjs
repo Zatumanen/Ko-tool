@@ -59,6 +59,8 @@ test('versioned Visuals AudioWorklet triggers from a selected browser stream',as
  await expect(page.locator('[data-source] option')).toHaveCount(2);
  await page.locator('[data-source]').selectOption('synthetic-trigger');await page.locator('[data-action="start"]').click();
  await expect.poll(async()=>Number(await page.locator('[data-meter="waveform"] canvas').getAttribute('data-trigger-count'))).toBeGreaterThan(0);
+ await expect.poll(async()=>Number(await page.locator('[data-meter="loudness"] canvas').getAttribute('data-lufs-seconds'))).toBeGreaterThan(.5);
+ expect(Number.isFinite(Number(await page.locator('[data-meter="loudness"] canvas').getAttribute('data-lufs-momentary')))).toBe(true);
  await page.locator('[data-action="stop"]').first().click();
  expect(await page.evaluate(()=>window.__triggerSource.stream.getAudioTracks()[0].readyState)).toBe('ended');
  await page.evaluate(async()=>{window.__triggerSource.source.stop();await window.__triggerSource.context.close();});

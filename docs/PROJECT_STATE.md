@@ -10,7 +10,7 @@
 - **REPITCH:** previously implemented ON-by-default, KORP/SHA-256 prevents double ×2. [PR #180](https://github.com/Zatumanen/Ko-tool/pull/180) added a nonzero source-pitch safety guard, not REPITCH itself; playback HIL pending.
 - **PAK/PPAK:** export/reader/preview already existed ([#164](https://github.com/Zatumanen/Ko-tool/pull/164), [#165](https://github.com/Zatumanen/Ko-tool/pull/165)). [PR #179](https://github.com/Zatumanen/Ko-tool/pull/179) connected pre-existing CRC offline staging to UI. **Actual Restore disabled**, no device write authorization. [Contract](testing/official-pak-offline-staging.md).
 - **Pads:** limited EP-133 2.5.1 READ; WRITE disabled; [PR #139](https://github.com/Zatumanen/Ko-tool/pull/139) remains Draft. Projects' restricted legacy editor is **not** approved standalone Sequencer.
-- **Visuals:** seven browser-input modules exist, but Loudness is RMS dBFS, **not LUFS**; advanced meter behavior/Recorder pending. USB Audio from EP unverified. [Spec](VISUALS.md).
+- **Visuals:** seven browser-input modules; merged waveform trigger, Spectrum curve and timestamped Spectrogram. Current feature branch adds BS.1770 mono/stereo LUFS M/S/I/reset with18independent FFmpeg vectors; owner/compliance/endurance acceptance pending. XY is a separate PR; Stereo/Output advanced behavior and Recorder remain pending. USB Audio from EP unverified. [Spec](VISUALS.md).
 - **Sequencer:** independent Step/Piano Roll + two-way device-authoritative Live **missing**; [spec](SEQUENCER.md). **FX-MIC:** offline editor/audition in [merged #176](https://github.com/Zatumanen/Ko-tool/pull/176); limited stock 1.1.2 Live diagnostics read-only, production hardware Live not accepted. **EP-136:** Sidekick not implemented.
 
 ## Evidence and release

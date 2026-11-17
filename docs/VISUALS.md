@@ -193,7 +193,7 @@ The earlier approved interaction and question 48 lifecycle rules require an **ex
 ## Browser implementation notes (PR #133)
 
 - Files: `js/visuals/layout.js` (approved layouts, proportional minimum-aware allocation, local snapshots), `js/visuals/audio.js` (selected `MediaStream` audio, channel analysis and track cleanup), `js/visuals/app.js` (desktop icon, dock, canvases, interactions), and scoped `css/visuals.css`.
-- Visuals is launched by the third desktop icon. **Seven meters** render only data from the authorized selected input. Waveform/Oscilloscope use time-domain PCM; Spectrum/Spectrogram use frequency-bin magnitudes; Loudness currently reports **RMS dBFS, not calibrated LUFS**; stereo level/correlation depends on a real two-channel track. Output Meters report the **analyzed input channels**, not host system-output audio.
+- Visuals is launched by the third desktop icon. **Seven meters** render only data from the authorized selected input. Waveform/Oscilloscope use time-domain PCM; Spectrum/Spectrogram use frequency-bin magnitudes; Loudness now reports **BS.1770 mono/stereo LUFS M/S/I** under the [numeric contract](testing/visuals-loudness.md); the original PR #133 reported RMS dBFS; stereo level/correlation depends on a real two-channel track. Output Meters report the **analyzed input channels**, not host system-output audio.
 - **ACCESS** is an explicit, one-shot input-enumeration permission control for browsers that hide available device names/IDs. It may briefly open the OS default audio input only as a result of that click, and immediately stops those temporary tracks after enumerating sources; it never becomes the stream for Visuals or selects a microphone without further user choice.
 - **START** requests the selected `audioinput` via `getUserMedia({audio:{deviceId:{exact:…}}})` and creates a graph whose output gain is zero (no headphone feedback). STOP, manual/full collapse, source switch and close stop the tracks and release audio contexts. An explicitly started stream may attempt to reconnect to **the same device ID** in the current Visuals session if that ID reappears, with browser permission again required where applicable; no general microphone fallback. A new Visuals opening has no active capture until the user starts it again.
 - **Still to verify on real hardware:** exact firmware/OS and browser, stereo capture mapping, levels and latency, track-ended/disconnect signals, protected browsing, long-session resource use, physical device reconnection and usability on narrow screens. An earlier independent browser audio-input test confirmed the user's EP worked externally; this does not certify the new Visuals implementation.
@@ -322,3 +322,12 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## LUFS software (ZAT-84)
+
+Loudness now uses continuous BS.1770 K-weighted mono/stereo energy, M400ms/S3s
+and gated Integrated/reset via its own AudioWorklet. Earlier RMS-only descriptions
+are historical for the baseline. No RMS-to-LUFS relabeling or fallback.
+[Algorithm, sources,18reference vectors and limits](testing/visuals-loudness.md).
+Four-hour algorithm cap/reset is tested; official compliance certification, browser
+endurance, owner visual acceptance and physical USB Audio remain unverified.

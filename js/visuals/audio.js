@@ -1,10 +1,12 @@
 // Microphone/USB Audio capture is isolated from EP Web MIDI and FILE operations.
 // No implicit input switch; the selected deviceId must be requested explicitly.
+import {kWeightingCoefficients} from './loudness.js';
 export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=window.AudioContext||window.webkitAudioContext,onState=()=>{}}={}){
   let context=null,stream=null,source=null,left=null,right=null,mix=null,sink=null,track=null;
   let selectedId='',generation=0,active=false,channelCount=1;
   let triggerNode=null,triggerFrame=null,triggerSettings={threshold:.1,timeMs:200,holdMs:200};
   let spectrum=null;
+  let loudnessNode=null,loudnessFrame=null,loudnessEpoch=0,loudnessFailed=false;
   const spectrumDb=new Float32Array(4096);
   const time=new Float32Array(2048),leftTime=new Float32Array(2048),rightTime=new Float32Array(2048),frequency=new Uint8Array(1024);
   const state=(message,error=false)=>onState({active,selectedId,message,error,channelCount});
@@ -12,6 +14,8 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
   const peak=data=>data.reduce((s,x)=>Math.max(s,Math.abs(x)),0);
   function release(){
     active=false;
+    if(loudnessNode){loudnessNode.port.onmessage=null;loudnessNode.port.close();loudnessNode.onprocessorerror=null;try{loudnessNode.disconnect()}catch{}}
+    loudnessNode=null;loudnessFrame=null;loudnessEpoch++;loudnessFailed=false;
     if(triggerNode){triggerNode.port.onmessage=null;triggerNode.port.close();try{triggerNode.disconnect()}catch{}}
     triggerNode=null;triggerFrame=null;
     if(track)track.onended=null;
@@ -88,6 +92,23 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
         triggerNode.port.postMessage(triggerSettings);
         source.connect(triggerNode);triggerNode.connect(sink);
       }else if(request===generation)triggerFrame={unsupported:true};
+      if(request===generation&&nextContext.audioWorklet&&typeof AudioWorkletNode!=='undefined'){
+        try{
+          const channels=Number(track.getSettings?.().channelCount);
+          if(![1,2].includes(channels))throw Error('LUFS requires known mono/stereo input');
+          kWeightingCoefficients(nextContext.sampleRate);
+          const url=new URL('./loudnessWorklet.js',import.meta.url);url.search=new URL(import.meta.url).search;
+          await nextContext.audioWorklet.addModule(url.href);if(request!==generation)return false;
+          loudnessNode=new AudioWorkletNode(nextContext,'visuals-loudness',{channelCount:channels,channelCountMode:'explicit',outputChannelCount:[1],processorOptions:{channels}});
+          loudnessNode.port.onmessage=event=>{
+            if(request!==generation)return;
+            if(!loudnessFailed&&event.data.epoch===loudnessEpoch)loudnessFrame=event.data;
+            loudnessNode.port.postMessage({ack:true});
+          };
+          loudnessNode.onprocessorerror=()=>{if(request===generation){loudnessFailed=true;loudnessFrame={error:'LUFS processor failed: restart capture'};}};
+          loudnessNode.port.postMessage({reset:loudnessEpoch});source.connect(loudnessNode);loudnessNode.connect(sink);
+        }catch(error){if(request===generation)loudnessFrame={error:error.message||'LUFS unavailable'};}
+      }else if(request===generation)loudnessFrame={error:'LUFS requires AudioWorklet'};
       // The superseding START/STOP already released this request's graph.
       // Shared capture state may now belong to a newer START.
       if(request!==generation)return false;
@@ -111,10 +132,11 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     let dot=0,sumL=0,sumR=0;
     for(let i=0;i<leftTime.length;i++){const l=leftTime[i],rr=rightTime[i];dot+=l*rr;sumL+=l*l;sumR+=rr*rr}
     const correlation=channelCount===1?null:dot/(Math.sqrt(sumL*sumR)||1);
-    return{time,leftTime,rightTime,frequency,spectrumDb,trigger:triggerFrame,rms:r,peak:p,leftRms:r0,rightRms:r1,
+    return{time,leftTime,rightTime,frequency,spectrumDb,trigger:triggerFrame,loudness:loudnessFrame,rms:r,peak:p,leftRms:r0,rightRms:r1,
       leftPeak:peak(leftTime),rightPeak:peak(rightTime),correlation,
       db:20*Math.log10(Math.max(r,1e-7)),sampleRate:context.sampleRate,channelCount};
   }
   function configureTrigger(settings){triggerSettings={...triggerSettings,...settings};triggerFrame=null;triggerNode?.port.postMessage(triggerSettings);}
-  return{inputs,unlockInputs,start,stop,select,sample,configureTrigger,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
+  function resetLoudness(){if(!loudnessNode||loudnessFailed)return;loudnessEpoch++;loudnessFrame=null;loudnessNode.port.postMessage({reset:loudnessEpoch});}
+  return{inputs,unlockInputs,start,stop,select,sample,configureTrigger,resetLoudness,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
 }

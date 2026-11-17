@@ -52,6 +52,7 @@ A merged PR, green CI, or passing fake device test does **not** automatically cl
 
 | Change area | Focused tests and evidence |
 | --- | --- |
+| Visuals LUFS | `tests/visuals-loudness.test.mjs`, `tests/visuals-audio.test.mjs`, `tests/e2e/visuals-loudness.spec.mjs`; [numeric contract and18FFmpeg vectors](testing/visuals-loudness.md). Optional oracle recheck: `node scripts/generate-loudness-golden.mjs` (FFmpeg required only for regeneration). |
 | FX-MIC Studio | `tests/fx-mic-*.test.mjs`, `tests/e2e/fx-mic-studio.spec.mjs`; shared ZIP reader also requires official PAK tests. [Contract and separate physical Live scenario](testing/fx-mic-studio.md). Candidate serial fixtures are synthetic; no supported production firmware yet. |
 | x2, channels, metadata, WASM | `tests/audio-pipeline-golden.test.mjs`, `tests/processor.test.mjs`, `tests/resampler-zip.test.mjs`, converter E2E |
 | Folder/ZIP/names | `tests/audio-import-policy.test.mjs`, `tests/output-name.test.mjs`, `tests/e2e/folder-import-recovery.spec.mjs`, `tests/e2e/output-file-names.spec.mjs` |

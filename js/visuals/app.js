@@ -177,6 +177,10 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
+      if(id==='loudness'){
+        const reset=el('button','','RESET LUFS');reset.dataset.action='reset-loudness';reset.setAttribute('aria-label','Reset LUFS measurement');meter.append(reset);
+        const error=el('div','vis-lufs-error');error.dataset.lufsError='1';error.setAttribute('role','alert');error.hidden=true;meter.append(error);
+      }
       if(id==='waveform'){
         const controls=el('details','vis-trigger-controls');
         controls.innerHTML='<summary>Trigger settings</summary>'+[
@@ -227,8 +231,9 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function paint(id,canvas,data){
     const g=drawingContext(canvas);if(!g)return;
+    if(id==='loudness'){const error=canvas.parentElement.querySelector('[data-lufs-error]');error.textContent=data?.loudness?.error||'';error.hidden=!data?.loudness?.error;}
     if(id!=='spectrogram'||!data)grid(g);
-    if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
+    if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';if(id==='loudness'){canvas.dataset.lufsState='stopped';delete canvas.dataset.lufsMomentary;delete canvas.dataset.lufsShortTerm;delete canvas.dataset.lufsIntegrated;delete canvas.dataset.lufsSeconds;}return}
     const{ctx,w,h,color}=g;
     if(id==='waveform'){
       grid(g);const frame=data.trigger;
@@ -270,7 +275,15 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText(Math.round(raster.upperHz/1000)+'k Hz',3,9);ctx.fillText('20 Hz · −'+raster.seconds.toFixed(1)+'s → NOW',3,h-2);
       canvas.dataset.historyFrames=String(spectrogram.size);canvas.dataset.historySeconds=String(raster.seconds);canvas.dataset.historyDirection='right-to-left';
     }else if(id==='loudness'){
-      grid(g);const db=bound(data.db,-90,0);meter(g,(db+60)/60,Math.max(8,h*.47),'RMS '+db.toFixed(1)+' dBFS');
+      grid(g);const state=data.loudness;
+      canvas.dataset.lufsState=state?.error?'unavailable':state?'measuring':'warmup';
+      canvas.dataset.lufsMomentary=String(state?.momentary??'pending');canvas.dataset.lufsShortTerm=String(state?.shortTerm??'pending');canvas.dataset.lufsIntegrated=String(state?.integrated??'pending');canvas.dataset.lufsSeconds=String(state?.seconds??0);
+      canvas.setAttribute('aria-label',state?.error?'LUFS unavailable: '+state.error:'LUFS Momentary, Short-term and Integrated');
+      if(state?.error){print(g,'LUFS UNAVAILABLE',9);return;}
+      const display=value=>value==null?'WAIT':value===-Infinity?'−∞':value.toFixed(1);
+      canvas.setAttribute('aria-label','LUFS: M '+display(state?.momentary)+', S '+display(state?.shortTerm)+', I '+display(state?.integrated));
+      ctx.fillStyle=g.fg;ctx.font='10px monospace';
+      for(const [i,[label,key]]of [['M','momentary'],['S','shortTerm'],['I','integrated']].entries())ctx.fillText(label+' '+display(state?.[key])+' LUFS',3,12+i*Math.max(10,(h-14)/3),Math.max(1,w-6));
     }else if(id==='output'){
       grid(g);meter(g,data.leftPeak,Math.max(7,h*.2),'L '+Math.round(data.leftPeak*100)+'%');meter(g,data.channelCount===1?data.leftPeak:data.rightPeak,Math.max(30,h*.6),'R '+Math.round(data.rightPeak*100)+'%');
     }else if(id==='stereo'){
@@ -321,6 +334,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const action=button.dataset.action;
     if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
     if(action==='stop')stop();
+    if(action==='reset-loudness'){audio.resetLoudness();drawAll(audio.active?audio.sample():null);}
     if(action==='refresh')void refreshInputs();
     if(action==='unlock'&&!audio.active){
       status='Запрос разрешения для списка аудиовходов…';
