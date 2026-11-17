@@ -322,3 +322,11 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## XY software (ZAT-83)
+
+Oscilloscope now provides Stereo XY (L→X,R→Y) with equal-axis units and bounded
+time-based phosphor afterglow. Mono cannot present a technical stereo trace.
+Explicit Artistic XY uses derived mono delay coordinates and is labeled DERIVED.
+[Contract and evidence limits](testing/visuals-xy.md). Owner aesthetic acceptance
+and physical USB Audio remain pending.

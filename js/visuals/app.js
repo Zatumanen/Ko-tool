@@ -3,6 +3,7 @@ import{createVisualsAudio}from './audio.js';
 import{waveformEnvelope}from './transientTrigger.js';
 import{spectrumCurve,createSpectrumSmoother}from './spectrum.js';
 import{createSpectrogramHistory}from './spectrogram.js';
+import{xyPoints,createPhosphorHistory}from './xy.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -15,6 +16,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  let xyMode='stereo';const xyHistory=createPhosphorHistory();
   let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
   const spectrumSmoother=createSpectrumSmoother();
   const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
@@ -74,7 +76,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
+    else{xyHistory.reset();spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
   }
   function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
   function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
@@ -177,6 +179,10 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
+      if(id==='oscilloscope'){
+        const choice=el('select');choice.dataset.xyMode='1';choice.setAttribute('aria-label','Oscilloscope XY mode');
+        choice.innerHTML='<option value="stereo">Stereo XY</option><option value="artistic">Artistic XY · derived</option>';choice.value=xyMode;meter.append(choice);
+      }
       if(id==='waveform'){
         const controls=el('details','vis-trigger-controls');
         controls.innerHTML='<summary>Trigger settings</summary>'+[
@@ -240,8 +246,19 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       }
       else print(g,frame?.unsupported?'TRIGGER UNAVAILABLE':frame?.error?'TRIGGER ERROR':'TRIGGER WAITING');
     }else if(id==='oscilloscope'){
-      grid(g);line(g,data.time,id==='oscilloscope'?1.55:1);
-      ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText(id==='oscilloscope'?'OSC · '+data.sampleRate+' Hz':'TIME · '+data.time.length+' samples',7,11);
+      grid(g);const points=xyPoints(data,xyMode),now=win.performance.now();canvas.dataset.xyMode=xyMode;
+      canvas.dataset.xyPoints=String(points?.length||0);
+      canvas.setAttribute('aria-label',xyMode==='artistic'?'Artistic XY — derived mono delay':points===null?'Stereo XY unavailable — mono input':'Stereo XY — left channel X, right channel Y');
+      if(points===null){xyHistory.reset();print(g,'MONO · NO STEREO',9);return;}
+      xyHistory.add(points,now);
+      const size=Math.max(1,Math.min(w-12,h-24)),cx=w/2,cy=12+(h-16)/2,scale=size*.45;
+      ctx.strokeStyle=g.grid;ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(cx-scale,cy);ctx.lineTo(cx+scale,cy);ctx.moveTo(cx,cy-scale);ctx.lineTo(cx,cy+scale);ctx.stroke();
+      ctx.strokeStyle=color;ctx.lineWidth=1.2;
+      for(const frame of xyHistory.frames(now)){
+        ctx.globalAlpha=frame.alpha;ctx.beginPath();let drawing=false;
+        for(const p of frame.points){if(!p){drawing=false;continue;}const x=cx+p[0]*scale,y=cy-p[1]*scale;if(drawing)ctx.lineTo(x,y);else{ctx.moveTo(x,y);drawing=true;}}ctx.stroke();
+      }
+      ctx.globalAlpha=1;ctx.fillStyle=g.fg;ctx.font='9px monospace';ctx.fillText(xyMode==='stereo'?'L → X · R → Y':'ARTISTIC · DERIVED',3,9);
     }else if(id==='spectrum'){
       grid(g);const raw=spectrumCurve(data.spectrumDb,data.sampleRate),points=spectrumSmoother.update(raw,win.performance.now());
       const left=29,right=Math.max(left+1,w-5),top=15,bottom=Math.max(top+1,h-15),upper=points.at(-1).hz;
@@ -337,6 +354,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(action==='delete')deleteNamed();
   });
   root.addEventListener('change',e=>{
+    if(e.target.dataset.xyMode){xyMode=e.target.value==='artistic'?'artistic':'stereo';xyHistory.reset();drawAll(audio.active?audio.sample():null);return;}
     if(e.target.dataset.triggerSetting){
       const input=e.target,key=input.dataset.triggerSetting,value=Number(input.value);
       if(input.value===''||!input.checkValidity()||!Number.isFinite(value))return;
