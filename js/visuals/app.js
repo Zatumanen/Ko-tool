@@ -1,5 +1,6 @@
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
+import{waveformEnvelope}from './transientTrigger.js';
 
 const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names=Object.fromEntries(MODULES.map(x=>[x.id,x.name]));
@@ -12,6 +13,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
   let captureArmed=false,autoConnecting=false;
+  let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
   let identityAttached=false;
   async function attachVerifiedIdentity(){
     if(identityAttached)return;
@@ -88,6 +90,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState});
+    audio.configureTrigger(triggerSettings);
     render();
     void attachVerifiedIdentity();
     void refreshInputs();
@@ -170,6 +173,16 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
         '<button data-step="1" data-for="'+id+'" title="Переместить вправо" aria-label="'+escapeHtml(labelId(id))+' вправо">▶</button>'+
         '<button data-action="hide" data-for="'+id+'" title="Скрыть модуль" aria-label="Скрыть '+escapeHtml(labelId(id))+'">×</button>';
       meter.append(title);
+      if(id==='waveform'){
+        const controls=el('details','vis-trigger-controls');
+        controls.innerHTML='<summary>Trigger settings</summary>'+[
+          ['Sensitivity threshold','threshold',triggerSettings.threshold,.001,1,.001],
+          ['Time ms','timeMs',triggerSettings.timeMs,10,1000,10],
+          ['Amplitude','amplitude',waveAmplitude,.1,10,.1],
+          ['Hold ms','holdMs',triggerSettings.holdMs,0,3000,10]
+        ].map(([label,key,value,min,max,step])=>'<label>'+label+'<input type="number" aria-label="Waveform '+label+'" data-trigger-setting="'+key+'" value="'+value+'" min="'+min+'" max="'+max+'" step="'+step+'"></label>').join('');
+        meter.append(controls);
+      }
       if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('tabindex','0');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
       const canvas=el('canvas');canvas.setAttribute('aria-label',labelId(id)+' — визуализация входящего аудио');meter.append(canvas);meters.append(meter);
     }
@@ -213,7 +226,16 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(id!=='spectrogram'||!data||!canvas.dataset.visHistory)grid(g);
     if(!data){grid(g);print(g,'NO LIVE AUDIO');canvas.dataset.visHistory='';return}
     const{ctx,w,h,color}=g;
-    if(id==='waveform'||id==='oscilloscope'){
+    if(id==='waveform'){
+      grid(g);const frame=data.trigger;
+      canvas.dataset.triggerCount=String(frame?.count||0);
+      if(frame?.samples){
+        const columns=waveformEnvelope(frame.samples,w);ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();
+        columns.forEach(([min,max],i)=>{const x=i/(columns.length-1||1)*w;ctx.moveTo(x,h/2-max*h*.43*waveAmplitude);ctx.lineTo(x,h/2-min*h*.43*waveAmplitude+.5);});ctx.stroke();
+        ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText('TRIGGER · '+frame.timeMs+' ms',7,11);
+      }
+      else print(g,frame?.unsupported?'TRIGGER UNAVAILABLE':frame?.error?'TRIGGER ERROR':'TRIGGER WAITING');
+    }else if(id==='oscilloscope'){
       grid(g);line(g,data.time,id==='oscilloscope'?1.55:1);
       ctx.fillStyle=color;ctx.font='10px monospace';ctx.fillText(id==='oscilloscope'?'OSC · '+data.sampleRate+' Hz':'TIME · '+data.time.length+' samples',7,11);
     }else if(id==='spectrum'){
@@ -292,6 +314,13 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(action==='delete')deleteNamed();
   });
   root.addEventListener('change',e=>{
+    if(e.target.dataset.triggerSetting){
+      const input=e.target,key=input.dataset.triggerSetting,value=Number(input.value);
+      if(input.value===''||!input.checkValidity()||!Number.isFinite(value))return;
+      if(key==='amplitude')waveAmplitude=value;
+      else{triggerSettings={...triggerSettings,[key]:value};audio.configureTrigger(triggerSettings);}
+      drawAll(audio.active?audio.sample():null);return;
+    }
     const x=e.target;
     if(x.matches('[data-source]')){captureArmed=false;audio.select(x.value);render();return}
     if(x.matches('[data-preset]')){usePreset(x.value);return}

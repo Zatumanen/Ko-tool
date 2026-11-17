@@ -87,6 +87,16 @@ test('fake browser-selected stereo input captures without touching Web MIDI; sto
  await page.locator('[data-action="start"]').click();
  await expect(page.locator('[data-action="stop"]').first()).toBeVisible();
  await expect(page.locator('[data-audio-status]')).toContainText('LIVE');
+ await expect.poll(async()=>Number(await page.locator('[data-meter="waveform"] canvas').getAttribute('data-trigger-count'))).toBeGreaterThan(0);
+ await page.locator('.vis-trigger-controls summary').click();
+ await page.getByLabel('Waveform Sensitivity threshold',{exact:true}).fill('0.2');
+ await page.getByLabel('Waveform Sensitivity threshold',{exact:true}).press('Tab');
+ expect(await page.getByLabel('Waveform Sensitivity threshold',{exact:true}).evaluate(input=>input.checkValidity())).toBe(true);
+ await page.getByLabel('Waveform Time ms',{exact:true}).fill('100');
+ await page.getByLabel('Waveform Time ms',{exact:true}).press('Tab');
+ await page.getByLabel('Waveform Amplitude',{exact:true}).fill('2');
+ await page.getByLabel('Waveform Amplitude',{exact:true}).press('Tab');
+ await expect.poll(async()=>Number(await page.locator('[data-meter="waveform"] canvas').getAttribute('data-trigger-count'))).toBeGreaterThan(0);
  const count=await page.evaluate(()=>window.__visualsAudioTest.started);
  expect(count).toBe(1);
  await page.locator('[data-action="stop"]').first().click();

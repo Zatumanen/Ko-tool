@@ -297,3 +297,12 @@ No fake-EP browser test or UI mockup alone proves USB Audio behavior on physical
 - Audio capture latency and performance budget, and supported platforms.
 
 For the broader roadmap and qualitative source research see [PRODUCT_RESEARCH.md](PRODUCT_RESEARCH.md). See [TESTING.md](TESTING.md) for the team's verification rules.
+
+## Waveform trigger software implementation (ZAT-80)
+
+Continuous AudioWorklet PCM now drives attack-centered held Waveform capture,
+with blank pre-attack half, threshold/time/amplitude/hold controls and min/max
+Canvas reduction preserving narrow impulses. [Contract and limits](testing/visuals-trigger.md).
+One-inflight ACK bounds UI delivery while analysis remains independent of FPS.
+This changes Waveform only; Oscilloscope remains its existing time-domain view.
+Owner video matching/visual acceptance and physical USB Audio remain unverified.

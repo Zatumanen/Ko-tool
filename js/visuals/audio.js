@@ -3,12 +3,15 @@
 export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=window.AudioContext||window.webkitAudioContext,onState=()=>{}}={}){
   let context=null,stream=null,source=null,left=null,right=null,mix=null,sink=null,track=null;
   let selectedId='',generation=0,active=false,channelCount=1;
+  let triggerNode=null,triggerFrame=null,triggerSettings={threshold:.1,timeMs:200,holdMs:200};
   const time=new Float32Array(2048),leftTime=new Float32Array(2048),rightTime=new Float32Array(2048),frequency=new Uint8Array(1024);
   const state=(message,error=false)=>onState({active,selectedId,message,error,channelCount});
   const rms=data=>Math.sqrt(data.reduce((s,x)=>s+x*x,0)/data.length);
   const peak=data=>data.reduce((s,x)=>Math.max(s,Math.abs(x)),0);
   function release(){
     active=false;
+    if(triggerNode){triggerNode.port.onmessage=null;triggerNode.port.close();try{triggerNode.disconnect()}catch{}}
+    triggerNode=null;triggerFrame=null;
     if(track)track.onended=null;
     for(const t of stream?.getTracks?.()||[])t.stop();
     try{source?.disconnect()}catch{}
@@ -65,6 +68,17 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       sink.connect(context.destination); // zero gain: drive analysis without audible feedback
       track.onended=()=>{if(request===generation)stop('Аудиовход отключён')};
       await context.resume();
+      if(request===generation&&nextContext.audioWorklet&&typeof AudioWorkletNode!=='undefined'){
+        // Derive a versioned worklet URL from this module's own build stamp.
+        const workletUrl=new URL('./triggerWorklet.js',import.meta.url);
+        workletUrl.search=new URL(import.meta.url).search;
+        await nextContext.audioWorklet.addModule(workletUrl.href);
+        if(request!==generation)return false;
+        triggerNode=new AudioWorkletNode(nextContext,'visuals-trigger');
+        triggerNode.port.onmessage=event=>{if(request===generation){triggerFrame=event.data;triggerNode.port.postMessage({ack:true});}};
+        triggerNode.port.postMessage(triggerSettings);
+        source.connect(triggerNode);triggerNode.connect(sink);
+      }else if(request===generation)triggerFrame={unsupported:true};
       // The superseding START/STOP already released this request's graph.
       // Shared capture state may now belong to a newer START.
       if(request!==generation)return false;
@@ -87,9 +101,10 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     let dot=0,sumL=0,sumR=0;
     for(let i=0;i<leftTime.length;i++){const l=leftTime[i],rr=rightTime[i];dot+=l*rr;sumL+=l*l;sumR+=rr*rr}
     const correlation=channelCount===1?null:dot/(Math.sqrt(sumL*sumR)||1);
-    return{time,leftTime,rightTime,frequency,rms:r,peak:p,leftRms:r0,rightRms:r1,
+    return{time,leftTime,rightTime,frequency,trigger:triggerFrame,rms:r,peak:p,leftRms:r0,rightRms:r1,
       leftPeak:peak(leftTime),rightPeak:peak(rightTime),correlation,
       db:20*Math.log10(Math.max(r,1e-7)),sampleRate:context.sampleRate,channelCount};
   }
-  return{inputs,unlockInputs,start,stop,select,sample,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
+  function configureTrigger(settings){triggerSettings={...triggerSettings,...settings};triggerFrame=null;triggerNode?.port.postMessage(triggerSettings);}
+  return{inputs,unlockInputs,start,stop,select,sample,configureTrigger,get selectedId(){return selectedId},get active(){return active},get channelCount(){return channelCount}};
 }

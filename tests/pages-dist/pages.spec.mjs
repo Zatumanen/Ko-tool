@@ -42,3 +42,24 @@ test('versioned dist works under the production /Ko-tool/ base path',async({page
   expect(badResources).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test('versioned Visuals AudioWorklet triggers from a selected browser stream',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__triggerSource=null;
+  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
+   enumerateDevices:async()=>[{kind:'audioinput',deviceId:'synthetic-trigger',label:'Synthetic test input'}],addEventListener(){},
+   getUserMedia:async c=>{
+    if(c.audio.deviceId.exact!=='synthetic-trigger')throw Error('unexpected input');
+    const context=new AudioContext(),source=context.createOscillator(),sink=context.createMediaStreamDestination();
+    source.connect(sink);source.start();await context.resume();window.__triggerSource={context,source,stream:sink.stream};return sink.stream;
+   }
+  }});
+ });
+ await page.goto('./');await page.locator('#visuals-icon').click();
+ await expect(page.locator('[data-source] option')).toHaveCount(2);
+ await page.locator('[data-source]').selectOption('synthetic-trigger');await page.locator('[data-action="start"]').click();
+ await expect.poll(async()=>Number(await page.locator('[data-meter="waveform"] canvas').getAttribute('data-trigger-count'))).toBeGreaterThan(0);
+ await page.locator('[data-action="stop"]').first().click();
+ expect(await page.evaluate(()=>window.__triggerSource.stream.getAudioTracks()[0].readyState)).toBe('ended');
+ await page.evaluate(async()=>{window.__triggerSource.source.stop();await window.__triggerSource.context.close();});
+});
