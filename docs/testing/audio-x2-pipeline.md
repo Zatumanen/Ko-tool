@@ -21,6 +21,7 @@ it fast-paths compatible PCM WAV or resamples to the device rate without x2.
 With REPITCH ON, unprepared audio delegates x2 to the same `processAudio`;
 WAV with verified K.O. Tool RIFF KORP provenance bypasses repeat processing.
 Old TE `sound.pitch=-12` is ambiguous and needs a single explicit batch choice.
+A **raw, unprepared** WAV with authored `sound.pitch` other than zero is rejected before x2 because the required fixed `-12` compensation would otherwise silently overwrite the user's prior pitch. Use REPITCH OFF for that source unless a future verified mapping is explicitly approved. Provenance-verified or explicitly accepted legacy `-12` files keep their separate bypass behavior.
 Corrupt provenance or metadata must be rejected before FILE PUT.
 Both products delegate actual resampling and WAV encoding to the shared
 `js/audio/audioEngine.js` reference ABI.
