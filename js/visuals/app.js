@@ -1,3 +1,4 @@
+import{createRenderClock,rectVisible}from './renderClock.js';
 import{MODULES,IDS,PRESET_NAMES,makePreset,validLayout,setVisible,moveModule,allocateWidths,resizePair,clampHeight,readWorking,saveWorking,readPresets,savePresets,resolvedPalette}from './layout.js';
 import{createVisualsAudio}from './audio.js';
 import{waveformEnvelope}from './transientTrigger.js';
@@ -12,9 +13,11 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   const doc=documentRef,win=windowRef,icon=doc.getElementById('visuals-icon'),root=doc.getElementById('visuals-root');
   if(!icon||!root)return null;
   let opened=false,layout=makePreset(),named=[],activePreset='Balanced',height=150;
-  let mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
-  let status='Источник не выбран',sources=[],drawingFrame=0,lastPaint=0,audio,draggingId=null,drag=null;
-  let captureArmed=false,autoConnecting=false;
+  let monoTone='dark',mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
+  let status='Источник не выбран',sources=[],drawingFrame=0,audio,draggingId=null,drag=null;
+  let captureArmed=false,autoConnecting=false,lastData=null,analysisCount=0,paintCount=0;
+  const renderClock=createRenderClock();
+  let panelObserver=null,panelResizeObserver=null,observerRevision=0,visiblePanels=new Set();
   let triggerSettings={threshold:.1,timeMs:200,holdMs:200},waveAmplitude=1;
   const spectrumSmoother=createSpectrumSmoother();
   const spectrogram=createSpectrogramHistory(),spectrogramCanvases=new WeakMap();
@@ -37,8 +40,10 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   function currentTheme(){return resolvedPalette(autoTheme?'device':mode,sku)}
   function refreshTheme(){
     if(!opened)return;
-    root.classList.remove('vis-theme-app','vis-theme-ep133','vis-theme-ep40','vis-theme-mono');
+    root.classList.remove('vis-theme-app','vis-theme-ep133','vis-theme-ep40','vis-theme-mono','vis-mono-light');
     root.classList.add('vis-theme-'+currentTheme());
+    root.classList.toggle('vis-mono-light',currentTheme()==='mono'&&monoTone==='light');
+    const tone=root.querySelector('[data-mono-tone]');if(tone){tone.hidden=currentTheme()!=='mono';tone.value=monoTone;}
     const label=root.querySelector('[data-theme-state]');
     if(label)label.textContent=(sku?({'TE032AS001':'EP-133','TE032AS006':'EP-40','TE032AS005':'EP-1320'}[sku]||'Неизвестный EP'):'Устройство не подтверждено')+' · '+(autoTheme?'AUTO':'MANUAL');
     if(!audio?.active)drawAll(null);
@@ -74,23 +79,65 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture){capture.hidden=!(next.active&&(root.classList.contains('vis-hidden')));capture.querySelector('span').textContent='● LIVE · '+(status.slice(0,50))}
     if(next.active)kick();
-    else{spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
+    else{lastData=null;renderClock.reset();spectrumSmoother.reset();spectrogram.reset();stopAnimation();drawAll(null)}
+    updateActivity();
   }
-  function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0}}
-  function kick(){if(!drawingFrame&&opened&&audio?.active)drawingFrame=win.requestAnimationFrame(tick)}
+  function canRender(){return opened&&audio?.active&&!doc.hidden&&!collapsed&&!root.classList.contains('vis-hidden')&&visiblePanels.size>0;}
+  function stopAnimation(){if(drawingFrame){win.cancelAnimationFrame(drawingFrame);drawingFrame=0;}}
+  function updateActivity(){
+    const active=canRender();root.dataset.renderState=!audio?.active?'stopped':active?'active':'suspended';
+    if(active)kick();else{stopAnimation();renderClock.suspend();}
+  }
+  function refreshVisibility(){
+    const area=root.querySelector('.vis-meters');visiblePanels=new Set();
+    if(area){
+      const areaRect=area.getBoundingClientRect();
+      for(const panel of area.querySelectorAll('[data-meter]')){
+        const r=panel.getBoundingClientRect(),clip={left:Math.max(areaRect.left,r.left),right:Math.min(areaRect.right,r.right),top:Math.max(areaRect.top,r.top),bottom:Math.min(areaRect.bottom,r.bottom)};
+        if(rectVisible(panel.querySelector('canvas').getBoundingClientRect(),clip,win.innerWidth,win.innerHeight))visiblePanels.add(panel);
+      }
+    }
+    updateActivity();
+  }
+  function observePanels(){
+    const revision=++observerRevision;panelObserver?.disconnect();panelResizeObserver?.disconnect();panelObserver=null;panelResizeObserver=null;refreshVisibility();
+    const area=root.querySelector('.vis-meters');if(!area)return;
+    area.addEventListener('scroll',refreshVisibility,{passive:true});
+    area.addEventListener('toggle',refreshVisibility,true);
+    if(win.IntersectionObserver){
+      panelObserver=new win.IntersectionObserver(()=>{
+        if(revision!==observerRevision||!opened)return;
+        // Re-read current geometry: queued observer entries may precede a resize.
+        refreshVisibility();
+      });
+      for(const panel of area.querySelectorAll('[data-meter]'))panelObserver.observe(panel.querySelector('canvas'));
+    }
+    if(win.ResizeObserver){
+      panelResizeObserver=new win.ResizeObserver(()=>{if(revision===observerRevision&&opened)refreshVisibility();});
+      for(const canvas of area.querySelectorAll('canvas'))panelResizeObserver.observe(canvas);
+    }
+  }
+  function kick(){if(!drawingFrame&&canRender())drawingFrame=win.requestAnimationFrame(tick);}
   function tick(time){
     drawingFrame=0;
-    if(!opened||!audio.active)return;
-    // 30 FPS cap to keep the seven active canvases inexpensive on older Macs.
-    if(time-lastPaint>=32&&!doc.hidden&&!collapsed&&!root.classList.contains('vis-hidden')){
-      lastPaint=time;drawAll(audio.sample());
+    if(!panelObserver)refreshVisibility();
+    if(!canRender()){updateActivity();return;}
+    const due=renderClock.step(time);
+    root.dataset.renderFps=String(due.fps);
+    const indicator=root.querySelector('[data-render-target]');if(indicator)indicator.textContent='AUTO '+due.fps+' FPS';
+    if(due.sample){
+      lastData=audio.sample();
+      if(lastData){spectrogram.push(lastData.frequency,lastData.sampleRate,time);root.dataset.visAnalysisCount=String(++analysisCount);}
+    }
+    if(due.paint&&lastData){
+      const start=win.performance.now();drawAll(lastData);renderClock.recordPaint(win.performance.now()-start);root.dataset.visPaintCount=String(++paintCount);
     }
     kick();
   }
   function stop(message){captureArmed=false;audio.stop(message);stopAnimation()}
   function open(){
     if(opened){root.querySelector('.vis-dock')?.focus();return}
-    opened=true;captureArmed=false;autoConnecting=false;
+    opened=true;captureArmed=false;autoConnecting=false;monoTone='dark';renderClock.reset();lastData=null;analysisCount=0;paintCount=0;root.dataset.visAnalysisCount='0';root.dataset.visPaintCount='0';root.dataset.renderFps='60';
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState});
@@ -101,7 +148,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   }
   function close(){
     if(!opened)return;
-    opened=false;stop('Захват остановлен');audio=null;picker=false;unsaved=false;autoHide=false;collapsed=false;
+    opened=false;observerRevision++;panelObserver?.disconnect();panelResizeObserver?.disconnect();panelObserver=null;panelResizeObserver=null;visiblePanels.clear();stop('Захват остановлен');audio=null;picker=false;unsaved=false;autoHide=false;collapsed=false;
     root.innerHTML='';root.className='';
   }
   async function refreshInputs(){
@@ -145,7 +192,9 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       '<button data-action="save" title="Сохранить текущую компоновку">SAVE</button>'+
       '<button data-action="delete" title="Удалить выбранный пользовательский пресет">DEL</button>'+
       '<button data-action="modules" aria-expanded="'+String(picker)+'">MODULES</button>'+
+      '<output data-render-target title="Целевая частота Canvas, не измеренный FPS экрана" aria-label="Целевая частота отрисовки">AUTO '+renderClock.fps+' FPS</output>'+
       '<select class="vis-theme" data-theme aria-label="Цветовая тема"><option value="device">Под устройство</option><option value="app">Под приложение</option><option value="mono">Ч/Б</option></select>'+
+      '<select data-mono-tone aria-label="Black & White variant" hidden><option value="dark">Dark Mono</option><option value="light">Light Mono</option></select>'+
       '<label><input type="checkbox" data-auto-theme '+(autoTheme?'checked':'')+'> AUTO THEME</label>'+
       '<span data-theme-state title="Статус распознавания EP"></span>'+
       '<label><input type="checkbox" data-autohide '+(autoHide?'checked':'')+'> HIDE</label>'+
@@ -190,7 +239,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       if(index){const divider=el('div','vis-divider');divider.dataset.divider='1';divider.dataset.left=visible[index-1];divider.dataset.right=id;divider.title='Перетащить границу модулей';divider.setAttribute('role','separator');divider.setAttribute('aria-orientation','vertical');divider.setAttribute('tabindex','0');divider.setAttribute('aria-label','Изменить ширину '+labelId(visible[index-1])+' и '+labelId(id));meter.append(divider)}
       const canvas=el('canvas');canvas.setAttribute('aria-label',labelId(id)+' — визуализация входящего аудио');meter.append(canvas);meters.append(meter);
     }
-    updateWidths();refreshTheme();drawAll(audio.active?audio.sample():null);
+    updateWidths();observePanels();refreshTheme();drawAll(audio.active?lastData:null);
     const capture=root.querySelector('.vis-capture-indicator');
     if(capture)capture.hidden=!(audio.active&&root.classList.contains('vis-hidden'));
   }
@@ -254,7 +303,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       points.forEach((p,i)=>{if(i===0)ctx.moveTo(x(p.hz),y(p.db));else ctx.lineTo(x(p.hz),y(p.db));});ctx.stroke();
       const peak=raw.reduce((a,b)=>a.db>b.db?a:b);canvas.dataset.spectrumPeakHz=String(Math.round(peak.hz));canvas.dataset.spectrumScale='log-hz-dbfs';
     }else if(id==='spectrogram'){
-      const now=win.performance.now();spectrogram.push(data.frequency,data.sampleRate,now);
+      const now=win.performance.now();
       const raster=spectrogram.raster(w,Math.max(1,h-20),now);
       let buffer=spectrogramCanvases.get(canvas);
       if(!buffer){buffer=doc.createElement('canvas');spectrogramCanvases.set(canvas,buffer);}
@@ -279,7 +328,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       ctx.fillStyle=color;ctx.font='11px monospace';ctx.fillText('CORR '+data.correlation.toFixed(2),8,h-5);
     }
   }
-  function drawAll(data){if(!opened)return;for(const panel of root.querySelectorAll('[data-meter]'))paint(panel.dataset.meter,panel.querySelector('canvas'),data)}
+  function drawAll(data){if(!opened)return;for(const panel of(data?visiblePanels:root.querySelectorAll('[data-meter]'))){const canvas=panel.querySelector('canvas');paint(panel.dataset.meter,canvas,data);if(data)canvas.dataset.visPaintCount=String(Number(canvas.dataset.visPaintCount||0)+1);}}
   function collapse(){collapsed=true;picker=false;autoHide=false;root.dataset.hidden='0';stop('Захват остановлен: Visuals свёрнут');render()}
   function restore(){
     if(layout.visible.length){collapsed=false;picker=false;render()}
@@ -342,11 +391,12 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       if(input.value===''||!input.checkValidity()||!Number.isFinite(value))return;
       if(key==='amplitude')waveAmplitude=value;
       else{triggerSettings={...triggerSettings,[key]:value};audio.configureTrigger(triggerSettings);}
-      drawAll(audio.active?audio.sample():null);return;
+      drawAll(audio.active?lastData:null);return;
     }
     const x=e.target;
     if(x.matches('[data-source]')){captureArmed=false;audio.select(x.value);render();return}
     if(x.matches('[data-preset]')){usePreset(x.value);return}
+    if(x.matches('[data-mono-tone]')){monoTone=x.value==='light'?'light':'dark';refreshTheme();return;}
     if(x.matches('[data-theme]')){mode=x.value;autoTheme=false;render();return}
     if(x.matches('[data-auto-theme]')){autoTheme=x.checked;render();return}
     if(x.matches('[data-autohide]')){autoHide=x.checked;root.dataset.hidden='0';render();return}
@@ -374,7 +424,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(e.target.closest('[data-height-resize]')&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
       e.preventDefault();height=clampHeight(height+(e.key==='ArrowUp'?10:-10),win.innerHeight);
       root.querySelector('.vis-dock').style.height=height+'px';
-      drawAll(audio.active?audio.sample():null);
+      drawAll(audio.active?lastData:null);
     }
   });
   root.addEventListener('pointerdown',e=>{
@@ -410,7 +460,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       const next=resizePair(layout,current.left,current.right,current.leftPx,current.rightPx,e.clientX-current.x);
       if(JSON.stringify(next.weights)!==JSON.stringify(layout.weights))working(next);
       else updateWidths();
-    }else drawAll(audio.active?audio.sample():null);
+    }else drawAll(audio.active?lastData:null);
   });
   root.addEventListener('pointercancel',()=>{if(drag){drag=null;updateWidths()}});
   root.addEventListener('pointerleave',e=>{
@@ -418,14 +468,14 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(e.relatedTarget&&root.contains(e.relatedTarget))return;
     root.dataset.hidden='1';root.classList.add('vis-hidden');
     const activeIndicator=root.querySelector('.vis-capture-indicator');
-    if(activeIndicator)activeIndicator.hidden=!audio.active;
+    if(activeIndicator)activeIndicator.hidden=!audio.active;updateActivity();
   });
   root.addEventListener('pointerenter',()=>{
-    if(opened&&autoHide){root.dataset.hidden='0';root.classList.remove('vis-hidden');root.querySelector('.vis-capture-indicator')?.setAttribute('hidden','')}
+    if(opened&&autoHide){root.dataset.hidden='0';root.classList.remove('vis-hidden');root.querySelector('.vis-capture-indicator')?.setAttribute('hidden','');refreshVisibility();}
   });
-  function resize(){if(!opened)return;const dock=root.querySelector('.vis-dock');if(dock)dock.style.height=clampHeight(height,win.innerHeight)+'px';updateWidths();if(!audio.active)drawAll(null)}
+  function resize(){if(!opened)return;const dock=root.querySelector('.vis-dock');if(dock)dock.style.height=clampHeight(height,win.innerHeight)+'px';updateWidths();refreshVisibility();if(!audio.active)drawAll(null)}
   win.addEventListener('resize',resize);
-  doc.addEventListener('visibilitychange',()=>{if(opened&&audio?.active&&!doc.hidden)kick()});
+  doc.addEventListener('visibilitychange',()=>{if(opened){renderClock.suspend();refreshVisibility();}});
   const media=win.navigator?.mediaDevices||navigator.mediaDevices;
   media?.addEventListener?.('devicechange',()=>{if(opened)void refreshInputs()});
   win.addEventListener('pagehide',()=>{if(opened)stop('Захват остановлен: страница закрыта')});

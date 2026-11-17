@@ -33,7 +33,7 @@
 
 ### Visuals
 
-Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters.
+Семь визуальных модулей для **выбранного аудиовхода**: Waveform, Spectrum, Spectrogram, Oscilloscope, Loudness, Stereo Meter и Output Meters. В теме **Ч/Б** доступны **Dark Mono / Light Mono**. Частота отрисовки адаптируется между **60/30/15 FPS**; скрытые панели приостанавливают отрисовку.
 
 Waveform поддерживает trigger по атаке с удержанием формы, настройками порога чувствительности, времени, амплитуды и hold. Нужен AudioWorklet; форма строится по выбранному аудиовходу.
 

@@ -24,6 +24,8 @@ npm run test:e2e
 npm run test:pages:e2e
 ```
 
+Visuals themes/render clock: `node --test tests/visuals-render-clock.test.mjs` and `npx playwright test tests/e2e/visuals-themes-performance.spec.mjs tests/e2e/visuals.spec.mjs`. [Contract and unverified host/endurance acceptance](testing/visuals-themes-performance.md).
+
 For focused checks:
 
 ```bash

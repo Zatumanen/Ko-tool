@@ -322,3 +322,11 @@ columns right, past left; resize/theme/DPR reprojects the retained measurements.
 Duration4–16seconds and raster detail adapt to module width, with blank sampling
 gaps and reset between capture sessions. [Contract and limits](testing/visuals-spectrogram.md).
 Owner visual/endurance and physical input acceptance remain pending.
+
+## Theme/render software delta (ZAT-88)
+
+Three global modes retain verified device fallback; B&W offers Dark/Light Mono,
+including grayscale warnings. Canvas targets adapt60/30/15 independently of30Hz
+analyser snapshots; fully clipped/hidden canvases suspend, while trigger worklet
+continues. [Clock, limitations and acceptance](testing/visuals-themes-performance.md).
+Device palette fidelity, owner visuals and MBP/endurance remain unverified.
