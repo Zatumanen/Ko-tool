@@ -23,6 +23,10 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/check-codex-env.mjs
+      # On PRs, GITHUB_EVENT_PATH contains the submitted PR description.
+      # On main pushes, this remains a structural matrix/evidence-path check.
+      # No repository token, GitHub API call or physical-device permission needed.
+      - run: node scripts/check-implementation-audit.mjs
 
   unit:
     runs-on: ubuntu-24.04
