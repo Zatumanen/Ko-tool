@@ -1,6 +1,6 @@
 # K.O. Tool — testing and hardware acceptance
 
-This is the entry point for the **existing** test suites and the canonical specifications in [docs/testing/](testing/). Do not replace the evidence registry or present browser simulations as hardware verification.
+This is the entry point for the **existing** test suites and the canonical specifications in [docs/testing/](testing/). Do not replace the evidence registry or present browser simulations as hardware verification. Before app-code changes, inspect the [implementation matrix](IMPLEMENTATION_MATRIX.md) and execute the [pre-implementation gate](IMPLEMENTATION_GATE.md): a green test or Done tracker item does not mean there is unimplemented software to rebuild. The `codex-preflight` CI job also runs `scripts/check-implementation-audit.mjs` for structural matrix and PR-body evidence checks (not factual acceptance).
 
 ## Test tools and commands
 
