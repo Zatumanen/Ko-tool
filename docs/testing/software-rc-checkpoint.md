@@ -18,8 +18,10 @@ permission grant, before enumeration. Selected-input START behavior unchanged.
 ## VERIFIED
 
 Before fix, pending enumeration regression fails (7/8 Node cases pass).
-After fix, focused Visuals audio suite passes8/8. Additional Node/browser/build
-results and exact PR SHA/CI are recorded in the PR checkpoint, not presumed here.
+After fix, focused Visuals audio suite passes8/8. Full Node985/985, Visuals Chromium5/5, Pages build/verify and local preflight
+passed. PR #183 records exact-head CI; initial structural PR-body check required
+main@SHA syntax and an explicit inspected source path, corrected without
+changing runtime behavior.
 
 ## PENDING SOFTWARE
 
