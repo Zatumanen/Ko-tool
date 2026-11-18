@@ -5,7 +5,7 @@
 - Use Russian with the owner, concise English for technical references. README describes shipped features; engineering belongs in AGENTS/docs.
 - Reviews do not authorize edits. Before app code: align Linear, README, AGENTS and skills/runtime. Docs permission covers docs only. Linear issues, comments, statuses, blockers, CI/HIL results and PR links need no separate approval. Done requires acceptance evidence.
 - Verify approvals and branch before Git actions; preserve user changes. Never edit `main` directly. Deploy manual-test and release builds only to public GitHub Pages, without private copies. Deployment requires separate approval; see [release workflow](docs/RELEASE.md).
-- Use isolated checkout, no worktree unless requested, and reversible patches. Docs-only edits must not change app code, tests, dependencies or CI as a side effect.
+- Use isolated checkout and [PR integration protocol](docs/PR_INTEGRATION.md); no worktree unless requested; reversible patches. Docs-only edits must not change app code, tests, dependencies or CI as a side effect.
 - Never disclose credentials, serials, private captures or user data. Check provenance/license before importing third-party code/assets. The repository currently has no root license granting reuse.
 - K.O. Tool is the browser virtual desktop; SpeedUpperCut prepares audio; My EP manages physical EP; Visuals analyzes a selected browser audio input. Stack: static HTML/CSS/native JS, Node.js 22 for builds/tests; no production API/database or template/framework replacement.
 - Paths: converter `js/app.js`, `js/audio/`; device/protocol `js/ep133/`, UI `js/ep133/ui/`; Visuals `js/visuals/`; `index.html`, `css/`; Pages `scripts/build-pages.mjs`; tests `tests/`.

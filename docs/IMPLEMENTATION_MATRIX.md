@@ -2,6 +2,8 @@
 
 **Snapshot:** 2026-11-17, source inspected at `main@23a814154047b732a6fb7884be9d9e95cdb065af`; latest PR state and Linear must be rechecked before starting work. This is a **navigation/evidence snapshot**, not a guarantee about later `main` or a claim that all acceptance criteria passed.
 
+**Visuals-only addendum (18 November 2026):** integration PR #194 is merged as `main@ab5706e425c20e06ede35012053d5b211846d53c`. [Post-merge CI](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) passed 1055 Node, 161 Chromium source and 2 Pages-dist E2E. The Visuals software rows below exist together on this commit, but owner appearance, endurance and actual EP USB Audio remain unaccepted. Other matrix evidence retains its dated snapshot. Do not re-merge #188–#193.
+
 The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md). Use this matrix with the [pre-implementation gate](IMPLEMENTATION_GATE.md), [TESTING](TESTING.md) and the relevant exact-firmware evidence. It does not authorize product changes, physical device operations or a Pages deployment.
 
 ### Meaning of columns

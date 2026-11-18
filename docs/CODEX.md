@@ -18,6 +18,18 @@ schema's default project_doc_max_bytes is32,768 bytes across selected project
 instructions. The compact root fits; that does not guarantee a context window,
 cost saving or a live Cloud reload. Archive uses a non-AGENTS basename.
 
+## Concurrent PRs and shared ownership
+
+Follow [PR integration protocol](PR_INTEGRATION.md) before opening or updating
+feature branches. Review the live open-PR list and touched files, not just the
+chosen branch. If work overlaps in shared controllers, prefer a **single**
+integration branch with short sequential/stacked PRs and run combined Node,
+Chromium and Pages checks on the exact integrated SHA. Isolated green runs
+are not proof of coexistence. The PR template requires an overlap statement
+and the structural preflight checks it. Never merge outdated superseded
+feature PRs after their changes are included in an integration commit.
+This does not authorize code changes, merges, physical EP operations or deploys.
+
 ## Approved decision homes
 
 | Detail | Canonical source section |

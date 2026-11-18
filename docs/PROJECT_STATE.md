@@ -1,5 +1,7 @@
 # K.O. Tool — current project state
 
+**Later Visuals integration checkpoint (18 November 2026):** PR [#194](https://github.com/Zatumanen/Ko-tool/pull/194) merged six Visuals feature branches into `main@ab5706e425c20e06ede35012053d5b211846d53c`. Post-merge [CI #44267219851](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) is 4/4 PASS: Node 1055, source Chromium 161, dist Chromium 2. Owner visual acceptance, MBP2017 endurance and real EP USB Audio HIL remain open; there was no Pages deployment. Superseded original PRs #188–#193 must not be merged again. Use [PR integration protocol](PR_INTEGRATION.md) for subsequent changes. Other snapshot sections below retain their historical scope.
+
 **Snapshot:** 2026-11-17, audited `main@23a814154047b732a6fb7884be9d9e95cdb065af`. Not a live HEAD guarantee. Before code: recheck current main/open PRs/Linear, [Implementation Matrix](IMPLEMENTATION_MATRIX.md) and [pre-implementation gate](IMPLEMENTATION_GATE.md). Historical [12-Nov HIL/CI](history/PROJECT_STATE-2026-11-12.md) is preserved.
 
 ## Implemented vs missing
@@ -10,7 +12,7 @@
 - **REPITCH:** previously implemented ON-by-default, KORP/SHA-256 prevents double ×2. [PR #180](https://github.com/Zatumanen/Ko-tool/pull/180) added a nonzero source-pitch safety guard, not REPITCH itself; playback HIL pending.
 - **PAK/PPAK:** export/reader/preview already existed ([#164](https://github.com/Zatumanen/Ko-tool/pull/164), [#165](https://github.com/Zatumanen/Ko-tool/pull/165)). [PR #179](https://github.com/Zatumanen/Ko-tool/pull/179) connected pre-existing CRC offline staging to UI. **Actual Restore disabled**, no device write authorization. [Contract](testing/official-pak-offline-staging.md).
 - **Pads:** limited EP-133 2.5.1 READ; WRITE disabled; [PR #139](https://github.com/Zatumanen/Ko-tool/pull/139) remains Draft. Projects' restricted legacy editor is **not** approved standalone Sequencer.
-- **Visuals:** seven browser-input modules; merged waveform trigger, Spectrum curve and timestamped Spectrogram. Current feature branch adds BS.1770 mono/stereo LUFS M/S/I/reset with18independent FFmpeg vectors; owner/compliance/endurance acceptance pending. XY is a separate PR; Stereo/Output advanced behavior and Recorder remain pending. USB Audio from EP unverified. [Spec](VISUALS.md).
+- **Visuals (superseded by the 18-Nov checkpoint above):** seven browser-input modules, trigger, Spectrum, Spectrogram and advanced XY/LUFS/Stereo/Output/WAV recording are now integrated through #194. Automated combined tests passed on `main@ab5706e`; exact device USB Audio and owner/endurance acceptance remain pending. [Spec](VISUALS.md).
 - **Sequencer:** independent Step/Piano Roll + two-way device-authoritative Live **missing**; [spec](SEQUENCER.md). **FX-MIC:** offline editor/audition in [merged #176](https://github.com/Zatumanen/Ko-tool/pull/176); limited stock 1.1.2 Live diagnostics read-only, production hardware Live not accepted. **EP-136:** Sidekick not implemented.
 
 ## Evidence and release
