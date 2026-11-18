@@ -26,6 +26,14 @@ npm run test:pages:e2e
 
 Visuals themes/render clock: `node --test tests/visuals-render-clock.test.mjs` and `npx playwright test tests/e2e/visuals-themes-performance.spec.mjs tests/e2e/visuals.spec.mjs`. [Contract and unverified host/endurance acceptance](testing/visuals-themes-performance.md).
 
+| Visuals LUFS | `tests/visuals-loudness.test.mjs`, `tests/visuals-audio.test.mjs`, `tests/e2e/visuals-loudness.spec.mjs`; [numeric contract and18FFmpeg vectors](testing/visuals-loudness.md). Optional oracle recheck: `node scripts/generate-loudness-golden.mjs` (FFmpeg required only for regeneration). |
+
+| Visuals Stereo Meter | `tests/visuals-stereo.test.mjs`, `tests/visuals-audio.test.mjs`, `tests/e2e/visuals-stereo.spec.mjs`; [numerical and visual contract](testing/visuals-stereo.md). Synthetic phase/mono data does not establish physical USB Audio. |
+
+Output Meters: `node --test tests/visuals-output-meters.test.mjs tests/visuals-audio.test.mjs` and `npx playwright test tests/e2e/visuals-output-meters.spec.mjs`. [Contract and evidence limits](testing/visuals-output-meters.md).
+
+WAV Recorder: `node --test tests/visuals-recorder*.test.mjs tests/visuals-audio.test.mjs` and `npx playwright test tests/e2e/visuals-recorder.spec.mjs`. [Contract, payload limit and unverified endurance](testing/visuals-wav-recorder.md).
+
 For focused checks:
 
 ```bash
