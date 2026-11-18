@@ -1,7 +1,9 @@
 import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from '../ep133/deviceRuntime.js';
 import{makeDraggableWindow}from '../ep133/ui/windowShell.js?v=20261001-1';
 import{getSequencerSessionState}from './session.js';
-import{getDeviceSessionToken,listProjectArchivesReadOnly,readProjectArchiveReadOnly}from '../ep133/index.js?v=20261001-1';
+// The aggregate index also boots My EP UI. Observe its services without starting that UI early.
+import{getDeviceSessionToken}from '../ep133/device.js?v=20261001-1';
+import{listProjectArchivesReadOnly,readProjectArchiveReadOnly}from '../ep133/filesystem.js?v=20261001-1';
 import{createSavedSequencer}from './saved.js';
 import{renderSavedSteps,escapeHtml}from './stepView.js';
 
