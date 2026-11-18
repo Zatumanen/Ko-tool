@@ -43,6 +43,7 @@ export function createMidiEventObserver({getContext,setTimeoutFn=globalThis.setT
   const sub={onEvents,onReset,capacity,flushMs,ring:new Array(capacity),head:0,count:0,dropped:0,timer:null,active:true};
   subscriptions.add(sub);sync();
   return{
+   flush(){flush(sub);},
    clear(){if(sub.active){wipe(sub);safely(sub.onReset,{reason:'cleared'});}},
    unsubscribe(){if(!sub.active)return;sub.active=false;wipe(sub);subscriptions.delete(sub);if(!subscriptions.size)context=null;}
   };

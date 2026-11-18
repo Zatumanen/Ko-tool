@@ -1,5 +1,6 @@
 import{test,expect}from '@playwright/test';
 import{fileURLToPath}from 'node:url';
+import fs from 'node:fs/promises';
 const fake=fileURLToPath(new URL('./fake-ep-browser.js',import.meta.url));
 const connect=async page=>{
  await page.locator('#my-ep-icon').click();await expect(page.locator('#ep133-status')).toContainText('SYNCED ·');
@@ -51,6 +52,7 @@ test('closing, visibility loss, disconnect and ownership loss clear events and r
  await start.click();await emit(page,1);await expect(diag.locator('[data-events-rows] tr')).toHaveCount(1);
  await app.getByRole('button',{name:'Close Sequencer',exact:true}).click();await page.locator('#sequencer-icon').click();
  await expect(diag.locator('[data-events-rows] tr')).toHaveCount(0);await expect(start).toBeEnabled();
+ await expect(diag.getByRole('button',{name:'Download MIDI trace',exact:true})).toBeDisabled();
  await emit(page,2);await start.click();await emit(page,3);await expect(diag.locator('[data-events-rows]')).toContainText('3');
  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
  await expect(diag.locator('[data-events-rows] tr')).toHaveCount(0);
@@ -65,4 +67,30 @@ test('closing, visibility loss, disconnect and ownership loss clear events and r
  await page.evaluate(async()=>{const rt=await import('./js/ep133/deviceRuntime.js');window.__fakeEp.emitMidi([0xF8],9);rt.dispatchDeviceRuntimeEvent({type:'OWNERSHIP_LOST'});});
  await expect(diag.locator('[data-events-rows] tr')).toHaveCount(0);await expect(start).toBeDisabled();
  expect((await traffic(page)).access).toBe(1);
+});
+
+test('stopped trace downloads locally with more events than the display, provenance and explicit evidence limits',async({page})=>{
+ await page.addInitScript({path:fake});await page.goto('/');await connect(page);await page.locator('#sequencer-icon').click();
+ const diag=page.getByRole('region',{name:'MIDI event diagnostics',exact:true}),downloadButton=diag.getByRole('button',{name:'Download MIDI trace',exact:true});
+ await expect(downloadButton).toBeDisabled();const before=await traffic(page);
+ await diag.getByRole('button',{name:'Observe MIDI input',exact:true}).click();
+ await page.evaluate(()=>{
+  for(let i=0;i<80;i++)window.__fakeEp.emitMidi([0xF8],100+i);
+  window.__fakeEp.emitMidi([0x92,61,100],9001);window.__fakeEp.emitMidi([0xF2,1,2],9002);
+ });
+ await expect(diag.locator('[data-events-count]')).toContainText('Trace captured 82');
+ await expect(diag.locator('[data-events-rows] tr')).toHaveCount(64);await expect(downloadButton).toBeDisabled();
+ await page.evaluate(()=>{window.__fakeEp.emitMidi([0xFC],9003);document.querySelector('[data-events-stop]').click();});
+ const pending=page.waitForEvent('download');await downloadButton.click();const download=await pending;
+ expect(download.suggestedFilename()).toBe('ko-tool-midi-events.json');expect(await download.failure()).toBeNull();
+ const trace=JSON.parse(await fs.readFile(await download.path(),'utf8'));
+ expect(trace).toMatchObject({schemaVersion:1,format:'ko-tool-passive-midi-events',evidence:'UNVERIFIED',hilStatus:'PENDING',appBuildVersion:'source',stopReason:'manual'});
+ expect(trace.events).toHaveLength(83);expect(trace.events[0]).toMatchObject({type:'clock',timestamp:100,data:[0xF8]});
+ expect(trace.events.find(e=>e.type==='song-position')).toMatchObject({position:257,timestamp:9002,data:[0xF2,1,2]});
+ expect(trace.events.at(-1)).toMatchObject({type:'stop',timestamp:9003,data:[0xFC]});
+ expect(trace.loss).toEqual({observerDropped:0,captureLimitReached:false,deliveredButNotStored:0});
+ expect(Date.parse(trace.wallClockStoppedAt)).toBeGreaterThanOrEqual(Date.parse(trace.wallClockStartedAt));
+ expect(JSON.stringify(trace)).not.toMatch(/E2E-EP|e2e-input|foreign-private|deviceKey|serial/);
+ await diag.getByRole('button',{name:'Clear events',exact:true}).click();await expect(downloadButton).toBeDisabled();
+ expect(await traffic(page)).toEqual(before);
 });

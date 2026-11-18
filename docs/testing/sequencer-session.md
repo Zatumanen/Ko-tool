@@ -46,7 +46,9 @@ marks Song Position RX/TX; its timing and relation to EP scenes/loops still
 require exact-device capture. A decoded SPP value is not a proven playhead.
 
 `device.js` exports `subscribeMidiEvents(onBatch, {capacity, flushMs, onReset})`,
-returning `{clear, unsubscribe}`. It uses the existing receiver, selected input,
+returning `{flush, clear, unsubscribe}`. `flush` delivers a currently queued
+batch synchronously after revalidating context; it sends nothing. The observer
+uses the existing receiver, selected input,
 owned/verified/safe/hydrated runtime and matching model/firmware/epoch. Removed
 listener callbacks, other inputs and stale sessions cannot publish. Observing
 continues during FILE reads without acquiring a FILE lease or changing SysEx.
@@ -75,8 +77,25 @@ It never sends MIDI or reads FILE and never drives the Saved views.
 **Stop observing** freezes the received rows; **Clear events** also clears any
 queued observer batch. Close, document hiding, lost authorization or session
 change stop collection and clear the history. Returning/reconnecting requires
-another explicit Observe click. No automatic resume, export or persistence.
+another explicit Observe click. No automatic resume, upload or persistence.
 The scene/pattern/playhead and hardware synchronization are not inferred.
+
+**Download MIDI trace** is an explicit local JSON download after stopping.
+A separate bounded prefix retains up to8192 delivered events (display remains64
+rows); reaching the limit stops observation, not the EP. Manual Stop flushes the
+last queued observer batch before unsubscribing. JSON schemaVersion1 contains
+allowlisted event fields/raw bytes, receipt timestamps, public model/firmware,
+epoch/local session, app asset build version (or `source`), browser wall-clock
+start/stop and stop reason. Observer drops, capture limit and delivered events
+not stored at the limit are explicit. Only the listed decoded message types
+are captured; this is not a complete USB/MIDI bus capture.
+
+Every export stays `UNVERIFIED` / `HIL PENDING`. It does not attest a physical
+device, clock phase, unsaved state or hardware acceptance. Host details and
+Clock/channel/thru settings still belong in the separate HIL report. No serial,
+port key, private session token, full URL or automatic upload is included.
+Start/Clear/close/hide/session loss discard the in-memory trace; explicit
+downloads remain local files under the user's control.
 
 Saved archive state and observed events stay separate. No outgoing operation,
 FILE request, device signal inference or hardware-authoritative synchronization

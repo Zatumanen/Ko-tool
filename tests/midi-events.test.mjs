@@ -46,3 +46,9 @@ test('foreign ports, stale listener epochs, queued old sessions, disconnect, cle
  h.subscribe();h.receive(h.input,9);h.flush();assert.equal(h.batches.length,1);assert.equal(h.batches[0].events[0].model,'TE032AS006');
  assert.ok(h.resets.length>=2);
 });
+test('explicit flush drains the current batch once and rejects a queued stale-session tail',()=>{
+ const h=harness(),sub=h.subscribe();h.receive();sub.flush();
+ assert.equal(h.batches.length,1);h.flush();assert.equal(h.batches.length,1);
+ h.receive();h.setContext(null);sub.flush();h.flush();assert.equal(h.batches.length,1);
+ sub.unsubscribe();sub.flush();assert.equal(h.batches.length,1);
+});
