@@ -1,0 +1,8 @@
+#sequencer-icon{top:208px;left:8px}
+.sequencer-window{position:fixed;left:max(4vw,calc((100vw - 620px)/2));top:12vh;transform:none;width:min(620px,92vw);max-width:none;max-height:80vh;z-index:850;display:flex;flex-direction:column;box-sizing:border-box}
+.sequencer-window[hidden]{display:none}
+.sequencer-window .content{overflow:auto;line-height:1.5}
+.sequencer-window h2{font-size:15px}
+.sequencer-window .content button{padding:7px;font:inherit}
+.sequencer-window [data-sequencer-status]{display:block;padding:8px;background:#fff;border:2px inset var(--win-gray)}
+@media(max-width:700px){.sequencer-window{left:4vw;top:8vh;right:auto}}
