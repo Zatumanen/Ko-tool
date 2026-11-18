@@ -153,6 +153,22 @@
       {path:'fx_settings',data:projectFx()}
     ]);
   };
+  // Synthetic saved scene/song navigation; not a captured device project.
+  const setProjectSceneSong=(projectNumber)=>{
+    const project=projects.get(3000+Number(projectNumber));
+    if(!project)throw new Error('Unknown test project '+projectNumber);
+    const scenes=projectScenes(),trailer=7+99*6;
+    scenes.set([2,1,1,99,3,4],13);scenes[trailer+3]=2;
+    scenes[trailer+11]=3;scenes.set([1,2,1],trailer+12);
+    const second=projectPattern();second.set([25,0,0,67,88,144,1,0],4);
+    project.data=makeProjectTar([
+      {path:'pads/a/p01',data:projectPad(7)},
+      {path:'patterns/a01',data:projectPattern()},{path:'patterns/a02',data:second},
+      {path:'patterns/b01',data:projectPattern()},{path:'patterns/c01',data:projectPattern()},
+      {path:'patterns/d01',data:projectPattern()},
+      {path:'scenes',data:scenes},{path:'settings',data:projectSettings()},{path:'fx_settings',data:projectFx()}
+    ]);
+  };
   const setProjectMalformedPad=(projectNumber)=>{
     const id=3000+Number(projectNumber),project=projects.get(id);
     if(!project)throw new Error('Unknown test project '+projectNumber);
@@ -525,7 +541,7 @@
     projectSnapshot:()=>[...projects.values()].map(p=>({id:p.id,name:p.name,size:p.data.length})),
     projectPadSlots,
     setFirmwareProjectRemapEnabled:value=>{suppressFirmwareProjectRemap=!value;},
-    setProjectMissingPattern,setProjectMalformedPad,setProject27BytePads,
+    setProjectMissingPattern,setProjectMalformedPad,setProject27BytePads,setProjectSceneSong,
     changeProjectBpm,
     disconnect,reconnect,
     debugNextMutation:()=>{debugNextMutation=true;},
