@@ -256,9 +256,9 @@
     constructor(){this.id='e2e-input';this.type='input';this.state='connected';this.connection='open';this.listeners=new Set();}
     addEventListener(t,fn){if(t==='midimessage')this.listeners.add(fn);}
     removeEventListener(t,fn){if(t==='midimessage')this.listeners.delete(fn);}
-    emit(data){for(const fn of [...this.listeners])fn({data});}
+    emit(data,timeStamp=performance.now()){for(const fn of [...this.listeners])fn({data,timeStamp});}
   }
-  const input=new Input();
+  let input=new Input(),foreignInput=null,staleMidiListeners=[];
 
   const identityResponse=()=>{
     const product=32,assembly=1;
@@ -508,6 +508,13 @@
     input.state='connected';output.state='connected';access.onstatechange?.({port:input});
   };
   window.__fakeEp={
+    addForeignMidiInput(){foreignInput=new Input();foreignInput.id='foreign-private-port';access.inputs.set(foreignInput.id,foreignInput);},
+    emitMidi:(data,timeStamp=performance.now())=>input.emit(Uint8Array.from(data),timeStamp),
+    emitForeignMidi:(data,timeStamp=performance.now())=>foreignInput?.emit(Uint8Array.from(data),timeStamp),
+    captureMidiListeners:()=>{staleMidiListeners=[...input.listeners];},
+    emitStaleMidi:(data,timeStamp=performance.now())=>{for(const fn of staleMidiListeners)fn({data:Uint8Array.from(data),timeStamp});},
+    replaceMidiInput(){const previous=input;previous.state='disconnected';access.inputs.delete(previous.id);input=new Input();input.id='replacement-private-port';access.inputs.set(input.id,input);},
+    sentMidi:()=>output.sent.map(bytes=>[...bytes]),
     ignoreNextMetadataSet:()=>{ignoreNextMetadataSet=true;},
     rejectNextMetadataSet:()=>{rejectNextMetadataSet=true;},
     midiAccessRequests:[],
