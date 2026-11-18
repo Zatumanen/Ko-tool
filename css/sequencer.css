@@ -3,6 +3,11 @@
 .sequencer-window[hidden]{display:none}
 .sequencer-window .content{overflow:auto;line-height:1.5}
 .sequencer-window h2{font-size:15px}
+.sequencer-window .sequencer-grid{overflow-x:auto;margin:10px 0}
+.sequencer-window table{border-collapse:collapse;font:12px monospace}
+.sequencer-window th,.sequencer-window td{border:1px solid #777;padding:4px;white-space:nowrap}
+.sequencer-window .has-notes{background:#fff;color:#000;font-weight:bold}
+.sequencer-window select{max-width:100%;font:inherit;padding:5px}
 .sequencer-window .content button{padding:7px;font:inherit}
 .sequencer-window [data-sequencer-status]{display:block;padding:8px;background:#fff;border:2px inset var(--win-gray)}
 @media(max-width:700px){.sequencer-window{left:4vw;top:8vh;right:auto}}
