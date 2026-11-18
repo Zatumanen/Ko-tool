@@ -34,6 +34,25 @@ Output Meters: `node --test tests/visuals-output-meters.test.mjs tests/visuals-a
 
 WAV Recorder: `node --test tests/visuals-recorder*.test.mjs tests/visuals-audio.test.mjs` and `npx playwright test tests/e2e/visuals-recorder.spec.mjs`. [Contract, payload limit and unverified endurance](testing/visuals-wav-recorder.md).
 
+### Shared-controller and cross-PR acceptance
+
+Before merging changes that overlap in `js/visuals/app.js`,
+`js/visuals/audio.js`, shared converter/audio DSP, EP FILE transactions,
+or the same browser lifecycle, use [PR integration protocol](PR_INTEGRATION.md).
+Identify live concurrent PRs and compare changed paths. Individual PR CI is
+insufficient for shared state. The integrated SHA must run the full affected
+suite including the *combined* workflow, e.g.
+`npx playwright test tests/e2e/visuals-integration.spec.mjs` for Visuals.
+The suite currently covers a single explicit selected stereo input, shared
+LUFS/XY/Peak/Plasma/PCM Recorder, pause/resume, theme and hidden-format
+change. Other shared-path work must add focused interoperation tests for its
+own lifecycle and failure modes. Scope Playwright selectors to the intended
+control (e.g. `select[data-xy-mode]` rather than `[data-xy-mode]`, which
+also matches Canvas metadata). Keep original failures and traces visible.
+Node/Chromium/Pages success does not replace browser endurance or hardware
+acceptance. The existing `protect-main` ruleset already requires four
+up-to-date CI checks; do not weaken or duplicate these.
+
 For focused checks:
 
 ```bash

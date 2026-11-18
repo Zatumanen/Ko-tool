@@ -20,6 +20,12 @@
 
 <!-- SKIP, FIX, BUILD, HIL ONLY or RECONCILE. List files changed, non-goals, permissions and the reason changes are required. -->
 
+## Concurrent PRs and integration
+
+<!-- Give the date/current main SHA, open PRs inspected, overlapping paths and PR numbers (or explicitly state no overlap). -->
+<!-- For shared UI/audio/transport paths: link to one combined-head regression CI, or mark integration BLOCKED/NOT TESTED. Separate green PR runs are insufficient. -->
+<!-- See docs/PR_INTEGRATION.md. -->
+
 ## Tests and evidence
 
 <!-- Record focused tests, complete CI SHA/run, fake EP vs real device, skipped/blocked steps and remaining uncertainty. -->

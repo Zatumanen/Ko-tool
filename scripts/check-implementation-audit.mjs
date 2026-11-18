@@ -10,6 +10,7 @@ export const PR_SECTIONS=Object.freeze([
   'Existing implementation',
   'Verified gap',
   'Decision and scope',
+  'Concurrent PRs and integration',
   'Tests and evidence',
   'Hardware and release'
 ]);
@@ -91,6 +92,10 @@ export function validatePrBody(body){
     errors.push('PR must identify inspected source path or explain why code is not applicable.');
   if(!/\b(SKIP|FIX|BUILD|HIL ONLY|RECONCILE)\b/i.test(sections.get('Decision and scope')||''))
     errors.push('PR must choose SKIP, FIX, BUILD, HIL ONLY or RECONCILE.');
+  const overlap=sections.get('Concurrent PRs and integration')||'';
+  if(!/\boverlap(?:ping|s)?\b/i.test(overlap)||
+     !/\b(?:CI|SHA|tested|tests?|not required|blocked)\b/i.test(overlap))
+    errors.push('PR must document open-PR overlap and combined-test evidence or why integration is not required.');
   const scope=sections.get('Hardware and release')||'';
   if(!/HIL|hardware|physical|not applicable/i.test(scope) ||
      !/Pages|deploy|publish|release/i.test(scope))

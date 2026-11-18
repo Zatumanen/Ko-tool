@@ -18,6 +18,8 @@ const body=[
   'The existing GitHub workflow does not insist on an evidence matrix or source-backed PR audit in descriptions.',
   '## Decision and scope',
   'RECONCILE. Add only documentation, templates and an audit validator; do not change the EP runtime or audio bytes.',
+  '## Concurrent PRs and integration',
+  'Checked open PR overlap at main@ab5706e on 18-Nov; no overlapping changes to audit tests. Combined integration not required; exact-head CI will run.',
   '## Tests and evidence',
   'Node structural regression tests executed; full CI runs on the PR head. No physical device tests were performed.',
   '## Hardware and release',
@@ -48,8 +50,8 @@ test('hardware PASS needs actual date and firmware evidence, not a green CI alon
   assert.match(validateMatrix(changed,{hasFile}).join('\n'),/Hardware PASS needs date, scope and exact firmware/);
 });
 
-test('complete source-backed PR preflight passes and all six mandatory headings are present',()=>{
-  assert.equal(PR_SECTIONS.length,6);
+test('complete source-backed PR preflight passes and all seven mandatory headings are present',()=>{
+  assert.equal(PR_SECTIONS.length,7);
   assert.deepEqual(validatePrBody(body),[]);
 });
 
@@ -58,6 +60,15 @@ test('missing evidence sections, generic placeholders and missing baseline SHA f
   assert.match(validatePrBody(body.replace('Reviewed main@23a814154047b732a6fb7884be9d9e95cdb065af','Reviewed recent main')).join('\n'),/PR baseline must give a main commit SHA/);
   assert.match(validatePrBody(body.replace('The existing GitHub workflow does not insist on an evidence matrix or source-backed PR audit in descriptions.','<!-- explain later -->')).join('\n'),/Missing substantive PR audit evidence in: Verified gap/);
   assert.match(validatePrBody(body.replace('RECONCILE. Add only documentation','Add only documentation')).join('\n'),/must choose SKIP, FIX, BUILD, HIL ONLY or RECONCILE/);
+});
+
+test('PR body must explain simultaneous open PR overlap and integration evidence',()=>{
+  const removed=body.replace(/## Concurrent PRs and integration[\s\S]*?(?=## Tests and evidence)/,'');
+  assert.match(validatePrBody(removed).join('\n'),/Missing PR audit section: Concurrent PRs and integration/);
+  const empty=body.replace('Checked open PR overlap at main@ab5706e on 18-Nov; no overlapping changes to audit tests. Combined integration not required; exact-head CI will run.','<!-- need later -->');
+  assert.match(validatePrBody(empty).join('\n'),/Missing substantive PR audit evidence in: Concurrent PRs and integration/);
+  const vague=body.replace('Checked open PR overlap at main@ab5706e on 18-Nov; no overlapping changes to audit tests. Combined integration not required; exact-head CI will run.','Everything looks good; proceed to the next task as scheduled.');
+  assert.match(validatePrBody(vague).join('\n'),/open-PR overlap and combined-test evidence/);
 });
 
 test('PR body without hardware or deployment scope cannot claim readiness',()=>{
