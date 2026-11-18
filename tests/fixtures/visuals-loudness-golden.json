@@ -1,0 +1,341 @@
+{
+  "reference": "FFmpeg7.1.5 ebur128, generated2026-11-17; f32le input, metadata=1, ametadata=print; no library code imported",
+  "toleranceLU": 0.1,
+  "vectors": [
+    {
+      "name": "997Hz-16000",
+      "rate": 16000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "2dc0e2cf538992420a7afc7196cd454a16375ec504e218589d0565e3ea60039a",
+      "expected": {
+        "momentary": -22.97,
+        "shortTerm": -22.97,
+        "integrated": -22.974
+      }
+    },
+    {
+      "name": "997Hz-22050",
+      "rate": 22050,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "375f41d5e211c4abceb59a2c401ad47452499f068ae95a663838e2a5d6b09bc2",
+      "expected": {
+        "momentary": -22.981,
+        "shortTerm": -22.981,
+        "integrated": -22.986
+      }
+    },
+    {
+      "name": "997Hz-24000",
+      "rate": 24000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "3c611baee1212f0bbcba54334b52b2f4f77759236246a373fc64990042026deb",
+      "expected": {
+        "momentary": -22.985,
+        "shortTerm": -22.984,
+        "integrated": -22.99
+      }
+    },
+    {
+      "name": "997Hz-32000",
+      "rate": 32000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "27cd0484a1c6f0251d7ad45cec28fa7e544b74c83c5a5b24f540b1edf417280a",
+      "expected": {
+        "momentary": -22.996,
+        "shortTerm": -22.996,
+        "integrated": -23
+      }
+    },
+    {
+      "name": "997Hz-44100",
+      "rate": 44100,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "8e5c08bf8db3d61199b2fe1ce0a4b4f97b1464649953b99c43db68e1bd8bbf10",
+      "expected": {
+        "momentary": -23.008,
+        "shortTerm": -23.008,
+        "integrated": -23.01
+      }
+    },
+    {
+      "name": "997Hz-48000",
+      "rate": 48000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "f128bfe505b969bd7841fd8dc530d1d83c61af44646a6eaec4d00e9f3b89777d",
+      "expected": {
+        "momentary": -23.011,
+        "shortTerm": -23.01,
+        "integrated": -23.016
+      }
+    },
+    {
+      "name": "997Hz-88200",
+      "rate": 88200,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "3563d3d5a4ba118ef13cf9c8a1543ba82664d38752325f6addb79cb58ea2eef3",
+      "expected": {
+        "momentary": -23.026,
+        "shortTerm": -23.026,
+        "integrated": -23.03
+      }
+    },
+    {
+      "name": "997Hz-96000",
+      "rate": 96000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "db8edc313ecfd8f4a129b9bb02402e6949ed431a9861fa11d5b5c9d79ae39427",
+      "expected": {
+        "momentary": -23.028,
+        "shortTerm": -23.028,
+        "integrated": -23.03
+      }
+    },
+    {
+      "name": "997Hz-176400",
+      "rate": 176400,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "dc2cfe11e64ad728b16d2078ebe83d97277fcfc0f367a162c4d9e2cde7661d4b",
+      "expected": {
+        "momentary": -23.037,
+        "shortTerm": -23.036,
+        "integrated": -23.04
+      }
+    },
+    {
+      "name": "997Hz-192000",
+      "rate": 192000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "3d7083e1e06f9d93d7fe6a2747100446cfe61b609bc1d263c7f2dce2dfeb7b7e",
+      "expected": {
+        "momentary": -23.038,
+        "shortTerm": -23.037,
+        "integrated": -23.04
+      }
+    },
+    {
+      "name": "stereo",
+      "rate": 48000,
+      "channels": 2,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "ac63afaa17149d48357976ad60700733123fdc7adfb1bdc47426adb3d8a74c65",
+      "expected": {
+        "momentary": -20,
+        "shortTerm": -20,
+        "integrated": -20.006
+      }
+    },
+    {
+      "name": "antiphase",
+      "rate": 48000,
+      "channels": 2,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": [
+            0.1,
+            -0.1
+          ]
+        }
+      ],
+      "pcmSha256": "83564a49cc07d90e5628d49a8141ccf58dee538f8a7792399428f3db89d89932",
+      "expected": {
+        "momentary": -20,
+        "shortTerm": -20,
+        "integrated": -20.006
+      }
+    },
+    {
+      "name": "relative-gate",
+      "rate": 48000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        },
+        {
+          "seconds": 4,
+          "amplitude": 0.001
+        },
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "ea47f32ebe8afd979f552648341b21d77cf1d8eab02c217593cf22f5e58c4933",
+      "expected": {
+        "momentary": -23.011,
+        "shortTerm": -23.01,
+        "integrated": -23.182
+      }
+    },
+    {
+      "name": "absolute-gate",
+      "rate": 48000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        },
+        {
+          "seconds": 4,
+          "amplitude": 0.00001
+        },
+        {
+          "seconds": 4,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "49440ee3b96feeb3957ff161200af745b75b44de868c7858f656e0f587d85f18",
+      "expected": {
+        "momentary": -23.011,
+        "shortTerm": -23.01,
+        "integrated": -23.182
+      }
+    },
+    {
+      "name": "noise",
+      "rate": 48000,
+      "channels": 2,
+      "segments": [
+        {
+          "seconds": 6,
+          "amplitude": [
+            0.03,
+            0.05
+          ],
+          "noise": true
+        }
+      ],
+      "pcmSha256": "650fd02982b5c8b48cce9bbedc4d149b5e02d1d26ce3d28c1d1852e68bad44e2",
+      "expected": {
+        "momentary": -26.391,
+        "shortTerm": -26.324,
+        "integrated": -26.325
+      }
+    },
+    {
+      "name": "bass",
+      "rate": 48000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1,
+          "hz": 50
+        }
+      ],
+      "pcmSha256": "0911018182ec4df1f6719455344e7e9276f9ebb5a75d379fade505f6f519cc70",
+      "expected": {
+        "momentary": -27.635,
+        "shortTerm": -27.635,
+        "integrated": -27.642
+      }
+    },
+    {
+      "name": "treble",
+      "rate": 48000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 4,
+          "amplitude": 0.1,
+          "hz": 8000
+        }
+      ],
+      "pcmSha256": "cfdb14aab59113b6c40f158dd2756efdd0cf013ad28414bb152b63af610a9365",
+      "expected": {
+        "momentary": -19.662,
+        "shortTerm": -19.662,
+        "integrated": -19.67
+      }
+    },
+    {
+      "name": "boundary-bin",
+      "rate": 16000,
+      "channels": 1,
+      "segments": [
+        {
+          "seconds": 100,
+          "amplitude": 0.01
+        },
+        {
+          "seconds": 10,
+          "amplitude": 0.1
+        }
+      ],
+      "pcmSha256": "90bb89e9ec4212400f805a3b7baa790610658b9fa8cece1292252691a48e6628",
+      "expected": {
+        "momentary": -22.97,
+        "shortTerm": -22.97,
+        "integrated": -33.022
+      }
+    }
+  ]
+}
