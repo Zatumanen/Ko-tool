@@ -57,13 +57,26 @@ channel (1–16 or null), decoded fields, original MIDI bytes, Web MIDI event
 an opaque local numeric `session`. No serial/port/device key is exposed.
 Timestamp is receipt metadata, not inferred transport phase.
 
-Subscription is explicit: no default capture, logging, UI or persistent storage.
+Subscription is explicit: no default capture, console logging or persistent storage.
 Per-subscriber ring capacity defaults to128 (clamped1–1024); one-shot flush
 defaults to100ms (clamped50–1000ms), so Clock does not trigger a UI callback per
 message. Session/ownership/model/port/disconnect changes clear pending data and
 call `onReset({reason:'session-changed'})`; manual clear reports `cleared`.
 Unsubscribe cancels the timer and releases buffered events. Consumer exceptions
 cannot disrupt FILE/SysEx. Node and fake-EP tests are synthetic evidence only.
+
+Sequencer's separate **MIDI input · EVENTS ONLY** panel consumes this API only
+after **Observe MIDI input**. It shows the latest64 delivered events, decoded
+values/raw bytes, timestamps, public model/firmware and epoch/local session.
+Observer drops and hidden older display rows have separate counters. Event
+repaints are coalesced at250ms; control/session changes update immediately.
+It never sends MIDI or reads FILE and never drives the Saved views.
+
+**Stop observing** freezes the received rows; **Clear events** also clears any
+queued observer batch. Close, document hiding, lost authorization or session
+change stop collection and clear the history. Returning/reconnecting requires
+another explicit Observe click. No automatic resume, export or persistence.
+The scene/pattern/playhead and hardware synchronization are not inferred.
 
 Saved archive state and observed events stay separate. No outgoing operation,
 FILE request, device signal inference or hardware-authoritative synchronization
