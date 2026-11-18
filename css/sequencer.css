@@ -8,6 +8,8 @@
 .sequencer-window th,.sequencer-window td{border:1px solid #777;padding:4px;white-space:nowrap}
 .sequencer-window .has-notes{background:#fff;color:#000;font-weight:bold}
 .sequencer-window select{max-width:100%;font:inherit;padding:5px}
+.midi-diagnostics{border-top:1px solid #777;margin-top:12px;padding-top:8px}
+.midi-events-table{overflow:auto;max-height:240px}
 .piano-roll-viewport{overflow:auto;max-height:360px;margin:10px 0;border:1px solid #777;background:#eee}
 .piano-roll{position:relative;font:10px monospace}
 .piano-axis{position:sticky;top:0;height:24px;z-index:5;background:#ddd}

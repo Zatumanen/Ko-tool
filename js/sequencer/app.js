@@ -2,10 +2,11 @@ import{getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from '../ep133/deviceRunti
 import{makeDraggableWindow}from '../ep133/ui/windowShell.js?v=20261001-1';
 import{getSequencerSessionState}from './session.js';
 // The aggregate index also boots My EP UI. Observe its services without starting that UI early.
-import{getDeviceSessionToken}from '../ep133/device.js?v=20261001-1';
+import{getDeviceSessionToken,subscribeMidiEvents}from '../ep133/device.js?v=20261001-1';
 import{listProjectArchivesReadOnly,readProjectArchiveReadOnly}from '../ep133/filesystem.js?v=20261001-1';
 import{createSavedSequencer}from './saved.js';
 import{renderSavedSteps,escapeHtml}from './stepView.js';
+import{mountMidiDiagnostics}from './midiDiagnostics.js';
 
 export function initSequencerApp({documentRef=globalThis.document,windowRef=globalThis.window,
   getSnapshot=getDeviceRuntimeSnapshot,subscribe=onDeviceRuntimeChange}={}){
@@ -36,6 +37,8 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
       s.safety?.status==='safe'&&s.recovery?.hydrated&&token?c.epoch+':'+token:null;
   };
   const canRead=()=>!root.hidden&&getSequencerSessionState(getSnapshot()).status==='ready';
+  const diagnostics=mountMidiDiagnostics({root,documentRef:doc,subscribe:subscribeMidiEvents,canStart:canRead,
+    getSession:()=>{const session=readSession(),device=getSnapshot()?.connection?.device;return session?session+':'+device?.sku+':'+device?.firmware:null;}});
   const renderSaved=()=>{
     const state=saved.getState(),enabled=canRead()&&!state.busy;
     q('[data-saved-list]').disabled=!enabled;
@@ -49,6 +52,7 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
   };
   const saved=createSavedSequencer({getSession:readSession,canRead,list:listProjectArchivesReadOnly,read:readProjectArchiveReadOnly,onChange:renderSaved});
   const render=snapshot=>{
+    diagnostics.sync();
     saved.sync();
     if(['mutating','verifying'].includes(snapshot?.status)&&lastRuntimeStatus!==snapshot.status)saved.invalidate();
     lastRuntimeStatus=snapshot?.status;
@@ -62,7 +66,7 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
     renderSaved();
   };
   const open=()=>{root.hidden=false;render(getSnapshot());root.focus();};
-  const close=()=>{root.hidden=true;saved.close();icon.focus();};
+  const close=()=>{root.hidden=true;diagnostics.suspend();saved.close();icon.focus();};
   const keyOpen=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();open();}};
   const keyClose=event=>{if(event.key==='Escape'){event.preventDefault();close();}};
   icon.addEventListener('click',open);icon.addEventListener('keydown',keyOpen);
@@ -101,7 +105,7 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
   makeDraggableWindow(root,{windowRef});
   render(getSnapshot());
   const unsubscribe=subscribe(render);
-  const dispose=()=>{saved.close();unsubscribe?.();windowRef?.removeEventListener('beforeunload',dispose);icon.removeEventListener('click',open);icon.removeEventListener('keydown',keyOpen);root.remove();};
+  const dispose=()=>{diagnostics.dispose();saved.close();unsubscribe?.();windowRef?.removeEventListener('beforeunload',dispose);icon.removeEventListener('click',open);icon.removeEventListener('keydown',keyOpen);root.remove();};
   windowRef?.addEventListener('beforeunload',dispose,{once:true});
   return{open,close,dispose};
 }
