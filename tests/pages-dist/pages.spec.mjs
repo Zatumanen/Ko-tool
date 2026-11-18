@@ -59,6 +59,12 @@ test('versioned Visuals AudioWorklet triggers from a selected browser stream',as
  await expect(page.locator('[data-source] option')).toHaveCount(2);
  await page.locator('[data-source]').selectOption('synthetic-trigger');await page.locator('[data-action="start"]').click();
  await expect.poll(async()=>Number(await page.locator('[data-meter="waveform"] canvas').getAttribute('data-trigger-count'))).toBeGreaterThan(0);
+ await page.getByRole('button',{name:'WAV Recorder',exact:true}).click();
+ await page.locator('[data-rec-bits]').selectOption('24');await page.locator('[data-rec-command="start"]').click();
+ await expect(page.locator('[data-recorder]')).toHaveAttribute('data-rec-state','recording');
+ await expect.poll(async()=>Number(await page.locator('[data-recorder]').getAttribute('data-rec-frames'))).toBeGreaterThan(0);
+ await page.locator('[data-rec-command="stop"]').click();await expect(page.locator('[data-recorder]')).toHaveAttribute('data-rec-state','done');
+ await expect(page.locator('[data-rec-preview]')).toBeVisible();await page.locator('[data-rec-command="discard"]').click();
  await page.locator('[data-action="stop"]').first().click();
  expect(await page.evaluate(()=>window.__triggerSource.stream.getAudioTracks()[0].readyState)).toBe('ended');
  await page.evaluate(async()=>{window.__triggerSource.source.stop();await window.__triggerSource.context.close();});

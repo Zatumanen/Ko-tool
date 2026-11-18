@@ -42,6 +42,7 @@ test('capture requests exact selected source, measures genuine graph data and st
   assert.equal(a.active,true);
   const data=a.sample();
   assert.equal(data.channelCount,2);
+  assert.equal(data.output.status,'unsupported','never substitute render-time peaks without AudioWorklet');
   assert.ok(data.rms>.15&&data.rms<.25);
   assert.ok(data.frequency[20]===64);
   assert.equal(data.spectrumDb.length,4096);assert.equal(data.spectrumDb[20],-60);
@@ -161,4 +162,57 @@ test('enumeration failure leaves permission-only tracks stopped',async()=>{
   }},AudioContextClass:FakeAudioContext});
   await assert.rejects(()=>a.unlockInputs(),/enumeration unavailable/);
   assert.equal(temporary.track.readyState,'ended');assert.equal(a.active,false);
+});
+
+test('output packets honor reset epochs, capture ownership and cleanup',async t=>{
+ let clock=0;t.mock.method(performance,'now',()=>clock);
+ const previous=globalThis.AudioWorkletNode,nodes=[];
+ globalThis.AudioWorkletNode=class{
+  constructor(context,name,options){this.name=name;this.options=options;this.port={onmessage:null,sent:[],postMessage:x=>this.port.sent.push(x),close:()=>{this.closed=true}};nodes.push(this);}
+  connect(){}disconnect(){}
+ };
+ t.after(()=>{if(previous===undefined)delete globalThis.AudioWorkletNode;else globalThis.AudioWorkletNode=previous;});
+ class WorkletContext extends FakeAudioContext{constructor(){super();this.audioWorklet={addModule:async()=>{}}}}
+ const stream=makeStream(),a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:WorkletContext});
+ a.select('selected');assert.equal(await a.start(),true);const node=nodes.find(n=>n.name==='visuals-output-meters'),deliver=node.port.onmessage;
+ assert.equal(node.options.channelCountMode,'clamped-max');assert.equal(node.options.channelCount,2);
+ deliver({data:{epoch:0,status:'ready',channelCount:2,peak:[1,0],hold:[1,0],clip:[true,false]}});
+ assert.equal(a.sample().output.clip[0],true);clock=501;assert.equal(a.sample().output.status,'stale');a.resetOutputMeters();assert.equal(a.sample().output.status,'pending');
+ deliver({data:{epoch:0,status:'ready',clip:[true,true]}});assert.equal(a.sample().output.status,'pending');
+ deliver({data:{epoch:1,status:'ready',clip:[false,false]}});assert.equal(a.sample().output.clip[0],false);
+ a.stop();assert.equal(node.closed,true);assert.equal(node.port.onmessage,null);deliver({data:{epoch:1,status:'ready'}});assert.equal(a.sample(),null);
+});
+test('changed channel format stops capture instead of displaying fabricated output channels',async()=>{
+ const stream=makeStream();let channels=2;stream.track.getSettings=()=>({channelCount:channels});const states=[];
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:FakeAudioContext,onState:s=>states.push(s)});
+ a.select('input');await a.start();channels=1;assert.equal(a.sample(),null);assert.equal(a.active,false);assert.equal(stream.track.readyState,'ended');assert.equal(states.at(-1).reason,'channel-format');
+});
+test('RESET during worklet loading cannot strand the first measurement behind a stale epoch',async t=>{
+ const previous=globalThis.AudioWorkletNode,nodes=[];let finish,entered;
+ const waiting=new Promise(r=>entered=r),loading=new Promise(r=>finish=r);
+ globalThis.AudioWorkletNode=class{constructor(context,name){this.name=name;this.port={onmessage:null,postMessage(){},close(){}};nodes.push(this)}connect(){}disconnect(){}};
+ t.after(()=>{if(previous===undefined)delete globalThis.AudioWorkletNode;else globalThis.AudioWorkletNode=previous});
+ class LoadingContext extends FakeAudioContext{constructor(){super();this.audioWorklet={addModule:async url=>{if(url.includes('outputMetersWorklet')){entered();await loading}}}}}
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>makeStream()}},AudioContextClass:LoadingContext});t.after(()=>a.stop());a.select('input');
+ const starting=a.start();await waiting;a.resetOutputMeters();finish();assert.equal(await starting,true);
+ nodes.find(n=>n.name==='visuals-output-meters').port.onmessage({data:{epoch:0,status:'ready',channelCount:2,peak:[.5,0],hold:[.5,0],clip:[false,false]}});
+ assert.equal(a.sample().output.status,'ready');
+});
+test('a known multichannel change invalidates the two-channel meter instead of downmixing silently',async()=>{
+ const stream=makeStream();let channels=2;stream.track.getSettings=()=>({channelCount:channels});
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:FakeAudioContext});a.select('input');await a.start();
+ channels=3;assert.equal(a.sample(),null);assert.equal(a.active,false);assert.equal(stream.track.readyState,'ended');
+});
+test('missing channel metadata never forces or labels the selected stream as measured mono',async t=>{
+ const previous=globalThis.AudioWorkletNode,nodes=[];
+ globalThis.AudioWorkletNode=class{constructor(context,name){nodes.push(name);this.port={onmessage:null,postMessage(){},close(){}}}connect(){}disconnect(){}};
+ t.after(()=>{if(previous===undefined)delete globalThis.AudioWorkletNode;else globalThis.AudioWorkletNode=previous});
+ class WorkletContext extends FakeAudioContext{constructor(){super();this.audioWorklet={addModule:async()=>{}}}}
+ const stream=makeStream();stream.track.getSettings=()=>({});
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:WorkletContext});t.after(()=>a.stop());a.select('input');assert.equal(await a.start(),true);
+ assert.equal(a.sample().output.status,'unknown-format');assert.equal(nodes.includes('visuals-output-meters'),false);
+});
+test('an initially unsupported multichannel input is rejected and fully released',async()=>{
+ const stream=makeStream();stream.track.getSettings=()=>({channelCount:6});
+ const a=createVisualsAudio({navigatorRef:{mediaDevices:{getUserMedia:async()=>stream}},AudioContextClass:FakeAudioContext});a.select('input');assert.equal(await a.start(),false);assert.equal(a.active,false);assert.equal(stream.track.readyState,'ended');
 });

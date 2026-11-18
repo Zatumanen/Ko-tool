@@ -1,3 +1,4 @@
+import{quantizePcmSample}from './pcm.js';
 // Defer the large reference Emscripten runtime until audio conversion needs it.
 // Keep the same canonical module, ABI and error semantics; no DSP fallback.
 async function loadDefaultReferenceModule(){
@@ -42,8 +43,7 @@ export function flattenAudioBuffer(buffer){
 export function audioBufferToS16(buffer){
   const flattened=flattenAudioBuffer(buffer),bytes=new Uint8Array(flattened.data.length*2),view=new DataView(bytes.buffer);
   for(let index=0;index<flattened.data.length;index++){
-    const sample=Math.max(-1,Math.min(1,flattened.data[index]));
-    view.setInt16(index*2,sample<0?Math.round(sample*32768):Math.round(sample*32767),true);
+    view.setInt16(index*2,quantizePcmSample(flattened.data[index],16),true);
   }
   return bytes;
 }
