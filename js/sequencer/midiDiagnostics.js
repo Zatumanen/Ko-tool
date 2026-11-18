@@ -51,7 +51,7 @@ export function createMidiDiagnostics({subscribe,getSession,canStart,onChange=()
    return{format:'ko-tool-passive-midi-events',schemaVersion:1,evidence:'UNVERIFIED',hilStatus:'PENDING',appBuildVersion:String(buildVersion),
     wallClockStartedAt:startedAt,wallClockStoppedAt:stoppedAt,timestampDomain:'Web MIDI event.timeStamp (ms)',stopReason,
     decodedMessageTypes:['note-on','note-off','clock','start','continue','stop','song-position'],
-    loss:{observerDropped:state.dropped,captureLimitReached:state.limitReached,deliveredButNotStored:state.notRecorded},
+    loss:{observerDropped:state.dropped,captureLimit,captureLimitReached:state.limitReached,deliveredButNotStored:state.notRecorded},
     events:trace.map(event=>({...Object.fromEntries(fields.filter(key=>event[key]!==undefined).map(key=>[key,event[key]])),data:Array.from(event.data||[])}))};
   },
   suspend(){stop('EVENT OBSERVER OFF',true);},

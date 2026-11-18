@@ -86,7 +86,7 @@ rows); reaching the limit stops observation, not the EP. Manual Stop flushes the
 last queued observer batch before unsubscribing. JSON schemaVersion1 contains
 allowlisted event fields/raw bytes, receipt timestamps, public model/firmware,
 epoch/local session, app asset build version (or `source`), browser wall-clock
-start/stop and stop reason. Observer drops, capture limit and delivered events
+start/stop and stop reason. Observer drops, numeric capture limit, limit flag and delivered events
 not stored at the limit are explicit. Only the listed decoded message types
 are captured; this is not a complete USB/MIDI bus capture.
 

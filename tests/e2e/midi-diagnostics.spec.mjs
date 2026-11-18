@@ -88,7 +88,7 @@ test('stopped trace downloads locally with more events than the display, provena
  expect(trace.events).toHaveLength(83);expect(trace.events[0]).toMatchObject({type:'clock',timestamp:100,data:[0xF8]});
  expect(trace.events.find(e=>e.type==='song-position')).toMatchObject({position:257,timestamp:9002,data:[0xF2,1,2]});
  expect(trace.events.at(-1)).toMatchObject({type:'stop',timestamp:9003,data:[0xFC]});
- expect(trace.loss).toEqual({observerDropped:0,captureLimitReached:false,deliveredButNotStored:0});
+ expect(trace.loss).toEqual({observerDropped:0,captureLimit:8192,captureLimitReached:false,deliveredButNotStored:0});
  expect(Date.parse(trace.wallClockStoppedAt)).toBeGreaterThanOrEqual(Date.parse(trace.wallClockStartedAt));
  expect(JSON.stringify(trace)).not.toMatch(/E2E-EP|e2e-input|foreign-private|deviceKey|serial/);
  await diag.getByRole('button',{name:'Clear events',exact:true}).click();await expect(downloadButton).toBeDisabled();

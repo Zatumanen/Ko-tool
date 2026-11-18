@@ -34,7 +34,7 @@ test('capture limit stops observation with an explicit truncated prefix; session
  const h=setup({captureLimit:2});h.setSession('one');h.model.start();
  h.emit({events:[{type:'clock',timestamp:1,data:[0xF8]},{type:'stop',timestamp:2,data:[0xFC]},{type:'start',timestamp:3,data:[0xFA]}],dropped:0});
  const trace=h.model.exportTrace();assert.equal(h.model.getState().active,false);
- assert.equal(trace.loss.captureLimitReached,true);assert.equal(trace.loss.deliveredButNotStored,1);
+ assert.equal(trace.loss.captureLimit,2);assert.equal(trace.loss.captureLimitReached,true);assert.equal(trace.loss.deliveredButNotStored,1);
  assert.deepEqual(trace.events.map(e=>e.timestamp),[1,2]);assert.equal(trace.stopReason,'limit');
  h.setSession('two');h.model.sync();assert.equal(h.model.exportTrace(),null);
  h.model.start();h.emit({events:[{type:'clock',timestamp:4,data:[0xF8]}],dropped:0});h.model.suspend();assert.equal(h.model.exportTrace(),null);
