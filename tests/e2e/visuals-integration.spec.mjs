@@ -39,7 +39,7 @@ test('combined Visuals worklets and recorder share one stereo input, surviving t
   await expect.poll(async()=>Number(await page.locator('[data-meter="stereo"] canvas').getAttribute('data-stereo-correlation'))).toBeGreaterThan(.95);
   await page.locator('[data-meter="oscilloscope"]').scrollIntoViewIfNeeded();
   await expect.poll(async()=>Number(await page.locator('[data-meter="oscilloscope"] canvas').getAttribute('data-xy-points'))).toBeGreaterThan(0);
-  await page.locator('[data-xy-mode]').selectOption('artistic');
+  await page.locator('select[data-xy-mode]').selectOption('artistic');
   await expect(page.locator('[data-meter="oscilloscope"] canvas')).toHaveAttribute('data-xy-mode','artistic');
 
   await page.getByRole('button',{name:'WAV Recorder',exact:true}).click();
