@@ -53,3 +53,10 @@
 #visuals-root.vis-theme-mono .vis-unsaved{background:var(--vis-bg);color:var(--vis-fg);border-color:var(--vis-border)}
 #visuals-root.vis-theme-mono option:checked{background:var(--vis-accent);color:var(--vis-panel)}
 .vis-toolbar [data-render-target]{font-size:10px;color:var(--vis-muted)}
+
+.vis-lufs-error{font-size:10px;padding:2px 4px;overflow-wrap:anywhere;flex:none}
+
+#visuals-root .vis-output-reset{flex:none;font:11px monospace;padding:0 2px;color:var(--vis-fg);background:var(--vis-panel);border:1px solid var(--vis-grid)}
+
+.vis-recorder{position:fixed;right:12px;top:70px;z-index:480;width:min(350px,calc(100vw - 24px));max-height:calc(100vh - 110px);overflow:auto;box-sizing:border-box;padding:10px;background:var(--vis-panel);color:var(--vis-fg);border:2px solid var(--vis-border);font-size:12px;box-shadow:0 5px 24px #0008}
+.vis-recorder header{display:flex;justify-content:space-between;margin-bottom:8px}.vis-recorder button,.vis-recorder select{background:var(--vis-bg);color:var(--vis-fg);border:1px solid var(--vis-border);padding:4px}.vis-recorder button:disabled{opacity:.45}.vis-rec-buttons{display:flex;gap:4px;flex-wrap:wrap;margin:8px 0}.vis-recorder output{float:right;font-weight:bold}.vis-recorder p{font-size:11px;line-height:1.4}.vis-recorder audio{width:100%;margin-top:6px}.vis-recorder[data-rec-state="recording"]{border-width:3px}
