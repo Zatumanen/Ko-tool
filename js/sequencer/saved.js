@@ -2,7 +2,7 @@
 export function buildStepPage(model,group,patternId,page=0){
  const pattern=model?.patterns?.find(p=>p.group===group&&p.id===patternId);
  const records=pattern?.records||[];
- const max=records.reduce((n,r)=>Math.max(n,r.tick),0);
+ const max=records.reduce((n,r)=>Math.max(n,r.tick+(r.kind==='note'?Math.max(1,r.duration||0)-1:0)),0);
  const pages=Math.max(1,Number(pattern?.bars)||1,Math.floor(max/384)+1);
  const index=Math.max(0,Math.min(pages-1,Number(page)||0)),start=index*384;
  const visible=records.filter(r=>r.tick>=start&&r.tick<start+384);

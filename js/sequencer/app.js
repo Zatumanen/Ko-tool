@@ -29,7 +29,7 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
     </div>`;
   doc.body.append(root);
   const q=selector=>root.querySelector(selector);
-  let group='a',patternId='',page=0,previousResult=null,lastRuntimeStatus='';
+  let group='a',patternId='',page=0,mode='step',pad='all',zoom=1,selectedNote=null,previousResult=null,lastRuntimeStatus='';
   const readSession=()=>{
     const s=getSnapshot(),c=s?.connection,token=getDeviceSessionToken();
     return c?.status==='connected'&&c.device?.identityVerified&&s.ownership?.status==='owned'&&
@@ -44,8 +44,8 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
     select.innerHTML='<option value="">Select project</option>'+state.projects.map(p=>`<option value="${escapeHtml(p.project)}">P${escapeHtml(p.project)}${p.active?' · ACTIVE':''}</option>`).join('');
     select.value=state.selected;select.disabled=!enabled;
     q('[data-saved-status]').textContent=state.message+(state.readAt?' · Last read '+new Date(state.readAt).toLocaleTimeString():'');
-    if(state.result!==previousResult){group='a';patternId='';page=0;previousResult=state.result;}
-    q('[data-saved-view]').innerHTML=state.result?renderSavedSteps(state.result,{group,patternId,page}):'';
+    if(state.result!==previousResult){group='a';patternId='';page=0;pad='all';selectedNote=null;previousResult=state.result;}
+    q('[data-saved-view]').innerHTML=state.result?renderSavedSteps(state.result,{group,patternId,page,mode,pad,zoom,selectedNote}):'';
   };
   const saved=createSavedSequencer({getSession:readSession,canRead,list:listProjectArchivesReadOnly,read:readProjectArchiveReadOnly,onChange:renderSaved});
   const render=snapshot=>{
@@ -73,12 +73,22 @@ export function initSequencerApp({documentRef=globalThis.document,windowRef=glob
   q('[data-saved-read]').addEventListener('click',()=>{void saved.refresh();});
   q('[data-saved-project]').addEventListener('change',event=>saved.select(event.target.value));
   q('[data-saved-view]').addEventListener('change',event=>{
-    const control=event.target.hasAttribute('data-saved-group')?'[data-saved-group]':event.target.hasAttribute('data-saved-pattern')?'[data-saved-pattern]':'[data-saved-page]';
-    if(event.target.matches('[data-saved-group]')){group=event.target.value;patternId='';page=0;}
-    if(event.target.matches('[data-saved-pattern]')){patternId=event.target.value;page=0;}
+    const attr=['group','pattern','page','mode','pad','zoom'].find(key=>event.target.hasAttribute('data-saved-'+key));
+    if(!attr)return;
+    const control='[data-saved-'+attr+']';
+    if(attr==='group'){group=event.target.value;patternId='';page=0;selectedNote=null;}
+    if(attr==='pattern'){patternId=event.target.value;page=0;selectedNote=null;}
     if(event.target.matches('[data-saved-page]'))page=Number(event.target.value);
+    if(attr==='mode')mode=event.target.value;
+    if(attr==='pad'){pad=event.target.value;selectedNote=null;}
+    if(attr==='zoom')zoom=Number(event.target.value);
     renderSaved();
     q(control)?.focus();
+  });
+  q('[data-saved-view]').addEventListener('click',event=>{
+    const button=event.target.closest('[data-saved-note]');if(!button)return;
+    selectedNote=Number(button.dataset.savedNote);renderSaved();
+    q('[data-saved-note="'+selectedNote+'"]')?.focus();
   });
   makeDraggableWindow(root,{windowRef});
   render(getSnapshot());
