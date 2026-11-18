@@ -11,6 +11,17 @@ export function buildStepPage(model,group,patternId,page=0){
   unknown:visible.filter(r=>r.kind==='unknown'),automation:visible.filter(r=>r.kind==='automation')};
 }
 
+// Read-only scene links: zero is empty; absent/unknown references never fall back.
+export function getSavedScenePattern(model,sceneIndex,group){
+ const scene=model?.scenes?.entries?.find(s=>s.index===Number(sceneIndex));
+ if(!scene)return{scene:null,patternId:'',status:'unavailable'};
+ const ref=scene.groupPatterns?.[group];
+ if(ref===0)return{scene,patternId:'',status:'empty'};
+ if(!Number.isInteger(ref)||ref<1||ref>99)return{scene,patternId:'',status:'unavailable'};
+ const patternId=group.toUpperCase()+String(ref).padStart(2,'0');
+ return{scene,patternId,status:model.patterns?.some(p=>p.group===group&&p.id===patternId)?'available':'missing'};
+}
+
 // The filesystem facade owns FILE leases. Generation/session guards own UI results.
 export function createSavedSequencer({getSession,canRead,list,read,onChange=()=>{}}){
  let session=getSession(),generation=0;

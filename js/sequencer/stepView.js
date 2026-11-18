@@ -1,12 +1,22 @@
-import{buildStepPage}from './saved.js';
+import{buildStepPage,getSavedScenePattern}from './saved.js';
 import{buildPianoPage}from './pianoRoll.js';
 import{summarizeProjectReadOnly}from '../ep133/ui/projectReadOnlyController.js?v=20261001-1';
 export const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const field=value=>value==null?'—':escapeHtml(value);
-export function renderSavedSteps(result,{group='a',patternId='',page=0,mode='step',pad='all',zoom=1,selectedNote=null}={}){
+export function renderSavedSteps(result,{group='a',patternId='',page=0,mode='step',pad='all',zoom=1,selectedNote=null,sceneIndex=null,songPosition=null}={}){
  const model=result.model,summary=summarizeProjectReadOnly(result);
  const patterns=model.patterns.filter(p=>p.group===group);
- const id=patterns.some(p=>p.id===patternId)?patternId:patterns[0]?.id||'';
+ const sceneLink=sceneIndex==null?null:getSavedScenePattern(model,sceneIndex,group);
+ const id=sceneLink?sceneLink.patternId:patterns.some(p=>p.id===patternId)?patternId:patterns[0]?.id||'';
+ const scenes=model.scenes?.entries||[],song=model.scenes?.song||[];
+ const sceneStatus=sceneLink?({available:'Saved scene pattern',missing:'MISSING '+id,empty:'No pattern assigned',unavailable:'Scene/reference unavailable'}[sceneLink.status]):'Manual pattern browsing';
+ const sceneControls=`<section aria-label="Saved scenes and song">
+ <p>Stored current scene: ${field(model.scenes?.currentScene)} · Song length: ${field(model.scenes?.songLength)}. Saved archive only; selections do not change the EP.</p>
+ <label>Scene <select data-saved-scene aria-label="Saved scene" ${!scenes.length?'disabled':''}><option value="">Manual patterns</option>${scenes.map(s=>`<option value="${s.index}" ${s.index===sceneIndex?'selected':''}>Scene ${s.index}${s.used?'':' · unused'}</option>`).join('')}${sceneIndex!=null&&!scenes.some(s=>s.index===sceneIndex)?`<option value="${sceneIndex}" selected>Unavailable scene ${field(sceneIndex)}</option>`:''}</select></label>
+ <label>Song position <select data-saved-song aria-label="Saved song position" ${!song.length?'disabled':''}><option value="">No song position selected</option>${song.map((s,i)=>`<option value="${i}" ${i===songPosition?'selected':''}>${i+1} → Scene ${field(s)}</option>`).join('')}</select></label>
+ <p data-saved-scene-status>${scenes.length?escapeHtml(sceneStatus):'Scenes unavailable'}${sceneLink?.scene?.timeSignature?' · Time signature '+field(sceneLink.scene.timeSignature.numerator)+'/'+field(sceneLink.scene.timeSignature.denominator):''}</p>
+ ${sceneLink?`<table aria-label="Scene pattern links"><thead><tr><th>Group</th><th>Pattern</th><th>Availability</th></tr></thead><tbody>${['a','b','c','d'].map(g=>{const link=getSavedScenePattern(model,sceneIndex,g);return`<tr><td><button type="button" data-saved-scene-group="${g}" aria-label="View scene group ${g.toUpperCase()}">${g.toUpperCase()}</button></td><td>${field(link.patternId||'—')}</td><td>${link.status.toUpperCase()}</td></tr>`;}).join('')}</tbody></table>`:''}
+ </section>`;
  const view=buildStepPage(model,group,id,page);
  const notes=view.notes.filter(n=>pad==='all'||n.pad===Number(pad));
  const piano=buildPianoPage(view,{pad,zoom});
@@ -26,8 +36,9 @@ export function renderSavedSteps(result,{group='a',patternId='',page=0,mode='ste
  }).join('');
  return`<p>Saved archive · P${field(result.project)}${result.active?' · ACTIVE':''} · BPM ${field(summary.bpm)} · ${field(summary.sku)} ${field(summary.firmware)}</p>
  <label>View <select data-saved-mode aria-label="Sequencer view"><option value="step" ${mode==='step'?'selected':''}>Step</option><option value="piano" ${mode==='piano'?'selected':''}>Piano Roll</option></select></label>
+ ${sceneControls}
  <label>Group <select data-saved-group aria-label="Sequencer group">${['a','b','c','d'].map(g=>`<option value="${g}" ${g===group?'selected':''}>${g.toUpperCase()}</option>`).join('')}</select></label>
- <label>Pattern <select data-saved-pattern aria-label="Sequencer pattern">${patterns.map(p=>`<option value="${escapeHtml(p.id)}" ${p.id===id?'selected':''}>${escapeHtml(p.id)}</option>`).join('')||'<option value="">No pattern</option>'}</select></label>
+ <label>Pattern <select data-saved-pattern aria-label="Sequencer pattern">${!id?'<option value="" selected>No pattern</option>':''}${id&&!patterns.some(p=>p.id===id)?`<option value="${escapeHtml(id)}" selected>MISSING ${escapeHtml(id)}</option>`:''}${patterns.map(p=>`<option value="${escapeHtml(p.id)}" ${p.id===id?'selected':''}>${escapeHtml(p.id)}</option>`).join('')}</select></label>
  <label>16-step page <select data-saved-page aria-label="Sequencer page">${Array.from({length:view.pages},(_,i)=>`<option value="${i}" ${i===view.page?'selected':''}>${i+1}</option>`).join('')}</select></label>
  <label>Pad <select data-saved-pad aria-label="Sequencer pad"><option value="all">All pads</option>${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${String(i+1)===pad?'selected':''}>${i+1}</option>`).join('')}</select></label>
  <label>Zoom <select data-saved-zoom aria-label="Piano Roll zoom">${[.5,1,2,4].map(z=>`<option value="${z}" ${z===zoom?'selected':''}>${z}×</option>`).join('')}</select></label>
