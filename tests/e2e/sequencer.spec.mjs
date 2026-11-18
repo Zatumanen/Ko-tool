@@ -76,7 +76,7 @@ test('Saved Step reads explicitly, views active read-only projects and refreshes
  await expect(app.getByRole('table',{name:'Saved note details',exact:true})).toContainText('100');
  const count=await page.evaluate(()=>window.__fakeEp.requestLog.length);
  for(const group of ['b','c','d','a'])await app.getByLabel('Sequencer group').selectOption(group);
- await app.getByLabel('Sequencer page').selectOption('1');
+ await app.getByLabel('Sequencer page').selectOption({value:'1'});
  expect(await page.evaluate(()=>window.__fakeEp.requestLog.length)).toBe(count);
  expect(await page.evaluate(()=>window.__fakeEp.projectSnapshot())).toEqual(snapshot);
  await app.getByLabel('Saved project').selectOption('02');
@@ -111,4 +111,37 @@ test('closing Saved while FILE read is held rejects its late completion',async({
  await expect(app.locator('[data-saved-status]')).toContainText('REFRESH NEEDED');
  await expect(app.getByRole('button',{name:'List projects',exact:true})).toBeEnabled();
  await expect(app.locator('[data-saved-view]')).toBeEmpty();
+});
+
+test('Step and Piano Roll share selection, filters and pages without reading or writing the EP',async({page})=>{
+ await page.addInitScript({path:fakeEpScript});await page.goto('/');await page.locator('#my-ep-icon').click();
+ await expect(page.locator('#ep133-status')).toContainText('SYNCED ·');await page.locator('#ep133-close').click();
+ await page.locator('#sequencer-icon').click();const app=page.getByRole('dialog',{name:'Sequencer',exact:true});
+ await app.getByRole('button',{name:'List projects',exact:true}).click();await app.getByLabel('Saved project').selectOption('01');
+ await app.getByRole('button',{name:'Read / Refresh',exact:true}).click();
+ await expect(app.locator('[data-saved-status]')).toContainText('SAVED PROJECT P01');
+ const before=await page.evaluate(()=>({log:window.__fakeEp.requestLog.length,projects:window.__fakeEp.projectSnapshot(),access:window.__fakeEp.midiAccessRequests.length}));
+ await app.getByRole('button',{name:'Select note 0',exact:true}).click();
+ await expect(app.locator('[data-saved-selection]')).toContainText('tick 0 · note 60 · velocity 100 · duration 24');
+ await app.getByLabel('Sequencer view').selectOption('piano');
+ const roll=app.getByRole('group',{name:'Saved Piano Roll',exact:true});
+ await expect(roll).toBeVisible();
+ await expect(roll.getByRole('button',{name:'Select note 0',exact:true})).toHaveAttribute('aria-pressed','true');
+ const width=await roll.getByRole('button',{name:'Select note 0',exact:true}).evaluate(el=>el.getBoundingClientRect().width);
+ await app.getByLabel('Piano Roll zoom').selectOption('2');
+ await expect.poll(()=>roll.getByRole('button',{name:'Select note 0',exact:true}).evaluate(el=>el.getBoundingClientRect().width)).toBe(width*2);
+ expect(await app.getByRole('region',{name:'Piano Roll scroll area',exact:true}).evaluate(el=>{el.scrollLeft=80;el.scrollTop=40;return[el.scrollLeft,el.scrollTop];})).toEqual([80,40]);
+ await app.getByLabel('Sequencer pad').selectOption('2');await expect(roll.locator('[data-saved-note]')).toHaveCount(0);
+ await app.getByLabel('Sequencer pad').selectOption('1');
+ await roll.getByRole('button',{name:'Select note 0',exact:true}).click();
+ await app.getByLabel('Sequencer view').selectOption('step');
+ await expect(app.getByRole('button',{name:'Select note 0',exact:true})).toHaveAttribute('aria-pressed','true');
+ await app.getByLabel('Sequencer page').selectOption({value:'1'});
+ await expect(app.getByLabel('Sequencer page')).toHaveValue('1');
+ await app.getByLabel('Sequencer view').selectOption('piano');
+ await expect(app.getByLabel('Sequencer page')).toHaveValue('1');
+ await expect(app.getByLabel('Sequencer pad')).toHaveValue('1');
+ await expect(roll.locator('[data-saved-note]')).toHaveCount(0);
+ expect(await page.evaluate(()=>({log:window.__fakeEp.requestLog.length,projects:window.__fakeEp.projectSnapshot(),access:window.__fakeEp.midiAccessRequests.length}))).toEqual(before);
+ await page.evaluate(()=>window.__fakeEp.disconnect());await expect(app.locator('[data-saved-view]')).toBeEmpty();
 });

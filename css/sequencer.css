@@ -8,6 +8,15 @@
 .sequencer-window th,.sequencer-window td{border:1px solid #777;padding:4px;white-space:nowrap}
 .sequencer-window .has-notes{background:#fff;color:#000;font-weight:bold}
 .sequencer-window select{max-width:100%;font:inherit;padding:5px}
+.piano-roll-viewport{overflow:auto;max-height:360px;margin:10px 0;border:1px solid #777;background:#eee}
+.piano-roll{position:relative;font:10px monospace}
+.piano-axis{position:sticky;top:0;height:24px;z-index:5;background:#ddd}
+.piano-tick{position:absolute;top:0;height:24px;border-left:1px solid #777}
+.piano-lane{position:absolute;left:0;right:0;height:20px;border-top:1px solid #ccc;box-sizing:border-box}
+.piano-key{position:sticky;left:0;display:block;width:56px;height:19px;background:#fff;color:#111;z-index:4}
+.piano-key.black-key{background:#444;color:#fff}
+.sequencer-window .content .piano-note{position:absolute;height:18px;min-height:0;min-width:2px;box-sizing:border-box;padding:0;overflow:hidden;border:1px solid #004d40;background:rgba(0,128,96,calc(.35 + var(--velocity)*.65));color:#fff;font:10px monospace}
+.sequencer-window [data-saved-note][aria-pressed="true"]{outline:2px solid #000;outline-offset:1px;z-index:3}
 .sequencer-window .content button{padding:7px;font:inherit}
 .sequencer-window [data-sequencer-status]{display:block;padding:8px;background:#fff;border:2px inset var(--win-gray)}
 @media(max-width:700px){.sequencer-window{left:4vw;top:8vh;right:auto}}
