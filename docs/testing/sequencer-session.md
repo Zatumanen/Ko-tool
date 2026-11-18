@@ -39,13 +39,36 @@ Its `docs/midi-reference.md` describes MIDI clock/transport and notes; its
 establish absolute bar phase. These are external leads, not K.O. Tool HIL.
 The saved TAR member named `live` is not an unsaved event stream.
 
-The current `js/ep133/device.js` receiver ignores non-SysEx messages; no
-hardware-authoritative Sequencer Live event adapter exists. A future adapter
-must share the existing owned port/session, tag input with epoch, classify
-only independently evidenced device messages, and invalidate on loss of
-ownership, source or synchronization. Saved archive state and observed Live
-state must remain distinct. Each outgoing operation needs its own exact-model,
-firmware and permission evidence; no writer is added by this foundation.
+The passive observer in `js/ep133/midiEvents.js` decodes complete Note On/Off
+(including velocity-zero Note On), Clock, Start, Continue, Stop and 14-bit SPP.
+The [official MIDI chart](https://teenage.engineering/guides/ep-133/system)
+marks Song Position RX/TX; its timing and relation to EP scenes/loops still
+require exact-device capture. A decoded SPP value is not a proven playhead.
+
+`device.js` exports `subscribeMidiEvents(onBatch, {capacity, flushMs, onReset})`,
+returning `{clear, unsubscribe}`. It uses the existing receiver, selected input,
+owned/verified/safe/hydrated runtime and matching model/firmware/epoch. Removed
+listener callbacks, other inputs and stale sessions cannot publish. Observing
+continues during FILE reads without acquiring a FILE lease or changing SysEx.
+
+Batches contain frozen `events` and a `dropped` count. Each event contains type,
+channel (1–16 or null), decoded fields, original MIDI bytes, Web MIDI event
+`timeStamp` as `timestamp` in milliseconds, connectionEpoch, model, firmware and
+an opaque local numeric `session`. No serial/port/device key is exposed.
+Timestamp is receipt metadata, not inferred transport phase.
+
+Subscription is explicit: no default capture, logging, UI or persistent storage.
+Per-subscriber ring capacity defaults to128 (clamped1–1024); one-shot flush
+defaults to100ms (clamped50–1000ms), so Clock does not trigger a UI callback per
+message. Session/ownership/model/port/disconnect changes clear pending data and
+call `onReset({reason:'session-changed'})`; manual clear reports `cleared`.
+Unsubscribe cancels the timer and releases buffered events. Consumer exceptions
+cannot disrupt FILE/SysEx. Node and fake-EP tests are synthetic evidence only.
+
+Saved archive state and observed events stay separate. No outgoing operation,
+FILE request, device signal inference or hardware-authoritative synchronization
+is added by this observer. Each outgoing operation still needs its own exact-
+model, firmware and permission evidence.
 
 Live remains disabled, HIL PENDING. Do not infer notes, unsaved edits or absolute
 playhead from a timer, saved data or faster FILE polling. Real-device validation

@@ -2,7 +2,7 @@ import './workspaceBootstrap.js?v=20261003-1';
 import './sampleWaveformBootstrap.js?v=20261003-2';
 import './sampleRecoveryBootstrap.js?v=20261003-3';
 
-export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity}from './device.js?v=20261001-1';
+export{connectEp133,disconnectEp133,isConnected,isDeviceUnsafe,markDeviceUnsafe,getMidiPorts,getConnectedDeviceInfo,getDeviceSessionToken,onConnectionChange,onFileEvent,waitForFileEvent,onMidiActivity,subscribeMidiEvents}from './device.js?v=20261001-1';
 export{EP_ERROR_CATEGORY,EP_ERROR_CODE,EPStructuredError,createEpError,isStructuredEpError,toStructuredEpError,serializeEpError,formatEpErrorLog}from './errors.js?v=20261001-1';
 export{CAPABILITY_EVIDENCE,capabilityEvidence,cloneCapabilityEvidence,compareFirmwareVersions,normalizeFirmwareRange,firmwareMatchesRange,resolveCapabilityEvidence,canReadCapability,canPreserveCapability,canWriteCapability,assertCapabilityReadable,assertCapabilityWritable}from './capabilityEvidence.js?v=20261001-1';
 export{CAPABILITY_KEYS,EVIDENCE_REGISTRY,validateEvidenceRegistry,listCapabilityEvidence,resolveRegisteredCapabilityEvidence}from './evidenceRegistry.js?v=20261001-1';

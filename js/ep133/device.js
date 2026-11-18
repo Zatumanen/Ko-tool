@@ -3,7 +3,8 @@ import{parseIdentityResponse,isSupportedEpSku,isDiscoverableEpIdentitySku,buildT
 import{metadataStringToObject,parseNullTerminatedString}from './packing.js';
 import{assertDeviceIdentity,assertFileMetadata}from './coreContracts.js?v=20261008-1';
 import{assessEpFirmwareCompatibility}from './deviceCompatibilityMatrix.js?v=20261008-1';
-import{dispatchDeviceRuntimeEvent}from './deviceRuntime.js';
+import{dispatchDeviceRuntimeEvent,getDeviceRuntimeSnapshot,onDeviceRuntimeChange}from './deviceRuntime.js';
+import{createMidiEventObserver}from './midiEvents.js';
 
 let input=null,output=null,identityCode=0,initialized=false,deviceInfo=null,midiAccess=null,connectingPromise=null;
 let deviceUnsafe=false,deviceUnsafeReason='';
@@ -89,9 +90,13 @@ function handleMidiStateChange(){
   connectEp133().catch(()=>{});
 }
 
-function onMessage(inputPort,event){
+function onMessage(inputPort,event,listenerEpoch,listener){
   const data=new Uint8Array(event.data||[]);
-  if(data[0]!==0xF0)return;
+  if(data[0]!==0xF0){
+    if(listeners.get(inputPort)!==listener)return;
+    midiEventObserver.receive({port:inputPort,epoch:listenerEpoch,data,timestamp:event.timeStamp});
+    return;
+  }
   const debugText=parseFirmwareDebugFrame(data);
   if(debugText){
     firmwareDebugSequence+=1;
@@ -138,7 +143,8 @@ function stopListeners(){
 function startListeners(inputs){
   stopListeners();
   for(const port of inputs){
-    const fn=e=>onMessage(port,e);
+    const epoch=connectionEpoch;
+    const fn=e=>onMessage(port,e,epoch,fn);
     port.addEventListener('midimessage',fn);
     listeners.set(port,fn);
   }
@@ -157,6 +163,19 @@ function waitForIdentity(timeout=2000){
 
 let requestQueue=Promise.resolve();
 let connectionEpoch=0;
+const midiEventObserver=createMidiEventObserver({getContext:()=>{
+  const state=getDeviceRuntimeSnapshot(),device=state.connection?.device;
+  const firmware=String(deviceInfo?.metadata?.os_version||deviceInfo?.metadata?.sw_version||'');
+  if(!isConnected()||input?.state!=='connected'||output?.state!=='connected'||
+    !isSupportedEpSku(deviceInfo?.sku)||state.connection?.status!=='connected'||
+    state.connection.epoch!==connectionEpoch||!device?.identityVerified||
+    device.sku!==deviceInfo.sku||device.firmware!==firmware||
+    state.ownership?.status!=='owned'||state.safety?.status!=='safe'||!state.recovery?.hydrated)return null;
+  return{input,output,connectionEpoch,model:deviceInfo.sku,firmware};
+}});
+onDeviceRuntimeChange(()=>midiEventObserver.sync());
+// Batches contain only received standard MIDI; session is an opaque local counter, not a port/serial token.
+export function subscribeMidiEvents(onEvents,options){return midiEventObserver.subscribe(onEvents,options);}
 const deviceRuntimeSummary=device=>Object.freeze({sku:String(device?.sku||''),firmware:String(device?.metadata?.os_version||device?.metadata?.sw_version||''),deviceKey:output?.id||null,identityVerified:true});
 function publishRuntimeEvent(event){
   try{return dispatchDeviceRuntimeEvent(event);}
