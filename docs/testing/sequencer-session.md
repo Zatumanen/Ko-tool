@@ -97,6 +97,31 @@ port key, private session token, full URL or automatic upload is included.
 Start/Clear/close/hide/session loss discard the in-memory trace; explicit
 downloads remain local files under the user's control.
 
+## Local trace analyzer (development/evidence tool)
+
+Run `node scripts/analyze-midi-trace.mjs /explicit/path/trace.json` with Node22.
+It reads one explicitly selected regular UTF-8 JSON file, prints a compact report
+to stdout and never writes the input, stores results or contacts a network/device.
+No application import UI or offline project viewer is added. Exit0 means no
+structural errors detected, not valid EP behavior; exit1 means integrity/read/JSON
+failure, exit2 means invalid CLI usage. Warnings alone do not change exit0.
+
+`js/sequencer/midiTraceAnalyzer.js` exports the pure `analyzeMidiTrace` and bounded
+`formatMidiTraceReport`. Schema1 requires the current exporter metadata/loss fields
+(including numeric captureLimit). Files above8MiB or traces above8192 events are
+rejected; invalid records are excluded from counts and break correlation. Session,
+epoch or model/firmware changes also break correlation; file order is preserved.
+The structured result retains all accepted Clock intervals and transport/SPP
+entries; the CLI labels omitted rows/contexts and summarizes all warning counts.
+
+Receipt gaps above1000ms are diagnostic (`largeGapMs` is configurable in the pure
+API). With at least3 positive Clock intervals in a continuous segment, >=2× its
+positive median is a gap observation and >20% deviation is irregularity. These
+heuristics do not prove missing Clock counts, precise device BPM, absolute phase,
+SPP-to-scene mapping, unsaved notes or EP origin. No events are reconstructed and
+no hypotheses generated. All reports remain HIL PENDING regardless of input
+claims. `tests/midi-trace-analyzer.test.mjs` uses synthetic exporter output only.
+
 Saved archive state and observed events stay separate. No outgoing operation,
 FILE request, device signal inference or hardware-authoritative synchronization
 is added by this observer. Each outgoing operation still needs its own exact-
