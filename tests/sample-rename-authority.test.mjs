@@ -87,3 +87,16 @@ test('Rename on exact verified firmware uses one strict lease and verified metad
   assert.deepEqual(f.counts(),{setCount:1,transactionCount:1});
   assert.equal(f.store.getSlot(7).verification.metadata,'verified');
 });
+
+test('Rename refuses a sample removed while the FILE mutation was waiting in the queue',async()=>{
+  let release;
+  const hold=new Promise(resolve=>{release=resolve;});
+  const f=makeController({hold});
+  const pending=f.controller.rename(f.store.getSlot(7),'renamed');
+  await new Promise(resolve=>setImmediate(resolve));
+  f.store.removeFile(7);
+  release();
+  await assert.rejects(pending,/no longer available/i);
+  assert.equal(f.counts().setCount,0);
+  assert.equal(f.store.getSlot(7).file,null);
+});
