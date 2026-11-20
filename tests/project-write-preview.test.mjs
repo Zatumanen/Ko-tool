@@ -34,7 +34,7 @@ const projectFile=data=>({
   async arrayBuffer(){return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);}
 });
 
-const harness=()=>{
+const harness=({onProjectRead=()=>{}}={})=>{
   let current=tar(1);
   let putCalls=0,checkpointSaves=0;
   const recoveryStore={
@@ -65,6 +65,7 @@ const harness=()=>{
     async listDeviceFiles(){return[];},
     async getFile(nodeId){
       if(nodeId!==3002)throw new Error('unexpected getFile '+nodeId);
+      onProjectRead();
       return{name:'02',size:current.byteLength,data:current.slice()};
     },
     async putFile(){putCalls++;},
@@ -106,4 +107,19 @@ test('project write refuses stale diff previews before checkpoint creation or FI
     expectedCandidateCrc32:preview.candidate.crc32
   }),/project changed on device after diff preview/i);
   assert.deepEqual(h.stats(),{putCalls:0,checkpointSaves:0});
+});
+
+test('project Restore writer refuses changed approved session after its queued preflight before journaling or FILE PUT',async()=>{
+  let session='device-a:epoch-1',checks=0;
+  const h=harness({onProjectRead:()=>{session='device-b:epoch-2';}});
+  await assert.rejects(()=>h.filesystem.uploadProjectArchive(projectFile(tar(2)),{
+    requireInactive:true,performReload:false,
+    assertSession:()=>{
+      checks++;
+      if(session!=='device-a:epoch-1')throw new Error('Approved EP session changed before project write.');
+    }
+  }),/Approved EP session changed/);
+  assert.ok(checks>=2,'the queued project writer must re-check after reading device state');
+  assert.deepEqual(h.stats(),{putCalls:0,checkpointSaves:0},
+    'stale Restore must create no checkpoint or send FILE PUT');
 });
