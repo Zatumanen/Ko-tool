@@ -101,6 +101,7 @@ export function createSampleMemory({
   onDownload,
   onDownloadMany,
   onRename,
+  canRename=()=>false,
   onContext,
   onDragStart,
   onUserError
@@ -324,6 +325,10 @@ export function createSampleMemory({
     }
     if(slot.node?.isWritable!==true){
       onUserError?.('SAMPLE RENAME UNAVAILABLE.',new Error('The EP has not granted write access to this sample.'));
+      return false;
+    }
+    if(canRename(slot)!==true){
+      onUserError?.('SAMPLE RENAME UNAVAILABLE.',new Error('Sample metadata writes are not hardware-verified for this firmware.'));
       return false;
     }
     if(selectedId!==slot.id||selectedIds.size!==1)
