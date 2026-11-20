@@ -2724,7 +2724,8 @@ test('My EP read and rename paths re-resolve canonical SampleStore state before 
   assert.match(rename,/const canonical=sampleStore\?\.getSlot\?\.\(slotId\)/);
   assert.match(rename,/withFileTransaction\('sample rename transaction'/);
   assert.match(rename,/await fileOps\.setFileMetadata\(live\.nodeId\|\|live\.id,\{name\}\)/);
-  assert.match(rename,/const metadata=await fileOps\.getFileMetadata\(live\.nodeId\|\|live\.id\)/);\n  assert.match(rename,/assertBatchSession\(sessionToken\)/);
+  assert.match(rename,/const metadata=await fileOps\.getFileMetadata\(live\.nodeId\|\|live\.id\)/);
+  assert.match(rename,/assertBatchSession\(sessionToken\)/);
 });
 
 test('My EP runtime cannot mutate sample projection state outside SampleStore',async()=>{
