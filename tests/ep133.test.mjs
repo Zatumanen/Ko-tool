@@ -2314,10 +2314,13 @@ test('My EP multi-download emits individual WAV downloads instead of ZIP',async(
 test('EP sample rename uses one strict METADATA SET/readback transaction',async()=>{
   const fs=await import('node:fs/promises');
   const source=await fs.readFile(new URL('../js/ep133/ui/sampleRenameController.js',import.meta.url),'utf8');
-  assert.match(source,/const canonical=sampleStore\?\.getSlot\?\.\(slot\?\.id\)/);
-  assert.match(source,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
-  assert.match(source,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
-  assert.match(source,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
+  assert.match(source,/const canonical=sampleStore\?\.getSlot\?\.\(slotId\)/);
+  assert.match(source,/getActiveDeviceProfile\(\)\?\.advancedSampleMetadataWrites!==true/);
+  assert.match(source,/assertBatchSession\(sessionToken\)/);
+  assert.match(source,/withFileTransaction\('sample rename transaction',async fileOps=>\{/);
+  assert.match(source,/await fileOps\.setFileMetadata\(live\.nodeId\|\|live\.id,\{name\}\)/);
+  assert.match(source,/const metadata=await fileOps\.getFileMetadata\(live\.nodeId\|\|live\.id\)/);
+  assert.match(source,/\},\{strict:true\}\)/);
   assert.match(source,/sampleStore\.setMetadata\(canonical\.id,readback,\{verification:'verified'\}\)/);
   assert.doesNotMatch(source,/await setFileMetadata\(/);
   assert.doesNotMatch(source,/await getFileMetadata\(/);
@@ -2718,10 +2721,10 @@ test('My EP read and rename paths re-resolve canonical SampleStore state before 
   assert.match(read,/sampleStore\?\.getSlot\?\.\(id\)/);
   assert.match(read,/const audition=async inputSlot=>\{[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
   assert.match(read,/const performDownload=async\(inputSlot,[\s\S]*const slot=canonicalSlot\(inputSlot\)/);
-  assert.match(rename,/const canonical=sampleStore\?\.getSlot\?\.\(slot\?\.id\)/);
+  assert.match(rename,/const canonical=sampleStore\?\.getSlot\?\.\(slotId\)/);
   assert.match(rename,/withFileTransaction\('sample rename transaction'/);
-  assert.match(rename,/await fileOps\.setFileMetadata\(canonical\.nodeId\|\|canonical\.id,\{name\}\)/);
-  assert.match(rename,/return fileOps\.getFileMetadata\(canonical\.nodeId\|\|canonical\.id\)/);
+  assert.match(rename,/await fileOps\.setFileMetadata\(live\.nodeId\|\|live\.id,\{name\}\)/);
+  assert.match(rename,/const metadata=await fileOps\.getFileMetadata\(live\.nodeId\|\|live\.id\)/);\n  assert.match(rename,/assertBatchSession\(sessionToken\)/);
 });
 
 test('My EP runtime cannot mutate sample projection state outside SampleStore',async()=>{
@@ -2834,7 +2837,9 @@ test('remaining compound sample reads and verification windows use FILE transact
   assert.match(reads,/withFileTransaction\('sample download read',operation\)/);
   assert.match(uploads,/withFileTransaction\('sample upload hydration',operation\)/);
   assert.match(events,/withFileTransaction\('FILE event reconciliation',operation\)/);
-  assert.match(rename,/withFileTransaction\('sample rename transaction',operation,\{strict:true\}\)/);
+  assert.match(rename,/withFileTransaction\('sample rename transaction',async fileOps=>\{/);
+  assert.match(rename,/\},\{strict:true\}\)/);
+  assert.match(rename,/assertBatchSession\(sessionToken\)/);
 });
 
 
