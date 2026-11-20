@@ -445,6 +445,7 @@ export function createEpWorkspace({
     restoreInput:restoreFile,restoreSummary,restoreProjectSelect,restoreButton:restoreRun,
     recoveryList,recoveryDetail,recoveryRestoreButton:recoveryRestore,recoveryDownloadButton:recoveryDownload,recoveryDeleteButton:recoveryDelete,
     getSelectedProject:()=>projectReadOnlyController.getState().selectedProject,getConnectedDeviceInfo,
+    captureBatchSession,assertBatchSession,
     getActiveDeviceProfile:()=>activeDeviceProfile,sampleStore,withFileTransaction,uploadProjectArchive,restoreProjectRecoveryCheckpoint,
     listProjectRecoveryCheckpoints,getProjectRecoveryCheckpoint,deleteProjectRecoveryCheckpoint,prepareSampleTransferMetadata,
     readDevice:()=>readDevice(),refreshProjects:()=>projectReadOnlyController.refresh(),markDeviceUnsafe,
