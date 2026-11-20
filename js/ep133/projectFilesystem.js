@@ -318,8 +318,9 @@ export function createProjectFilesystem({
   const uploadProjectArchive=async(file,{
     onProgress,timeout=15000,cycleReload=true,performReload=true,onBackup,
     requireInactive=false,expectedActiveProjectFid=null,
-    expectedOriginalCrc32=null,expectedCandidateCrc32=null
+    expectedOriginalCrc32=null,expectedCandidateCrc32=null,assertSession=null
   }={})=>runFileOperation(()=>withStrictFirmwareDebugGuard(async()=>{
+    assertSession?.();
     assertProjectRuntimeSettled('project write');
     const prepared=await readProjectWriteCandidate(file);
     const{project,data,deviceInfo,profile}=prepared;
@@ -330,6 +331,7 @@ export function createProjectFilesystem({
       parent,destination,backup,sampleDependencies,activeProjectBeforeWrite,diff
     }=preflight;
 
+    assertSession?.(); // Revalidate after queued FILE preflight, before a recovery checkpoint.
     const candidateCrc32=crc32Hex(data);
     const originalCrc32=crc32Hex(backup.data);
     if(expectedCandidateCrc32!=null&&!crcEqual(candidateCrc32,expectedCandidateCrc32))
@@ -385,6 +387,7 @@ export function createProjectFilesystem({
         bytes:data.byteLength,
         destinationFid:destination.nodeId
       });
+      assertSession?.(); // Last authorization check after async journaling, before FILE PUT.
       mutationAttempted=true;
       await putFile({
         data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
