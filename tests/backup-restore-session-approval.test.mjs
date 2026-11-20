@@ -44,7 +44,7 @@ async function fixture({deferPreflight=false}={}){
       writes.push({name:file.name,session,options});
     },
     confirmAction:()=>new Promise(resolve=>{approved=resolve;}),
-    readDevice:async()=>{},refreshProjects:async()=>{},markDeviceUnsafe:()=>{},
+    readDevice:async()=>{},refreshProjects:async()=>{},listProjectRecoveryCheckpoints:async()=>[],markDeviceUnsafe:()=>{},
     setStatus(){},setGlobalProgress(){},hideGlobalProgress(){}
   });
   const restoreFile={name:'backup.zip',arrayBuffer:()=>blob.arrayBuffer()};
