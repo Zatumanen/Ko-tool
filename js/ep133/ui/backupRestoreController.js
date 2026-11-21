@@ -71,6 +71,7 @@ export function createBackupRestoreController({
   getSelectedProject=()=>null,
   getConnectedDeviceInfo=()=>null,
   getActiveDeviceProfile=()=>null,
+  captureBatchSession,assertBatchSession,
   sampleStore,
   withFileTransaction,
   uploadProjectArchive,
@@ -84,7 +85,8 @@ export function createBackupRestoreController({
   setStatus=()=>{},setGlobalProgress=()=>{},hideGlobalProgress=()=>{},
   reportError=()=>{},saveBlob=defaultSaveBlob
 }={}){
-  if(!dialog||typeof withFileTransaction!=='function'||typeof uploadProjectArchive!=='function')
+  if(!dialog||typeof withFileTransaction!=='function'||typeof uploadProjectArchive!=='function'||
+    typeof captureBatchSession!=='function'||typeof assertBatchSession!=='function')
     throw new TypeError('Backup/restore controller dependencies are incomplete.');
 
   let restoreSource=null;
@@ -409,7 +411,8 @@ export function createBackupRestoreController({
   const backupOfficialProject=()=>runBackup('project+samples','official');
   const backupOfficialDevice=()=>runBackup('device','official');
 
-  const authoritativeBundlePlan=async(bundle,project)=>{
+  const authoritativeBundlePlan=async(bundle,project,sessionToken)=>{
+    assertBatchSession(sessionToken);
     const info=getConnectedDeviceInfo();
     if(!info)throw new Error('Connect an EP-series device first.');
     if(bundle.manifest.device?.sku&&String(bundle.manifest.device.sku)!==String(info.sku||'').toUpperCase())
@@ -419,25 +422,30 @@ export function createBackupRestoreController({
     if(!profile.projectAuthoring)
       throw new Error('Project restore is not hardware-verified for the connected firmware.');
     return withFileTransaction('backup restore preflight',async fileOps=>{
+      assertBatchSession(sessionToken);
       const root=await fileOps.listDirectory(0,'/');
       const soundsRoot=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
       if(!soundsRoot)throw new Error('EP-series /sounds node is unavailable.');
       const soundNodes=await fileOps.listDirectory(soundsRoot.nodeId,'/sounds');
+      assertBatchSession(sessionToken);
       const nodeMap=new Map(soundNodes.map(item=>[Number(item.nodeId),item]));
       const target=bundle.projects.find(item=>item.number===project);
       if(!target)throw new Error('Project P'+project+' is not present in the backup.');
       const referenced=target.dependencies?.referencedSampleSlots||[];
       const authoritative=new Map();
       for(const slot of referenced){
+        assertBatchSession(sessionToken);
         const node=nodeMap.get(Number(slot));
         if(!node)continue;
         const metadata=await fileOps.getFileMetadata(Number(slot));
+        assertBatchSession(sessionToken);
         authoritative.set(Number(slot),{
           file:{name:node.fileName,size:Number(node.fileSize)||0},
           meta:metadata||{},
           verification:{file:'verified',metadata:'verified'}
         });
       }
+      assertBatchSession(sessionToken);
       return buildBundleProjectRestorePlan(bundle,project,{
         getSampleSlot:slot=>authoritative.get(Number(slot))||null
       });
@@ -484,11 +492,13 @@ export function createBackupRestoreController({
     setBaseDisabled(restoreButton,!p.canRestore);
   };
 
-  const prepareTarRestore=async file=>{
+  const prepareTarRestore=async(file,sessionToken)=>{
+    assertBatchSession(sessionToken);
     const match=String(file?.name||'').match(/P(\d{2})\.tar$/i);
     if(!match)throw new Error('Project TAR name must end with P00.tar .. P99.tar.');
     const project=match[1];
     const data=new Uint8Array(await file.arrayBuffer());
+    assertBatchSession(sessionToken);
     const info=getConnectedDeviceInfo();
     if(!info)throw new Error('Connect an EP-series device first.');
     const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
@@ -496,14 +506,17 @@ export function createBackupRestoreController({
     if(!profile.projectAuthoring)
       throw new Error('Project restore is not hardware-verified for the connected firmware.');
     const preflight=await withFileTransaction('project restore preflight',async fileOps=>{
+      assertBatchSession(sessionToken);
       const root=await fileOps.listDirectory(0,'/');
       const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
       const occupied=sounds
         ?(await fileOps.listDirectory(sounds.nodeId,'/sounds')).map(item=>Number(item.nodeId)).filter(id=>id>=1&&id<=999)
         :[];
+      assertBatchSession(sessionToken);
       return preflightProjectSampleDependencies(data,occupied,{profile,strict:false});
     });
-    return{kind:'tar',file,project,data,preflight};
+    assertBatchSession(sessionToken);
+    return{kind:'tar',file,project,data,preflight,sessionToken};
   };
 
   const onRestoreFile=async file=>{
@@ -512,15 +525,17 @@ export function createBackupRestoreController({
     restoreProjectSelect.hidden=true;
     renderRestorePlan(null);
     if(!file)return;
+    const sessionToken=captureBatchSession();
     setBusy(true);setDialogProgress('READING BACKUP',15);
     try{
       if(/\.tar$/i.test(file.name)){
-        restorePlan=await prepareTarRestore(file);
+        restorePlan=await prepareTarRestore(file,sessionToken);
         restoreSource=restorePlan;
         renderRestorePlan(restorePlan);
       }else if(/\.zip$/i.test(file.name)){
         const bundle=await readEpBackupBundleFile(file);
-        restoreSource={kind:'bundle',bundle,file};
+        assertBatchSession(sessionToken);
+        restoreSource={kind:'bundle',bundle,file,sessionToken};
         for(const project of bundle.projects){
           const option=document.createElement('option');
           option.value=project.number;option.textContent='P'+project.number+(project.active?' · ACTIVE IN BACKUP':'');
@@ -532,8 +547,8 @@ export function createBackupRestoreController({
           ?bundle.manifest.activeProject
           :bundle.projects[0].number;
         restoreProjectSelect.value=selected;
-        const plan=await authoritativeBundlePlan(bundle,selected);
-        restorePlan={kind:'bundle',bundle,project:selected,plan};
+        const plan=await authoritativeBundlePlan(bundle,selected,sessionToken);
+        restorePlan={kind:'bundle',bundle,project:selected,plan,sessionToken};
         renderRestorePlan(restorePlan);
       }else throw new Error('Choose a project .tar or SpeedUpperCut .zip backup.');
       updateBackupProgress('RESULT',{detail:'RESTORE PLAN READY · NO DEVICE WRITES'},'done');
@@ -644,21 +659,25 @@ export function createBackupRestoreController({
     }
   };
 
-  const restoreSamples=async plan=>{
+  const restoreSamples=async(plan,sessionToken)=>{
+    assertBatchSession(sessionToken);
     if(!plan.restore.length)return[];
     const profile=getActiveDeviceProfile();
     if(!profile?.sampleTransfers)throw new Error('Sample restore is not hardware-verified for this device firmware.');
     const created=[];
     try{
       await withFileTransaction('backup sample restore',async fileOps=>{
+        assertBatchSession(sessionToken);
         const root=await fileOps.listDirectory(0,'/');
         const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
         if(!sounds)throw new Error('EP-series /sounds node is unavailable.');
         const current=await fileOps.listDirectory(sounds.nodeId,'/sounds');
         const occupied=new Set(current.map(item=>Number(item.nodeId)));
+        assertBatchSession(sessionToken);
         for(const item of plan.restore)if(occupied.has(item.slot))
           throw new Error('Restore target sample slot changed: '+pad(item.slot)+'. Re-run preflight.');
         for(let index=0;index<plan.restore.length;index++){
+          assertBatchSession(sessionToken);
           const item=plan.restore[index],sample=item.backupSample;
           setDialogProgress('RESTORE SAMPLE '+pad(item.slot),((index+.1)/plan.restore.length)*70);
           const metadata=prepareSampleTransferMetadata(sample.metadata||{},{
@@ -681,12 +700,14 @@ export function createBackupRestoreController({
               if(!created.includes(createdId))created.push(createdId);
             }
           });
+          assertBatchSession(sessionToken);
           if(Number(fileId)!==item.slot)throw new Error('Sample restore wrote an unexpected slot.');
           if(!created.includes(createdId||item.slot))created.push(createdId||item.slot);
           const readback=await fileOps.getFile(item.slot);
           if(crc32Hex(readback.data)!==String(sample.crc32))
             throw new Error('Sample restore readback checksum mismatch for '+pad(item.slot)+'.');
           const metadataReadback=await fileOps.getFileMetadata(item.slot);
+          assertBatchSession(sessionToken);
           for(const key of ['channels','samplerate','format']){
             if(sample.metadata?.[key]!=null&&String(metadataReadback?.[key])!==String(sample.metadata[key]))
               throw new Error('Sample restore metadata mismatch for '+pad(item.slot)+' '+key+'.');
@@ -697,8 +718,13 @@ export function createBackupRestoreController({
     }catch(error){
       if(created.length){
         try{
+          assertBatchSession(sessionToken); // Never roll back on a replacement EP.
           await withFileTransaction('backup sample restore rollback',async fileOps=>{
-            for(const slot of [...created].reverse())await fileOps.deleteFile(slot);
+            assertBatchSession(sessionToken);
+            for(const slot of [...created].reverse()){
+              assertBatchSession(sessionToken);
+              await fileOps.deleteFile(slot);
+            }
             const root=await fileOps.listDirectory(0,'/');
             const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
             const remaining=sounds?await fileOps.listDirectory(sounds.nodeId,'/sounds'):[];
@@ -707,7 +733,9 @@ export function createBackupRestoreController({
             if(failed.length)throw new Error('Rollback left sample slot(s): '+failed.map(pad).join(', '));
           },{strict:true});
         }catch(rollbackError){
-          markDeviceUnsafe('Sample restore rollback failed: '+String(rollbackError?.message||rollbackError));
+          // Do not mark a replacement device unsafe for a prior device's rollback.
+          try{assertBatchSession(sessionToken);markDeviceUnsafe('Sample restore rollback failed: '+String(rollbackError?.message||rollbackError));}
+          catch{}
           error.rollbackError=rollbackError;
         }
       }
@@ -715,11 +743,16 @@ export function createBackupRestoreController({
     }
   };
 
-  const cleanupRestoredSamples=async slots=>{
+  const cleanupRestoredSamples=async(slots,sessionToken)=>{
     if(!slots.length)return;
+    assertBatchSession(sessionToken);
     try{
       await withFileTransaction('backup restore cleanup',async fileOps=>{
-        for(const slot of [...slots].reverse())await fileOps.deleteFile(slot);
+        assertBatchSession(sessionToken);
+        for(const slot of [...slots].reverse()){
+          assertBatchSession(sessionToken);
+          await fileOps.deleteFile(slot);
+        }
         const root=await fileOps.listDirectory(0,'/');
         const sounds=root.find(item=>item.fileName==='/sounds'&&item.fileType==='folder');
         const remaining=sounds?await fileOps.listDirectory(sounds.nodeId,'/sounds'):[];
@@ -728,40 +761,52 @@ export function createBackupRestoreController({
         if(failed.length)throw new Error('Restore cleanup left sample slot(s): '+failed.map(pad).join(', '));
       },{strict:true});
     }catch(error){
-      markDeviceUnsafe('Backup restore cleanup failed: '+String(error?.message||error));
+      try{assertBatchSession(sessionToken);markDeviceUnsafe('Backup restore cleanup failed: '+String(error?.message||error));}
+      catch{}
       throw error;
     }
   };
 
   const executeRestore=async()=>{
     if(!restorePlan||restoreButton.disabled)return;
-    const project=restorePlan.project;
+    const approvedPlan=restorePlan;
+    const sessionToken=approvedPlan.sessionToken;
+    const project=approvedPlan.project;
     const ok=await confirmAction(
       'Restore P'+project+'? Project writes are checkpointed. Sample restore only fills empty slots and never overwrites conflicts.'
     );
     if(!ok)return;
+    assertBatchSession(sessionToken);
+    if(restorePlan!==approvedPlan)throw new Error('Restore plan changed during confirmation.');
     setBusy(true);setDialogProgress('RESTORE PRECHECK',5);
     let addedSamples=[];
     try{
-      if(restorePlan.kind==='bundle'){
-        const latest=await authoritativeBundlePlan(restorePlan.bundle,project);
+      if(approvedPlan.kind==='bundle'){
+        const latest=await authoritativeBundlePlan(approvedPlan.bundle,project,sessionToken);
         if(!latest.canRestore)throw new Error('Restore preflight changed. Resolve conflicts and retry.');
-        addedSamples=await restoreSamples(latest);
-        const target=restorePlan.bundle.projects.find(item=>item.number===project);
+        addedSamples=await restoreSamples(latest,sessionToken);
+        assertBatchSession(sessionToken);
+        const target=approvedPlan.bundle.projects.find(item=>item.number===project);
         setDialogProgress('RESTORE PROJECT P'+project,78);
         try{
           await uploadProjectArchive(makeProjectFile(project,target.data),{
             requireInactive:true,
-            performReload:false
+            performReload:false,
+            assertSession:()=>assertBatchSession(sessionToken)
           });
         }catch(error){
-          await cleanupRestoredSamples(addedSamples);
+          await cleanupRestoredSamples(addedSamples,sessionToken);
           throw error;
         }
       }else{
         setDialogProgress('RESTORE PROJECT P'+project,40);
-        await uploadProjectArchive(restorePlan.file,{requireInactive:true,performReload:false});
+        assertBatchSession(sessionToken);
+        await uploadProjectArchive(approvedPlan.file,{
+          requireInactive:true,performReload:false,
+          assertSession:()=>assertBatchSession(sessionToken)
+        });
       }
+      assertBatchSession(sessionToken);
       setDialogProgress('VERIFYING RESTORE',96);
       await readDevice();
       await refreshProjects();
@@ -885,9 +930,11 @@ export function createBackupRestoreController({
   restoreProjectSelect?.addEventListener('change',async()=>{
     if(restoreSource?.kind!=='bundle')return;
     try{
+      const source=restoreSource;
       const project=restoreProjectSelect.value;
-      const plan=await authoritativeBundlePlan(restoreSource.bundle,project);
-      restorePlan={kind:'bundle',bundle:restoreSource.bundle,project,plan};
+      const plan=await authoritativeBundlePlan(source.bundle,project,source.sessionToken);
+      if(restoreSource!==source)throw new Error('Restore source changed during preflight.');
+      restorePlan={kind:'bundle',bundle:source.bundle,project,plan,sessionToken:source.sessionToken};
       renderRestorePlan(restorePlan);
     }catch(error){reportDialogError('RESTORE PREFLIGHT FAILED.',error);}
   });

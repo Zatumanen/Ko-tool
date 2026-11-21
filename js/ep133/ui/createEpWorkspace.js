@@ -317,9 +317,16 @@ export function createEpWorkspace({
     closeProperties();void padReadController.openFromSample();
   };
   dom.padOpen?.addEventListener('click',openPadProperties);
+  const getRenameProfile=()=>{
+    const info=getConnectedDeviceInfo();
+    if(!info)return null;
+    const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+    return getEpDeviceProfile(info.sku,firmware);
+  };
   const sampleRenameController=createSampleRenameController({
     sampleStore,isConnected,isSynchronized:()=>synchronized,
-    withFileTransaction,setFileMetadata,getFileMetadata,normalizeFileName
+    getActiveDeviceProfile:getRenameProfile,captureBatchSession,assertBatchSession,
+    withFileTransaction,normalizeFileName
   });
 
   const sampleReadController=createSampleReadController({
@@ -422,7 +429,8 @@ export function createEpWorkspace({
     onSelect:slot=>{closeProperties();updatePadReadAvailability();setStatus(slot?'SLOT '+String(slot.id).padStart(3,'0')+' SELECTED':'');},
     onPlay:auditionSample,onDelete:deleteSamples,onRename:(slot,value)=>sampleRenameController.rename(slot,value),
     onDownload:slot=>{requireLibraryReady();return sampleReadController.downloadOne(slot);},
-    onDownloadMany:selectedSlots=>{requireLibraryReady();return sampleReadController.downloadMany(selectedSlots);},onTransfer:transactionalTransfer,
+    onDownloadMany:selectedSlots=>{requireLibraryReady();return sampleReadController.downloadMany(selectedSlots);},
+    canRename:()=>getRenameProfile()?.advancedSampleMetadataWrites===true,onTransfer:transactionalTransfer,
     onDrop:async(slot,event)=>uploadFilesToSlot(slot,getDroppedFiles(event)),onContext:(slot,event)=>openProperties(slot,event),
     onDragStart:closeProperties,onUserError:(message,error)=>reportError(message,error)
   });
@@ -445,6 +453,7 @@ export function createEpWorkspace({
     restoreInput:restoreFile,restoreSummary,restoreProjectSelect,restoreButton:restoreRun,
     recoveryList,recoveryDetail,recoveryRestoreButton:recoveryRestore,recoveryDownloadButton:recoveryDownload,recoveryDeleteButton:recoveryDelete,
     getSelectedProject:()=>projectReadOnlyController.getState().selectedProject,getConnectedDeviceInfo,
+    captureBatchSession,assertBatchSession,
     getActiveDeviceProfile:()=>activeDeviceProfile,sampleStore,withFileTransaction,uploadProjectArchive,restoreProjectRecoveryCheckpoint,
     listProjectRecoveryCheckpoints,getProjectRecoveryCheckpoint,deleteProjectRecoveryCheckpoint,prepareSampleTransferMetadata,
     readDevice:()=>readDevice(),refreshProjects:()=>projectReadOnlyController.refresh(),markDeviceUnsafe,
