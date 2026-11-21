@@ -1,8 +1,8 @@
 # Implementation matrix: K.O. TOOL 1.0
 
-**Snapshot:** 2026-11-17, source inspected at `main@23a814154047b732a6fb7884be9d9e95cdb065af`; latest PR state and Linear must be rechecked before starting work. This is a **navigation/evidence snapshot**, not a guarantee about later `main` or a claim that all acceptance criteria passed.
+**Snapshot:** 2026-11-21, source and relevant tests re-inspected at `main@b6c9ad4fe44c482f775c4998acf56e21826700a3` after merged [PR #206](https://github.com/Zatumanen/Ko-tool/pull/206); [post-merge CI #44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) **4/4 PASS**, Node 1094, Chromium source 172, built Pages-dist 2. This is a **dated code/CI evidence snapshot**, not confirmation of new physical HIL, owner acceptance, live site SHA or a future `main`. The [source-backed review](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md) records remaining defects.
 
-**Visuals-only addendum (18 November 2026):** integration PR #194 is merged as `main@ab5706e425c20e06ede35012053d5b211846d53c`. [Post-merge CI](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) passed 1055 Node, 161 Chromium source and 2 Pages-dist E2E. The Visuals software rows below exist together on this commit, but owner appearance, endurance and actual EP USB Audio remain unaccepted. Other matrix evidence retains its dated snapshot. Do not re-merge #188–#193.
+**Historical Visuals integration (18 November 2026):** merged [#194](https://github.com/Zatumanen/Ko-tool/pull/194) as `main@ab5706e425c20e06ede35012053d5b211846d53c`, [CI #44267219851](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) PASS. Its advanced modules are in the 21-Nov reviewed main, **not still pending merge**; owner appearance, long-duration host performance and EP USB Audio physical acceptance remain open. Do not re-merge superseded PRs #188–#193.
 
 The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md). Use this matrix with the [pre-implementation gate](IMPLEMENTATION_GATE.md), [TESTING](TESTING.md) and the relevant exact-firmware evidence. It does not authorize product changes, physical device operations or a Pages deployment.
 
@@ -23,7 +23,9 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 | MEP-DELETE | 01 · Guarded DELETE and project dependencies | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleDeleteController.js`, `tests/e2e/sample-dependency-guard.spec.mjs`; no destructive HIL run |
 | MEP-PADS-READ | 01 · Saved pad parameters | PARTIAL | PASS | SCOPED | `js/ep133/ui/padPropertiesReadOnlyController.js`, `tests/e2e/my-ep-pad-readonly.spec.mjs`; narrowly scoped EP-133 2.5.1 READ only |
 | MEP-PADS-WRITE | 01 · Editing assigned pad state | BLOCKED | PASS | BLOCKED | `js/ep133/ui/padPropertiesReadOnlyController.js`; WRITE is disabled; Draft PR #139 is **not merged**; PASS refers to read-only guard |
-| MEP-PROJECTS | 01 · Project authoring, readback and recovery | PARTIAL | PASS | HIL PENDING | `js/ep133/ui/projectSequencerController.js`, `tests/project-sequencer-ui.test.mjs`; existing editor is restricted, not final sequencer |
+| MEP-PROJECTS | 01 · Project authoring, readback and recovery | PARTIAL | PASS | HIL PENDING | `js/ep133/ui/projectSequencerController.js`, `tests/project-sequencer-ui.test.mjs`; restricted legacy editor, not standalone Sequencer; real recovery HIL pending |
+| MEP-LEGACY-RESTORE | 01 · TAR/ZIP Restore session-bound approval | PARTIAL | PASS | HIL PENDING | `js/ep133/ui/backupRestoreController.js`, `js/ep133/projectFilesystem.js`, `tests/backup-restore-session-approval.test.mjs`; session guard merged #206, restricted compatibility/write paths only; no physical recovery acceptance |
+| MEP-RENAME | 01 · Sample Library Rename exact-firmware authorization | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleRenameController.js`, `js/ep133/ui/createEpWorkspace.js`, `tests/sample-rename-authority.test.mjs`; #206 demands advancedSampleMetadataWrites and strict session/slot guard; does NOT authorize assigned pad WRITE |
 | MEP-PAK-EXPORT | 01 · Official PAK/PPAK export | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/officialPak.js`, `tests/official-pak-export.test.mjs`; physical interchange acceptance remains separate |
 | MEP-PAK-PREVIEW | 01 · Official PAK/PPAK read-only inspection | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/officialPakReader.js`, `js/ep133/officialPakPreviewPlan.js`, `tests/official-pak-preview-plan.test.mjs`; no write permission implied |
 | MEP-PAK-RESTORE | 01 · Actual official PAK/PPAK Restore | PARTIAL | PASS | BLOCKED | `js/ep133/officialPakRestoreStaging.js`, `js/ep133/ui/backupRestoreController.js`, `tests/official-pak-restore-staging-integration.test.mjs`; **offline integrity staging only, Restore disabled** |
@@ -47,6 +49,18 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 | FXM-LIVE | 05 · EP-2350 production Live | PARTIAL | PASS | HIL PENDING | `js/fxMic/liveSession.js`, `js/fxMic/serialTransport.js`, `tests/fx-mic-live.test.mjs`; stock 1.1.2 config read-only; Live writes not broadly enabled |
 | EP136-SIDEKICK | 06 · EP-136 USB Audio inside Visuals | MISSING | NOT TESTED | HIL PENDING | `docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md`; no separately accepted EP-136 integration |
 <!-- MATRIX_ROWS_END -->
+
+### Current S2/S3 code-review items (21 November 2026)
+
+Source-backed details and separate reproductions: [read-only review on exact main](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md). These do not alter the rows' hardware acceptance flags:
+
+- **S2 B-01/B-02 / ZAT-65:** Visuals input stream cleanup on AudioContext constructor failure; stale async enumerate after closing Visuals. Both remain unresolved in `js/visuals/audio.js` and `js/visuals/app.js`.
+- **S2 C-03 / ZAT-62/69:** unbounded input and aliased allocations in legacy ZIP parser `js/ep133/backupBundle.js`.
+- **S2 D-01 / ZAT-57/77:** truncated RIFF PCM fast-path admission in `js/ep133/audio.js`.
+- **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
+- **C-04 / ZAT-68:** GREET versus recognized SKU alias behavior is **unreproduced**; do not promote speculative concern to confirmed defect.
+
+Source `main@b6c9ad4` green CI is not a final RC acceptance, Pages deploy, real EP validation or proof that these findings were repaired.
 
 ### Tracker inconsistencies and concrete evidence
 
