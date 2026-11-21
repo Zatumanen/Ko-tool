@@ -1,22 +1,47 @@
-# K.O. Tool — current project state
+# K.O. Tool — current project state (dated evidence)
 
-**Later Visuals integration checkpoint (18 November 2026):** PR [#194](https://github.com/Zatumanen/Ko-tool/pull/194) merged six Visuals feature branches into `main@ab5706e425c20e06ede35012053d5b211846d53c`. Post-merge [CI #44267219851](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) is 4/4 PASS: Node 1055, source Chromium 161, dist Chromium 2. Owner visual acceptance, MBP2017 endurance and real EP USB Audio HIL remain open; there was no Pages deployment. Superseded original PRs #188–#193 must not be merged again. Use [PR integration protocol](PR_INTEGRATION.md) for subsequent changes. Other snapshot sections below retain their historical scope.
+**Reviewed on:** 2026-11-21. **Reviewed application code:** [`main@b6c9ad4fe44c482f775c4998acf56e21826700a3`](https://github.com/Zatumanen/Ko-tool/commit/b6c9ad4fe44c482f775c4998acf56e21826700a3) after integrated [PR #206](https://github.com/Zatumanen/Ko-tool/pull/206). This is a **snapshot**, not a live HEAD or deployed-site claim. Before implementation or release: confirm GitHub HEAD/open PRs, [implementation matrix](IMPLEMENTATION_MATRIX.md), relevant Linear issue, the owner [decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md), and [pre-implementation gate](IMPLEMENTATION_GATE.md).
 
-**Snapshot:** 2026-11-17, audited `main@23a814154047b732a6fb7884be9d9e95cdb065af`. Not a live HEAD guarantee. Before code: recheck current main/open PRs/Linear, [Implementation Matrix](IMPLEMENTATION_MATRIX.md) and [pre-implementation gate](IMPLEMENTATION_GATE.md). Historical [12-Nov HIL/CI](history/PROJECT_STATE-2026-11-12.md) is preserved.
+**Evidence:** [post-merge main CI #44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) `completed/success`, four jobs PASS: **1094/1094 Node**, **172/172 Chromium fake-EP**, **2/2 built Pages-dist Chromium**, `build-pages` and `codex-preflight` PASS. These are software tests. **No new physical HIL is established**, and no deployment follows from this merge.
 
-## Implemented vs missing
+## Product scope: implemented vs pending
 
-- **Architecture:** static JS/CSS/HTML, Node 22. Classic desktop active; [OS redesign #110](https://github.com/Zatumanen/Ko-tool/pull/110) paused Draft.
-- **SpeedUpperCut:** reference ×2/−12, HI/MID/LO, channel/playmode choice, folder WAV/ZIP and existing waveform/chop implemented. Multi-WAV drag → My EP now requires full destination preview ([PR #181](https://github.com/Zatumanen/Ko-tool/pull/181)); original drag existed earlier.
-- **My EP:** firmware-scoped Sample Library, guarded Upload/MOVE/COPY/DELETE, projects and legacy limited step editor. Upload/COPY use full PCM GET verification; dependent FILE operations retain safety locks and journals. [Contract](testing/sample-upload-pcm-readback.md). Latest physical write/recovery acceptance pending.
-- **REPITCH:** previously implemented ON-by-default, KORP/SHA-256 prevents double ×2. [PR #180](https://github.com/Zatumanen/Ko-tool/pull/180) added a nonzero source-pitch safety guard, not REPITCH itself; playback HIL pending.
-- **PAK/PPAK:** export/reader/preview already existed ([#164](https://github.com/Zatumanen/Ko-tool/pull/164), [#165](https://github.com/Zatumanen/Ko-tool/pull/165)). [PR #179](https://github.com/Zatumanen/Ko-tool/pull/179) connected pre-existing CRC offline staging to UI. **Actual Restore disabled**, no device write authorization. [Contract](testing/official-pak-offline-staging.md).
-- **Pads:** limited EP-133 2.5.1 READ; WRITE disabled; [PR #139](https://github.com/Zatumanen/Ko-tool/pull/139) remains Draft. Projects' restricted legacy editor is **not** approved standalone Sequencer.
-- **Visuals (superseded by the 18-Nov checkpoint above):** seven browser-input modules, trigger, Spectrum, Spectrogram and advanced XY/LUFS/Stereo/Output/WAV recording are now integrated through #194. Automated combined tests passed on `main@ab5706e`; exact device USB Audio and owner/endurance acceptance remain pending. [Spec](VISUALS.md).
-- **Sequencer:** independent Step/Piano Roll + two-way device-authoritative Live **missing**; [spec](SEQUENCER.md). **FX-MIC:** offline editor/audition in [merged #176](https://github.com/Zatumanen/Ko-tool/pull/176); limited stock 1.1.2 Live diagnostics read-only, production hardware Live not accepted. **EP-136:** Sidekick not implemented.
+| Owner-approved stage | Software implemented on reviewed source | Software / real-world acceptance still open |
+| --- | --- | --- |
+| 01 · **My EP** | Connected Sample Library and slot management; verified Upload/COPY PCM readback; guarded MOVE/DELETE/dependencies, REPITCH x2/-12 + provenance; restricted Projects editor, backup/Legacy TAR/ZIP Restore/recovery; official PAK/PPAK export/preview and CRC offline staging; [#206](https://github.com/Zatumanen/Ko-tool/pull/206) strengthens legacy Restore session binding and Rename exact-firmware permission | Assigned-pad WRITE remains blocked ([Draft #139](https://github.com/Zatumanen/Ko-tool/pull/139) **not merged**); **official PAK/PPAK Restore is blocked**; physical write/recovery/REPITCH playback and firmware-specific signoff pending |
+| 02 · **SpeedUpperCut** | Canonical reference x2/-12, HI/MID/LO, channel/playmode, waveform/chop (legacy preserved), best-effort folder WAV/ZIP, numbered uploads, multi-drag preview into My EP ([#181](https://github.com/Zatumanen/Ko-tool/pull/181)) | Real EP playback and host acceptance pending; waveform/chop remain in existing classic UI despite newer minimalist design preference |
+| 03 · **Visuals** | Seven selected-browser-input modules, transient waveform, log Spectrum, time Spectrogram, XY, BS.1770 LUFS, Plasma/stereo, Peak/CLIP, three themes and adaptive 60/30/15 render, **bounded WAV PCM 16/24 recorder** (merged [#187](https://github.com/Zatumanen/Ko-tool/pull/187), [#194](https://github.com/Zatumanen/Ko-tool/pull/194)) | Source-review defects B-01/B-02 (capture cleanup/lifecycle), actual audio inputs and EP USB Audio, visual owner acceptance and MBP2017 15m/1h/4h endurance |
+| 04 · **Sequencer** | **Standalone icon/window** on shared authorized EP session. **Saved Step/Piano Roll**, group/pad/scene/song navigation and bounded passive **MIDI EVENTS ONLY/trace export/local analyzer** implemented by merged [#196–203](https://github.com/Zatumanen/Ko-tool/pull/203) | **Two-way hardware-authoritative Live missing**, no fake playhead or unverified outbound command. Exact-device event provenance and owner HIL pending ([ZAT-63](https://linear.app/clouded/issue/ZAT-63)) |
+| 05 · **FX-MIC Studio** | Offline pack/4 WAV slots, FX chain, modulation, ZIP, local drafts and approximate Web Audio audition ([#176](https://github.com/Zatumanen/Ko-tool/pull/176)); USB Serial diagnostics of stock 1.1.2 saved config **read-only**; limited manual LOWPASS trial on stock 1.0.8 | Full safe production USB Live/firmware coverage and physical analog audition acceptance pending ([ZAT-50](https://linear.app/clouded/issue/ZAT-50)) |
+| 06 · **EP-136 Sidekick** | Visuals can already select a generic browser mono/stereo audio input | **EP-136-specific** discoverability, real channel mapping/PCM recording evidence and acceptance **not implemented** ([ZAT-51](https://linear.app/clouded/issue/ZAT-51)) |
 
-## Evidence and release
+A Linear **Done** can mean that a strictly limited *software subset* was delivered; it does not authorize pad WRITE, official PAK Restore, firmware writes or claim HIL PASS. See exact [device compatibility](testing/ep-device-compatibility-matrix.md) and [testing/physical acceptance rules](TESTING.md). Project milestone percentages derive from issue state, **not** measured software implementation completeness.
 
-- Linear [ZAT-77](https://linear.app/clouded/issue/ZAT-77), [ZAT-79](https://linear.app/clouded/issue/ZAT-79), [ZAT-92](https://linear.app/clouded/issue/ZAT-92) read **Done** on 17 Nov while their descriptions retain unmet hardware/write criteria. **Tracker Done ≠ HIL PASS.** Matrix records the gap.
-- Post-merge CI [#179](https://github.com/Zatumanen/Ko-tool/actions/runs/44052065091), [#180](https://github.com/Zatumanen/Ko-tool/actions/runs/44054880413), [#181](https://github.com/Zatumanen/Ko-tool/actions/runs/44070697069) all 4/4 PASS on their exact main commits. Fake EP/Node/Pages builds do not establish physical acceptance.
-- Historical scoped EP-133 2.5.1 pad READ HIL is in [TESTING](TESTING.md). New hardware writes, interruption and playback testing deferred by owner until software work finishes. [Release runbook](RELEASE.md): merge never authorizes public Pages deploy; 1.0 not accepted.
+## Outstanding source-reviewed defects
+
+These are **not corrected** by the documentation reconciliation or merged #206:
+
+- **S2 B-01:** `js/visuals/audio.js` may leave `getUserMedia` tracks open when `AudioContext` construction fails after capture (existing synthetic failure).
+- **S2 B-02:** `js/visuals/app.js` asynchronous `enumerateDevices` success/error after close can dereference discarded `audio=null` (existing browser failure).
+- **S2 C-03:** `js/ep133/backupBundle.js` unbounded legacy ZIP `arrayBuffer()`/manifest payload-copy amplification.
+- **S2 D-01:** `js/ep133/audio.js` fast WAV path accepts truncated RIFF data/unaligned PCM (prior synthetic malformed input probe).
+- **S3 A-03:** `js/sequencer/midiTraceAnalyzer.js` does not reject every contradictory capture-limit metadata case.
+- **S3 B-03:** Visuals/My EP bootstrap coupling needs measured impact before refactoring. **C-04** device GREET/recognized SKU alias is an **unreproduced risk**, not a confirmed defect.
+
+Evidence, severity, source locations and future regression requirements: [21-Nov code review](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md). Keep targeted follow-ups in existing [ZAT-69](https://linear.app/clouded/issue/ZAT-69), [ZAT-65](https://linear.app/clouded/issue/ZAT-65), [ZAT-62](https://linear.app/clouded/issue/ZAT-62), [ZAT-57](https://linear.app/clouded/issue/ZAT-57) and [ZAT-63](https://linear.app/clouded/issue/ZAT-63). No production-code fix or fresh hardware test was authorized by the docs review.
+
+## Deployment is a separate state
+
+- **Source code:** `main@b6c9ad4`, CI four jobs PASS (above).
+- **Last verified successful manual GitHub Pages workflow:** [`deploy-pages` #44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), 2026-11-18, **`d8c193a41069b4b053b242b9b6d35c1a688641c8`**, verify + deploy PASS. Earlier manual deployments also succeeded.
+- **Live served SHA:** **NOT independently checked** against public `build-version.json` in this audit. Do **not** infer that the source `main` was published. Release and manual test deployments require separate explicit owner authorization under [RELEASE](RELEASE.md).
+
+Open PRs at this snapshot: [#110](https://github.com/Zatumanen/Ko-tool/pull/110) paused OS **Draft**, [#139](https://github.com/Zatumanen/Ko-tool/pull/139) assigned pad WRITE **Draft**. #204/#205 were closed as superseded by merged #206. Preserve separation between CODE, AUTO CI, HIL and OWNER acceptance; **K.O. TOOL 1.0 remains NO-GO** until all agreed stages and gates pass.
+
+## Historical checkpoints
+
+- 18-Nov Visuals integration: merged [#194](https://github.com/Zatumanen/Ko-tool/pull/194) at `ab5706e425c20e06ede35012053d5b211846d53c`, [CI #44267219851](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) 4/4 PASS on that historical SHA.
+- 17-Nov previous project-state baseline: `23a814154047b732a6fb7884be9d9e95cdb065af`; later Sequencer commits #196–203 and safety fix #206 supersede its “missing” labels.
+- Earlier 12-Nov physical/HIL and CI snapshot: [historical record](history/PROJECT_STATE-2026-11-12.md). Historical claims are never generalized to different models, firmware or operations.
+
+**Status governance:** after each feature/status-changing PR, recheck `main`, source and tests, update the implementation matrix and this state record in the same change, then reconcile Linear and its evidence. A CI script currently checks **structure only** and cannot establish truth; enhanced drift automation requires a separately reviewed code/CI change.
