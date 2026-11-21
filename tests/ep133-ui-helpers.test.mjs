@@ -1242,6 +1242,9 @@ test('sample rename controller re-resolves canonical state and keeps SET/readbac
 
   const controller=createSampleRenameController({
     sampleStore,isConnected:()=>true,isSynchronized:()=>true,
+    getActiveDeviceProfile:()=>({advancedSampleMetadataWrites:true}),
+    captureBatchSession:()=> 'session-a',
+    assertBatchSession:token=>assert.equal(token,'session-a'),
     normalizeFileName:value=>String(value).trim().toLowerCase(),
     withFileTransaction:async(label,operation,options)=>{
       actions.push(['transaction',label,options?.strict]);
