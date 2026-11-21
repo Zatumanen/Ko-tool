@@ -4,6 +4,13 @@
 
 **Hosting:** Use the public [K.O. TOOL GitHub Pages site](https://zatumanen.github.io/Ko-tool/) for owner-requested browser builds, including builds for manual testing. Publish through the approved `deploy-pages` workflow on `main`. Private and separately hosted copies are outside the release process. If a candidate cannot use the approved public workflow yet, report what is blocking it.
 
+## 21 November 2026 · separate source, CI and published states
+
+- **Reviewed source:** `main@b6c9ad4fe44c482f775c4998acf56e21826700a3`, merged [#206](https://github.com/Zatumanen/Ko-tool/pull/206).
+- **Source/main CI:** [#44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) `completed/success` 4/4 (1094 Node, 172 fake-EP Chromium, two Pages-dist E2E). **This job did not deploy Pages.**
+- **Latest verified successful manual Pages deploy:** [#44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), 2026-11-18, `d8c193a41069b4b053b242b9b6d35c1a688641c8`; `verify` and `deploy` SUCCESS. This is older than the reviewed source SHA.
+- **Current live served SHA:** **UNKNOWN in this audit**, because a fresh public `build-version.json` request and browser smoke were not performed. Successful workflow history does not prove which version an end user currently receives. **K.O. TOOL 1.0 is NOT accepted**; neither merge nor prior manual test builds grant permission for a new release.
+
 ## Observed infrastructure (14 November 2026)
 
 - [Actual Pages deployment #43586790943](https://github.com/Zatumanen/Ko-tool/actions/runs/43586790943) on `main@7e89fdd` was GitHub-managed `dynamic/pages/pages-build-deployment` **Jekyll build from the branch**, not `scripts/build-pages.mjs`/`dist`. It started at the same time as post-merge [tests #43586791491](https://github.com/Zatumanen/Ko-tool/actions/runs/43586791491), without waiting for their result.
@@ -14,7 +21,7 @@
 
 - The owner completed **Settings → Pages → Build and deployment → Source: GitHub Actions** on 2026-11-15. This resolved the previously observed automatic Jekyll publication path for PR #166.
 - Before relying on this setting after an unexpected deployment or permissions change, verify the selector at [repository Settings → Pages](https://github.com/Zatumanen/Ko-tool/settings/pages). Check branch rulesets and the `github-pages` environment reviewer requirements in Settings; those controls are **not independently verified** via the connector.
-- The checked-in `deploy-pages.yml` remains **manual-only**. Changing Source to GitHub Actions does **not** dispatch it automatically. The first complete manual production deployment using this workflow **has not been tested** and requires a separate explicit owner release decision.
+- The checked-in `deploy-pages.yml` remains **manual-only**. Changing Source to GitHub Actions does **not** dispatch it automatically. Manual verify/deploy **has been tested successfully** by explicit `workflow_dispatch`; latest independently checked run is [#44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) on 2026-11-18 `d8c193a41069b4b053b242b9b6d35c1a688641c8` (both `verify` and `deploy` PASS). Future deployment of a newer SHA still requires separate owner approval and fresh verification.
 - If Source reverts to branch publishing, **STOP** merges under the manual-release policy until the intended source and current publication behavior are confirmed.
 
 ## PR and release candidate
@@ -38,6 +45,6 @@
 - `npm run build:pages` copies only `index.html`, `js/`, `css/` into `dist/`, plus `build-version.json`; it stamps local JS/CSS links with the chosen SHA. Do not assume Jekyll applies this transformation.
 - `npm run verify:pages` rejects wrong/missing versions, incomplete assets and leaked source-only directories.
 - `npm run test:pages:e2e` opens the **built** bundle under `/Ko-tool/` and checks browser errors and same-origin JS/CSS versions. Existing `npm run test:e2e` still exercises fake-EP behavior from the source tree.
-- The owner-confirmed GitHub Actions source is separate from CI triggers; only an authorized `workflow_dispatch` publishes a tested artifact. The first manual deployment remains pending.
+- The owner-confirmed GitHub Actions source is separate from CI triggers; only an authorized `workflow_dispatch` publishes a tested artifact. The latest verified manual deployment run is [#44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), not the current reviewed `main@b6c9ad4`. The current live Pages `build-version.json` was **not** independently rechecked in the 21-Nov documentation audit.
 
 **Evidence and status:** [PROJECT_STATE](PROJECT_STATE.md) is a dated source snapshot; [Linear](https://linear.app/clouded/project/ko-tool-release-10-2f713ebc0fca) is the live tracker. Never report GitHub Pages source changes, production rollout, physical HIL, or release 1.0 without separate verified evidence.
