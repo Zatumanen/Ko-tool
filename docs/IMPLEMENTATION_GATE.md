@@ -31,6 +31,16 @@ The repository's [PR template](../.github/pull_request_template.md) captures six
 
 The CI script checks that the table and these sections exist, contain substantive text and use valid statuses. **It cannot prove the truth of an audit or hardware result.** Reviewers must open the source/test/CI links and reject fabricated or stale claims.
 
+## Post-merge feature/status reconciliation (mandatory review step)
+
+1. Record **MERGED_SHA** and completed **POSTMERGE_CI** on the actual main; if a combined integration PR superseded standalone branches, link only the integrated SHA and explicitly mark superseded PRs unmerged.
+2. For each changed user-observable feature, inspect the production entrypoint **and** its caller, denial path and tests. Reconcile `docs/IMPLEMENTATION_MATRIX.md`, `docs/PROJECT_STATE.md` and relevant README table entry with this evidence. A document's earlier snapshot date is not proof of today's absence. For example, standalone Saved Sequencer arrived in #196–203 while README still said no standalone Sequencer until the 21-Nov reconciliation.
+3. Record **CODE / AUTO / HIL / OWNER** separately in the linked Linear issue. Update the active summary or append a prominently dated newer checkpoint, preserving history. `Done` after a limited software milestone **never** promotes a pending HIL or a blocked write capability to acceptance.
+4. Record **PUBLISHED_SHA** from successful `deploy-pages` and separately verify **LIVE_SHA** at public `build-version.json`; no default assumption that the latest merged main was deployed. The first successful manual deploy happened before this 21-Nov review, see [release runbook](RELEASE.md).
+5. Review documentation freshness on every new feature PR and independent release candidate. `scripts/check-implementation-audit.mjs` currently tests only table/link/PR-body **structure**. A future machine-readable status manifest and CI assertion of README/feature claims require an authorized implementation and independent source-based tests; do not claim this automation already exists.
+
+This reconciliation is mandatory as an engineering practice, but the current CI gate does **not** enforce steps 2–4 semantically. The [21-Nov source audit](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md) records the initial discrepancy list and future automation proposal.
+
 ## Special cases and status reconciliation
 
 - **Docs-only/CI-only:** the same headings remain required, but explicitly say why runtime/physical acceptance is not applicable. Do not run unrelated E2E merely to pad a documentation PR; CI still runs repository checks on GitHub.
