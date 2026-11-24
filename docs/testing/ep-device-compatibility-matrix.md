@@ -25,6 +25,12 @@ They are not a grant to modify samples or projects. The previous broad
 `0.1.0*` firmware exemption was intentionally removed: a malformed,
 undocumented or older-than-minimum firmware must not bypass the handshake gate.
 
+A recognized MIDI identity keeps its own model profile. A nonempty conflicting
+GREET `base_sku` fails the connection. For identity-only EP-133 AS002, only the
+observed GREET `TE032AS001` pairing resolves to the EP-133 profile. Other AS002
+pairings retain the discovery-only profile. FILE commands require a completed
+handshake, in addition to the existing scheduler and operation requirements.
+
 ## Evidence-based operation permissions
 
 The existing `js/ep133/evidenceRegistry.js` remains authoritative for the

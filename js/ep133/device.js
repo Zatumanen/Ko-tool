@@ -248,6 +248,8 @@ export function formatDeviceRejection(response){
 
 async function sendRequest(command,payload=new Uint8Array(),timeout=2000){
   if(deviceUnsafe)throw unsafeError();
+  // Do not queue FILE intents raised before GREET verified this session.
+  if(command===TE_SYSEX_FILE&&!initialized)throw new Error('EP-series device is not connected.');
   const epoch=connectionEpoch;
   const task=requestQueue.then(async()=>{
     if(deviceUnsafe)throw unsafeError();
@@ -361,9 +363,10 @@ export async function connectEp133(){
   // hardware-verified SKU. Only its GREET base_sku=TE032AS001 may select
   // the verified EP-133 profile. Other/missing base_sku stays AS002 and
   // therefore has no registry-backed write capabilities.
-  const effectiveSku=identitySku==='TE032AS002'
-    ?(baseSku==='TE032AS001'?baseSku:identitySku)
-    :(isSupportedEpSku(baseSku)?baseSku:identitySku);
+  if(identitySku!=='TE032AS002'&&baseSku&&baseSku!==identitySku)
+    throw new Error('EP-series GREET base SKU conflicts with MIDI identity.');
+  const effectiveSku=identitySku==='TE032AS002'&&baseSku==='TE032AS001'
+    ?baseSku:identitySku;
   const identity=assertDeviceIdentity({
     sku:effectiveSku,firmware:metadata?.os_version||'',midiId:found.parsed.midiId
   });
@@ -380,12 +383,14 @@ export async function connectEp133(){
   })();
   try{return await connectingPromise;}
   catch(error){
-    publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason:String(error?.message||error)});
+    const reason=String(error?.message||error);
+    if(input||output||listeners.size)disconnectEp133(reason);
+    else publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason});
     throw error;
   }finally{connectingPromise=null;}
 }
 
-export function disconnectEp133(){
+export function disconnectEp133(reason='device disconnected'){
   connectionEpoch+=1;
   requestQueue=Promise.resolve();
   stopListeners();
@@ -393,7 +398,7 @@ export function disconnectEp133(){
   pending.clear();
   recentlyExpiredRequestIds.clear();
   input=null;output=null;initialized=false;identityCode=0;deviceInfo=null;
-  publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason:'device disconnected'});
+  publishRuntimeEvent({type:'DEVICE_DISCONNECTED',connectionEpoch,reason});
   notifyConnection();
 }
 

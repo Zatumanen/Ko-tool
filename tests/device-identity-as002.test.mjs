@@ -100,3 +100,34 @@ test('existing EP-133 AS001 and EP-40 AS006 continue to connect unchanged',async
     });
   }
 });
+
+test('recognized MIDI identity cannot acquire another model profile from GREET',async()=>{
+  for(const [sku,baseSku] of [['TE032AS001','TE032AS006'],['TE032AS006','TE032AS001']]){
+    await withFakeDevice({sku,baseSku},async(device,fake)=>{
+      await assert.rejects(device.connectEp133(),/GREET base SKU conflicts with MIDI identity/);
+      assert.equal(device.isConnected(),false);
+      assert.equal(device.getConnectedDeviceInfo(),null);
+      assert.deepEqual(device.getMidiPorts(),{input:null,output:null});
+      await assert.rejects(device.requestFile(5,Uint8Array.from([6,0,7])),/not connected/i);
+      assert.deepEqual(fake.requests.map(request=>request.command),[1]);
+    });
+  }
+});
+
+test('FILE writes requested during GREET cannot survive into a verified session',async()=>{
+  await withFakeDevice({sku:'TE032AS001'},async(device,fake)=>{
+    let rejected;
+    const unsubscribe=device.onMidiActivity(event=>{
+      if(event.direction==='tx'&&event.command===1){
+        rejected=assert.rejects(device.requestFile(5,Uint8Array.from([6,0,7])),/not connected/i);
+        rejected.catch(()=>{});
+      }
+    });
+    try{
+      await device.connectEp133();
+      assert.ok(rejected,'test requested a write during the handshake');
+      await rejected;
+      assert.deepEqual(fake.requests.map(request=>request.command),[1]);
+    }finally{unsubscribe();}
+  });
+});
