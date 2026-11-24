@@ -73,15 +73,17 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
     if(typeof window!=='undefined'&&!window.isSecureContext)throw Error('Для захвата требуется HTTPS или localhost.');
     const request=++generation;
     release();state('Запрос доступа к аудиовходу…');
-    let opened;
     try{
-      opened=await navigatorRef.mediaDevices.getUserMedia({audio:{
+      const opened=await navigatorRef.mediaDevices.getUserMedia({audio:{
         deviceId:{exact:selectedId},echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:{ideal:2}
       },video:false});
       if(request!==generation){opened.getTracks().forEach(t=>t.stop());return false}
+      // Own the granted stream before allocating the graph, so release()
+      // covers constructor failures as well as failures after construction.
+      stream=opened;
       const nextContext=new AudioContextClass();
-      if(request!==generation){opened.getTracks().forEach(t=>t.stop());await nextContext.close();return false}
-      context=nextContext;stream=opened;track=opened.getAudioTracks()[0];
+      if(request!==generation){await nextContext.close();return false}
+      context=nextContext;track=opened.getAudioTracks()[0];
       if(!track)throw Error('Выбранный вход не предоставляет звуковую дорожку.');
       const declaredChannels=Number(track.getSettings?.().channelCount);
       if(Number.isFinite(declaredChannels)&&declaredChannels>0&&![1,2].includes(declaredChannels))throw Error('Поддерживается только моно или стерео вход');
@@ -155,7 +157,7 @@ export function createVisualsAudio({navigatorRef=navigator,AudioContextClass=win
       return true;
     }catch(error){
       if(request===generation){release();state(error?.name==='NotAllowedError'?'Доступ к аудиовходу запрещён':(error?.message||String(error)),true)}
-      else opened?.getTracks?.().forEach(t=>t.stop());
+      // A newer generation already released the older graph and stream.
       return false;
     }
   }

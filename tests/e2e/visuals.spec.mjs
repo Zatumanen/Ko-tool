@@ -1,6 +1,173 @@
 import{test,expect}from '@playwright/test';
 
-test('Visuals opens as its own desktop app with seven real modules and safe idle source',async({page})=>{
+async function delayedVisualsEnumeration(page){
+  await page.addInitScript(()=>{
+    window.visualsEnumerations=[];
+    const media=new EventTarget();
+    media.enumerateDevices=()=>new Promise((resolve,reject)=>window.visualsEnumerations.push({resolve,reject}));
+    media.getUserMedia=async()=>{throw Error('Unexpected capture request');};
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:media});
+  });
+  await page.goto('/');
+  await page.locator('#visuals-icon').click();
+  await expect.poll(()=>page.evaluate(()=>window.visualsEnumerations.length)).toBe(1);
+}
+
+test('a late enumeration rejection after Close does not produce a page error',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await delayedVisualsEnumeration(page);
+  await page.locator('.vis-toolbar [data-action="close"]').click();
+  const observed=page.waitForEvent('pageerror',{timeout:500}).catch(()=>null);
+  await page.evaluate(()=>window.visualsEnumerations[0].reject(Error('Synthetic enumeration failure')));
+  await observed;
+  expect(errors).toEqual([]);
+  await expect(page.locator('.vis-dock')).toHaveCount(0);
+});
+
+test('a reopened Visuals window keeps its newer input list after old responses',async({page})=>{
+  await delayedVisualsEnumeration(page);
+  await page.locator('.vis-toolbar [data-action="close"]').click();
+  await page.locator('#visuals-icon').click();
+  await expect.poll(()=>page.evaluate(()=>window.visualsEnumerations.length)).toBe(2);
+  await page.locator('.vis-toolbar [data-action="refresh"]').click();
+  await expect.poll(()=>page.evaluate(()=>window.visualsEnumerations.length)).toBe(3);
+  const source=page.locator('select[data-source]');
+  await page.evaluate(()=>window.visualsEnumerations[2].resolve([{kind:'audioinput',deviceId:'new',label:'Current Input'}]));
+  await expect(source.locator('option[value="new"]')).toHaveCount(1);
+  await page.evaluate(async()=>{
+    window.visualsEnumerations[1].resolve([{kind:'audioinput',deviceId:'old',label:'Stale Refresh'}]);
+    window.visualsEnumerations[0].resolve([{kind:'audioinput',deviceId:'closed',label:'Closed Window'}]);
+    await new Promise(requestAnimationFrame);
+  });
+  await expect(source.locator('option[value="new"]')).toHaveCount(1);
+  await expect(source.locator('option[value="old"], option[value="closed"]')).toHaveCount(0);
+});
+
+test('Close cancels a pending START and disposes the late stream without changing the reopened window',async({page})=>{
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.addInitScript(()=>{
+    window.visualsStarts=[];
+    window.visualsStops=0;
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
+      enumerateDevices:async()=>[{kind:'audioinput',deviceId:'chosen',label:'Chosen Input'}],
+      getUserMedia:options=>new Promise(resolve=>{
+        window.visualsStarts.push({source:options.audio.deviceId.exact,resolve});
+      })
+    }});
+  });
+  await page.goto('/');
+  await page.locator('#visuals-icon').click();
+  await page.locator('select[data-source]').selectOption('chosen');
+  await page.locator('.vis-toolbar [data-action="start"]').dblclick();
+  await expect.poll(()=>page.evaluate(()=>window.visualsStarts.length)).toBe(1);
+  await page.locator('.vis-toolbar [data-action="close"]').click();
+  await page.locator('#visuals-icon').click();
+  const input=page.locator('select[data-source]');
+  await expect(input.locator('option[value="chosen"]')).toHaveCount(1);
+  await page.evaluate(()=>{
+    const track={stop(){window.visualsStops++;}};
+    window.visualsStarts[0].resolve({getTracks:()=>[track]});
+  });
+  await expect.poll(()=>page.evaluate(()=>window.visualsStops)).toBe(1);
+  expect(await page.evaluate(()=>window.visualsStarts.map(s=>s.source))).toEqual(['chosen']);
+  await expect(input).toHaveValue('');
+  await expect(page.locator('[data-audio-status]')).not.toContainText('LIVE');
+  expect(errors).toEqual([]);
+});
+
+test('START cannot overlap the permission-only ACCESS stream',async({page})=>{
+  await page.addInitScript(()=>{
+    window.visualsRequests=[];
+    window.visualsStops=0;
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
+      enumerateDevices:async()=>[{kind:'audioinput',deviceId:'chosen',label:'Chosen Input'}],
+      getUserMedia:options=>new Promise(resolve=>window.visualsRequests.push({audio:options.audio,resolve}))
+    }});
+  });
+  await page.goto('/');
+  await page.locator('#visuals-icon').click();
+  await page.locator('select[data-source]').selectOption('chosen');
+  await page.locator('.vis-toolbar [data-action="unlock"]').click();
+  await page.locator('.vis-toolbar [data-action="start"]').click();
+  expect(await page.evaluate(()=>window.visualsRequests.map(request=>request.audio))).toEqual([true]);
+  await page.evaluate(()=>window.visualsRequests[0].resolve({getTracks:()=>[{stop(){window.visualsStops++;}}]}));
+  await expect.poll(()=>page.evaluate(()=>window.visualsStops)).toBe(1);
+  await expect(page.locator('[data-audio-status]')).toContainText('нажмите START');
+  await page.locator('.vis-toolbar [data-action="start"]').click();
+  expect(await page.evaluate(()=>window.visualsRequests[1].audio.deviceId.exact)).toBe('chosen');
+});
+
+test('ACCESS publishes the post-grant input list despite refresh and source selection',async({page})=>{
+  await page.addInitScript(()=>{
+    const media=new EventTarget();
+    let authorized=false;
+    window.visualsStops=0;
+    media.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'chosen',label:authorized?'Authorized Input':'Input before permission'}];
+    media.getUserMedia=()=>new Promise(resolve=>{
+      window.completeVisualsAccess=()=>{
+        authorized=true;
+        resolve({getTracks:()=>[{stop(){window.visualsStops++;}}]});
+      };
+    });
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:media});
+  });
+  await page.goto('/');
+  await page.locator('#visuals-icon').click();
+  const input=page.locator('select[data-source]');
+  await expect(input.locator('option[value="chosen"]')).toHaveText('Input before permission');
+  await page.locator('.vis-toolbar [data-action="unlock"]').click();
+  await page.locator('.vis-toolbar [data-action="refresh"]').click();
+  await page.evaluate(()=>navigator.mediaDevices.dispatchEvent(new Event('devicechange')));
+  await input.selectOption('chosen');
+  await page.evaluate(()=>window.completeVisualsAccess());
+  await expect(input.locator('option[value="chosen"]')).toHaveText('Authorized Input');
+  await expect(input).toHaveValue('chosen');
+  expect(await page.evaluate(()=>window.visualsStops)).toBe(1);
+  await expect(page.locator('[data-audio-status]')).toContainText('нажмите START');
+});
+
+test('devicechange during ACCESS is replayed before resuming the selected input',async({page})=>{
+  await page.addInitScript(()=>{
+    const media=new EventTarget(),chosen={kind:'audioinput',deviceId:'chosen',label:'Chosen Input'};
+    let present=true,holdPermissionList=false;
+    window.captureSources=[];
+    window.captureContexts=[];
+    window.changeVisualsDevice=value=>{present=value;media.dispatchEvent(new Event('devicechange'));};
+    media.enumerateDevices=async()=>{
+      const snapshot=present?[chosen]:[];
+      if(!holdPermissionList)return snapshot;
+      holdPermissionList=false;
+      return new Promise(resolve=>{window.completeVisualsList=()=>resolve(snapshot);});
+    };
+    media.getUserMedia=async({audio})=>{
+      if(audio===true){holdPermissionList=true;return{getTracks:()=>[{stop(){}}]};}
+      window.captureSources.push(audio.deviceId.exact);
+      const context=new AudioContext(),destination=context.createMediaStreamDestination();
+      window.captureContexts.push(context);
+      await context.resume();
+      return destination.stream;
+    };
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:media});
+  });
+  await page.goto('/');
+  await page.locator('#visuals-icon').click();
+  await page.locator('select[data-source]').selectOption('chosen');
+  await page.locator('.vis-toolbar [data-action="start"]').click();
+  await expect(page.locator('[data-audio-status]')).toContainText('LIVE');
+  await page.evaluate(()=>window.changeVisualsDevice(false));
+  await expect(page.locator('[data-audio-status]')).toContainText('отключён');
+  await page.locator('.vis-toolbar [data-action="unlock"]').click();
+  await expect.poll(()=>page.evaluate(()=>typeof window.completeVisualsList)).toBe('function');
+  await page.evaluate(()=>{window.changeVisualsDevice(true);window.completeVisualsList();});
+  await expect(page.locator('[data-audio-status]')).toContainText('LIVE');
+  expect(await page.evaluate(()=>window.captureSources)).toEqual(['chosen','chosen']);
+  await page.locator('.vis-toolbar [data-action="stop"]').click();
+  await page.evaluate(()=>Promise.all(window.captureContexts.map(context=>context.close())));
+});
+
+test('Visuals opens with seven idle modules without bootstrapping My EP',async({page})=>{
+ const workspaceRequests=[];
+ page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/ep133/workspaceBootstrap.js'))workspaceRequests.push(request.url());});
  await page.goto('/');
  await expect(page.locator('#visuals-icon')).toBeVisible();
  await page.locator('#visuals-icon').click();
@@ -11,6 +178,8 @@ test('Visuals opens as its own desktop app with seven real modules and safe idle
  await expect(page.locator('[data-auto-theme]')).toBeChecked();
  await expect(page.locator('#visuals-root')).toHaveClass(/vis-theme-app/);
  await expect(page.locator('#ep133-browser')).toHaveAttribute('aria-hidden','true');
+ await page.waitForLoadState('networkidle');
+ expect(workspaceRequests).toEqual([]);
 });
 
 test('builtin presets, module picker, all-hidden restore and working snapshot survive reload',async({page})=>{
