@@ -82,9 +82,14 @@ test('corrupt TNGE length and JSON do not silently become unprepared WAV', async
 
 test('truncated INFO/TNGE and nonzero JSON padding fail instead of triggering x2', async () => {
   const base = makeWav({pitch: -12});
-  const short = base.slice();
-  const at = Buffer.from(short).indexOf(Buffer.from('LIST'));
-  new DataView(short.buffer).setUint32(at + 4, 8, true);
+  const at = Buffer.from(base).indexOf(Buffer.from('LIST'));
+  const listSize = new DataView(base.buffer).getUint32(at + 4, true);
+  const short = new Uint8Array(base.length - listSize - (listSize & 1) + 8);
+  short.set(base.subarray(0, at + 16));
+  short.set(base.subarray(at + 8 + listSize + (listSize & 1)), at + 16);
+  const shortView = new DataView(short.buffer);
+  shortView.setUint32(4, short.length - 8, true);
+  shortView.setUint32(at + 4, 8, true);
   await assert.rejects(() => classifyRepitchInput(short, {filename:'sample.wav'}), /metadata length/);
 
   // The test builder emits exact JSON with no padding. Corrupt a source with an

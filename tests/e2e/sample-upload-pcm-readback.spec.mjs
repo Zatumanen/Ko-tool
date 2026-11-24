@@ -19,13 +19,13 @@ const open=async(page,{repitch=false}={})=>{
   if(!repitch)await page.locator('#ep133-repitch-enabled').uncheck();
   await page.evaluate(()=>{window.__uploadReadbackStart=window.__fakeEp.requestLog.length;});
 };
-const drop=async(page,count=1)=>{
+const drop=async(page,count=1,{firstBytes=wav()}={})=>{
   await page.locator('[data-slot="50"]').scrollIntoViewIfNeeded();
-  await page.evaluate(({bytes,count})=>{
+  await page.evaluate(({bytes,firstBytes,count})=>{
     const dt=new DataTransfer();
-    for(let i=0;i<count;i++)dt.items.add(new File([new Uint8Array(bytes)],`incoming-${i}.wav`,{type:'audio/wav'}));
+    for(let i=0;i<count;i++)dt.items.add(new File([new Uint8Array(i===0?firstBytes:bytes)],`incoming-${i}.wav`,{type:'audio/wav'}));
     document.querySelector('[data-slot="50"]').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
-  },{bytes:wav(),count});
+  },{bytes:wav(),firstBytes,count});
   if(count>1){
     await expect(page.locator('.ep133-upload-choice-dialog')).toBeVisible();
     await page.locator('[data-upload-mode="sequential"]').click();
@@ -35,6 +35,20 @@ const requests=page=>page.evaluate(()=>window.__fakeEp.requestLog.slice(window._
 const puts=log=>log.filter(r=>r.sub===2&&r.type===0);
 const gets=log=>log.filter(r=>r.sub===3&&r.type===0);
 const id=r=>(r.raw[2]<<8)|r.raw[3];
+
+test('REPITCH off never sends PUT for a truncated WAV and preserves the next valid file',async({page})=>{
+  await open(page);
+  const truncated=Buffer.from(wav().slice(0,-1));
+  truncated.writeUInt32LE(truncated.length-8,4);
+  await drop(page,2,{firstBytes:[...truncated]});
+  await expect(page.locator('[data-slot="51"]')).toHaveAttribute('draggable','true');
+  await expect(page.locator('#ep133-global-progress')).toBeHidden();
+  const log=await requests(page);
+  expect(puts(log).map(r=>(r.raw[3]<<8)|r.raw[4])).toEqual([51]);
+  expect(log.some(r=>r.sub===6)).toBe(false);
+  expect(await page.evaluate(()=>window.__fakeEp.sampleBytes(50))).toBeNull();
+  expect(await page.evaluate(()=>window.__fakeEp.sampleBytes(51))).toEqual(pcm);
+});
 
 test('Upload holds VERIFY until PCM GET completes, then starts the next file',async({page})=>{
   await open(page);

@@ -17,7 +17,7 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 | ID | Roadmap scope | Software | Automated | Hardware | Evidence and remaining gap |
 | --- | --- | --- | --- | --- | --- |
 | MEP-LIBRARY | 01 · My EP sample library and sync | IMPLEMENTED | PASS | SCOPED | `js/ep133/ui/sampleLibrarySync.js`, `tests/e2e/my-ep.spec.mjs`; exact model/firmware permissions still apply |
-| MEP-UPLOAD | 01 · Upload + authoritative PCM readback | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleUploadController.js`, `tests/e2e/sample-upload-pcm-readback.spec.mjs`; physical readback not newly accepted |
+| MEP-UPLOAD | 01 · Upload + authoritative PCM readback | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleUploadController.js`, `js/ep133/audio.js`, `tests/e2e/sample-upload-pcm-readback.spec.mjs`; invalid RIFF and partial PCM frames fail before PUT; physical readback not newly accepted |
 | MEP-MOVE | 01 · Transactional sample MOVE | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleMoveController.js`, `tests/e2e/sample-move-dependencies.spec.mjs`; latest dependency/rollback behavior needs scoped HIL |
 | MEP-COPY | 01 · PCM-verified COPY | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleCopyController.js`, `tests/e2e/sample-copy-pcm-readback.spec.mjs`; physical acceptance open |
 | MEP-DELETE | 01 · Guarded DELETE and project dependencies | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleDeleteController.js`, `tests/e2e/sample-dependency-guard.spec.mjs`; no destructive HIL run |
@@ -56,7 +56,7 @@ Source-backed details and separate reproductions: [read-only review on exact mai
 
 - **S2 B-01/B-02 / ZAT-65:** Visuals input stream cleanup on AudioContext constructor failure; stale async enumerate after closing Visuals. Both remain unresolved in `js/visuals/audio.js` and `js/visuals/app.js`.
 - **S2 C-03 / ZAT-62/69:** unbounded input and aliased allocations in legacy ZIP parser `js/ep133/backupBundle.js`.
-- **S2 D-01 / ZAT-57/77:** truncated RIFF PCM fast-path admission in `js/ep133/audio.js`.
+- **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
 - **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
 - **C-04 / ZAT-68:** GREET versus recognized SKU alias behavior is **unreproduced**; do not promote speculative concern to confirmed defect.
 
