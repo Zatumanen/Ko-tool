@@ -1,6 +1,7 @@
 import{test,expect}from '@playwright/test';
 import path from 'node:path';
 import{fileURLToPath}from 'node:url';
+import{TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_INFO,TE_SYSEX_FILE_METADATA,TE_SYSEX_FILE_METADATA_GET}from '../../js/ep133/constants.js';
 
 const here=path.dirname(fileURLToPath(import.meta.url));
 const fakeEpScript=path.join(here,'fake-ep-browser.js');
@@ -46,6 +47,25 @@ const wav16Mono=(sampleRate=46875,frames=64)=>{
   for(let i=0;i<frames;i++)buffer.writeInt16LE(Math.round(Math.sin(i/5)*12000),44+i*2);
   return [...buffer];
 };
+
+test('My EP keeps FILE offline across a GREET model conflict and reconnects only when identity agrees',async({page})=>{
+  await installFake(page);
+  await page.goto('/');
+  await page.evaluate(()=>window.__fakeEp.setGreetBaseSku('TE032AS006'));
+  await page.locator('#my-ep-icon').click();
+  await expect.poll(()=>page.evaluate(()=>window.__fakeEp.requestLog.filter(item=>item.command===1).length),
+    {timeout:10000}).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('#ep133-connection-overlay')).toHaveText('CONNECT EP SERIES');
+  expect(await page.evaluate(()=>window.__fakeEp.requestLog.every(item=>item.command===1))).toBe(true);
+  await page.evaluate(()=>window.__fakeEp.setGreetBaseSku('TE032AS001'));
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED · 2 SAMPLES',{timeout:15000});
+  const traffic=await page.evaluate(()=>window.__fakeEp.requestLog);
+  const fileTraffic=traffic.filter(item=>item.command===TE_SYSEX_FILE);
+  expect(fileTraffic.length).toBeGreaterThan(0);
+  const readCommands=[TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_LIST,TE_SYSEX_FILE_GET,TE_SYSEX_FILE_INFO];
+  expect(fileTraffic.filter(item=>!readCommands.includes(item.sub)&&
+    !(item.sub===TE_SYSEX_FILE_METADATA&&item.type===TE_SYSEX_FILE_METADATA_GET))).toEqual([]);
+});
 
 test('My EP reads 500 samples (~65 MB) through ordered paginated FILE_LIST requests',async({page})=>{
   await installFake(page);

@@ -3,7 +3,7 @@ import{
   TE_SYSEX_FILE_PLAYBACK,TE_SYSEX_FILE_PLAYBACK_START,TE_SYSEX_FILE_PLAYBACK_STOP
 }from './constants.js';
 import{
-  requestRead,requestFile,onConnectionChange,onUnexpectedFileTraffic,markDeviceUnsafe,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
+  requestRead,requestFile,onConnectionChange,onUnexpectedFileTraffic,markDeviceUnsafe,isConnected,isDeviceUnsafe,isRequestTimeoutError,withStrictFirmwareDebugGuard
 }from './device.js?v=20261001-1';
 import{parseNullTerminatedString}from './packing.js';
 import{assertWireFid,assertFileMetadata}from './coreContracts.js?v=20261008-1';
@@ -29,8 +29,10 @@ async function withBrowserFileLock(operation){
   return locks.request('ko-tool-ep-file:'+key,{mode:'exclusive'},operation);
 }
 const fileScheduler=createFileScheduler({withLock:withBrowserFileLock});
-function runFileOperation(operation,label='FILE operation',options={}){
-  return fileScheduler.run(label,()=>deviceOperationCoordinator.run(label,operation,options));
+async function runFileOperation(operation,label='FILE operation',options={}){
+  if(!isConnected()&&!isDeviceUnsafe())throw new Error('EP-series device is not connected.');
+  const connectionEpoch=deviceRuntime.captureEpoch();
+  return fileScheduler.run(label,()=>deviceOperationCoordinator.run(label,operation,{...options,connectionEpoch}));
 }
 function runGuardedFileMutation(label,operation){
   return runFileOperation(()=>withStrictFirmwareDebugGuard(operation,label),label,{mode:'mutation'});

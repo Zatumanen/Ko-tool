@@ -1,5 +1,7 @@
 # Implementation matrix: K.O. TOOL 1.0
 
+**24 November software checkpoint.** `main@e4ee8efadf4015463d4545d6cdc45e3ce5e7c43f` includes D-01 WAV validation from [PR #208](https://github.com/Zatumanen/Ko-tool/pull/208). [Post-merge CI #45391253978](https://github.com/Zatumanen/Ko-tool/actions/runs/45391253978) passed all four jobs (1097 Node, 173 Chromium source, 2 Chromium Pages-dist). Physical upload and REPITCH playback acceptance are HIL PENDING.
+
 **Snapshot:** 2026-11-21, source and relevant tests re-inspected at `main@b6c9ad4fe44c482f775c4998acf56e21826700a3` after merged [PR #206](https://github.com/Zatumanen/Ko-tool/pull/206); [post-merge CI #44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) **4/4 PASS**, Node 1094, Chromium source 172, built Pages-dist 2. This is a **dated code/CI evidence snapshot**, not confirmation of new physical HIL, owner acceptance, live site SHA or a future `main`. The [source-backed review](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md) records remaining defects.
 
 **Historical Visuals integration (18 November 2026):** merged [#194](https://github.com/Zatumanen/Ko-tool/pull/194) as `main@ab5706e425c20e06ede35012053d5b211846d53c`, [CI #44267219851](https://github.com/Zatumanen/Ko-tool/actions/runs/44267219851) PASS. Its advanced modules are in the 21-Nov reviewed main, **not still pending merge**; owner appearance, long-duration host performance and EP USB Audio physical acceptance remain open. Do not re-merge superseded PRs #188–#193.
@@ -16,7 +18,7 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 <!-- MATRIX_ROWS_START -->
 | ID | Roadmap scope | Software | Automated | Hardware | Evidence and remaining gap |
 | --- | --- | --- | --- | --- | --- |
-| MEP-LIBRARY | 01 · My EP sample library and sync | IMPLEMENTED | PASS | SCOPED | `js/ep133/ui/sampleLibrarySync.js`, `tests/e2e/my-ep.spec.mjs`; exact model/firmware permissions still apply |
+| MEP-LIBRARY | 01 · My EP sample library and sync | IMPLEMENTED | PASS | SCOPED | `js/ep133/ui/sampleLibrarySync.js`, `tests/e2e/my-ep.spec.mjs`; exact model/firmware permissions still apply; `tests/device-identity-as002.test.mjs` covers GREET model conflicts and FILE access during connection |
 | MEP-UPLOAD | 01 · Upload + authoritative PCM readback | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleUploadController.js`, `js/ep133/audio.js`, `tests/e2e/sample-upload-pcm-readback.spec.mjs`; invalid RIFF and partial PCM frames fail before PUT; physical readback not newly accepted |
 | MEP-MOVE | 01 · Transactional sample MOVE | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleMoveController.js`, `tests/e2e/sample-move-dependencies.spec.mjs`; latest dependency/rollback behavior needs scoped HIL |
 | MEP-COPY | 01 · PCM-verified COPY | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleCopyController.js`, `tests/e2e/sample-copy-pcm-readback.spec.mjs`; physical acceptance open |
@@ -58,7 +60,7 @@ Source-backed details and separate reproductions: [read-only review on exact mai
 - **S2 C-03 / ZAT-62/69:** unbounded input and aliased allocations in legacy ZIP parser `js/ep133/backupBundle.js`.
 - **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
 - **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
-- **C-04 / ZAT-68:** GREET versus recognized SKU alias behavior is **unreproduced**; do not promote speculative concern to confirmed defect.
+- **C-04 / ZAT-68:** synthetic and fake-EP cases reproduce cross-model GREET aliasing and FILE access during handshake. Software verifies model identity before scheduling FILE access, binds admission to the original epoch and retains the evidence-scoped AS002 → AS001 alias. Hardware validation remains scoped to prior evidence.
 
 Source `main@b6c9ad4` green CI is not a final RC acceptance, Pages deploy, real EP validation or proof that these findings were repaired.
 

@@ -261,7 +261,7 @@
   let input=new Input(),foreignInput=null,staleMidiListeners=[];
 
   const identityResponse=()=>{
-    const product=32,assembly=1;
+    const product=Number(sku.slice(2,5)),assembly=Number(sku.slice(7,10));
     return Uint8Array.from([0xf0,0x7e,identityCode,0x06,0x02,...TE,product&0x7f,(product>>7)&0x7f,assembly&0x7f,(assembly>>7)&0x7f,0,0,0,0,0xf7]);
   };
   const response=(request,payload=new Uint8Array(),status=0)=>{
@@ -347,6 +347,7 @@
     emitLater(debugFrame('err e2e strict mutation'),0);
     return true;
   };
+  let greetBaseSku=sku;
   let ignoreNextMetadataSet=false,rejectNextMetadataSet=false;
   const onRequest=request=>{
     requestCount++;
@@ -357,7 +358,7 @@
       raw:[...(request.raw||[])]
     });
     if(request.command===GREET){
-      emitLater(response(request,enc.encode(`base_sku:${sku};os_version:${osVersion};serial:${serial};`)));return;
+      emitLater(response(request,enc.encode(`base_sku:${greetBaseSku};os_version:${osVersion};serial:${serial};`)));return;
     }
     if(request.command!==FILE){emitLater(response(request));return;}
     if(maybeDebug(request)){emitLater(response(request),5);return;}
@@ -508,6 +509,7 @@
     input.state='connected';output.state='connected';access.onstatechange?.({port:input});
   };
   window.__fakeEp={
+    setGreetBaseSku:value=>{greetBaseSku=value;},
     addForeignMidiInput(){foreignInput=new Input();foreignInput.id='foreign-private-port';access.inputs.set(foreignInput.id,foreignInput);},
     emitMidi:(data,timeStamp=performance.now())=>input.emit(Uint8Array.from(data),timeStamp),
     emitForeignMidi:(data,timeStamp=performance.now())=>foreignInput?.emit(Uint8Array.from(data),timeStamp),
