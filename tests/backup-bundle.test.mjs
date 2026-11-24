@@ -1,3 +1,4 @@
+import {readStoredZipViews} from '../js/archive/zipReader.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createZip} from '../js/zip.js';
@@ -68,6 +69,15 @@ test('legacy backup rejects oversized selections before reading them',async()=>{
 test('an oversized array-like ZIP source is rejected before conversion to bytes',()=>{
   const oversized={length:Number.MAX_SAFE_INTEGER};
   assert.throws(()=>parseStoredZip(oversized),/ZIP size outside safe limits/);
+});
+
+test('stored ZIP validation snapshots shared backing memory before exposing members',async()=>{
+  const zip=await createZip([{path:'sample.bin',blob:new Blob(['audio'])}]);
+  const source=new Uint8Array(new SharedArrayBuffer(zip.size));
+  source.set(new Uint8Array(await zip.arrayBuffer()));
+  const files=readStoredZipViews(source,{checkPath:path=>path});
+  source.fill(0);
+  assert.equal(new TextDecoder().decode(files.get('sample.bin')),'audio');
 });
 
 test('legacy backup enforces a member limit before checking or copying payload',async()=>{

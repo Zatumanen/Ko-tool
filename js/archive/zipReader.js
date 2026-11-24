@@ -38,13 +38,14 @@ async function inflateBounded(compressed,limit,method){
 function readZipDirectory(value,{checkPath,limits={},storedOnly=false}={}){
   const {zipMax:ZIP_MAX=128*1024*1024,expandedMax:EXPANDED_MAX=384*1024*1024,fileMax:FILE_MAX=32*1024*1024,entryMax:ENTRY_MAX=1500,maxRatio:MAX_RATIO=500}=limits;
   assert(typeof checkPath==='function','path policy is required');
-  const isBuffer=value instanceof ArrayBuffer||
-    (typeof SharedArrayBuffer==='function'&&value instanceof SharedArrayBuffer);
+  const sharedAvailable=typeof SharedArrayBuffer==='function';
+  const isBuffer=value instanceof ArrayBuffer||(sharedAvailable&&value instanceof SharedArrayBuffer);
   const length=isBuffer?value.byteLength:value?.length;
   assert(Number.isSafeInteger(length)&&length>=22&&length<=ZIP_MAX,'ZIP size outside safe limits');
-  const src=value instanceof Uint8Array?value:isBuffer
+  const input=value instanceof Uint8Array?value:isBuffer
     ?new Uint8Array(value,0,length)
     :Uint8Array.from({length},(_,index)=>value[index]);
+  const src=sharedAvailable&&input.buffer instanceof SharedArrayBuffer?Uint8Array.from(input.subarray(0,length)):input;
   let eocd=-1;
   const min=Math.max(0,src.length-65557);
   for(let i=src.length-22;i>=min;i--){
@@ -115,7 +116,7 @@ export async function readZip(value,options){
   return files;
 }
 
-/** Bounded, synchronous reader for stored ZIPs. Values are views of the input. */
+/** Bounded, synchronous reader for stored ZIPs. Values view validated bytes. Shared buffers are snapshotted. */
 export function readStoredZipViews(value,options){
   const{src,records}=readZipDirectory(value,{...options,storedOnly:true});
   const files=new Map();
