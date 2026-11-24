@@ -77,8 +77,8 @@ Grant ownership of the selected stream before constructing the AudioContext.
 Stop all tracks on failure, or when a newer capture request supersedes the grant.
 Enumerations and START results belong to the current window and request. While
 explicit ACCESS is pending, coalesce refresh and devicechange into one replay.
-On denied ACCESS, keep the denial visible and await an explicit action before
-starting capture. A valid device return can resume only a previously armed exact
+If ACCESS is denied, the queued refresh preserves the denial message and leaves
+capture idle. A later device return can resume only a previously armed exact
 input. Visuals subscribes directly to the same device singleton as My EP. The
 cold-open Chromium check requires zero My EP workspace bootstrap requests and
 keeps the shared-session Auto Theme regression.

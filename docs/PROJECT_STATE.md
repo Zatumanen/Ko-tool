@@ -19,9 +19,7 @@
 
 A Linear **Done** can mean that a strictly limited *software subset* was delivered; it does not authorize pad WRITE, official PAK Restore, firmware writes or claim HIL PASS. See exact [device compatibility](testing/ep-device-compatibility-matrix.md) and [testing/physical acceptance rules](TESTING.md). Project milestone percentages derive from issue state, **not** measured software implementation completeness.
 
-## Outstanding source-reviewed defects
-
-These are **not corrected** by the documentation reconciliation or merged #206:
+## Source-review findings and follow-up
 
 - **S2 B-01 software fix:** `js/visuals/audio.js` owns the granted input before constructing the AudioContext, so allocation failure releases all tracks.
 - **S2 B-02 software fix:** discard stale audio results on Close and Reopen. Explicit ACCESS owns its enumeration and replays one pending refresh, preserving the denial message and same-source reconnect.
