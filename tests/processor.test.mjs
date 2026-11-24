@@ -13,7 +13,7 @@ class TestAudioBuffer{
 }
 globalThis.AudioBuffer=TestAudioBuffer;
 
-const {resolveOutputChannels,processAudioInputs,PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,EP_STORAGE_BYTES_PER_SAMPLE,EP_MAX_SAMPLE_RATE,estimateDirectEpStorage,measureEpStorage,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,processAudio}=await import('../js/audio/processor.js');
+const {resolveOutputChannels,processAudioInputs,PRESETS,getPreset,EP_REPITCH_FACTOR,EP_REPITCH_COMPENSATION,EP_OUTPUT_BIT_DEPTH,EP_STORAGE_BYTES_PER_SAMPLE,EP_MAX_SAMPLE_RATE,estimateDirectEpStorage,measureEpStorage,convertChannels,speedAndResample,quantizeBuffer,normalizeBuffer,encodeWav,decodeAudio,processAudio}=await import('../js/audio/processor.js');
 const {prepareEp133Sample,parseWavAudioMeta}=await import('../js/ep133/audio.js');
 
 function buffer(length=8,channels=1,sampleRate=44100){
@@ -178,6 +178,43 @@ test('My EP rejects damaged RIFF before direct preparation or decoder fallback',
     }),reason,name);
     assert.deepEqual(stages,[],name);
   }
+});
+
+test('WAV decoder uses only a complete extensible PCM GUID and preserves fallback for padded PCM20',async()=>{
+  const wav=new Uint8Array(78);
+  const view=new DataView(wav.buffer);
+  const text=(offset,value)=>wav.set(new TextEncoder().encode(value),offset);
+  text(0,'RIFF');view.setUint32(4,wav.length-8,true);text(8,'WAVEfmt ');
+  view.setUint32(16,40,true);view.setUint16(20,0xfffe,true);view.setUint16(22,1,true);
+  view.setUint32(24,32000,true);view.setUint32(28,64000,true);view.setUint16(32,2,true);
+  view.setUint16(34,16,true);view.setUint16(36,22,true);view.setUint16(38,16,true);
+  view.setUint32(44,1,true);view.setUint32(48,0x00100000,true);
+  view.setUint32(52,0xaa000080,true);view.setUint32(56,0x719b3800,true);
+  text(60,'data');view.setUint32(64,10,true);
+  assert.equal((await decodeAudio(wav.buffer)).length,5);
+
+  const unsupported=wav.slice();
+  unsupported[59]^=1;
+  const unsupportedView=new DataView(unsupported.buffer);
+  unsupportedView.setUint32(64,9,true);
+  let fallbackCalls=0;
+  await assert.rejects(decodeAudio(unsupported.buffer,{decodeAudioData(){fallbackCalls++;throw Error('unsupported format GUID');}}),/unsupported format GUID/);
+
+  const ambisonic=unsupported.slice();
+  const ambisonicView=new DataView(ambisonic.buffer);
+  ambisonicView.setUint32(48,0x11d30721,true);
+  ambisonicView.setUint32(52,0xc1c84486,true);
+  ambisonicView.setUint32(56,0x000000ca,true);
+  await assert.rejects(decodeAudio(ambisonic.buffer,{decodeAudioData(){fallbackCalls++;}}),/Incomplete WAV PCM frame/);
+
+  const padded=wav.slice(0,74);
+  const paddedView=new DataView(padded.buffer);
+  paddedView.setUint32(4,padded.length-8,true);paddedView.setUint32(64,6,true);
+  paddedView.setUint32(28,96000,true);paddedView.setUint16(32,3,true);
+  paddedView.setUint16(34,20,true);paddedView.setUint16(38,20,true);
+  const decoded=buffer(2,1,32000);
+  assert.equal(await decodeAudio(padded.buffer,{decodeAudioData(){fallbackCalls++;return decoded;}}),decoded);
+  assert.equal(fallbackCalls,2);
 });
 
 test('mono conversion averages source channels',async()=>{

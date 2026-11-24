@@ -34,7 +34,7 @@ function strictJson(bytes, kind) {
 function scanWav(bytes) {
   const wav = parseWavAudioMeta(bytes);
   if (!wav) throw new Error('Expected a valid RIFF/WAVE file.');
-  const fmt = {format: wav.format, channels: wav.channels, sampleRate: wav.rate, bits: wav.bits};
+  const fmt = {format: wav.format, channels: wav.channels, sampleRate: wav.rate, bits: wav.bits, frameSize: wav.frameSize};
   const data = {start: wav.dataOffset, length: wav.dataSize};
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let metadata = null, marker = null;
@@ -125,9 +125,7 @@ export async function classifyRepitchInput(value, {filename = ''} = {}) {
       !Number.isFinite(metadata['sound.pitch']) ||
       metadata['sound.pitch'] < -12 || metadata['sound.pitch'] > 12))
     throw new Error('Invalid Teenage Engineering sound.pitch metadata.');
-  const bytesPerFrame = fmt.channels * fmt.bits / 8;
-  const sourceFrames = Number.isInteger(bytesPerFrame) && bytesPerFrame > 0 &&
-    data.length % bytesPerFrame === 0 ? data.length / bytesPerFrame : null;
+  const sourceFrames = fmt.frameSize ? data.length / fmt.frameSize : null;
   if (marker) {
     if (fmt.format !== 1 || fmt.bits !== 16 || ![1, 2].includes(fmt.channels) ||
       metadata?.['sound.pitch'] !== -12 || marker.version !== MARKER_VERSION ||

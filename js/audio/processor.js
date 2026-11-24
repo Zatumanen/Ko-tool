@@ -1,5 +1,5 @@
 import{resampleAudioBufferReference,encodeReferenceEpWav}from './audioEngine.js?v=20261001-1';
-import{parseKo2Metadata}from '../ep133/audio.js?v=20261001-1';
+import{parseKo2Metadata,parseWavAudioMeta}from '../ep133/audio.js?v=20261001-1';
 import{markSpeedUppercutWav}from '../ep133/repitchProvenance.js?v=20261113-1';
 export const EP_REPITCH_FACTOR=2;
 export const EP_REPITCH_COMPENSATION=-12;
@@ -43,21 +43,14 @@ export const getPreset=(name='hi')=>PRESETS[name]||PRESETS.hi;
 export function createAudioContext(){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw Error('Web Audio API is not supported in this browser.');return new C();}
 function readAscii(view,offset,len){let s='';for(let i=0;i<len;i++)s+=String.fromCharCode(view.getUint8(offset+i));return s;}
 function decodeWav(arrayBuffer){
-  const v=new DataView(arrayBuffer);
-  if(v.byteLength<44||readAscii(v,0,4)!=='RIFF'||readAscii(v,8,4)!=='WAVE')return null;
-  let o=12,fmt=null,dataOffset=-1,dataSize=0;
-  while(o+8<=v.byteLength){
-    const id=readAscii(v,o,4),size=v.getUint32(o+4,true),next=o+8+size+(size&1);
-    if(id==='fmt '&&size>=16){fmt={format:v.getUint16(o+8,true),channels:v.getUint16(o+10,true),sampleRate:v.getUint32(o+12,true),bits:v.getUint16(o+22,true)};if(fmt.format===65534&&size>=40){const sub=v.getUint16(o+32,true);fmt.format=sub===3?3:1;}}
-    else if(id==='data'){dataOffset=o+8;dataSize=Math.min(size,v.byteLength-dataOffset);break;}
-    if(next<=o||next>v.byteLength+1)break;o=next;
-  }
-  if(!fmt||dataOffset<0||!fmt.channels||!fmt.sampleRate||!dataSize)return null;
-  const bytesPerSample=fmt.bits/8;
-  if(![8,16,24,32].includes(fmt.bits)||!([1,3].includes(fmt.format))||dataSize<bytesPerSample*fmt.channels)return null;
-  const frames=Math.floor(dataSize/(bytesPerSample*fmt.channels)),out=makeBuffer(frames,fmt.sampleRate,Math.min(2,fmt.channels));
-  const srcChannels=fmt.channels,dstChannels=out.numberOfChannels,bytesPerFrame=bytesPerSample*srcChannels;
-  const readSample=pos=>{if(fmt.format===3&&fmt.bits===32)return v.getFloat32(pos,true);if(fmt.bits===8)return (v.getUint8(pos)-128)/128;if(fmt.bits===16){const x=v.getInt16(pos,true);return x<0?x/32768:x/32767;}if(fmt.bits===24){let x=v.getUint8(pos)|(v.getUint8(pos+1)<<8)|(v.getUint8(pos+2)<<16);if(x&0x800000)x|=0xff000000;return x<0?x/8388608:x/8388607;}const x=v.getInt32(pos,true);return x<0?x/2147483648:x/2147483647;};
+  const wav=parseWavAudioMeta(new Uint8Array(arrayBuffer));
+  if(!wav)return null;
+  const {subtype,channels,rate,bits,frameSize,dataOffset,dataSize}=wav;
+  if(!(subtype===1&&[8,16,24,32].includes(bits))&&!(subtype===3&&bits===32))return null;
+  const v=new DataView(arrayBuffer),bytesPerSample=bits/8,bytesPerFrame=frameSize;
+  const frames=dataSize/bytesPerFrame,out=makeBuffer(frames,rate,Math.min(2,channels));
+  const srcChannels=channels,dstChannels=out.numberOfChannels;
+  const readSample=pos=>{if(subtype===3)return v.getFloat32(pos,true);if(bits===8)return (v.getUint8(pos)-128)/128;if(bits===16){const x=v.getInt16(pos,true);return x<0?x/32768:x/32767;}if(bits===24){let x=v.getUint8(pos)|(v.getUint8(pos+1)<<8)|(v.getUint8(pos+2)<<16);if(x&0x800000)x|=0xff000000;return x<0?x/8388608:x/8388607;}const x=v.getInt32(pos,true);return x<0?x/2147483648:x/2147483647;};
   for(let i=0;i<frames;i++)for(let c=0;c<dstChannels;c++){let x=0;if(dstChannels===1){for(let sc=0;sc<srcChannels;sc++)x+=readSample(dataOffset+i*bytesPerFrame+sc*bytesPerSample);x/=srcChannels;}else x=readSample(dataOffset+i*bytesPerFrame+Math.min(c,srcChannels-1)*bytesPerSample);out.getChannelData(c)[i]=Math.max(-1,Math.min(1,x));}
   return out;
 }

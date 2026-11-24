@@ -33,21 +33,27 @@ export function parseWavAudioMeta(bytes){
       const format=view.getUint16(start,true),channels=view.getUint16(start+2,true);
       const rate=view.getUint32(start+4,true),bits=view.getUint16(start+14,true);
       if(!channels||!rate)throw new Error('Invalid WAV channels or sample rate.');
-      fmt={format,channels,rate,bits};
       // WAVE_FORMAT_EXTENSIBLE can carry a PCM or IEEE float subtype. Leave
       // supported non-PCM formats to the decoder after checking their bounds.
-      let subtype=format;
+      let subtype=format,layoutFormat=format;
       if(format===0xfffe){
         if(size<40||view.getUint16(start+16,true)<22||18+view.getUint16(start+16,true)>size)
           throw new Error('Incomplete extensible WAV format chunk.');
-        if(view.getUint32(start+28,true)===0x00100000&&view.getUint32(start+32,true)===0xaa000080&&view.getUint32(start+36,true)===0x719b3800)
-          subtype=view.getUint32(start+24,true);
+        const tag=view.getUint32(start+24,true);
+        const guidA=view.getUint32(start+28,true),guidB=view.getUint32(start+32,true),guidC=view.getUint32(start+36,true);
+        const standard=guidA===0x00100000&&guidB===0xaa000080&&guidC===0x719b3800;
+        // Chromium also decodes the Ambisonic PCM/float GUIDs. Validate their
+        // frames here while leaving channel interpretation to the browser.
+        const ambisonic=guidA===0x11d30721&&guidB===0xc1c84486&&guidC===0x000000ca;
+        subtype=standard?tag:null;
+        layoutFormat=ambisonic?tag:subtype;
       }
-      if(subtype===1||subtype===3){
-        frameSize=channels*(bits/8);
-        if(!bits||bits%8!==0||view.getUint16(start+12,true)!==frameSize||view.getUint32(start+8,true)!==rate*frameSize)
-          throw new Error('Invalid WAV PCM frame layout.');
+      if(layoutFormat===1||layoutFormat===3){
+        frameSize=channels*Math.ceil(bits/8);
+        if(!bits||(layoutFormat===3&&bits!==32&&bits!==64)||view.getUint16(start+12,true)!==frameSize||view.getUint32(start+8,true)!==rate*frameSize)
+          throw new Error('Invalid WAV PCM frame layout: sample width, block alignment or byte rate.');
       }
+      fmt={format,subtype,channels,rate,bits,frameSize};
     }
     if(id==='data'){
       if(!fmt||dataOffset>=0||!size)throw new Error('Invalid, duplicate or empty WAV data chunk.');
