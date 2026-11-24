@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import{createFakeEpMidi,importFilesystemPair,waitFor}from './helpers/fake-ep-midi.mjs';
-import{TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT}from '../js/ep133/constants.js';
+import{TE_SYSEX_GREET,TE_SYSEX_FILE,TE_SYSEX_FILE_INIT,TE_SYSEX_FILE_INFO}from '../js/ep133/constants.js';
 
 test('FILE admission and preflight stay bound to the verified device session',async t=>{
-  const fake=createFakeEpMidi({onRequest:request=>request.rawData[0]===TE_SYSEX_FILE_INIT
-    ?{payload:Uint8Array.of(0,0,0,2,0)}:{}});
+  let debugNextRead=false;
+  const fake=createFakeEpMidi({onRequest:request=>{
+    if(request.rawData[0]===TE_SYSEX_FILE_INIT)return{payload:Uint8Array.of(0,0,0,2,0)};
+    return debugNextRead?{debug:'synthetic firmware diagnostic'}:{};
+  }});
   fake.install();
   const{device,filesystem}=await importFilesystemPair();
   let releaseLock;
@@ -48,6 +51,20 @@ test('FILE admission and preflight stay bound to the verified device session',as
       device.disconnectEp133();
       await device.connectEp133();
       assert.match((await preflight)?.message||'',/connection changed during FILE preflight/);
+      assert.equal(fileCount(),before);
+    });
+
+    await t.test('firmware debug observed during preflight still locks FILE after reconnect',async()=>{
+      const preflight=device.passiveFirmwareDebugPreflight(120).catch(error=>error);
+      debugNextRead=true;
+      await device.requestRead(TE_SYSEX_FILE,Uint8Array.of(TE_SYSEX_FILE_INFO,0,7));
+      debugNextRead=false;
+      device.disconnectEp133();
+      await device.connectEp133();
+      assert.match((await preflight)?.message||'',/FILE safety lock is active/);
+      assert.equal(device.isDeviceUnsafe(),true);
+      const before=fileCount();
+      await assert.rejects(device.requestRead(TE_SYSEX_FILE,Uint8Array.of(TE_SYSEX_FILE_INFO,0,7)),/FILE safety lock is active/);
       assert.equal(fileCount(),before);
     });
   }finally{

@@ -1,5 +1,7 @@
 # K.O. Tool — current project state (dated evidence)
 
+**24 November software checkpoint.** `main@e4ee8efadf4015463d4545d6cdc45e3ce5e7c43f` includes D-01 WAV validation from [PR #208](https://github.com/Zatumanen/Ko-tool/pull/208). [Post-merge CI #45391253978](https://github.com/Zatumanen/Ko-tool/actions/runs/45391253978) passed all four jobs (1097 Node, 173 Chromium source, 2 Chromium Pages-dist). Physical upload and REPITCH playback acceptance are HIL PENDING.
+
 **Reviewed on:** 2026-11-21. **Reviewed application code:** [`main@b6c9ad4fe44c482f775c4998acf56e21826700a3`](https://github.com/Zatumanen/Ko-tool/commit/b6c9ad4fe44c482f775c4998acf56e21826700a3) after integrated [PR #206](https://github.com/Zatumanen/Ko-tool/pull/206). This is a **snapshot**, not a live HEAD or deployed-site claim. Before implementation or release: confirm GitHub HEAD/open PRs, [implementation matrix](IMPLEMENTATION_MATRIX.md), relevant Linear issue, the owner [decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md), and [pre-implementation gate](IMPLEMENTATION_GATE.md).
 
 **Evidence:** [post-merge main CI #44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) `completed/success`, four jobs PASS: **1094/1094 Node**, **172/172 Chromium fake-EP**, **2/2 built Pages-dist Chromium**, `build-pages` and `codex-preflight` PASS. These are software tests. **No new physical HIL is established**, and no deployment follows from this merge.
@@ -35,7 +37,7 @@ Evidence, severity, source locations and future regression requirements: [21-Nov
 
 - **Source code:** `main@b6c9ad4`, CI four jobs PASS (above).
 - **Last verified successful manual GitHub Pages workflow:** [`deploy-pages` #44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), 2026-11-18, **`d8c193a41069b4b053b242b9b6d35c1a688641c8`**, verify + deploy PASS. Earlier manual deployments also succeeded.
-- **Live served SHA:** **NOT independently checked** against public `build-version.json` in this audit. Do **not** infer that the source `main` was published. Release and manual test deployments require separate explicit owner authorization under [RELEASE](RELEASE.md).
+- **Live served SHA:** [public version](https://zatumanen.github.io/Ko-tool/build-version.json) was checked on 2026-11-24 and reported `d8c193a41069b4b053b242b9b6d35c1a688641c8`. The manual deployment remains separately scoped under [RELEASE](RELEASE.md).
 
 Open PRs at this snapshot: [#110](https://github.com/Zatumanen/Ko-tool/pull/110) paused OS **Draft**, [#139](https://github.com/Zatumanen/Ko-tool/pull/139) assigned pad WRITE **Draft**. #204/#205 were closed as superseded by merged #206. Preserve separation between CODE, AUTO CI, HIL and OWNER acceptance; **K.O. TOOL 1.0 remains NO-GO** until all agreed stages and gates pass.
 

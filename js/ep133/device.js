@@ -218,11 +218,11 @@ export async function passiveFirmwareDebugPreflight(duration=FIRMWARE_DEBUG_PREF
   }
   if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
   if(deviceUnsafe)throw unsafeError();
-  if(epoch!==connectionEpoch||!isConnected())throw new Error('EP-series connection changed during FILE preflight.');
   if(firmwareDebugSequence!==sequence){
     enterUnsafeState('Firmware debug SysEx detected during passive preflight for '+String(label||'guarded FILE transaction')+': '+lastFirmwareDebugText);
     throw unsafeError();
   }
+  if(epoch!==connectionEpoch||!isConnected())throw new Error('EP-series connection changed during FILE preflight.');
 }
 
 export async function withStrictFirmwareDebugGuard(operation,label='guarded FILE transaction',{preflightMs=FIRMWARE_DEBUG_PREFLIGHT_MS}={}){
