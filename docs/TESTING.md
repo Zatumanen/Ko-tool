@@ -130,6 +130,19 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 
 ## Feature-specific acceptance (implemented and planned)
 
+### My EP legacy ZIP import (ZAT-62)
+
+- The v1 stored ZIP accepts up to 192 MiB of input, 128 MiB per entry and
+  2,099 entries. The manifest is limited to 4 MiB. Sample metadata is limited
+  to 1 MiB per entry and 16 MiB in total. File size is checked before reading.
+- The local headers and central directory must agree. Bounds, CRC, duplicate
+  members, reused manifest payload paths and repeated dependency lookups are
+  checked before returning buffers to Restore. A malformed ZIP leaves Restore
+  disabled and sends no FILE traffic during preflight.
+- Run `tests/backup-bundle.test.mjs`, `tests/backup-restore-session-approval.test.mjs`,
+  the backup dialog and My EP Chromium regressions, and official PAK and FX-MIC
+  pack tests for the shared ZIP reader. Physical Restore remains subject to HIL.
+
 ### My EP anonymized diagnostic export (ZAT-78)
 
 - The exporter is **session-local** and collects a bounded list of fixed error

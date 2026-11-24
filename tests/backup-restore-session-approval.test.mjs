@@ -47,7 +47,7 @@ async function fixture({deferPreflight=false}={}){
     readDevice:async()=>{},refreshProjects:async()=>{},listProjectRecoveryCheckpoints:async()=>[],markDeviceUnsafe:()=>{},
     setStatus(){},setGlobalProgress(){},hideGlobalProgress(){}
   });
-  const restoreFile={name:'backup.zip',arrayBuffer:()=>blob.arrayBuffer()};
+  const restoreFile=new File([blob],'backup.zip',{type:'application/zip'});
   await controller.onRestoreFile(restoreFile);
   assert.equal(button.disabled,false,'preflight permits an empty-dependency project');
   return{

@@ -2,6 +2,8 @@ import{test,expect}from '@playwright/test';
 import path from 'node:path';
 import{fileURLToPath}from 'node:url';
 import{inflateRawSync}from 'node:zlib';
+import{createEpBackupBundle}from '../../js/ep133/backupBundle.js';
+import{TE_SYSEX_FILE}from '../../js/ep133/constants.js';
 
 const fakeEpScript=path.join(path.dirname(fileURLToPath(import.meta.url)),'fake-ep-browser.js');
 const openBackup=async(page,{projects=2,samples=null,selectProject02=false}={})=>{
@@ -236,6 +238,19 @@ const zipMembers=buffer=>{
   }
   return files;
 };
+
+test('truncated legacy ZIP fails before remote Restore preflight or authorization',async({page})=>{
+  await openBackup(page,{selectProject02:true});
+  const {blob}=await createEpBackupBundle({scope:'project',projects:[{project:'02',data:Uint8Array.of(1)}]});
+  const truncated=Buffer.from(await blob.arrayBuffer()).subarray(0,-1);
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-restore-file').setInputFiles({name:'truncated.zip',mimeType:'application/zip',buffer:truncated});
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('FAILED');
+  await expect(page.locator('#ep133-backup-detail')).toContainText(/ZIP: .*end-of-central-directory/);
+  await expect(page.locator('#ep133-restore-run')).toBeDisabled();
+  const requests=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start),before);
+  expect(requests.filter(item=>item.command===TE_SYSEX_FILE)).toEqual([]);
+});
 
 test('official project PPAK exports deflated WAV/TAR without changing legacy backup or FILE state',async({page})=>{
   await openBackup(page,{selectProject02:true});

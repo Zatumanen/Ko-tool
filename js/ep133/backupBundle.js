@@ -1,5 +1,6 @@
 import{createZip}from '../zip.js?v=20261001-1';
 import{crc32Hex,hashDeviceIdentity}from './projectRecovery.js?v=20261001-1';
+import{readStoredZipViews}from '../archive/zipReader.js';
 
 export const EP_BACKUP_SCHEMA='speeduppercut.ep-backup/v1';
 export const EP_BACKUP_SCOPES=Object.freeze(['project','project+samples','device']);
@@ -10,8 +11,37 @@ const cloneBytes=value=>asBytes(value).slice();
 const safeName=value=>String(value||'').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'file';
 const jsonBlob=value=>new Blob([JSON.stringify(value,null,2)],{type:'application/json'});
 const binaryBlob=value=>new Blob([asBytes(value)],{type:'application/octet-stream'});
-const u16=(bytes,offset)=>new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint16(offset,true);
-const u32=(bytes,offset)=>new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).getUint32(offset,true);
+const maxProjects=100,maxSamples=999;
+// A full 128 MB EP backup needs room for project archives and ZIP metadata.
+const archiveLimit=192*1024*1024,manifestLimit=4*1024*1024;
+const metadataLimit=1024*1024,totalMetadataLimit=16*1024*1024;
+const legacyZipPolicy={
+  limits:{zipMax:archiveLimit,expandedMax:archiveLimit,fileMax:128*1024*1024,
+    entryMax:1+maxProjects+2*maxSamples},
+  checkPath:name=>{
+    if(!name||name.length>512||name.startsWith('/')||name.includes('..')||name.includes('\\')||name.includes('\0'))
+      throw new Error('Unsafe legacy ZIP path.');
+    return name;
+  }
+};
+
+function backupSlot(value){
+  if((typeof value!=='number'&&typeof value!=='string')||!/^\d{1,3}$/.test(String(value)))return null;
+  const slot=Number(value);
+  return slot>=1&&slot<=maxSamples?slot:null;
+}
+
+function validateProjectDependencies(dependencies){
+  if(dependencies==null)return;
+  if(typeof dependencies!=='object'||Array.isArray(dependencies))throw new Error('Invalid backup project dependencies.');
+  for(const field of ['referencedSampleSlots','missingSampleSlots']){
+    const values=dependencies[field];
+    if(values==null)continue;
+    if(!Array.isArray(values)||values.length>maxSamples)throw new Error('Invalid backup project dependency slots.');
+    const slots=new Set(values.map(backupSlot));
+    if(slots.has(null)||slots.size!==values.length)throw new Error('Invalid backup project dependency slots.');
+  }
+}
 
 export function normalizeBackupScope(scope){
   const value=String(scope||'');
@@ -82,68 +112,71 @@ export async function createEpBackupBundle({
 }
 
 export function parseStoredZip(value){
-  const bytes=cloneBytes(value);
-  const files=new Map();
-  let offset=0;
-  while(offset+4<=bytes.length){
-    const signature=u32(bytes,offset);
-    if(signature!==0x04034b50)break;
-    if(offset+30>bytes.length)throw new Error('Truncated ZIP local header.');
-    const flags=u16(bytes,offset+6);
-    const method=u16(bytes,offset+8);
-    const expectedCrc=u32(bytes,offset+14);
-    const compressedSize=u32(bytes,offset+18);
-    const uncompressedSize=u32(bytes,offset+22);
-    const nameLength=u16(bytes,offset+26);
-    const extraLength=u16(bytes,offset+28);
-    if(method!==0)throw new Error('Backup ZIP compression is unsupported.');
-    if(flags&0x08)throw new Error('Backup ZIP data descriptors are unsupported.');
-    if(compressedSize!==uncompressedSize)throw new Error('Backup ZIP stored-size mismatch.');
-    const nameStart=offset+30,nameEnd=nameStart+nameLength;
-    const dataStart=nameEnd+extraLength,dataEnd=dataStart+compressedSize;
-    if(dataEnd>bytes.length)throw new Error('Truncated ZIP file payload.');
-    const name=dec.decode(bytes.slice(nameStart,nameEnd));
-    if(!name||name.startsWith('/')||name.includes('..')||name.includes('\\'))
-      throw new Error('Unsafe ZIP path: '+name);
-    if(files.has(name))throw new Error('Duplicate ZIP path: '+name);
-    const data=bytes.slice(dataStart,dataEnd);
-    const actualCrc=parseInt(crc32Hex(data),16)>>>0;
-    if(actualCrc!==expectedCrc)throw new Error('ZIP CRC mismatch for '+name+'.');
-    files.set(name,data);
-    offset=dataEnd;
-  }
-  if(!files.size)throw new Error('Backup ZIP contains no files.');
-  return files;
+  return new Map([...readStoredZipViews(value,legacyZipPolicy)].map(([name,data])=>[name,Uint8Array.from(data)]));
 }
 
 export function parseEpBackupBundle(value){
-  const files=parseStoredZip(value);
+  const files=readStoredZipViews(value,legacyZipPolicy);
   const manifestBytes=files.get('manifest.json');
   if(!manifestBytes)throw new Error('Backup bundle manifest.json is missing.');
+  if(manifestBytes.length>manifestLimit)throw new Error('Backup manifest exceeds its size limit.');
   let manifest;
   try{manifest=JSON.parse(dec.decode(manifestBytes));}
   catch{throw new Error('Backup bundle manifest.json is invalid.');}
   if(manifest?.schema!==EP_BACKUP_SCHEMA)throw new Error('Unsupported EP backup schema.');
   normalizeBackupScope(manifest.scope);
+  const projectRecords=manifest.projects??[],sampleRecords=manifest.samples??[];
+  if(!Array.isArray(projectRecords)||projectRecords.length>maxProjects||
+    !Array.isArray(sampleRecords)||sampleRecords.length>maxSamples)
+    throw new Error('Backup manifest contains an invalid project or sample count.');
 
-  const projects=(manifest.projects||[]).map(record=>{
-    const number=String(record?.number||'').padStart(2,'0');
-    const data=files.get(String(record?.file||''));
-    if(!data)throw new Error('Backup project P'+number+' payload is missing.');
+  const projectIds=new Set(),sampleIds=new Set(),claims=new Set(['manifest.json']);
+  const claim=path=>{
+    const entry=typeof path==='string'?files.get(path):null;
+    if(!entry?.length)throw new Error('Backup payload is missing or empty.');
+    if(claims.has(path))throw new Error('Reused backup payload path.');
+    claims.add(path);
+    return entry;
+  };
+  const validateSize=(record,data)=>{
+    if(record.size!=null&&record.size!==data.byteLength)
+      throw new Error('Backup manifest payload size mismatch.');
+  };
+  // Unique, nonoverlapping ZIP entries bound payload copies by the input size.
+  // Keep views until all manifest members have been accepted.
+  const projects=projectRecords.map(record=>{
+    const raw=record?.number;
+    if((typeof raw!=='number'&&typeof raw!=='string')||!/^\d{1,2}$/.test(String(raw)))
+      throw new Error('Invalid backup project number.');
+    const number=String(raw).padStart(2,'0');
+    if(projectIds.has(number))throw new Error('Duplicate backup project number.');
+    projectIds.add(number);
+    validateProjectDependencies(record.dependencies);
+    const data=claim(record.file);
+    validateSize(record,data);
     if(crc32Hex(data)!==String(record?.crc32||''))throw new Error('Backup project P'+number+' checksum mismatch.');
-    return{...record,number,data:data.slice()};
+    return{...record,number,data};
   });
-  const samples=(manifest.samples||[]).map(record=>{
-    const slot=Number(record?.slot);
-    const data=files.get(String(record?.dataFile||''));
-    const metadataBytes=files.get(String(record?.metadataFile||''));
-    if(!data||!metadataBytes)throw new Error('Backup sample '+String(slot).padStart(3,'0')+' payload is incomplete.');
+  let totalMetadata=0;
+  const samples=sampleRecords.map(record=>{
+    const slot=backupSlot(record?.slot);
+    if(slot===null)throw new Error('Invalid backup sample slot.');
+    if(sampleIds.has(slot))throw new Error('Duplicate backup sample slot.');
+    sampleIds.add(slot);
+    const data=claim(record.dataFile),metadataBytes=claim(record.metadataFile);
+    totalMetadata+=metadataBytes.length;
+    if(metadataBytes.length>metadataLimit||totalMetadata>totalMetadataLimit)
+      throw new Error('Backup sample metadata exceeds its size limit.');
+    validateSize(record,data);
     if(crc32Hex(data)!==String(record?.crc32||''))throw new Error('Backup sample '+String(slot).padStart(3,'0')+' checksum mismatch.');
     let metadata;
     try{metadata=JSON.parse(dec.decode(metadataBytes));}
     catch{throw new Error('Backup sample '+String(slot).padStart(3,'0')+' metadata is invalid.');}
-    return{...record,slot,data:data.slice(),metadata};
+    if(!metadata||typeof metadata!=='object'||Array.isArray(metadata))
+      throw new Error('Backup sample metadata must be an object.');
+    return{...record,slot,data,metadata};
   });
+  for(const record of [...projects,...samples])record.data=Uint8Array.from(record.data);
   return Object.freeze({
     manifest:Object.freeze({...manifest}),
     projects:Object.freeze(projects),
@@ -152,8 +185,13 @@ export function parseEpBackupBundle(value){
 }
 
 export async function readEpBackupBundleFile(file){
-  if(!file?.arrayBuffer)throw new TypeError('Backup file is required.');
-  return parseEpBackupBundle(new Uint8Array(await file.arrayBuffer()));
+  if(typeof file?.arrayBuffer!=='function')throw new TypeError('Backup file is required.');
+  const size=file.size;
+  if(!Number.isSafeInteger(size)||size<22||size>archiveLimit)
+    throw new Error('Backup ZIP size outside safe limits.');
+  const buffer=await file.arrayBuffer();
+  if(buffer.byteLength!==size)throw new Error('Backup ZIP size changed during read.');
+  return parseEpBackupBundle(new Uint8Array(buffer));
 }
 
 export function buildBundleProjectRestorePlan(bundle,projectNumber,{getSampleSlot}={}){
