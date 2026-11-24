@@ -153,9 +153,11 @@ export function createDeviceOperationCoordinator({
     });
   };
 
-  const run=async(label,operation,{mode='read'}={})=>{
+  const run=async(label,operation,{mode='read',connectionEpoch}={})=>{
     if(typeof operation!=='function')throw new TypeError('Device operation coordinator requires an operation.');
+    if(connectionEpoch!=null)runtime.assertEpoch(connectionEpoch);
     await waitForRecoveryHydration();
+    if(connectionEpoch!=null)runtime.assertEpoch(connectionEpoch);
     const lease=begin(label,{mode});
     try{return await operation(lease);}
     finally{lease.close();}

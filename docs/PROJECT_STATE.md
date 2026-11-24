@@ -27,7 +27,7 @@ These are **not corrected** by the documentation reconciliation or merged #206:
 - **S2 D-01 software fix:** `js/ep133/audio.js` rejects truncated RIFF and incomplete PCM frames in ordinary uploads and REPITCH. Fake EP coverage checks that the next valid file still uploads. Physical acceptance remains pending.
 - **S3 A-03:** `js/sequencer/midiTraceAnalyzer.js` does not reject every contradictory capture-limit metadata case.
 - **S3 B-03:** Visuals/My EP bootstrap coupling needs measured impact before refactoring.
-- **C-04 software fix:** My EP rejects contradictory GREET base SKUs at connection time and gates FILE traffic until verification. Fake EP covers the known AS002 → AS001 alias, cross-model rejection, retry, and a queued intent during GREET.
+- **C-04 software fix:** My EP rejects contradictory GREET base SKUs at connection time and gates FILE traffic until verification. Fake EP covers the known AS002 → AS001 alias, cross-model rejection, retry, and rejection of stale FILE intents during GREET, lock admission and firmware preflight.
 
 Evidence, severity, source locations and future regression requirements: [21-Nov code review](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md). Keep targeted follow-ups in existing [ZAT-69](https://linear.app/clouded/issue/ZAT-69), [ZAT-65](https://linear.app/clouded/issue/ZAT-65), [ZAT-62](https://linear.app/clouded/issue/ZAT-62), [ZAT-57](https://linear.app/clouded/issue/ZAT-57) and [ZAT-63](https://linear.app/clouded/issue/ZAT-63). No production-code fix or fresh hardware test was authorized by the docs review.
 

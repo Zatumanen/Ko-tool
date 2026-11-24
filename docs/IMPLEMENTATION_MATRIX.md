@@ -58,7 +58,7 @@ Source-backed details and separate reproductions: [read-only review on exact mai
 - **S2 C-03 / ZAT-62/69:** unbounded input and aliased allocations in legacy ZIP parser `js/ep133/backupBundle.js`.
 - **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
 - **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
-- **C-04 / ZAT-68:** synthetic and fake-EP cases reproduce cross-model GREET aliasing and FILE access during handshake. Software verifies matching model identity before FILE access and retains the evidence-scoped AS002 → AS001 alias. Hardware validation remains scoped to prior evidence.
+- **C-04 / ZAT-68:** synthetic and fake-EP cases reproduce cross-model GREET aliasing and FILE access during handshake. Software verifies model identity before scheduling FILE access, binds admission to the original epoch and retains the evidence-scoped AS002 → AS001 alias. Hardware validation remains scoped to prior evidence.
 
 Source `main@b6c9ad4` green CI is not a final RC acceptance, Pages deploy, real EP validation or proof that these findings were repaired.
 

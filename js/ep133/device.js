@@ -208,6 +208,7 @@ export function isRequestTimeoutError(error){return error?.code==='EP_SERIES_TIM
 export async function passiveFirmwareDebugPreflight(duration=FIRMWARE_DEBUG_PREFLIGHT_MS,label='guarded FILE transaction'){
   if(deviceUnsafe)throw unsafeError();
   if(!initialized||!input||!output)throw new Error('EP-series device is not connected.');
+  const epoch=connectionEpoch;
   const wait=Math.max(0,Number(duration)||0);
   const startedAt=Date.now();
   const sequence=firmwareDebugSequence;
@@ -217,6 +218,7 @@ export async function passiveFirmwareDebugPreflight(duration=FIRMWARE_DEBUG_PREF
   }
   if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
   if(deviceUnsafe)throw unsafeError();
+  if(epoch!==connectionEpoch||!isConnected())throw new Error('EP-series connection changed during FILE preflight.');
   if(firmwareDebugSequence!==sequence){
     enterUnsafeState('Firmware debug SysEx detected during passive preflight for '+String(label||'guarded FILE transaction')+': '+lastFirmwareDebugText);
     throw unsafeError();

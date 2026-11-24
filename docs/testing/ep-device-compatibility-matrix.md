@@ -29,7 +29,8 @@ A recognized MIDI identity keeps its own model profile. A nonempty conflicting
 GREET `base_sku` fails the connection. For identity-only EP-133 AS002, only the
 observed GREET `TE032AS001` pairing resolves to the EP-133 profile. Other AS002
 pairings retain the discovery-only profile. FILE commands require a completed
-handshake, in addition to the existing scheduler and operation requirements.
+handshake before entering the scheduler. A queued FILE operation and its
+firmware preflight stay tied to the session where they started.
 
 ## Evidence-based operation permissions
 
