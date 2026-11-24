@@ -1,3 +1,5 @@
+import {parseWavAudioMeta} from './audio.js?v=20261001-1';
+
 /**
  * K.O. Tool private RIFF chunk. This records content integrity and conversion
  * provenance for our own exports; it is not a cryptographic proof of origin.
@@ -29,33 +31,18 @@ function strictJson(bytes, kind) {
     throw new Error('Invalid ' + kind + ': ' + String(error?.message || error));
   }
 }
-function scanWav(value, {required = true} = {}) {
-  const bytes = asBytes(value);
-  if (bytes.length < 12 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 4) !== 'WAVE') {
-    if (required) throw new Error('Expected a valid RIFF/WAVE file.');
-    return null;
-  }
+function scanWav(bytes) {
+  const wav = parseWavAudioMeta(bytes);
+  if (!wav) throw new Error('Expected a valid RIFF/WAVE file.');
+  const fmt = {format: wav.format, channels: wav.channels, sampleRate: wav.rate, bits: wav.bits};
+  const data = {start: wav.dataOffset, length: wav.dataSize};
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const riffLength = view.getUint32(4, true) + 8;
-  if (riffLength !== bytes.length) throw new Error('Malformed RIFF/WAVE length.');
-  let fmt = null, data = null, metadata = null, marker = null;
+  let metadata = null, marker = null;
   for (let offset = 12; offset < bytes.length;) {
-    if (offset + 8 > bytes.length) throw new Error('Truncated RIFF chunk header.');
     const id = ascii(bytes, offset, 4);
     const length = view.getUint32(offset + 4, true);
     const start = offset + 8, end = start + length, next = end + (length & 1);
-    if (end > bytes.length || next > bytes.length || next <= offset)
-      throw new Error('Malformed or truncated RIFF chunk.');
-    if (id === 'fmt ') {
-      if (fmt || length < 16) throw new Error('Invalid duplicate or short WAV format chunk.');
-      fmt = {format: view.getUint16(start, true), channels: view.getUint16(start + 2, true),
-        sampleRate: view.getUint32(start + 4, true),
-        byteRate: view.getUint32(start + 8, true), blockAlign: view.getUint16(start + 12, true),
-        bits: view.getUint16(start + 14, true)};
-    } else if (id === 'data') {
-      if (data || length === 0) throw new Error('Invalid duplicate or empty WAV data chunk.');
-      data = {start, length};
-    } else if (id === 'LIST') {
+    if (id === 'LIST') {
       // A damaged INFO/TNGE header must not silently become 'raw' and trigger
       // a second x2 conversion. Only non-INFO LIST types are unrelated.
       if (length < 4) throw new Error('Malformed WAV LIST chunk.');
@@ -80,14 +67,6 @@ function scanWav(value, {required = true} = {}) {
       marker = strictJson(bytes.subarray(start, end), 'K.O. Tool REPITCH provenance');
     }
     offset = next;
-  }
-  if (!fmt || !data || !fmt.channels || !fmt.sampleRate)
-    throw new Error('WAV has no usable format or audio chunk.');
-  if (fmt.format === 1 && fmt.bits === 16 && [1, 2].includes(fmt.channels)) {
-    const frameSize = fmt.channels * 2;
-    if (fmt.blockAlign !== frameSize || fmt.byteRate !== fmt.sampleRate * frameSize ||
-        data.length % frameSize !== 0)
-      throw new Error('Malformed WAV PCM size, block alignment or byte rate.');
   }
   return {bytes, fmt, data, metadata, marker};
 }

@@ -56,7 +56,7 @@ Source-backed details and separate reproductions: [read-only review on exact mai
 
 - **S2 B-01/B-02 / ZAT-65:** Visuals input stream cleanup on AudioContext constructor failure; stale async enumerate after closing Visuals. Both remain unresolved in `js/visuals/audio.js` and `js/visuals/app.js`.
 - **S2 C-03 / ZAT-62/69:** unbounded input and aliased allocations in legacy ZIP parser `js/ep133/backupBundle.js`.
-- **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout before direct import or decoder fallback. Regression covers zero PUT for the malformed file and preserves the next valid file.
+- **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
 - **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
 - **C-04 / ZAT-68:** GREET versus recognized SKU alias behavior is **unreproduced**; do not promote speculative concern to confirmed defect.
 

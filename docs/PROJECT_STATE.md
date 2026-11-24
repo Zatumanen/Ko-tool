@@ -24,7 +24,7 @@ These are **not corrected** by the documentation reconciliation or merged #206:
 - **S2 B-01:** `js/visuals/audio.js` may leave `getUserMedia` tracks open when `AudioContext` construction fails after capture (existing synthetic failure).
 - **S2 B-02:** `js/visuals/app.js` asynchronous `enumerateDevices` success/error after close can dereference discarded `audio=null` (existing browser failure).
 - **S2 C-03:** `js/ep133/backupBundle.js` unbounded legacy ZIP `arrayBuffer()`/manifest payload-copy amplification.
-- **S2 D-01 software fix:** `js/ep133/audio.js` rejects truncated RIFF and incomplete PCM frames before upload. Fake EP coverage checks that the next valid file still uploads. Physical acceptance remains pending.
+- **S2 D-01 software fix:** `js/ep133/audio.js` rejects truncated RIFF and incomplete PCM frames in ordinary uploads and REPITCH. Fake EP coverage checks that the next valid file still uploads. Physical acceptance remains pending.
 - **S3 A-03:** `js/sequencer/midiTraceAnalyzer.js` does not reject every contradictory capture-limit metadata case.
 - **S3 B-03:** Visuals/My EP bootstrap coupling needs measured impact before refactoring. **C-04** device GREET/recognized SKU alias is an **unreproduced risk**, not a confirmed defect.
 

@@ -160,6 +160,29 @@ test('batch malformed WAV fails before consent and before any mutation',async()=
   assert.equal(consent,0);
 });
 
+test('REPITCH accepts whole PCM24 frames and rejects partial ones before DSP or consent',async()=>{
+  const {preflightRepitchBatch}=await import('../js/ep133/myEpRepitch.js');
+  const partial=wav();
+  const view=new DataView(partial.buffer);
+  view.setUint32(28,96000,true);
+  view.setUint16(32,3,true);
+  view.setUint16(34,24,true);
+  const complete=partial.slice(0,-2);
+  const completeView=new DataView(complete.buffer);
+  completeView.setUint32(4,complete.byteLength-8,true);
+  completeView.setUint32(40,6,true);
+  assert.equal((await classifyRepitchInput(complete,{filename:'complete.wav'})).sourceFrames,2);
+  let converted=0,confirmed=0;
+  await assert.rejects(()=>preflightRepitchBatch([file(partial)],{
+    confirmAmbiguous:async()=>{confirmed++;return true;}
+  }),/Incomplete WAV PCM frame/);
+  await assert.rejects(()=>prepareMyEpRepitchSample(file(partial),{
+    convert:async()=>{converted++;}
+  }),/Incomplete WAV PCM frame/);
+  assert.equal(converted,0);
+  assert.equal(confirmed,0);
+});
+
 test('batch preflight observes session changes between file read and classification',async()=>{
   const {preflightRepitchBatch}=await import('../js/ep133/myEpRepitch.js');
   let current=true, classified=0;
