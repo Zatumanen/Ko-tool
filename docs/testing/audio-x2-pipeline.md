@@ -23,6 +23,8 @@ WAV with verified K.O. Tool RIFF KORP provenance bypasses repeat processing.
 Old TE `sound.pitch=-12` is ambiguous and needs a single explicit batch choice.
 A **raw, unprepared** WAV with authored `sound.pitch` other than zero is rejected before x2 because the required fixed `-12` compensation would otherwise silently overwrite the user's prior pitch. Use REPITCH OFF for that source unless a future verified mapping is explicitly approved. Provenance-verified or explicitly accepted legacy `-12` files keep their separate bypass behavior.
 Corrupt provenance or metadata must be rejected before FILE PUT.
+Direct RIFF/WAVE imports reject invalid chunk bounds and incomplete PCM frames
+before the decoder fallback or FILE PUT, including with REPITCH off.
 Both products delegate actual resampling and WAV encoding to the shared
 `js/audio/audioEngine.js` reference ABI.
 

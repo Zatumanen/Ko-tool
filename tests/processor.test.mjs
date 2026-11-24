@@ -148,6 +148,38 @@ test('SpeedUpperCut HI MID LO WAVs enter My EP through the byte-exact s16 fast p
   }
 });
 
+test('My EP rejects damaged RIFF before direct preparation or decoder fallback',async()=>{
+  const blob=await encodeWav(buffer(8,1,46875));
+  const valid=new Uint8Array(await blob.arrayBuffer());
+  const {dataOffset,dataSize}=parseWavAudioMeta(valid);
+  const resizeRiff=bytes=>new DataView(bytes.buffer).setUint32(4,bytes.length-8,true);
+  const truncated=valid.slice(0,-2);
+  resizeRiff(truncated); // Keep the outer RIFF size consistent; data itself is truncated.
+  const oddFrame=valid.slice();
+  new DataView(oddFrame.buffer).setUint32(dataOffset-4,dataSize-1,true);
+  const badRoot=valid.slice();
+  new DataView(badRoot.buffer).setUint32(4,badRoot.length-10,true);
+  const trailing=new Uint8Array(valid.length+4);
+  trailing.set(valid);
+  resizeRiff(trailing);
+  const wrongAlignment=valid.slice();
+  new DataView(wrongAlignment.buffer).setUint16(32,1,true);
+
+  for(const [name,bytes,reason] of [
+    ['truncated-data',truncated,/truncated.*chunk/i],
+    ['partial-PCM-frame',oddFrame,/PCM.*frame/i],
+    ['wrong-RIFF-size',badRoot,/RIFF.*length/i],
+    ['short-trailing-header',trailing,/truncated.*header/i],
+    ['wrong-block-alignment',wrongAlignment,/PCM.*frame/i]
+  ]){
+    const stages=[];
+    await assert.rejects(prepareEp133Sample(new File([bytes],name+'.wav'),{
+      onProgress:(_percent,state)=>stages.push(state.status)
+    }),reason,name);
+    assert.deepEqual(stages,[],name);
+  }
+});
+
 test('mono conversion averages source channels',async()=>{
   const b=buffer(2,2);
   b.getChannelData(0).set([1,0]);

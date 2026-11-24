@@ -18,16 +18,46 @@ function readAscii(view,offset,length){let s='';for(let i=0;i<length;i++)s+=Stri
 
 export function parseWavAudioMeta(bytes){
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-  if(view.byteLength<44||readAscii(view,0,4)!=='RIFF'||readAscii(view,8,4)!=='WAVE')return null;
-  let offset=12,fmt=null,dataOffset=-1,dataSize=0;
-  while(offset+8<=view.byteLength){
-    const id=readAscii(view,offset,4),size=view.getUint32(offset+4,true),next=offset+8+size+(size&1);
-    if(id==='fmt '&&size>=16)fmt={format:view.getUint16(offset+8,true),channels:view.getUint16(offset+10,true),rate:view.getUint32(offset+12,true),bits:view.getUint16(offset+22,true)};
-    if(id==='data'){dataOffset=offset+8;dataSize=Math.min(size,view.byteLength-dataOffset);break;}
-    if(next<=offset||next>view.byteLength)break;
+  if(view.byteLength<4||readAscii(view,0,4)!=='RIFF')return null;
+  if(view.byteLength<12||readAscii(view,8,4)!=='WAVE')throw new Error('Invalid RIFF/WAVE header.');
+  if(view.getUint32(4,true)+8!==view.byteLength)throw new Error('Malformed RIFF/WAVE length.');
+
+  let offset=12,fmt=null,dataOffset=-1,dataSize=0,frameSize=0;
+  while(offset<view.byteLength){
+    if(offset+8>view.byteLength)throw new Error('Truncated RIFF chunk header.');
+    const id=readAscii(view,offset,4),size=view.getUint32(offset+4,true);
+    const start=offset+8,next=start+size+(size&1);
+    if(next>view.byteLength)throw new Error('Truncated RIFF chunk.');
+    if(id==='fmt '){
+      if(fmt||size<16)throw new Error('Duplicate or incomplete WAV format chunk.');
+      const format=view.getUint16(start,true),channels=view.getUint16(start+2,true);
+      const rate=view.getUint32(start+4,true),bits=view.getUint16(start+14,true);
+      if(!channels||!rate)throw new Error('Invalid WAV channels or sample rate.');
+      fmt={format,channels,rate,bits};
+      // WAVE_FORMAT_EXTENSIBLE can carry a PCM or IEEE float subtype. Leave
+      // supported non-PCM formats to the decoder after checking their bounds.
+      let subtype=format;
+      if(format===0xfffe){
+        if(size<40||view.getUint16(start+16,true)<22||18+view.getUint16(start+16,true)>size)
+          throw new Error('Incomplete extensible WAV format chunk.');
+        if(view.getUint32(start+28,true)===0x00100000&&view.getUint32(start+32,true)===0xaa000080&&view.getUint32(start+36,true)===0x719b3800)
+          subtype=view.getUint32(start+24,true);
+      }
+      if(subtype===1||subtype===3){
+        frameSize=channels*(bits/8);
+        if(!bits||bits%8!==0||view.getUint16(start+12,true)!==frameSize||view.getUint32(start+8,true)!==rate*frameSize)
+          throw new Error('Invalid WAV PCM frame layout.');
+      }
+    }
+    if(id==='data'){
+      if(!fmt||dataOffset>=0||!size)throw new Error('Invalid, duplicate or empty WAV data chunk.');
+      if(frameSize&&size%frameSize!==0)throw new Error('Incomplete WAV PCM frame.');
+      dataOffset=start;
+      dataSize=size;
+    }
     offset=next;
   }
-  if(!fmt||dataOffset<0)return null;
+  if(!fmt||dataOffset<0)throw new Error('WAV format or data chunk is missing.');
   return{...fmt,dataOffset,dataSize};
 }
 
