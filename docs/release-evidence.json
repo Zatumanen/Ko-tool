@@ -1,0 +1,591 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": {
+    "SOURCE_SHA": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+    "TESTED_SHA": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+    "MERGED_SHA": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+    "PUBLISHED_SHA": "d8c193a41069b4b053b242b9b6d35c1a688641c8",
+    "LIVE_SHA": "d8c193a41069b4b053b242b9b6d35c1a688641c8",
+    "jobs": {
+      "codex-preflight": "success",
+      "unit": "success",
+      "build-pages": "success",
+      "browser-e2e": "success"
+    },
+    "tests": "https://github.com/Zatumanen/Ko-tool/actions/runs/45566438934",
+    "merge": "https://github.com/Zatumanen/Ko-tool/pull/211",
+    "publish": "https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855",
+    "publishEvent": "workflow_dispatch",
+    "liveUrl": "https://zatumanen.github.io/Ko-tool/build-version.json",
+    "liveObservedAt": "2026-11-25"
+  },
+  "decision": "NO-GO",
+  "rcSha": null,
+  "releaseGates": {
+    "distributionRights": {
+      "status": "BLOCKED",
+      "reason": "Distribution rights for five existing WASM files and applicable third-party notices still need a documented owner clearance."
+    },
+    "hostAcceptance": {
+      "status": "PENDING",
+      "reason": "Visuals endurance and browser audio input compatibility need the designated host and device observations."
+    },
+    "securityReview": {
+      "status": "PENDING",
+      "reason": "Final independent whole-candidate review remains open while behavior and safety PRs are in progress."
+    }
+  },
+  "features": [
+    {
+      "id": "MEP-LIBRARY",
+      "stage": 1,
+      "scope": "01 · My EP sample library and sync",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "SCOPED",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleLibrarySync.js",
+        "tests/e2e/my-ep.spec.mjs",
+        "js/ep133/device.js",
+        "js/ep133/deviceRuntimeState.js",
+        "js/ep133/deviceCapabilities.js",
+        "js/ep133/deviceOperationCoordinator.js",
+        "js/ep133/fileTransport.js",
+        "js/ep133/evidenceRegistry.js",
+        "tests/filesystem-intent-session.behavior.test.mjs"
+      ],
+      "verification": "Verified GREET model agreement and origin-epoch FILE admission in synthetic cases. Device permissions are scoped by exact firmware evidence.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/209"
+    },
+    {
+      "id": "MEP-UPLOAD",
+      "stage": 1,
+      "scope": "01 · Upload + authoritative PCM readback",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleUploadController.js",
+        "js/ep133/audio.js",
+        "tests/e2e/sample-upload-pcm-readback.spec.mjs"
+      ],
+      "verification": "invalid RIFF and partial PCM frames fail before PUT; physical readback not newly accepted.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/208"
+    },
+    {
+      "id": "MEP-MOVE",
+      "stage": 1,
+      "scope": "01 · Transactional sample MOVE",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleMoveController.js",
+        "tests/e2e/sample-move-dependencies.spec.mjs"
+      ],
+      "verification": "latest dependency/rollback behavior needs scoped HIL.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-COPY",
+      "stage": 1,
+      "scope": "01 · PCM-verified COPY",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleCopyController.js",
+        "tests/e2e/sample-copy-pcm-readback.spec.mjs"
+      ],
+      "verification": "physical acceptance open.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-DELETE",
+      "stage": 1,
+      "scope": "01 · Guarded DELETE and project dependencies",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleDeleteController.js",
+        "tests/e2e/sample-dependency-guard.spec.mjs"
+      ],
+      "verification": "Scoped software evidence. no destructive HIL run.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-PADS-READ",
+      "stage": 1,
+      "scope": "01 · Saved pad parameters",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "SCOPED",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/padPropertiesReadOnlyController.js",
+        "tests/e2e/my-ep-pad-readonly.spec.mjs"
+      ],
+      "verification": "narrowly scoped EP-133 2.5.1 READ only.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-PADS-WRITE",
+      "stage": 1,
+      "scope": "01 · Editing assigned pad state",
+      "code": "BLOCKED",
+      "automated": "PASS",
+      "hil": "BLOCKED",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/padPropertiesReadOnlyController.js",
+        "tests/e2e/my-ep-pad-readonly.spec.mjs"
+      ],
+      "verification": "WRITE is disabled; Draft PR #139 is **not merged**; PASS refers to read-only guard.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-PROJECTS",
+      "stage": 1,
+      "scope": "01 · Project authoring, readback and recovery",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/projectSequencerController.js",
+        "tests/project-sequencer-ui.test.mjs"
+      ],
+      "verification": "restricted legacy editor, not standalone Sequencer; real recovery HIL pending.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-LEGACY-RESTORE",
+      "stage": 1,
+      "scope": "01 · TAR/ZIP Restore session-bound approval",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/backupRestoreController.js",
+        "js/ep133/projectFilesystem.js",
+        "tests/backup-restore-session-approval.test.mjs",
+        "js/ep133/backupBundle.js",
+        "js/archive/zipReader.js",
+        "tests/backup-bundle.test.mjs"
+      ],
+      "verification": "Legacy v1 ZIP size, checksum, duplicate and dependency validation passed on the verified source with the session-bound Restore approval tests. Physical recovery remains pending.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/210"
+    },
+    {
+      "id": "MEP-RENAME",
+      "stage": 1,
+      "scope": "01 · Sample Library Rename exact-firmware authorization",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleRenameController.js",
+        "js/ep133/ui/createEpWorkspace.js",
+        "tests/sample-rename-authority.test.mjs"
+      ],
+      "verification": "#206 demands advancedSampleMetadataWrites and strict session/slot guard; does NOT authorize assigned pad WRITE.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/206"
+    },
+    {
+      "id": "MEP-PAK-EXPORT",
+      "stage": 1,
+      "scope": "01 · Official PAK/PPAK export",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/officialPak.js",
+        "tests/official-pak-export.test.mjs"
+      ],
+      "verification": "physical interchange acceptance remains separate.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-PAK-PREVIEW",
+      "stage": 1,
+      "scope": "01 · Official PAK/PPAK read-only inspection",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/officialPakReader.js",
+        "js/ep133/officialPakPreviewPlan.js",
+        "tests/official-pak-preview-plan.test.mjs"
+      ],
+      "verification": "no write permission implied.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-PAK-RESTORE",
+      "stage": 1,
+      "scope": "01 · Actual official PAK/PPAK Restore",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "BLOCKED",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/officialPakRestoreStaging.js",
+        "js/ep133/ui/backupRestoreController.js",
+        "tests/official-pak-restore-staging-integration.test.mjs"
+      ],
+      "verification": "**offline integrity staging only, Restore disabled**.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "MEP-REPITCH",
+      "stage": 1,
+      "scope": "01 · My EP x2/−12, KORP anti-double-process",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/myEpRepitch.js",
+        "js/ep133/repitchProvenance.js",
+        "tests/e2e/my-ep-repitch.spec.mjs",
+        "js/ep133/audio.js",
+        "js/audio/processor.js"
+      ],
+      "verification": "actual device playback/CRC acceptance open.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "SUC-X2",
+      "stage": 2,
+      "scope": "02 · SpeedUpperCut reference x2 engine",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/audio/processor.js",
+        "tests/audio-pipeline-golden.test.mjs",
+        "js/audio/audioEngine.js",
+        "js/ep133/resampler.js"
+      ],
+      "verification": "synthetic golden ≠ physical playback.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "SUC-FOLDERS",
+      "stage": 2,
+      "scope": "02 · Folder WAV/ZIP export",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/app.js",
+        "tests/e2e/folder-import-recovery.spec.mjs"
+      ],
+      "verification": "browser-only export scope.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "SUC-TO-MYEP",
+      "stage": 2,
+      "scope": "02 · Multi-drag, destination preview",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/ui/sampleUploadChoice.js",
+        "tests/e2e/my-ep-numbered-upload-choice.spec.mjs"
+      ],
+      "verification": "physical transfer still unaccepted.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-BASE",
+      "stage": 3,
+      "scope": "03 · Seven basic Visuals panels",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/app.js",
+        "tests/e2e/visuals.spec.mjs",
+        "tests/visuals-audio.test.mjs",
+        "js/visuals/audio.js"
+      ],
+      "verification": "Chromium covers stale capture and input callbacks, same-ID reconnect and standalone startup. Physical USB input, host endurance and owner acceptance remain open.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/211"
+    },
+    {
+      "id": "VIS-TRIGGER",
+      "stage": 3,
+      "scope": "03 · Attack-centered held waveform",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/transientTrigger.js",
+        "tests/visuals-trigger.test.mjs"
+      ],
+      "verification": "continuous PCM trigger and controls; exact-head browser/CI and owner visual acceptance tracked in PR, video comparison unverified.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-SPECTRUM",
+      "stage": 3,
+      "scope": "03 · Continuous logarithmic Spectrum curve",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/spectrum.js",
+        "tests/visuals-spectrum.test.mjs"
+      ],
+      "verification": "float FFT/log Hz/dBFS display and time-based release; exact-head CI and owner aesthetic acceptance recorded in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-SPECTROGRAM",
+      "stage": 3,
+      "scope": "03 · Timestamped right-to-left history",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/spectrogram.js",
+        "tests/visuals-spectrogram.test.mjs"
+      ],
+      "verification": "bounded FFT queue survives resize and repaint changes; exact-head CI and owner visuals/performance acceptance tracked in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-THEMES-PERF",
+      "stage": 3,
+      "scope": "03 · Mono variants / adaptive Canvas / offscreen",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/renderClock.js",
+        "tests/visuals-render-clock.test.mjs",
+        "tests/e2e/visuals-themes-performance.spec.mjs"
+      ],
+      "verification": "3 globals, dark/light mono, independent snapshot cadence and Canvas60/30/15; owner/device palette, MBP performance and endurance pending in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-XY",
+      "stage": 3,
+      "scope": "03 · Stereo XY / labeled Artistic XY",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/xy.js",
+        "tests/visuals-xy.test.mjs"
+      ],
+      "verification": "direct L/R mapping and bounded timed afterglow; mono technical trace refused, derived mode explicit; exact-head CI and owner visuals tracked in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-STEREO",
+      "stage": 3,
+      "scope": "03 · Spectral Plasma Vector / correlation / balance",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/stereo.js",
+        "tests/visuals-stereo.test.mjs"
+      ],
+      "verification": "frequency-aware display, mono/silence guards and format-change stop; exact-head CI and owner visual acceptance tracked in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-OUTPUT",
+      "stage": 3,
+      "scope": "03 · L/R sample Peak / Hold / CLIP",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/outputMeters.js",
+        "tests/visuals-output-meters.test.mjs",
+        "tests/e2e/visuals-output-meters.spec.mjs"
+      ],
+      "verification": "continuous measurement independent of repaint, explicit mono/reset; exact-head CI and owner visual/endurance acceptance tracked in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-LUFS",
+      "stage": 3,
+      "scope": "03 · ITU-R BS.1770 LUFS",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/loudness.js",
+        "tests/visuals-loudness.test.mjs"
+      ],
+      "verification": "mono/stereo M/S/I gates/reset with18FFmpeg vectors and worklet; exact-head CI and owner/endurance acceptance tracked in PR.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "VIS-RECORDER",
+      "stage": 3,
+      "scope": "03 · WAV 16/24-bit Recorder",
+      "code": "IMPLEMENTED",
+      "automated": "PARTIAL",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/visuals/recorderPcm.js",
+        "js/visuals/recorder.js",
+        "tests/e2e/visuals-recorder.spec.mjs"
+      ],
+      "verification": "bounded64MiB PCM, pause/resume, explicit interrupted prefix, preview/save/discard; exact-head CI in PR, owner/endurance/physical input acceptance pending; unlimited disk streaming absent.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/187"
+    },
+    {
+      "id": "SEQ-STANDALONE",
+      "stage": 4,
+      "scope": "04 · Separate Saved Step/Piano Roll app",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/sequencer/app.js",
+        "js/sequencer/saved.js",
+        "tests/sequencer-scenes.test.mjs",
+        "tests/e2e/sequencer.spec.mjs"
+      ],
+      "verification": "scoped connected Saved Step/Piano share native events, scene/song position and group/pad/pattern/page selection without rereads/writes; empty/missing links explicit, zoom/scroll retained; legacy unchanged; bidirectional Live tracked separately below, physical/owner acceptance pending.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/199"
+    },
+    {
+      "id": "SEQ-LIVE",
+      "stage": 4,
+      "scope": "04 · Hardware-authoritative bidirectional Live",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/ep133/midiEvents.js",
+        "js/sequencer/midiDiagnostics.js",
+        "js/sequencer/midiTraceAnalyzer.js",
+        "tests/midi-trace-analyzer.test.mjs",
+        "tests/e2e/midi-diagnostics.spec.mjs",
+        "scripts/analyze-midi-trace.mjs"
+      ],
+      "verification": "opt-in EVENTS ONLY, bounded local trace export and explicit local validation/analysis CLI with loss/provenance limits; close/hidden/session reset; no outbound commands, Live synchronization or inferred playhead; exact-device signal/phase evidence pending.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/203"
+    },
+    {
+      "id": "FXM-OFFLINE",
+      "stage": 5,
+      "scope": "05 · FX-MIC offline pack/editor/audition",
+      "code": "IMPLEMENTED",
+      "automated": "PASS",
+      "hil": "NOT APPLICABLE",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/fxMic/app.js",
+        "tests/e2e/fx-mic-studio.spec.mjs"
+      ],
+      "verification": "audition is approximate Web Audio.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/176"
+    },
+    {
+      "id": "FXM-LIVE",
+      "stage": 5,
+      "scope": "05 · EP-2350 production Live",
+      "code": "PARTIAL",
+      "automated": "PASS",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "js/fxMic/liveSession.js",
+        "js/fxMic/serialTransport.js",
+        "tests/fx-mic-live.test.mjs"
+      ],
+      "verification": "stock 1.1.2 config read-only; Live writes not broadly enabled.",
+      "testedSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496"
+    },
+    {
+      "id": "EP136-SIDEKICK",
+      "stage": 6,
+      "scope": "06 · EP-136 USB Audio inside Visuals",
+      "code": "MISSING",
+      "automated": "NOT TESTED",
+      "hil": "HIL PENDING",
+      "owner": "PENDING",
+      "sourceSha": "ad2017061577fc6a421bfc463c0d7238e9f7a496",
+      "paths": [
+        "docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md"
+      ],
+      "verification": "no separately accepted EP-136 integration."
+    }
+  ]
+}

@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -27,6 +29,7 @@ jobs:
       # On main pushes, this remains a structural matrix/evidence-path check.
       # No repository token, GitHub API call or physical-device permission needed.
       - run: node scripts/check-implementation-audit.mjs
+      - run: node scripts/check-release-evidence.mjs
 
   unit:
     runs-on: ubuntu-24.04

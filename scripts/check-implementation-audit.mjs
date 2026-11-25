@@ -14,8 +14,8 @@ export const PR_SECTIONS=Object.freeze([
   'Tests and evidence',
   'Hardware and release'
 ]);
-const software=new Set(['IMPLEMENTED','PARTIAL','MISSING','BLOCKED']);
-const automated=new Set(['PASS','PARTIAL','NOT TESTED']);
+const software=new Set(['IMPLEMENTED','PARTIAL','MISSING','BLOCKED','BROKEN']);
+const automated=new Set(['PASS','PARTIAL','NOT TESTED','FAIL']);
 const hardware=new Set(['SCOPED','HIL PENDING','BLOCKED','NOT APPLICABLE','PASS']);
 const requiredIds=new Set([
   'MEP-REPITCH','MEP-PAK-PREVIEW','MEP-PAK-RESTORE','SUC-TO-MYEP',
@@ -57,7 +57,7 @@ export function validateMatrix(source,{hasFile=()=>true}={}){
     if(!automated.has(a))errors.push('Invalid Automated state for '+id+': '+a);
     if(!hardware.has(h))errors.push('Invalid Hardware state for '+id+': '+h);
     const quote=String.fromCharCode(96);
-    const pattern=new RegExp(quote+'((?:js|tests|docs|scripts)/[^'+quote+'\\n]+)'+quote,'g');
+    const pattern=new RegExp(quote+'((?:js|css|tests|docs|scripts)/[^'+quote+'\\n]+|index\\.html)'+quote,'g');
     const refs=[...evidence.matchAll(pattern)].map(match=>match[1]);
     if(!refs.length)errors.push('No tracked evidence path for '+id);
     for(const ref of refs){

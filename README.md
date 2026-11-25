@@ -1,5 +1,30 @@
 # K.O. Tool
 
+<!-- RELEASE_EVIDENCE_START -->
+**K.O. TOOL 1.0 · NO-GO**
+
+| Checkpoint | SHA |
+| --- | --- |
+| SOURCE_SHA | `ad2017061577fc6a421bfc463c0d7238e9f7a496` |
+| TESTED_SHA | `ad2017061577fc6a421bfc463c0d7238e9f7a496` |
+| MERGED_SHA | `ad2017061577fc6a421bfc463c0d7238e9f7a496` |
+| PUBLISHED_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+| LIVE_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+
+Pages evidence · MATCH.
+
+[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45566438934) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/211) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
+
+| ID | CODE | AUTOMATED | HIL | OWNER |
+| --- | --- | --- | --- | --- |
+| MEP-PADS-WRITE | BLOCKED | PASS | BLOCKED | PENDING |
+| MEP-PAK-RESTORE | PARTIAL | PASS | BLOCKED | PENDING |
+| SEQ-STANDALONE | IMPLEMENTED | PASS | HIL PENDING | PENDING |
+| SEQ-LIVE | PARTIAL | PASS | HIL PENDING | PENDING |
+| FXM-LIVE | PARTIAL | PASS | HIL PENDING | PENDING |
+| EP136-SIDEKICK | MISSING | NOT TESTED | HIL PENDING | PENDING |
+<!-- RELEASE_EVIDENCE_END -->
+
 **K.O. Tool** — независимый браузерный набор инструментов для подготовки аудиосэмплов, работы с совместимыми устройствами Teenage Engineering EP и визуализации звука.
 
 **[Открыть K.O. Tool](https://zatumanen.github.io/Ko-tool/)** · **[Сообщить об ошибке](https://github.com/Zatumanen/Ko-tool/issues)**
