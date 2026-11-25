@@ -1,15 +1,29 @@
 # K.O. TOOL — controlled release and Pages runbook
 
+<!-- RELEASE_EVIDENCE_START -->
+**K.O. TOOL 1.0 · NO-GO**
+
+| Checkpoint | SHA |
+| --- | --- |
+| SOURCE_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| TESTED_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| MERGED_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| PUBLISHED_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+| LIVE_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+
+Pages evidence · MATCH.
+
+[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45610793537) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/212) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
+<!-- RELEASE_EVIDENCE_END -->
+
 **Policy:** K.O. TOOL may publish independently completed, explicitly approved intermediate updates. Merge is **not** permission to publish; 1.0 requires all six stages and all agreed acceptance. No physical FILE/HIL permissions follow from this runbook.
 
 **Hosting:** Use the public [K.O. TOOL GitHub Pages site](https://zatumanen.github.io/Ko-tool/) for owner-requested browser builds, including builds for manual testing. Publish through the approved `deploy-pages` workflow on `main`. Private and separately hosted copies are outside the release process. If a candidate cannot use the approved public workflow yet, report what is blocking it.
 
-## 21 November 2026 · separate source, CI and published states
-
-- **Reviewed source:** `main@b6c9ad4fe44c482f775c4998acf56e21826700a3`, merged [#206](https://github.com/Zatumanen/Ko-tool/pull/206).
-- **Source/main CI:** [#44895071162](https://github.com/Zatumanen/Ko-tool/actions/runs/44895071162) `completed/success` 4/4 (1094 Node, 172 fake-EP Chromium, two Pages-dist E2E). **This job did not deploy Pages.**
-- **Latest verified successful manual Pages deploy:** [#44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), 2026-11-18, `d8c193a41069b4b053b242b9b6d35c1a688641c8`; `verify` and `deploy` SUCCESS. This is older than the reviewed source SHA.
-- **Current live served SHA:** **UNKNOWN in this audit**, because a fresh public `build-version.json` request and browser smoke were not performed. Successful workflow history does not prove which version an end user currently receives. **K.O. TOOL 1.0 is NOT accepted**; neither merge nor prior manual test builds grant permission for a new release.
+The generated checkpoint above comes from [release evidence](release-evidence.json).
+The [validation guide](testing/release-evidence.md) covers updates, exceptions and
+operation-specific acceptance. Physical evidence and permission to publish are
+recorded separately from successful software checks.
 
 ## Observed infrastructure (14 November 2026)
 
@@ -36,7 +50,7 @@
 1. In GitHub **Actions → deploy-pages → Run workflow**, select `main`. Record its exact `github.sha` and owner release approval.
 2. The `verify` job uses locked npm dependencies, all Node/Chromium suites, builds versioned `dist`, checks it, and uploads it as `verified-pages-dist`.
 3. The `deploy` job downloads the **same tested artifact**, verifies `build-version.json` against the dispatched SHA and publishes exactly that `dist` to Pages; it does **not** rebuild from source.
-4. After the run reports successful deployment, check live [build-version.json](https://zatumanen.github.io/Ko-tool/build-version.json) matches the intended release SHA and inspect the website in Chrome (HTTP, JS/CSS/WASM and basic functionality). This live check has not yet been performed.
+4. After the run reports successful deployment, check live [build-version.json](https://zatumanen.github.io/Ko-tool/build-version.json) matches the intended release SHA and inspect the website in Chrome (HTTP, JS/CSS/WASM and basic functionality).
 5. Any mismatch, unexpected auto-deploy, denied permission, red CI or artifact difference means **STOP**; do not call the site released. Log run IDs, exact SHA and relevant failure in Linear. Recovery/rollback or switching Sources requires an explicit authorized plan.
 
 ## Build contract

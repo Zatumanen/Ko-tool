@@ -1,5 +1,21 @@
 # K.O. Tool — current project state (dated evidence)
 
+<!-- RELEASE_EVIDENCE_START -->
+**K.O. TOOL 1.0 · NO-GO**
+
+| Checkpoint | SHA |
+| --- | --- |
+| SOURCE_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| TESTED_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| MERGED_SHA | `76363323b0e1d629d358175e38cd850882d0dc76` |
+| PUBLISHED_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+| LIVE_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
+
+Pages evidence · MATCH.
+
+[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45610793537) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/212) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
+<!-- RELEASE_EVIDENCE_END -->
+
 **24 November software checkpoint.** `main@e4ee8efadf4015463d4545d6cdc45e3ce5e7c43f` includes D-01 WAV validation from [PR #208](https://github.com/Zatumanen/Ko-tool/pull/208). [Post-merge CI #45391253978](https://github.com/Zatumanen/Ko-tool/actions/runs/45391253978) passed all four jobs (1097 Node, 173 Chromium source, 2 Chromium Pages-dist). Physical upload and REPITCH playback acceptance are HIL PENDING.
 
 **Reviewed on:** 2026-11-21. **Reviewed application code:** [`main@b6c9ad4fe44c482f775c4998acf56e21826700a3`](https://github.com/Zatumanen/Ko-tool/commit/b6c9ad4fe44c482f775c4998acf56e21826700a3) after integrated [PR #206](https://github.com/Zatumanen/Ko-tool/pull/206). This is a **snapshot**, not a live HEAD or deployed-site claim. Before implementation or release: confirm GitHub HEAD/open PRs, [implementation matrix](IMPLEMENTATION_MATRIX.md), relevant Linear issue, the owner [decisions](roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md), and [pre-implementation gate](IMPLEMENTATION_GATE.md).
@@ -31,7 +47,7 @@ A Linear **Done** can mean that a strictly limited *software subset* was deliver
 
 Evidence, severity, source locations and future regression requirements: [21-Nov code review](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md). Keep targeted follow-ups in existing [ZAT-69](https://linear.app/clouded/issue/ZAT-69), [ZAT-65](https://linear.app/clouded/issue/ZAT-65), [ZAT-62](https://linear.app/clouded/issue/ZAT-62), [ZAT-57](https://linear.app/clouded/issue/ZAT-57) and [ZAT-63](https://linear.app/clouded/issue/ZAT-63). No production-code fix or fresh hardware test was authorized by the docs review.
 
-## Deployment is a separate state
+## Historical deployment checkpoint
 
 - **Source code:** `main@b6c9ad4`, CI four jobs PASS (above).
 - **Last verified successful manual GitHub Pages workflow:** [`deploy-pages` #44301681855](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855), 2026-11-18, **`d8c193a41069b4b053b242b9b6d35c1a688641c8`**, verify + deploy PASS. Earlier manual deployments also succeeded.
@@ -45,4 +61,4 @@ Open PRs at this snapshot: [#110](https://github.com/Zatumanen/Ko-tool/pull/110)
 - 17-Nov previous project-state baseline: `23a814154047b732a6fb7884be9d9e95cdb065af`; later Sequencer commits #196–203 and safety fix #206 supersede its “missing” labels.
 - Earlier 12-Nov physical/HIL and CI snapshot: [historical record](history/PROJECT_STATE-2026-11-12.md). Historical claims are never generalized to different models, firmware or operations.
 
-**Status governance:** after each feature/status-changing PR, recheck `main`, source and tests, update the implementation matrix and this state record in the same change, then reconcile Linear and its evidence. A CI script currently checks **structure only** and cannot establish truth; enhanced drift automation requires a separately reviewed code/CI change.
+**Status governance:** after each feature/status-changing PR, recheck `main`, source and tests, update the implementation matrix and this state record in the same change, then reconcile Linear and its evidence. The evidence gate checks source-path updates and consistency of the generated status blocks. Physical acceptance comes from its own scoped record.
