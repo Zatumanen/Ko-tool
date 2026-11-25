@@ -25,7 +25,7 @@ A Linear **Done** can mean that a strictly limited *software subset* was deliver
 - **S2 B-02 software fix:** discard stale audio results on Close and Reopen. Explicit ACCESS owns its enumeration and replays one pending refresh, preserving the denial message and same-source reconnect.
 - **S2 C-03 software fix:** legacy ZIP import in `js/ep133/backupBundle.js` checks size before reading, validates ZIP structure and checksums, and rejects duplicates, aliased entries and excessive dependency lookups before Restore preflight. Physical Restore acceptance remains pending.
 - **S2 D-01 software fix:** `js/ep133/audio.js` rejects truncated RIFF and incomplete PCM frames in ordinary uploads and REPITCH. Fake EP coverage checks that the next valid file still uploads. Physical acceptance remains pending.
-- **S3 A-03:** `js/sequencer/midiTraceAnalyzer.js` does not reject every contradictory capture-limit metadata case.
+- **S3 A-03 software fix:** the MIDI trace analyzer checks that the stored event count agrees with the limit flag and stop reason. Exporter-produced synthetic vectors cover both manual and capacity stops.
 - **S3 B-03 software fix:** Visuals imports the shared MIDI device singleton without initializing My EP. A Chromium cold-load probe measured seven fewer My EP module requests and 56,790 fewer decoded JavaScript bytes.
 - **C-04 software fix:** My EP rejects contradictory GREET base SKUs at connection time and gates FILE traffic until verification. Fake EP covers the known AS002 → AS001 alias, cross-model rejection, retry, and rejection of stale FILE intents during GREET, lock admission and firmware preflight.
 

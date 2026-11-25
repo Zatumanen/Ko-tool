@@ -59,7 +59,7 @@ Source-backed details and separate reproductions: [read-only review on exact mai
 - **S2 B-01/B-02 / ZAT-65:** software fixes in `js/visuals/audio.js` and `js/visuals/app.js` cover constructor failure, stale START and enumeration, and concurrent ACCESS/refresh/devicechange.
 - **S2 C-03 / ZAT-62/69:** software fix in `js/ep133/backupBundle.js` and `js/archive/zipReader.js` bounds ZIP input and copies, and requires unique entries, payload references and dependencies.
 - **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
-- **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** direct singleton import removes seven additional My EP module requests when opening Visuals in a fresh Chromium context.
+- **S3 A-03 / ZAT-63:** software fix checks event count against capture limit and flags contradictory trace metadata in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** direct singleton import removes seven additional My EP module requests when opening Visuals in a fresh Chromium context.
 - **C-04 / ZAT-68:** synthetic and fake-EP cases reproduce cross-model GREET aliasing and FILE access during handshake. Software verifies model identity before scheduling FILE access, binds admission to the original epoch and retains the evidence-scoped AS002 → AS001 alias. Hardware validation remains scoped to prior evidence.
 
 Source `main@b6c9ad4` green CI is not a final RC acceptance, Pages deploy, real EP validation or proof that these findings were repaired.
