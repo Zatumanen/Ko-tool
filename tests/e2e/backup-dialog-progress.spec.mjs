@@ -239,6 +239,50 @@ const zipMembers=buffer=>{
   return files;
 };
 
+test('oversized legacy TAR is rejected before reading file contents or contacting FILE',async({page})=>{
+  await page.addInitScript(()=>{
+    const size=Object.getOwnPropertyDescriptor(Blob.prototype,'size').get;
+    const read=Blob.prototype.arrayBuffer;
+    window.oversizedTarReads=0;
+    Object.defineProperty(File.prototype,'size',{configurable:true,get(){
+      return this.name==='oversized-P02.tar'?129*1024*1024:size.call(this);
+    }});
+    Object.defineProperty(File.prototype,'arrayBuffer',{configurable:true,value(){
+      if(this.name==='oversized-P02.tar')window.oversizedTarReads++;
+      return read.call(this);
+    }});
+  });
+  await openBackup(page,{selectProject02:true});
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-restore-file').setInputFiles({name:'oversized-P02.tar',mimeType:'application/x-tar',buffer:Buffer.alloc(2048)});
+  await expect(page.locator('#ep133-backup-phase')).toHaveText('FAILED');
+  await expect(page.locator('#ep133-backup-detail')).toContainText('Project TAR has an invalid size');
+  await expect(page.locator('#ep133-restore-run')).toBeDisabled();
+  expect(await page.evaluate(({start,fileCommand})=>({reads:window.oversizedTarReads,
+    requests:window.__fakeEp.requestLog.slice(start).filter(item=>item.command===fileCommand)}),
+    {start:before,fileCommand:TE_SYSEX_FILE})).toEqual({reads:0,requests:[]});
+});
+
+test('an ordinary project TAR backup remains eligible for restore without a write during selection',async({page})=>{
+  await openBackup(page,{selectProject02:true});
+  await page.evaluate(()=>{
+    window.showSaveFilePicker=async()=>({async createWritable(){return{
+      async write(blob){window.savedProjectTar=[...new Uint8Array(await blob.arrayBuffer())];},async close(){}
+    };}});
+  });
+  await page.locator('#ep133-backup-project').click();
+  await expect(page.locator('#ep133-backup-detail')).toContainText('FILE WRITTEN');
+  const buffer=Buffer.from(await page.evaluate(()=>window.savedProjectTar));
+  const before=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.locator('#ep133-restore-file').setInputFiles({name:'P02.tar',mimeType:'application/x-tar',buffer});
+  await expect(page.locator('#ep133-backup-detail')).toContainText('RESTORE PLAN READY');
+  await expect(page.locator('#ep133-restore-summary')).toContainText('ALL AVAILABLE');
+  await expect(page.locator('#ep133-restore-run')).toBeEnabled();
+  const requests=await page.evaluate(start=>window.__fakeEp.requestLog.slice(start),before);
+  expect(requests.filter(item=>item.command===TE_SYSEX_FILE&&
+    ([2,6,12].includes(item.sub)||(item.sub===7&&item.type===1)))).toEqual([]);
+});
+
 test('truncated legacy ZIP fails before remote Restore preflight or authorization',async({page})=>{
   await openBackup(page,{selectProject02:true});
   const {blob}=await createEpBackupBundle({scope:'project',projects:[{project:'02',data:Uint8Array.of(1)}]});
