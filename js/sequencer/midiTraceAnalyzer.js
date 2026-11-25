@@ -41,10 +41,11 @@ export function analyzeMidiTrace(trace,{largeGapMs=1000}={}){
  if(!Array.isArray(trace.decodedMessageTypes)||trace.decodedMessageTypes.length!==TYPES.length||
   !TYPES.every(type=>trace.decodedMessageTypes.includes(type)))error('DECODED_TYPES','decodedMessageTypes');
  const loss=trace.loss;
+ const validLimit=record(loss)&&integer(loss.captureLimit)&&loss.captureLimit>=1&&loss.captureLimit<=MAX_TRACE_EVENTS;
  if(!record(loss))error('LOSS_STRUCTURE','loss');
  else{
   for(const key of ['observerDropped','deliveredButNotStored'])if(!integer(loss[key]))error('LOSS_VALUE','loss.'+key);
-  if(!integer(loss.captureLimit)||loss.captureLimit<1||loss.captureLimit>MAX_TRACE_EVENTS)error('LOSS_VALUE','loss.captureLimit');
+  if(!validLimit)error('LOSS_VALUE','loss.captureLimit');
   if(typeof loss.captureLimitReached!=='boolean')error('LOSS_VALUE','loss.captureLimitReached');
   result.metadata.loss=Object.fromEntries(['observerDropped','captureLimit','captureLimitReached','deliveredButNotStored']
    .filter(key=>key==='captureLimitReached'?typeof loss[key]==='boolean':integer(loss[key])).map(key=>[key,loss[key]]));
@@ -57,8 +58,9 @@ export function analyzeMidiTrace(trace,{largeGapMs=1000}={}){
  if(!Array.isArray(trace.events)){error('EVENTS_STRUCTURE','events');return result;}
  result.integrity.inputEvents=trace.events.length;
  if(trace.events.length>MAX_TRACE_EVENTS){error('EVENT_LIMIT','events');return result;}
- if(record(loss)&&integer(loss.captureLimit)&&(trace.events.length>loss.captureLimit||
-  (loss.captureLimitReached===true&&trace.events.length!==loss.captureLimit)))error('LOSS_COUNT_CONTRADICTION','loss.captureLimit');
+ if(validLimit&&(trace.events.length>loss.captureLimit||
+  (typeof loss.captureLimitReached==='boolean'&&loss.captureLimitReached!==(trace.events.length===loss.captureLimit))))
+  error('LOSS_COUNT_CONTRADICTION','loss.captureLimit');
  if(!trace.events.length)warn('EMPTY_TRACE',null,'No events to analyze.');
  let previous=null,previousClock=null,transport='unknown',sawStart=false,previousTransport=null,segment=0;
  const reset=()=>{previous=null;previousClock=null;transport='unknown';sawStart=false;previousTransport=null;segment++;};

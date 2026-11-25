@@ -10,9 +10,9 @@ import {createMidiDiagnostics} from '../js/sequencer/midiDiagnostics.js';
 import {analyzeMidiTrace,formatMidiTraceReport,MAX_TRACE_EVENTS,MAX_TRACE_BYTES} from '../js/sequencer/midiTraceAnalyzer.js';
 
 const event=(data,timestamp,extra={})=>({...decodeMidiEvent(data),timestamp,session:1,connectionEpoch:7,model:'TE032AS001',firmware:'2.5.1',...extra});
-const trace=(events=[])=>{
+const trace=(events=[],captureLimit=MAX_TRACE_EVENTS)=>{
  let deliver;
- const diagnostics=createMidiDiagnostics({getSession:()=> 'synthetic',canStart:()=>true,now:()=>0,
+ const diagnostics=createMidiDiagnostics({getSession:()=> 'synthetic',canStart:()=>true,now:()=>0,captureLimit,
   subscribe:fn=>{deliver=fn;return{unsubscribe(){}};}});
  diagnostics.start();deliver({events,dropped:0});diagnostics.stop();
  return diagnostics.exportTrace({buildVersion:'synthetic-test'})??{
@@ -104,6 +104,19 @@ test('loss and capture capacity remain unverified evidence, including exact limi
  const r=analyzeMidiTrace(input);assert.deepEqual(r.integrity.errors,[]);
  for(const code of ['OBSERVER_DROPPED','CAPTURE_LIMIT_REACHED','DELIVERED_NOT_STORED'])assert.ok(codes(r).includes(code));
  input.loss.deliveredButNotStored=0;assert.deepEqual(analyzeMidiTrace(input).integrity.errors,[]);
+});
+
+test('only a limit stop is consistent with a full MIDI trace',()=>{
+ const events=[event([0xF8],1),event([0xF8],2)];
+ assert.deepEqual(analyzeMidiTrace(trace(events.slice(0,1),2)).integrity.errors,[]);
+ const complete=trace(events,2);
+ assert.equal(complete.stopReason,'limit');
+ assert.deepEqual(analyzeMidiTrace(complete).integrity.errors,[]);
+ const mislabeled={...complete,stopReason:'manual',
+  loss:{...complete.loss,captureLimitReached:false}};
+ assert.ok(analyzeMidiTrace(mislabeled).integrity.errors.some(e=>e.code==='LOSS_COUNT_CONTRADICTION'));
+ const short={...complete,events:events.slice(0,1)};
+ assert.ok(analyzeMidiTrace(short).integrity.errors.some(e=>e.code==='LOSS_COUNT_CONTRADICTION'));
 });
 
 test('session/epoch/model boundaries and corrupt records break sequence correlation',()=>{

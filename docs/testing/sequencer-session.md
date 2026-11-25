@@ -108,7 +108,10 @@ failure, exit2 means invalid CLI usage. Warnings alone do not change exit0.
 
 `js/sequencer/midiTraceAnalyzer.js` exports the pure `analyzeMidiTrace` and bounded
 `formatMidiTraceReport`. Schema1 requires the current exporter metadata/loss fields
-(including numeric captureLimit). Files above8MiB or traces above8192 events are
+(including numeric captureLimit). A stopped capture reaches its limit exactly
+when the stored event count equals it. The limit flag and stop reason must
+agree, and omitted delivered events require a limit stop. Files above8MiB or
+traces above8192 events are
 rejected; invalid records are excluded from counts and break correlation. Session,
 epoch or model/firmware changes also break correlation; file order is preserved.
 The structured result retains all accepted Clock intervals and transport/SPP
