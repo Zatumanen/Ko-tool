@@ -8,6 +8,14 @@ async function start(page,worklet=true){
    getUserMedia:async()=>{
     window.__lufsRequests++;const context=new AudioContext(),source=context.createOscillator(),gain=context.createGain(),destination=context.createMediaStreamDestination();
     destination.channelCount=1;destination.channelCountMode='explicit';source.frequency.value=997;gain.gain.value=.1;source.connect(gain).connect(destination);source.start();await context.resume();
+    // Chromium may briefly report the destination's default stereo format.
+    // Grant this synthetic mono stream only after the settings describe its graph.
+    const track=destination.stream.getAudioTracks()[0],deadline=performance.now()+1000;
+    while(track.getSettings().channelCount!==1&&performance.now()<deadline)
+      await new Promise(resolve=>setTimeout(resolve,10));
+    if(track.getSettings().channelCount!==1){
+      source.stop();await context.close();throw Error('Synthetic mono input did not settle');
+    }
     window.__lufsSource={context,source,stream:destination.stream};return destination.stream;
    }
   }});

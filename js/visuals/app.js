@@ -20,7 +20,13 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   let opened=false,layout=makePreset(),named=[],activePreset='Balanced',height=150;
   let monoTone='dark',mode='device',autoTheme=true,sku='',autoHide=false,collapsed=false,picker=false,unsaved=false;
   let status='Источник не выбран',sources=[],drawingFrame=0,audio,draggingId=null,drag=null;
-  let captureArmed=false,autoConnecting=false,lastData=null,analysisCount=0,paintCount=0;
+  let captureArmed=false,captureRequest=null,permissionRequest=null,inputRefresh=0;
+  let lastData=null,analysisCount=0,paintCount=0;
+  const ownsAudio=current=>opened&&audio===current;
+  function disarmCapture(){
+    captureArmed=false;
+    captureRequest=null;
+  }
   const renderClock=createRenderClock();
   let xyMode='stereo';const xyHistory=createPhosphorHistory();
   const plasma=createPlasmaDensity(),spectralPlasma=createSpectralPlasma();let plasmaBuffer=null;
@@ -34,10 +40,8 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(identityAttached)return;
     identityAttached=true;
     try{
-      // Share My EP's *versioned* singleton only when the user opens Visuals.
-      // Eagerly importing the MIDI workspace on every page load changes its
-      // initialization order and can regress independent My EP restoration.
-      const{onConnectionChange,getConnectedDeviceInfo}=await import('../ep133/index.js?v=20261001-1');
+      // Read the same versioned device singleton as My EP without bootstrapping its workspace.
+      const{onConnectionChange,getConnectedDeviceInfo}=await import('../ep133/device.js?v=20261001-1');
       onConnectionChange(state=>{
         const info=state?.connected&&!state.unsafe?getConnectedDeviceInfo():null;
         sku=info?.sku==='TE032AS002'&&info?.baseSku==='TE032AS001'?'TE032AS001':info?.sku||'';
@@ -64,7 +68,7 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   function working(next){
     const normalized=validLayout(next);if(!normalized)return;
     layout=normalized;activePreset='Custom';
-    if(!layout.visible.length){collapsed=true;autoHide=false;captureArmed=false;audio?.stop('Захват остановлен: все модули скрыты');stopAnimation()}
+    if(!layout.visible.length){collapsed=true;autoHide=false;disarmCapture();audio?.stop('Захват остановлен: все модули скрыты');stopAnimation()}
     persist();render();
   }
   function usePreset(name){
@@ -72,12 +76,12 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     if(!selected)return;
     layout=validLayout(selected);
     activePreset=name;
-    if(!layout.visible.length){collapsed=true;autoHide=false;captureArmed=false;audio.stop();stopAnimation()}
+    if(!layout.visible.length){collapsed=true;autoHide=false;disarmCapture();audio.stop();stopAnimation()}
     else collapsed=false;
     persist();render();
   }
   function audioState(next){
-    if(next.reason==='channel-format')captureArmed=false;
+    if(next.reason==='channel-format')disarmCapture();
     recorderUi.update();
     status=next.message||'Аудиовход не выбран';
     const element=root.querySelector('[data-audio-status]');
@@ -145,14 +149,14 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     kick();
   }
   function stop(message){
-    captureArmed=false;
+    disarmCapture();
     if(['recording','paused'].includes(recorder.snapshot().state))void audio.finishAndStop(message);
     else audio.stop(message);
     stopAnimation();
   }
   function open(){
     if(opened){root.querySelector('.vis-dock')?.focus();return}
-    opened=true;captureArmed=false;autoConnecting=false;monoTone='dark';renderClock.reset();lastData=null;analysisCount=0;paintCount=0;root.dataset.visAnalysisCount='0';root.dataset.visPaintCount='0';root.dataset.renderFps='60';
+    opened=true;disarmCapture();permissionRequest=null;sources=[];monoTone='dark';renderClock.reset();lastData=null;analysisCount=0;paintCount=0;root.dataset.visAnalysisCount='0';root.dataset.visPaintCount='0';root.dataset.renderFps='60';
     layout=readWorking(storage)||makePreset();named=readPresets(storage);
     activePreset='Custom';height=150;autoTheme=true;mode='device';autoHide=false;collapsed=layout.visible.length===0;picker=false;unsaved=false;status='Выберите аудиовход и нажмите START';
     audio=createVisualsAudio({onState:audioState,recorder});
@@ -167,24 +171,64 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     opened=false;observerRevision++;panelObserver?.disconnect();panelResizeObserver?.disconnect();panelObserver=null;panelResizeObserver=null;visiblePanels.clear();stop('Захват остановлен');audio=null;picker=false;unsaved=false;autoHide=false;collapsed=false;
     root.innerHTML='';root.className='';
   }
-  async function refreshInputs(){
-    if(!opened)return;
+  async function startCapture(current,{refresh=false}={}){
+    if(!ownsAudio(current)||captureRequest||permissionRequest?.audio===current||current.active)return;
+    const request={};
+    captureRequest=request;
+    const relevant=()=>ownsAudio(current)&&captureRequest===request;
     try{
-      sources=await audio.inputs();
-      const selectedPresent=!!audio.selectedId&&sources.some(item=>item.id===audio.selectedId);
-      if(audio.active&&!selectedPresent){
-        audio.stop('Выбранный аудиовход отключён');stopAnimation();
-      }else if(audio.active){
-        status='LIVE · '+(sources.find(item=>item.id===audio.selectedId)?.label||'Аудиовход');
-      }else if(captureArmed&&selectedPresent&&!collapsed&&!autoConnecting){
+      const ok=await current.start();
+      if(!relevant())return;
+      captureArmed=ok;
+      if(refresh&&ok)void refreshInputs();
+    }catch(error){
+      if(!relevant())return;
+      captureArmed=false;
+      status=error?.message||String(error);
+      render();
+    }finally{
+      if(relevant())captureRequest=null;
+    }
+  }
+  async function refreshInputs({requestPermission=false,preserveStatus=false}={}){
+    const current=audio;
+    if(!current||!ownsAudio(current))return;
+    if(permissionRequest?.audio===current){
+      if(!requestPermission)permissionRequest.refreshPending=true;
+      return;
+    }
+    if(requestPermission&&(captureRequest||current.active))return;
+    const request=++inputRefresh;
+    const relevant=()=>ownsAudio(current)&&request===inputRefresh;
+    const access=requestPermission?{audio:current,refreshPending:false}:null;
+    if(access){
+      permissionRequest=access;
+      status='Запрос разрешения для списка аудиовходов…';
+      root.querySelector('[data-audio-status]').textContent=status;
+    }
+    let result=null,error;
+    try{result=await(access?current.unlockInputs():current.inputs());}
+    catch(reason){error=reason;}
+    finally{if(access&&permissionRequest===access)permissionRequest=null;}
+    if(!relevant())return;
+    if(!result){
+      if(!access)sources=[];
+      if(!preserveStatus&&!current.active)status=error?.name==='NotAllowedError'?'Доступ к аудиоустройствам запрещён':(error?.message||'Нет доступа к аудиоустройствам');
+    }else{
+      sources=result;
+      const selected=sources.find(item=>item.id===current.selectedId);
+      if(current.active&&!selected){
+        current.stop('Выбранный аудиовход отключён');stopAnimation();
+      }else if(current.active){
+        status='LIVE · '+(selected.label||'Аудиовход');
+      }else if(!preserveStatus&&!access?.refreshPending&&captureArmed&&selected&&!collapsed&&!captureRequest){
         // Only resume the SAME source after an earlier explicit START in this open session.
-        // Browser permission may still require a new user gesture; failure disarms retries.
-        autoConnecting=true;
-        const ok=await audio.start();autoConnecting=false;
-        if(!ok)captureArmed=false;
-      }else if(!captureArmed)status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';
-    }catch(err){sources=[];autoConnecting=false;if(!audio.active)status=err.message||'Нет доступа к аудиоустройствам';}
-    if(opened)render();
+        await startCapture(current);
+      }else if(!preserveStatus&&!captureRequest)status=sources.length?'Выберите аудиовход и нажмите START':'Доступных аудиовходов нет';
+    }
+    if(!relevant())return;
+    render();
+    if(access?.refreshPending)void refreshInputs({preserveStatus:!result});
   }
   function labelId(id){return names[id]||id}
   function render(){
@@ -451,17 +495,13 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     const stepButton=e.target.closest('[data-step]');if(stepButton){step(stepButton.dataset.for,Number(stepButton.dataset.step));return}
     const button=e.target.closest('[data-action]');if(!button)return;
     const action=button.dataset.action;
-    if(action==='start'){void audio.start().then(ok=>{captureArmed=!!ok;if(ok)void refreshInputs()}).catch(err=>{captureArmed=false;status=err.message;render()})}
+    if(action==='start')void startCapture(audio,{refresh:true});
     if(action==='recorder')recorderUi.toggle();
-    if(action==='stop'){captureArmed=false;void audio.finishAndStop();stopAnimation();}
+    if(action==='stop'){disarmCapture();void audio.finishAndStop();stopAnimation();}
     if(action==='reset-output'){audio.resetOutputMeters();lastData=audio.active?audio.sample():null;drawAll(lastData);return;}
     if(action==='reset-loudness'){audio.resetLoudness();lastData=audio.active?audio.sample():null;drawAll(lastData);return;}
     if(action==='refresh')void refreshInputs();
-    if(action==='unlock'&&!audio.active){
-      status='Запрос разрешения для списка аудиовходов…';
-      root.querySelector('[data-audio-status]').textContent=status;
-      void audio.unlockInputs().then(()=>refreshInputs()).catch(err=>{status=err?.name==='NotAllowedError'?'Доступ к аудиоустройствам запрещён':(err?.message||String(err));render()});
-    }
+    if(action==='unlock')void refreshInputs({requestPermission:true});
     if(action==='collapse')collapse();
     if(action==='restore')restore();
     if(action==='dismiss'){picker=false;render();root.querySelector('[data-action="restore"]')?.focus()}
@@ -481,7 +521,11 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
       drawAll(audio.active?lastData:null);return;
     }
     const x=e.target;
-    if(x.matches('[data-source]')){captureArmed=false;audio.select(x.value);render();return}
+    if(x.matches('[data-source]')){
+      disarmCapture();
+      if(permissionRequest?.audio!==audio)inputRefresh++;
+      audio.select(x.value);render();return;
+    }
     if(x.matches('[data-preset]')){usePreset(x.value);return}
     if(x.matches('[data-mono-tone]')){monoTone=x.value==='light'?'light':'dark';refreshTheme();return;}
     if(x.matches('[data-theme]')){mode=x.value;autoTheme=false;render();return}

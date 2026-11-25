@@ -35,7 +35,7 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 | SUC-X2 | 02 · SpeedUpperCut reference x2 engine | IMPLEMENTED | PASS | HIL PENDING | `js/audio/processor.js`, `tests/audio-pipeline-golden.test.mjs`; synthetic golden ≠ physical playback |
 | SUC-FOLDERS | 02 · Folder WAV/ZIP export | IMPLEMENTED | PASS | NOT APPLICABLE | `js/app.js`, `tests/e2e/folder-import-recovery.spec.mjs`; browser-only export scope |
 | SUC-TO-MYEP | 02 · Multi-drag, destination preview | IMPLEMENTED | PASS | HIL PENDING | `js/ep133/ui/sampleUploadChoice.js`, `tests/e2e/my-ep-numbered-upload-choice.spec.mjs`; physical transfer still unaccepted |
-| VIS-BASE | 03 · Seven basic Visuals panels | IMPLEMENTED | PASS | NOT APPLICABLE | `js/visuals/app.js`, `tests/e2e/visuals.spec.mjs`; input-driven browser baseline only, not completed advanced meters; permission discovery releases temporary capture before asynchronous device enumeration (`tests/visuals-audio.test.mjs`) |
+| VIS-BASE | 03 · Seven basic Visuals panels | IMPLEMENTED | PASS | NOT APPLICABLE | `js/visuals/app.js`, `tests/e2e/visuals.spec.mjs`; capture and permission discovery clean up tracks on failures and reject stale callbacks (`tests/visuals-audio.test.mjs`); standalone startup shares identity without loading the My EP workspace |
 | VIS-TRIGGER | 03 · Attack-centered held waveform | IMPLEMENTED | PARTIAL | NOT APPLICABLE | `js/visuals/transientTrigger.js`, `tests/visuals-trigger.test.mjs`; continuous PCM trigger and controls; exact-head browser/CI and owner visual acceptance tracked in PR, video comparison unverified |
 | VIS-SPECTRUM | 03 · Continuous logarithmic Spectrum curve | IMPLEMENTED | PARTIAL | NOT APPLICABLE | `js/visuals/spectrum.js`, `tests/visuals-spectrum.test.mjs`; float FFT/log Hz/dBFS display and time-based release; exact-head CI and owner aesthetic acceptance recorded in PR |
 | VIS-SPECTROGRAM | 03 · Timestamped right-to-left history | IMPLEMENTED | PARTIAL | NOT APPLICABLE | `js/visuals/spectrogram.js`, `tests/visuals-spectrogram.test.mjs`; bounded FFT queue survives resize and repaint changes; exact-head CI and owner visuals/performance acceptance tracked in PR |
@@ -56,10 +56,10 @@ The owner-approved six-stage sequence remains in [roadmap](roadmap/KO_TOOL_1_0_D
 
 Source-backed details and separate reproductions: [read-only review on exact main](audits/KO_TOOL_CODE_REVIEW_2026-11-21.md). These do not alter the rows' hardware acceptance flags:
 
-- **S2 B-01/B-02 / ZAT-65:** Visuals input stream cleanup on AudioContext constructor failure; stale async enumerate after closing Visuals. Both remain unresolved in `js/visuals/audio.js` and `js/visuals/app.js`.
+- **S2 B-01/B-02 / ZAT-65:** software fixes in `js/visuals/audio.js` and `js/visuals/app.js` cover constructor failure, stale START and enumeration, and concurrent ACCESS/refresh/devicechange.
 - **S2 C-03 / ZAT-62/69:** software fix in `js/ep133/backupBundle.js` and `js/archive/zipReader.js` bounds ZIP input and copies, and requires unique entries, payload references and dependencies.
 - **S2 D-01 / ZAT-57/77:** software fix in `js/ep133/audio.js` validates RIFF boundaries and PCM frame layout for direct import and REPITCH before decoding. Regression covers zero PUT for the malformed file and preserves the next valid file.
-- **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** Visuals → My EP bootstrap coupling has unmeasured impact.
+- **S3 A-03 / ZAT-63:** loss metadata contradictory at full trace capacity in `js/sequencer/midiTraceAnalyzer.js`. **S3 B-03** direct singleton import removes seven additional My EP module requests when opening Visuals in a fresh Chromium context.
 - **C-04 / ZAT-68:** synthetic and fake-EP cases reproduce cross-model GREET aliasing and FILE access during handshake. Software verifies model identity before scheduling FILE access, binds admission to the original epoch and retains the evidence-scoped AS002 → AS001 alias. Hardware validation remains scoped to prior evidence.
 
 Source `main@b6c9ad4` green CI is not a final RC acceptance, Pages deploy, real EP validation or proof that these findings were repaired.

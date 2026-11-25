@@ -71,6 +71,23 @@ per-Canvas count also includes explicit UI redraws. These are scheduling diagnos
 not CPU measurements or proof of physical refresh rate. Explicit theme/layout redraws
 may occur outside the animation cap.
 
+## Capture and permission lifecycle
+
+Grant ownership of the selected stream before constructing the AudioContext.
+Stop all tracks on failure, or when a newer capture request supersedes the grant.
+Enumerations and START results belong to the current window and request. While
+explicit ACCESS is pending, coalesce refresh and devicechange into one replay.
+If ACCESS is denied, the queued refresh preserves the denial message and leaves
+capture idle. A later device return can resume only a previously armed exact
+input. Visuals subscribes directly to the same device singleton as My EP. The
+cold-open Chromium check requires zero My EP workspace bootstrap requests and
+keeps the shared-session Auto Theme regression.
+
+The synthetic LUFS fixture waits for Chromium to report the configured mono
+stream. This avoids a transient stereo value from the MediaStreamDestination
+before it settles. Production channel drift still stops capture, as checked by
+the Output Meters regression.
+
 ## Verification and remaining acceptance
 
 - `tests/visuals-render-clock.test.mjs`: exact60/30/15 cadence vs common30Hz snapshots,

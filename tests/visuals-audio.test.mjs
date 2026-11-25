@@ -75,6 +75,20 @@ test('stop during pending permission immediately releases a late stream',async()
   assert.equal(stream.track.readyState,'ended');
   assert.equal(a.active,false);
 });
+test('AudioContext constructor failure stops every track after permission succeeds',async()=>{
+  const streams=[makeTrack(),makeTrack()];
+  class UnavailableContext{constructor(){throw Error('Synthetic AudioContext allocation failure');}}
+  const states=[];
+  const visual=createVisualsAudio({
+    navigatorRef:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>streams,getAudioTracks:()=>streams})}},
+    AudioContextClass:UnavailableContext,onState:state=>states.push(state)
+  });
+  visual.select('ep-usb');
+  assert.equal(await visual.start(),false);
+  assert.equal(visual.active,false);
+  assert.equal(states.at(-1).error,true);
+  assert.ok(streams.every(track=>track.readyState==='ended'));
+});
 test('a superseded START finishing resume cannot stop the newly selected live input',async t=>{
   let finishOldResume,enteredOldResume;
   const oldResume=new Promise(resolve=>{finishOldResume=resolve});
