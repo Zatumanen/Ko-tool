@@ -192,7 +192,8 @@
         "tests/backup-bundle.test.mjs",
         "tests/e2e/backup-dialog-progress.spec.mjs",
         "tests/project-recovery.test.mjs",
-        "tests/e2e/my-ep.spec.mjs"
+        "tests/e2e/my-ep.spec.mjs",
+        "tests/ep133.test.mjs"
       ],
       "verification": "Legacy v1 ZIP size, checksum, duplicate and dependency validation passed on the verified source with the session-bound Restore approval tests. Physical recovery remains pending.",
       "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
@@ -202,7 +203,8 @@
         "tests": [
           "tests/backup-restore-session-approval.test.mjs",
           "tests/project-recovery.test.mjs",
-          "tests/e2e/my-ep.spec.mjs"
+          "tests/e2e/my-ep.spec.mjs",
+          "tests/ep133.test.mjs"
         ],
         "note": "Reject stale approval, SKU-only identity and conflicting archive names. A session change after PUT or failed readback leaves the checkpoint pending without directing rollback or recovery events to the replacement device. Fake EP confirms valid Restore and reconnect handling."
       }

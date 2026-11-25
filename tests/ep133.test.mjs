@@ -1942,7 +1942,9 @@ test('EP project upload checkpoints, verifies, reloads, and rolls back in guarde
   assert.match(block,/reloadProject\(destination\.nodeId,parent\.nodeId/);
   assert.match(block,/compareProjectArchiveMembers\(backup\.data,restored\.data\)/);
   assert.match(block,/error\.projectRollbackSucceeded=true/);
-  assert.match(block,/if\(!candidateWritten\|\|isDeviceUnsafe\(\)\)\{[\s\S]*status:'requires-recovery'[\s\S]*throw error/);
+  assert.match(block,/const requireRecovery=async error=>\{[\s\S]*status:'requires-recovery'[\s\S]*markRequiresRecovery/);
+  assert.match(block,/if\(!candidateWritten\|\|!isSessionCurrent\(\)\|\|isDeviceUnsafe\(\)\)\{\s*await requireRecovery\(error\);\s*throw error;/);
+  assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'ROLLBACK',[\s\S]*?assertSession\?\.\(\);\s*await putFile/);
   assert.match(block,/await recoveryStore\.saveCheckpoint\(recoveryCheckpoint\)/);
   assert.match(block,/transactionJournal\.completePhase\(recoveryCheckpoint\.id,'PRECHECK'/);
   assert.match(block,/transactionJournal\.beginPhase\(recoveryCheckpoint\.id,'CHECKPOINT'/);
