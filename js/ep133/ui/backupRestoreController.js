@@ -880,19 +880,34 @@ export function createBackupRestoreController({
   };
 
   const restoreRecovery=async()=>{
-    if(!selectedRecoveryId)return;
-    const record=await getProjectRecoveryCheckpoint(selectedRecoveryId);
+    const checkpointId=selectedRecoveryId;
+    if(!checkpointId)return;
+    const sessionToken=captureBatchSession();
+    const assertSession=()=>assertBatchSession(sessionToken);
+    const assertIntent=()=>{
+      assertSession();
+      if(selectedRecoveryId!==checkpointId)throw new Error('Recovery checkpoint changed during confirmation.');
+    };
+    const record=await getProjectRecoveryCheckpoint(checkpointId);
+    assertIntent();
     if(!record)return;
     const ok=await confirmAction(
       'Restore original P'+record.project?.number+' from this recovery checkpoint? A new recovery checkpoint will be created before writing.'
     );
     if(!ok)return;
+    assertIntent();
     setBusy(true);setDialogProgress('RECOVERY RESTORE',15);
     try{
-      await restoreProjectRecoveryCheckpoint(selectedRecoveryId,{
-        requireInactive:true,performReload:false
+      await restoreProjectRecoveryCheckpoint(checkpointId,{
+        requireInactive:true,performReload:false,assertSession
       });
-      await readDevice();await refreshProjects();await refreshRecovery();
+      assertSession();
+      await readDevice();
+      assertSession();
+      await refreshProjects();
+      assertSession();
+      await refreshRecovery();
+      assertSession();
       setStatus('RECOVERY P'+record.project?.number+' VERIFIED');
     }finally{hideGlobalProgress();setBusy(false);}
   };

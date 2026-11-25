@@ -190,18 +190,21 @@
         "js/ep133/backupBundle.js",
         "js/archive/zipReader.js",
         "tests/backup-bundle.test.mjs",
-        "tests/e2e/backup-dialog-progress.spec.mjs"
+        "tests/e2e/backup-dialog-progress.spec.mjs",
+        "tests/project-recovery.test.mjs",
+        "tests/e2e/my-ep.spec.mjs"
       ],
       "verification": "Legacy v1 ZIP size, checksum, duplicate and dependency validation passed on the verified source with the session-bound Restore approval tests. Physical recovery remains pending.",
       "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/210",
       "evidenceUpdate": {
-        "baseSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+        "baseSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
         "tests": [
           "tests/backup-restore-session-approval.test.mjs",
-          "tests/e2e/backup-dialog-progress.spec.mjs"
+          "tests/project-recovery.test.mjs",
+          "tests/e2e/my-ep.spec.mjs"
         ],
-        "note": "Reject undersized, unaligned and oversized browser TAR selections before reading or FILE admission. Short reads fail before FILE; an ordinary fake EP TAR still reaches a read-only Restore plan."
+        "note": "Reject stale approval, SKU-only identity and conflicting archive names. A session change after PUT or failed readback leaves the checkpoint pending without directing rollback or recovery events to the replacement device. Fake EP confirms valid Restore and reconnect handling."
       }
     },
     {
@@ -273,12 +276,12 @@
       "verification": "**offline integrity staging only, Restore disabled**.",
       "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
       "evidenceUpdate": {
-        "baseSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+        "baseSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
         "tests": [
           "tests/official-pak-restore-staging-integration.test.mjs",
           "tests/e2e/backup-dialog-progress.spec.mjs"
         ],
-        "note": "The legacy TAR input limit shares a controller with official PAK staging. Retain read-only preview admission and confirm invalid PAK reaches neither Restore eligibility nor mutating FILE operations."
+        "note": "The shared controller still admits official PAK only to read-only staging. Verify invalid preview cannot reach the legacy restore runner or send mutating FILE traffic."
       }
     },
     {
