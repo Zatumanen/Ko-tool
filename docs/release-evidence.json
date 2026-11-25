@@ -591,10 +591,19 @@
       "paths": [
         "js/fxMic/liveSession.js",
         "js/fxMic/serialTransport.js",
-        "tests/fx-mic-live.test.mjs"
+        "tests/fx-mic-live.test.mjs",
+        "tests/e2e/fx-mic-studio.spec.mjs"
       ],
       "verification": "stock 1.1.2 config read-only; Live writes not broadly enabled.",
-      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
+      "evidenceUpdate": {
+        "baseSha": "b0afc2446de68f3937e648e98c31e5f0147adef3",
+        "tests": [
+          "tests/fx-mic-live.test.mjs",
+          "tests/e2e/fx-mic-studio.spec.mjs"
+        ],
+        "note": "Synthetic replacement ports reject cancelled interrupt and passive prompt attempts. Chromium retains single-use consent, the scoped 1.0.8 trial and stock 1.1.2 read-only diagnostics."
+      }
     },
     {
       "id": "EP136-SIDEKICK",

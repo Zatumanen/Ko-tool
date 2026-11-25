@@ -164,6 +164,9 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
       if (port) throw Error('Serial already connected');
       if (!serial?.requestPort) throw Error('Web Serial unavailable');
       const token = ++epoch;
+      const assertConnection = () => {
+        if (token !== epoch) throw Error('Serial connection cancelled');
+      };
       const selected = await serial.requestPort({ filters: [{ usbVendorId: 0x2367, usbProductId: 0x0620 }] });
       if (token !== epoch) throw Error('Serial selection cancelled');
       port = selected;
@@ -180,12 +183,16 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
           // Explicit user opt-in: Ctrl+C interrupts the device's running program.
           const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
           await sleep(100);
+          assertConnection();
           await writer.write(encoder.encode('\x03'));
           await sleep(300);
+          assertConnection();
           await writer.write(encoder.encode('\x03'));
           await sleep(200);
+          assertConnection();
           await writer.write(encoder.encode('\r\n'));
           await sleep(300);
+          assertConnection();
         }
         if (!allowReplInterrupt) {
           // No serial bytes at all until we passively observe a clean prompt.
@@ -195,19 +202,27 @@ export function createSerialTransport({ serial = globalThis.navigator?.serial, p
             await Promise.race([ready, new Promise((_, reject) => {
               timer = setTimeout(() => reject(Error('Clean REPL prompt not observed passively; no command sent')), 800);
             })]);
+            assertConnection();
             if (!readyObserved) throw Error('REPL readiness was not confirmed');
-          } finally { clearTimeout(timer); readyResolve = null; }
+          } finally {
+            clearTimeout(timer);
+            if (token === epoch) readyResolve = null;
+          }
         } else {
           await command('', 'REPL readiness');
+          assertConnection();
         }
         const runtime = await command("print(__import__('sys').implementation.name)", 'MicroPython runtime check');
+        assertConnection();
         if (runtime !== 'micropython') throw Error('Stock MicroPython required; CircuitPython is a different firmware');
         const machine = await command("print(getattr(__import__('sys').implementation, '_machine', 'unknown'))", 'device identity check');
+        assertConnection();
         // USB ID and stock-only imports establish the device family. The selected
         // firmware is not verified unless an exact version is reported by REPL.
         const match = /^EP-2350\s+(\d+\.\d+\.\d+)$/.exec(machine);
         if (match && match[1] !== probeProfile.firmware) throw Error('Firmware mismatch: device '+match[1]+', selected '+probeProfile.firmware);
         const imported = await command('import fx, teenage', 'stock module import');
+        assertConnection();
         if (imported !== '') throw Error('Cannot access stock FX-MIC modules');
         return { model: 'EP-2350', firmware: probeProfile.firmware,
           firmwareVerified: Boolean(match), board: machine.replace(/[^\x20-\x7e]/g,' ').slice(0,120) };

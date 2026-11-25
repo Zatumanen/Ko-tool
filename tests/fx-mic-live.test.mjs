@@ -59,13 +59,14 @@ test('serial permission denial sends no command and releases cleanly',async()=>{
  const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>{throw Error('Permission denied');}}});await assert.rejects(()=>adapter.connect(),/Permission denied/);await adapter.disconnect();
 });
 
-function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=false,initialBytes='>>> ',splitPromptTail=false}={}){
+function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=false,initialBytes='>>> ',splitPromptTail=false,onWrite}={}){
  const commands=[];let controller,closed=0;
  const port={
   getInfo:()=>({usbVendorId:0x2367,usbProductId:0x0620}),open:async()=>{if(initialBytes)controller.enqueue(new TextEncoder().encode(initialBytes));},close:async()=>{closed++;},
   readable:new ReadableStream({start(c){controller=c;}}),
   writable:new WritableStream({write(bytes){
    const cmd=new TextDecoder().decode(bytes).trim();commands.push(cmd);
+   onWrite?.(cmd);
    if(cmd==='\x03')return;
    const answer=reply?.(cmd)??(cmd.includes('implementation.name')?'micropython':cmd.includes('_machine')?'EP-2350 1.0.8':cmd.startsWith('import fx')||cmd===''?'':cmd==='print(teenage.fx_pos)'?'0':cmd.startsWith('fx.list_')?'0 [ 1 LOWPASS ]\n cutoff 0.60':cmd.startsWith('print(fx.param')?'True':'');
    if(answer!==false){
@@ -78,7 +79,7 @@ function serialFake({reply,holdWrite=false,probe=profile,allowReplInterrupt=fals
    if(holdWrite)return new Promise(()=>{});
   }})
  };
- return{commands,get closed(){return closed;},controller,adapter:createSerialTransport({serial:{requestPort:async()=>port},probeProfile:probe,allowReplInterrupt,timeoutMs:25})};
+ return{commands,get closed(){return closed;},controller,port,adapter:createSerialTransport({serial:{requestPort:async()=>port},probeProfile:probe,allowReplInterrupt,timeoutMs:25})};
 }
 // Synthetic MicroPython responses from the reference's config.json read shape.
 function stockConfigReply(config, {slot='0',model='EP-2350 1.1.2'}={}) {
@@ -152,6 +153,49 @@ test('stale serial open cannot disconnect a newer session',async()=>{
  let selections=0;const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>selections++?port:old}});
  const first=adapter.connect();await new Promise(r=>setImmediate(r));await adapter.disconnect();await adapter.connect();
  finishOpen();await assert.rejects(()=>first);assert.equal((await adapter.readState()).slot,0);await adapter.disconnect();
+});
+
+test('a cancelled opt-in startup cannot send serial bytes into the replacement session',async()=>{
+ let firstInterrupt;
+ const interrupted=new Promise(resolve=>{firstInterrupt=resolve;});
+ const old=serialFake({onWrite:command=>{if(command==='\x03')firstInterrupt();}});
+ const replacement=serialFake();
+ const ports=[old.port,replacement.port];
+ const adapter=createSerialTransport({probeProfile:profile,allowReplInterrupt:true,serial:{requestPort:async()=>ports.shift()}});
+ const first=adapter.connect().then(()=>null,error=>error);
+ try{
+  await interrupted;
+  await adapter.disconnect();
+  const second=adapter.connect();
+  const [cancelled,reconnected]=await Promise.allSettled([first,second]);
+  assert.deepEqual(old.commands,['\x03']);
+  assert.deepEqual(replacement.commands.slice(0,4),['\x03','\x03','','']);
+  assert.equal(replacement.commands.filter(command=>command==='\x03').length,2);
+  assert.equal(replacement.commands.filter(command=>command==='').length,2);
+  assert.equal(reconnected.status,'fulfilled');
+  assert.match(cancelled.value?.message||'',/Serial connection cancelled/);
+ }finally{await adapter.disconnect();}
+});
+
+test('a cancelled passive probe cannot clear the replacement session prompt',async()=>{
+ const old=serialFake({initialBytes:''});
+ const replacement=serialFake({initialBytes:''});
+ const ports=[old.port,replacement.port];
+ const adapter=createSerialTransport({probeProfile:profile,serial:{requestPort:async()=>ports.shift()}});
+ const first=adapter.connect().catch(error=>error);
+ try{
+  await new Promise(resolve=>setTimeout(resolve,150));
+  await adapter.disconnect();
+  const second=adapter.connect();
+  const result=await first;
+  assert.ok(result instanceof Error);
+  assert.deepEqual(replacement.commands,[]);
+  replacement.controller.enqueue(new TextEncoder().encode('>>> '));
+  const info=await second;
+  assert.equal(info.firmwareVerified,true);
+  assert.deepEqual(old.commands,[]);
+  assert.equal(replacement.commands.length,3);
+ }finally{await adapter.disconnect();}
 });
 
 test('Live accepts stock NONE padding without changing indexed hardware rows',async()=>{
