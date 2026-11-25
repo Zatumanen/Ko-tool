@@ -373,6 +373,21 @@ export function createProjectFilesystem({
     let mutationAttempted=false;
     let candidateWritten=false;
     let phase='CHECKPOINT';
+    const isSessionCurrent=()=>{
+      try{assertSession?.();return true;}
+      catch{return false;}
+    };
+    const requireRecovery=async error=>{
+      const reason=String(error?.message||error);
+      const requiredCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
+        status:'requires-recovery',error:reason
+      });
+      try{await transactionJournal.markRequiresRecovery(recoveryCheckpoint.id,{phase});}catch{}
+      if(requiredCheckpoint&&isSessionCurrent())emitRecoveryEvent({
+        type:'required',status:'requires-recovery',checkpointId:recoveryCheckpoint.id,
+        projectNumber:project,reason
+      });
+    };
     try{
       await onBackup?.({
         project,name:backup.name,size:backup.size,data:backup.data.slice(),
@@ -395,6 +410,7 @@ export function createProjectFilesystem({
       });
       candidateWritten=true;
       await updateRecoveryCheckpoint(recoveryCheckpoint.id,{status:'candidate-written'});
+      assertSession?.();
       await initFileSystem();
       await transactionJournal.completePhase(recoveryCheckpoint.id,'WRITE',{bytes:data.byteLength});
 
@@ -402,7 +418,9 @@ export function createProjectFilesystem({
       await transactionJournal.beginPhase(recoveryCheckpoint.id,'READBACK',{
         destinationFid:destination.nodeId
       });
+      assertSession?.();
       const readback=await getFile(destination.nodeId);
+      assertSession?.();
       if(profile.projectAuthoring)validateProjectArchive(readback.data,{profile});
       else parseProjectArchive(readback.data);
       const readbackCrc32=crc32Hex(readback.data);
@@ -422,6 +440,7 @@ export function createProjectFilesystem({
         await transactionJournal.beginPhase(recoveryCheckpoint.id,'RELOAD',{
           cycle:cycleReload
         });
+        assertSession?.();
         reload=await reloadProject(destination.nodeId,parent.nodeId,{
           cycle:cycleReload,
           activeGroup:activation.activeGroup,
@@ -438,6 +457,7 @@ export function createProjectFilesystem({
 
       phase='VERIFY';
       await transactionJournal.beginPhase(recoveryCheckpoint.id,'VERIFY');
+      assertSession?.();
       const activationVerified=reload
         ?Number(reload.activeProjectFid)===Number(destination.nodeId)
         :null;
@@ -453,7 +473,7 @@ export function createProjectFilesystem({
         status:'verified',
         verifiedAt:new Date().toISOString()
       });
-      if(verifiedCheckpoint)emitRecoveryEvent({
+      if(verifiedCheckpoint&&isSessionCurrent())emitRecoveryEvent({
         type:'resolved',status:'verified',checkpointId:recoveryCheckpoint.id,projectNumber:project
       });
       return{
@@ -485,28 +505,24 @@ export function createProjectFilesystem({
         throw error;
       }
 
-      if(!candidateWritten||isDeviceUnsafe()){
-        const requiredCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
-          status:'requires-recovery',
-          error:String(error?.message||error)
-        });
-        try{await transactionJournal.markRequiresRecovery(recoveryCheckpoint.id,{phase});}catch{}
-        if(requiredCheckpoint)emitRecoveryEvent({
-          type:'required',status:'requires-recovery',checkpointId:recoveryCheckpoint.id,
-          projectNumber:project,reason:String(error?.message||error)
-        });
+      if(!candidateWritten||!isSessionCurrent()||isDeviceUnsafe()){
+        await requireRecovery(error);
         throw error;
       }
       try{
         await transactionJournal.beginPhase(recoveryCheckpoint.id,'ROLLBACK',{
           failedPhase:phase
         });
+        assertSession?.();
         await putFile({
           data:backup.data,filename:project,parentId:parent.nodeId,destinationId:destination.nodeId,
           metadata:null,timeout,isDirectory:true
         });
+        assertSession?.();
         await initFileSystem();
+        assertSession?.();
         const restored=await getFile(destination.nodeId);
+        assertSession?.();
         compareProjectArchiveMembers(backup.data,restored.data);
         if(profile.projectReloadVerified&&performReload)await reloadProject(
           destination.nodeId,parent.nodeId,{
@@ -524,7 +540,7 @@ export function createProjectFilesystem({
           rollbackAt:new Date().toISOString(),
           error:String(error?.message||error)
         });
-        if(rolledBackCheckpoint)emitRecoveryEvent({
+        if(rolledBackCheckpoint&&isSessionCurrent())emitRecoveryEvent({
           type:'resolved',status:'rolled-back',checkpointId:recoveryCheckpoint.id,projectNumber:project
         });
       }catch(rollbackError){
@@ -532,17 +548,21 @@ export function createProjectFilesystem({
         error.rollbackError=rollbackError;
         try{await transactionJournal.failPhase(recoveryCheckpoint.id,'ROLLBACK',rollbackError,{failedPhase:phase});}
         catch{}
+        if(!isSessionCurrent()){
+          await requireRecovery(error);
+          throw error;
+        }
         const failedRollbackCheckpoint=await updateRecoveryCheckpoint(recoveryCheckpoint.id,{
           status:'rollback-failed',
           rollbackAt:new Date().toISOString(),
           error:String(error?.message||error),
           rollbackError:String(rollbackError?.message||rollbackError)
         });
-        if(failedRollbackCheckpoint)emitRecoveryEvent({
+        if(failedRollbackCheckpoint&&isSessionCurrent())emitRecoveryEvent({
           type:'required',status:'rollback-failed',checkpointId:recoveryCheckpoint.id,
           projectNumber:project,reason:String(rollbackError?.message||rollbackError)
         });
-        markDeviceUnsafe(
+        if(isSessionCurrent())markDeviceUnsafe(
           'Project rollback failed after a project write verification error: '+
           String(rollbackError?.message||rollbackError)
         );
@@ -557,43 +577,54 @@ export function createProjectFilesystem({
   const getProjectTransactionJournal=id=>transactionJournal.getJournal(id);
 
   const restoreProjectRecoveryCheckpoint=async(id,options={})=>{
+    options.assertSession?.();
     const checkpoint=await recoveryStore.getCheckpoint(id);
     if(!checkpoint)throw new Error('Project recovery checkpoint was not found: '+String(id||''));
     const status=String(checkpoint.status||'');
     if(!['requires-recovery','rollback-failed','verified','rolled-back','candidate-written'].includes(status))
       throw new Error('Project recovery checkpoint cannot be restored from status '+status+'.');
-    const info=getConnectedDeviceInfo();
-    if(!info)throw new Error('EP-series device is not connected.');
-    const identityHash=hashDeviceIdentity(info);
-    if(String(checkpoint.device?.identityHash||'')!==identityHash)
-      throw new Error('Recovery checkpoint belongs to a different EP device.');
-    const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
-    if(String(checkpoint.device?.firmware||'')!==firmware)
-      throw new Error('Recovery checkpoint firmware does not match the connected EP firmware.');
+    const assertRecoverySession=()=>{
+      options.assertSession?.();
+      const info=getConnectedDeviceInfo();
+      if(!info)throw new Error('EP-series device is not connected.');
+      const serial=info.metadata?.serialNumber||info.metadata?.serial;
+      if(typeof serial!=='string'||!serial.trim())throw new Error('EP physical identity is unavailable for checkpoint restore.');
+      if(String(checkpoint.device?.identityHash||'')!==hashDeviceIdentity(info))
+        throw new Error('Recovery checkpoint belongs to a different EP device.');
+      const firmware=String(info.metadata?.os_version||info.metadata?.sw_version||'');
+      if(String(checkpoint.device?.firmware||'')!==firmware)
+        throw new Error('Recovery checkpoint firmware does not match the connected EP firmware.');
+    };
+    assertRecoverySession();
     const original=checkpoint.original?.data instanceof Uint8Array
       ?checkpoint.original.data.slice()
       :new Uint8Array(checkpoint.original?.data||[]);
     if(!original.byteLength)throw new Error('Recovery checkpoint original archive is missing.');
     if(crc32Hex(original)!==String(checkpoint.original?.crc32||''))
       throw new Error('Recovery checkpoint original archive checksum mismatch.');
-    const projectNumber=String(checkpoint.project?.number||'').padStart(2,'0');
-    const storedName=String(checkpoint.original?.name||'');
-    const name=/P\d{2}\.tar$/i.test(storedName)?storedName:('P'+projectNumber+'.tar');
+    const projectNumber=String(checkpoint.project?.number||'');
+    if(!/^\d{2}$/.test(projectNumber))throw new Error('Recovery checkpoint project number is invalid.');
+    const storedProject=/P(\d{2})\.tar$/i.exec(String(checkpoint.original?.name||''))?.[1];
+    if(storedProject&&storedProject!==projectNumber)
+      throw new Error('Recovery archive filename conflicts with the checkpoint project.');
     const file={
-      name,
+      name:'P'+projectNumber+'.tar',
       size:original.byteLength,
       type:'application/x-tar',
       async arrayBuffer(){return original.buffer.slice(original.byteOffset,original.byteOffset+original.byteLength);}
     };
     const result=await uploadProjectArchive(file,{
       ...options,
+      assertSession:assertRecoverySession,
       recoverySourceCheckpointId:checkpoint.id
     });
     const restoredCheckpoint=await recoveryStore.updateCheckpoint(checkpoint.id,{
       status:'restored',
       restoredAt:new Date().toISOString()
     });
-    emitRecoveryEvent({
+    let sameSession=true;
+    try{assertRecoverySession();}catch{sameSession=false;}
+    if(sameSession)emitRecoveryEvent({
       type:'resolved',status:'restored',checkpointId:checkpoint.id,
       projectNumber,restoredByCheckpointId:result?.recoveryCheckpoint?.id||null
     });

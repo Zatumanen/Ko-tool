@@ -443,6 +443,23 @@ test('My EP backup restore and recovery UI safely restores inactive P02 plus an 
   await page.locator('#ep133-confirm-ok').click();
   await expect(page.locator('#ep133-status')).toContainText('RECOVERY P02 VERIFIED',{timeout:15000});
   await expect(page.locator('.ep-recovery-row')).toHaveCount(2,{timeout:10000});
+
+  // Same fake EP, new connection epoch. The old confirmation must not grant a write.
+  await page.locator('.ep-recovery-row').filter({hasText:'VERIFIED'}).click();
+  await page.locator('#ep133-recovery-restore').click();
+  await expect(page.locator('#ep133-confirm-dialog')).toBeVisible();
+  const reconnectFrom=await page.evaluate(()=>window.__fakeEp.requestLog.length);
+  await page.evaluate(()=>window.__fakeEp.disconnect());
+  await expect(page.locator('#ep133-status')).toHaveText('DEVICE DISCONNECTED');
+  await expect(page.locator('#ep133-backup-dialog')).toBeHidden();
+  await page.evaluate(()=>window.__fakeEp.reconnect());
+  await expect(page.locator('#ep133-status')).toContainText('SYNCED ·',{timeout:15000});
+  await page.locator('#ep133-confirm-ok').click();
+  await expect(page.locator('#error-message')).toContainText(/connection changed/i);
+  const newWrites=await page.evaluate(index=>window.__fakeEp.requestLog.slice(index).filter(item=>
+    item.command===5&&(item.sub===2||item.sub===6||item.sub===12||(item.sub===7&&item.type===1))
+  ),reconnectFrom);
+  expect(newWrites).toEqual([]);
 });
 
 

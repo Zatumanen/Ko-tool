@@ -127,3 +127,73 @@ test('legacy TAR Restore rejects a short read before FILE preflight',async()=>{
     assert.deepEqual(f.writes,[]);
   }finally{f.cleanup();}
 });
+
+async function recoveryFixture(){
+  const previousDocument=globalThis.document;
+  globalThis.document={createElement:()=>fakeElement()};
+  const records=[
+    {id:'checkpoint-a',status:'verified',project:{number:'01'}},
+    {id:'checkpoint-b',status:'verified',project:{number:'02'}}
+  ];
+  const rows=records.map(record=>({dataset:{recoveryId:record.id}}));
+  const writes=[],statuses=[];
+  let restore,approve,showPrompt,session='first';
+  const prompt=new Promise(resolve=>{showPrompt=resolve;});
+  const controller=createBackupRestoreController({
+    dialog:fakeElement(),restoreProjectSelect:fakeElement(),
+    recoveryList:{...fakeElement(),querySelectorAll:()=>rows},
+    recoveryDetail:fakeElement(),
+    recoveryRestoreButton:{...fakeElement(),addEventListener(type,handler){if(type==='click')restore=handler;}},
+    listProjectRecoveryCheckpoints:async()=>records,
+    getProjectRecoveryCheckpoint:async id=>records.find(record=>record.id===id),
+    captureBatchSession:()=>session,
+    assertBatchSession:token=>{if(token!==session)throw Error('Recovery session changed');},
+    withFileTransaction:async()=>{},
+    uploadProjectArchive:async()=>{},
+    restoreProjectRecoveryCheckpoint:async(id,options)=>{
+      options.assertSession?.();
+      writes.push({id,options});
+    },
+    confirmAction:message=>new Promise(resolve=>{approve=resolve;showPrompt(message);}),
+    setStatus:message=>statuses.push(message)
+  });
+  await controller.open('recovery');
+  return{restore,approve:()=>approve(true),prompt,writes,statuses,
+    swap:()=>{session='replacement';},selectOther:()=>rows[1].onclick(),
+    cleanup:()=>{globalThis.document=previousDocument;}
+  };
+}
+
+for(const [scenario,promptChange,reason]of [
+  ['device session changes',fixture=>fixture.swap(),/session changed/i],
+  ['checkpoint selection changes',fixture=>fixture.selectOther(),/checkpoint.*changed/i]
+]){
+  test('recovery approval cannot authorize another target when '+scenario,async()=>{
+    const f=await recoveryFixture();
+    try{
+      const operation=f.restore();
+      assert.match(await f.prompt,/original P01/);
+      await promptChange(f);
+      f.approve();
+      await operation;
+      assert.deepEqual(f.writes,[]);
+      assert.match(f.statuses.at(-1),reason);
+    }finally{f.cleanup();}
+  });
+}
+
+test('recovery approval passes the original checkpoint and session check to the writer',async()=>{
+  const f=await recoveryFixture();
+  try{
+    const operation=f.restore();
+    await f.prompt;
+    f.approve();
+    await operation;
+    assert.equal(f.writes.length,1);
+    assert.equal(f.writes[0].id,'checkpoint-a');
+    assert.equal(f.writes[0].options.requireInactive,true);
+    f.writes[0].options.assertSession();
+    f.swap();
+    assert.throws(()=>f.writes[0].options.assertSession(),/session changed/i);
+  }finally{f.cleanup();}
+});

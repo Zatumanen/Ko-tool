@@ -145,6 +145,15 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
   the backup dialog and My EP Chromium regressions, and official PAK and FX-MIC
   pack tests for the shared ZIP reader. Physical Restore remains subject to HIL.
 
+### My EP recovery checkpoint approval (ZAT-62)
+
+- Restore confirmation is bound to the selected checkpoint and connection
+  epoch, including a reconnect to the same EP. A serial-less SKU cannot
+  authorize a persisted checkpoint write. The project writer rejects a
+  conflicting archive filename and rechecks identity and firmware before PUT.
+  If the session expires after PUT, the checkpoint remains available for
+  recovery and rollback and runtime notifications stop. Tests use fake devices.
+
 ### My EP anonymized diagnostic export (ZAT-78)
 
 - The exporter is **session-local** and collects a bounded list of fixed error

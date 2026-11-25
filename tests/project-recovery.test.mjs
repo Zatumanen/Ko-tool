@@ -46,9 +46,12 @@ const makeHarness=({
   recoveryStore=createMemoryProjectRecoveryStore(),
   failCheckpoint=false,
   failReadback=false,
-  unsafeAfterWrite=false
+  unsafeAfterWrite=false,
+  onCheckpointUpdate,
+  onReadbackFailure,
+  device={sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'SERIAL-SHOULD-NOT-BE-STORED'}}
 }={})=>{
-  const actions=[];
+  const actions=[],events=[];
   const backup=emptyTar();
   const candidate=emptyTar();
   let projectData=backup.slice();
@@ -70,6 +73,7 @@ const makeHarness=({
     },
     async updateCheckpoint(id,patch){
       actions.push('checkpoint-'+patch.status);
+      onCheckpointUpdate?.(patch);
       return recoveryStore.updateCheckpoint(id,patch);
     },
     getCheckpoint:id=>recoveryStore.getCheckpoint(id),
@@ -80,10 +84,7 @@ const makeHarness=({
   const filesystem=createProjectFilesystem({
     runFileOperation:operation=>operation(),
     withStrictFirmwareDebugGuard:operation=>operation(),
-    getConnectedDeviceInfo:()=>({
-      sku:'TE032AS001',
-      metadata:{os_version:'2.5.1',serial:'SERIAL-SHOULD-NOT-BE-STORED'}
-    }),
+    getConnectedDeviceInfo:()=>device,
     markDeviceUnsafe:reason=>{unsafe=true;actions.push(['unsafe',reason]);},
     isDeviceUnsafe:()=>unsafe,
     initRead:async()=>{actions.push('init-read');},
@@ -105,6 +106,7 @@ const makeHarness=({
       actions.push(['get',nodeId]);
       if(afterCandidate&&failReadback&&!readbackFailed){
         readbackFailed=true;
+        onReadbackFailure?.();
         throw new Error('candidate readback failed');
       }
       return{name:'P01.tar',size:projectData.byteLength,data:projectData.slice()};
@@ -117,10 +119,10 @@ const makeHarness=({
     },
     getFileMetadata:async()=>({}),
     setFileMetadata:async()=>{},
-    recoveryStore:store
+    recoveryStore:store,onRecoveryEvent:event=>events.push(event)
   });
 
-  return{filesystem,actions,recoveryStore:store,candidate,backup,get unsafe(){return unsafe;}};
+  return{filesystem,actions,events,recoveryStore:store,candidate,backup,get unsafe(){return unsafe;}};
 };
 
 test('project recovery checkpoint stores original TAR context without raw device serial',()=>{
@@ -294,6 +296,87 @@ test('recovery checkpoint restore refuses checkpoints from a different physical 
   );
   assert.equal(harness.actions.includes('put'),false);
 });
+
+test('a project checkpoint with no serial cannot authorize restore from a SKU-only identity',async()=>{
+  const device={sku:'TE032AS001',metadata:{os_version:'2.5.1'}};
+  const store=createMemoryProjectRecoveryStore();
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device,projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P01.tar',data:emptyTar()},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+  const harness=makeHarness({recoveryStore:store,device});
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+    /physical identity.*unavailable/i
+  );
+  assert.deepEqual(harness.actions,[]);
+  assert.equal((await store.getCheckpoint(checkpoint.id)).status,'verified');
+});
+
+test('checkpoint restore revalidates physical identity after asynchronous pre-write journaling',async()=>{
+  const device={sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'ORIGINAL-EP'}};
+  const harness=makeHarness({device});
+  await harness.filesystem.uploadProjectArchive(projectFile(harness.candidate),{performReload:false});
+  const [checkpoint]=await harness.filesystem.listProjectRecoveryCheckpoints();
+  const puts=harness.actions.filter(action=>action==='put').length;
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{
+      performReload:false,onBackup:async()=>{device.metadata.serial='DIFFERENT-EP';}
+    }),
+    /different EP device/i
+  );
+  assert.equal(harness.actions.filter(action=>action==='put').length,puts);
+  assert.equal((await harness.filesystem.getProjectRecoveryCheckpoint(checkpoint.id)).status,'verified');
+});
+
+test('checkpoint restore rejects an archive filename that identifies a different project',async()=>{
+  const device={sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'ORIGINAL-EP'}};
+  const store=createMemoryProjectRecoveryStore();
+  const checkpoint=createProjectRecoveryCheckpoint({
+    device,projectNumber:'01',destinationFid:3001,parentFid:2000,
+    backup:{name:'P02.tar',data:emptyTar()},candidate:emptyTar()
+  });
+  await store.saveCheckpoint(checkpoint);
+  await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+  const harness=makeHarness({recoveryStore:store,device});
+  await assert.rejects(
+    ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+    /archive filename.*checkpoint project/i
+  );
+  assert.deepEqual(harness.actions,[]);
+});
+
+for(const change of ['after PUT','at readback failure']){
+  test('checkpoint restore retains recovery without rollback on session change '+change,async()=>{
+    const device={sku:'TE032AS001',metadata:{os_version:'2.5.1',serial:'ORIGINAL-EP'}};
+    const store=createMemoryProjectRecoveryStore();
+    const checkpoint=createProjectRecoveryCheckpoint({
+      device,projectNumber:'01',destinationFid:3001,parentFid:2000,
+      backup:{name:'P01.tar',data:emptyTar()},candidate:emptyTar()
+    });
+    await store.saveCheckpoint(checkpoint);
+    await store.updateCheckpoint(checkpoint.id,{status:'verified'});
+    const swap=()=>{device.metadata.serial='DIFFERENT-EP';};
+    const harness=makeHarness({
+      recoveryStore:store,device,failReadback:change==='at readback failure',
+      onReadbackFailure:swap,
+      onCheckpointUpdate:patch=>{if(change==='after PUT'&&patch.status==='candidate-written')swap();}
+    });
+    await assert.rejects(
+      ()=>harness.filesystem.restoreProjectRecoveryCheckpoint(checkpoint.id,{performReload:false}),
+      /different EP device|candidate readback failed/i
+    );
+    assert.equal(harness.actions.filter(action=>action==='put').length,1);
+    assert.equal(harness.unsafe,false);
+    assert.deepEqual(harness.events,[]);
+    const records=await harness.filesystem.listProjectRecoveryCheckpoints();
+    assert.equal(records.find(record=>record.id===checkpoint.id).status,'verified');
+    assert.equal(records.find(record=>record.id!==checkpoint.id).status,'requires-recovery');
+    if(change==='after PUT')assert.equal(harness.actions.includes('init-file-system'),false);
+  });
+}
 
 test('recovery checkpoint restore rejects a corrupted original archive before mutation',async()=>{
   const store=createMemoryProjectRecoveryStore();
