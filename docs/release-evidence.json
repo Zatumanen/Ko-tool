@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "checkpoint": {
-    "SOURCE_SHA": "399bda68f303f072c24c7c41ee2e78d930f71314",
-    "TESTED_SHA": "399bda68f303f072c24c7c41ee2e78d930f71314",
-    "MERGED_SHA": "399bda68f303f072c24c7c41ee2e78d930f71314",
+    "SOURCE_SHA": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
+    "TESTED_SHA": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
+    "MERGED_SHA": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
     "PUBLISHED_SHA": "d8c193a41069b4b053b242b9b6d35c1a688641c8",
     "LIVE_SHA": "d8c193a41069b4b053b242b9b6d35c1a688641c8",
     "jobs": {
@@ -12,8 +12,8 @@
       "build-pages": "success",
       "browser-e2e": "success"
     },
-    "tests": "https://github.com/Zatumanen/Ko-tool/actions/runs/45613453658",
-    "merge": "https://github.com/Zatumanen/Ko-tool/pull/213",
+    "tests": "https://github.com/Zatumanen/Ko-tool/actions/runs/45678785986",
+    "merge": "https://github.com/Zatumanen/Ko-tool/pull/214",
     "publish": "https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855",
     "publishEvent": "workflow_dispatch",
     "liveUrl": "https://zatumanen.github.io/Ko-tool/build-version.json",
@@ -44,7 +44,7 @@
       "automated": "PASS",
       "hil": "SCOPED",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleLibrarySync.js",
         "tests/e2e/my-ep.spec.mjs",
@@ -57,7 +57,7 @@
         "tests/filesystem-intent-session.behavior.test.mjs"
       ],
       "verification": "Verified GREET model agreement and origin-epoch FILE admission in synthetic cases. Device permissions are scoped by exact firmware evidence.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/209"
     },
     {
@@ -68,14 +68,14 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleUploadController.js",
         "js/ep133/audio.js",
         "tests/e2e/sample-upload-pcm-readback.spec.mjs"
       ],
       "verification": "invalid RIFF and partial PCM frames fail before PUT; physical readback not newly accepted.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/208"
     },
     {
@@ -86,13 +86,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleMoveController.js",
         "tests/e2e/sample-move-dependencies.spec.mjs"
       ],
       "verification": "latest dependency/rollback behavior needs scoped HIL.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-COPY",
@@ -102,13 +102,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleCopyController.js",
         "tests/e2e/sample-copy-pcm-readback.spec.mjs"
       ],
       "verification": "physical acceptance open.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-DELETE",
@@ -118,13 +118,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleDeleteController.js",
         "tests/e2e/sample-dependency-guard.spec.mjs"
       ],
       "verification": "Scoped software evidence. no destructive HIL run.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-PADS-READ",
@@ -134,13 +134,13 @@
       "automated": "PASS",
       "hil": "SCOPED",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/padPropertiesReadOnlyController.js",
         "tests/e2e/my-ep-pad-readonly.spec.mjs"
       ],
       "verification": "narrowly scoped EP-133 2.5.1 READ only.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-PADS-WRITE",
@@ -150,13 +150,13 @@
       "automated": "PASS",
       "hil": "BLOCKED",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/padPropertiesReadOnlyController.js",
         "tests/e2e/my-ep-pad-readonly.spec.mjs"
       ],
       "verification": "WRITE is disabled; Draft PR #139 is **not merged**; PASS refers to read-only guard.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-PROJECTS",
@@ -166,13 +166,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/projectSequencerController.js",
         "tests/project-sequencer-ui.test.mjs"
       ],
       "verification": "restricted legacy editor, not standalone Sequencer; real recovery HIL pending.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-LEGACY-RESTORE",
@@ -182,7 +182,7 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/backupRestoreController.js",
         "js/ep133/projectFilesystem.js",
@@ -195,9 +195,9 @@
         "tests/e2e/my-ep.spec.mjs",
         "tests/ep133.test.mjs"
       ],
-      "verification": "Legacy v1 ZIP size, checksum, duplicate and dependency validation passed on the verified source with the session-bound Restore approval tests. Physical recovery remains pending.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
-      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/210",
+      "verification": "Legacy TAR and ZIP admission bounds reads and rejects corrupted inputs before Restore. Existing session and CRC/readback gates stay active. Physical Restore acceptance is pending.",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/214",
       "evidenceUpdate": {
         "baseSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
         "tests": [
@@ -217,14 +217,14 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleRenameController.js",
         "js/ep133/ui/createEpWorkspace.js",
         "tests/sample-rename-authority.test.mjs"
       ],
       "verification": "#206 demands advancedSampleMetadataWrites and strict session/slot guard; does NOT authorize assigned pad WRITE.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/206"
     },
     {
@@ -235,13 +235,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/officialPak.js",
         "tests/official-pak-export.test.mjs"
       ],
       "verification": "physical interchange acceptance remains separate.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-PAK-PREVIEW",
@@ -251,14 +251,14 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/officialPakReader.js",
         "js/ep133/officialPakPreviewPlan.js",
         "tests/official-pak-preview-plan.test.mjs"
       ],
       "verification": "no write permission implied.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "MEP-PAK-RESTORE",
@@ -268,7 +268,7 @@
       "automated": "PASS",
       "hil": "BLOCKED",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/officialPakRestoreStaging.js",
         "js/ep133/ui/backupRestoreController.js",
@@ -276,7 +276,7 @@
         "tests/e2e/backup-dialog-progress.spec.mjs"
       ],
       "verification": "**offline integrity staging only, Restore disabled**.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "evidenceUpdate": {
         "baseSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
         "tests": [
@@ -294,7 +294,7 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/myEpRepitch.js",
         "js/ep133/repitchProvenance.js",
@@ -303,7 +303,7 @@
         "js/audio/processor.js"
       ],
       "verification": "actual device playback/CRC acceptance open.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "SUC-X2",
@@ -313,7 +313,7 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/audio/processor.js",
         "tests/audio-pipeline-golden.test.mjs",
@@ -321,7 +321,7 @@
         "js/ep133/resampler.js"
       ],
       "verification": "synthetic golden ≠ physical playback.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "SUC-FOLDERS",
@@ -331,13 +331,13 @@
       "automated": "PASS",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/app.js",
         "tests/e2e/folder-import-recovery.spec.mjs"
       ],
       "verification": "browser-only export scope.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "SUC-TO-MYEP",
@@ -347,13 +347,13 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/ui/sampleUploadChoice.js",
         "tests/e2e/my-ep-numbered-upload-choice.spec.mjs"
       ],
       "verification": "physical transfer still unaccepted.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-BASE",
@@ -363,7 +363,7 @@
       "automated": "PASS",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/app.js",
         "tests/e2e/visuals.spec.mjs",
@@ -371,7 +371,7 @@
         "js/visuals/audio.js"
       ],
       "verification": "Chromium covers stale capture and input callbacks, same-ID reconnect and standalone startup. Physical USB input, host endurance and owner acceptance remain open.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/211"
     },
     {
@@ -382,13 +382,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/transientTrigger.js",
         "tests/visuals-trigger.test.mjs"
       ],
       "verification": "continuous PCM trigger and controls; exact-head browser/CI and owner visual acceptance tracked in PR, video comparison unverified.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-SPECTRUM",
@@ -398,13 +398,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/spectrum.js",
         "tests/visuals-spectrum.test.mjs"
       ],
       "verification": "float FFT/log Hz/dBFS display and time-based release; exact-head CI and owner aesthetic acceptance recorded in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-SPECTROGRAM",
@@ -414,13 +414,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/spectrogram.js",
         "tests/visuals-spectrogram.test.mjs"
       ],
       "verification": "bounded FFT queue survives resize and repaint changes; exact-head CI and owner visuals/performance acceptance tracked in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-THEMES-PERF",
@@ -430,14 +430,14 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/renderClock.js",
         "tests/visuals-render-clock.test.mjs",
         "tests/e2e/visuals-themes-performance.spec.mjs"
       ],
       "verification": "3 globals, dark/light mono, independent snapshot cadence and Canvas60/30/15; owner/device palette, MBP performance and endurance pending in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-XY",
@@ -447,13 +447,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/xy.js",
         "tests/visuals-xy.test.mjs"
       ],
       "verification": "direct L/R mapping and bounded timed afterglow; mono technical trace refused, derived mode explicit; exact-head CI and owner visuals tracked in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-STEREO",
@@ -463,13 +463,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/stereo.js",
         "tests/visuals-stereo.test.mjs"
       ],
       "verification": "frequency-aware display, mono/silence guards and format-change stop; exact-head CI and owner visual acceptance tracked in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-OUTPUT",
@@ -479,14 +479,14 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/outputMeters.js",
         "tests/visuals-output-meters.test.mjs",
         "tests/e2e/visuals-output-meters.spec.mjs"
       ],
       "verification": "continuous measurement independent of repaint, explicit mono/reset; exact-head CI and owner visual/endurance acceptance tracked in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-LUFS",
@@ -496,13 +496,13 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/loudness.js",
         "tests/visuals-loudness.test.mjs"
       ],
       "verification": "mono/stereo M/S/I gates/reset with18FFmpeg vectors and worklet; exact-head CI and owner/endurance acceptance tracked in PR.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "VIS-RECORDER",
@@ -512,14 +512,14 @@
       "automated": "PARTIAL",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/visuals/recorderPcm.js",
         "js/visuals/recorder.js",
         "tests/e2e/visuals-recorder.spec.mjs"
       ],
       "verification": "bounded64MiB PCM, pause/resume, explicit interrupted prefix, preview/save/discard; exact-head CI in PR, owner/endurance/physical input acceptance pending; unlimited disk streaming absent.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/187"
     },
     {
@@ -530,7 +530,7 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/sequencer/app.js",
         "js/sequencer/saved.js",
@@ -538,7 +538,7 @@
         "tests/e2e/sequencer.spec.mjs"
       ],
       "verification": "scoped connected Saved Step/Piano share native events, scene/song position and group/pad/pattern/page selection without rereads/writes; empty/missing links explicit, zoom/scroll retained; legacy unchanged; bidirectional Live tracked separately below, physical/owner acceptance pending.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/199"
     },
     {
@@ -549,7 +549,7 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/ep133/midiEvents.js",
         "js/sequencer/midiDiagnostics.js",
@@ -559,7 +559,7 @@
         "scripts/analyze-midi-trace.mjs"
       ],
       "verification": "Opt-in EVENTS ONLY, bounded export and local analyzer validate capacity, stop reasons and session/loss flags. No outbound commands, Live synchronization or inferred playhead. Exact-device signal and phase evidence pending.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/212"
     },
     {
@@ -570,13 +570,13 @@
       "automated": "PASS",
       "hil": "NOT APPLICABLE",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/fxMic/app.js",
         "tests/e2e/fx-mic-studio.spec.mjs"
       ],
       "verification": "audition is approximate Web Audio.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/176"
     },
     {
@@ -587,14 +587,14 @@
       "automated": "PASS",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "js/fxMic/liveSession.js",
         "js/fxMic/serialTransport.js",
         "tests/fx-mic-live.test.mjs"
       ],
       "verification": "stock 1.1.2 config read-only; Live writes not broadly enabled.",
-      "testedSha": "399bda68f303f072c24c7c41ee2e78d930f71314"
+      "testedSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2"
     },
     {
       "id": "EP136-SIDEKICK",
@@ -604,7 +604,7 @@
       "automated": "NOT TESTED",
       "hil": "HIL PENDING",
       "owner": "PENDING",
-      "sourceSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+      "sourceSha": "e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2",
       "paths": [
         "docs/roadmap/KO_TOOL_1_0_DECISIONS_2026-10-23.md"
       ],
