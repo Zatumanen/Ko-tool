@@ -233,6 +233,8 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
   function labelId(id){return names[id]||id}
   function render(){
     if(!opened)return;
+    const oldSource=root.querySelector('[data-source]');
+    const restoreSourceFocus=oldSource&&oldSource===doc.activeElement;
     const presets=[...PRESET_NAMES,...named.map(p=>p.name)];
     const current=audio?.selectedId||'';
     const sourceHtml='<option value="">— АУДИОВХОД —</option>'+
@@ -274,7 +276,9 @@ export function initVisualsApp({documentRef=document,windowRef=window,storage=((
     root.querySelector('[data-action="stop"]').hidden=!audio.active;
     root.querySelector('[data-preset]').value=presets.includes(activePreset)?activePreset:'Custom';
     root.querySelector('[data-theme]').value=mode;
-    root.querySelector('[data-source]').value=current;
+    const source=root.querySelector('[data-source]');
+    source.value=current;
+    if(restoreSourceFocus)source.focus({preventScroll:true});
     root.querySelector('.vis-dock').style.height=clampHeight(height,win.innerHeight)+'px';
     const meters=root.querySelector('.vis-meters'),visible=layout.order.filter(id=>layout.visible.includes(id));
     for(const [index,id]of visible.entries()){

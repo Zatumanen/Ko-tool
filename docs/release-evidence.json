@@ -372,7 +372,14 @@
       ],
       "verification": "Chromium covers stale capture and input callbacks, same-ID reconnect and standalone startup. Physical USB input, host endurance and owner acceptance remain open.",
       "testedSha": "b0afc2446de68f3937e648e98c31e5f0147adef3",
-      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/211"
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/211",
+      "evidenceUpdate": {
+        "baseSha": "5191d5c2df3cb72e87b189fbe7cc49f22ccee351",
+        "tests": [
+          "tests/e2e/visuals.spec.mjs"
+        ],
+        "note": "Chromium verifies ArrowDown input selection, retained focus across devicechange, Tab to ACCESS, and zero capture before explicit START."
+      }
     },
     {
       "id": "VIS-TRIGGER",

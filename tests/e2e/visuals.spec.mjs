@@ -165,6 +165,29 @@ test('devicechange during ACCESS is replayed before resuming the selected input'
   await page.evaluate(()=>Promise.all(window.captureContexts.map(context=>context.close())));
 });
 
+test('keyboard audio input selection retains focus through a device refresh',async({page})=>{
+  await page.addInitScript(()=>{
+    const media=new EventTarget();let label='Fixture Input';
+    media.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'fixture',label}];
+    window.keyboardSourceCaptureRequests=0;
+    media.getUserMedia=async()=>{window.keyboardSourceCaptureRequests++;throw Error('Unexpected capture');};
+    window.renameFixtureInput=()=>{label='Refreshed Input';media.dispatchEvent(new Event('devicechange'));};
+    Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:media});
+  });
+  await page.goto('/');await page.locator('#visuals-icon').click();
+  const input=page.locator('select[data-source]');
+  await expect(input.locator('option[value="fixture"]')).toHaveText('Fixture Input');
+  await input.focus();await page.keyboard.press('ArrowDown');
+  await expect(input).toHaveValue('fixture');
+  await expect(input).toBeFocused();
+  await page.evaluate(()=>window.renameFixtureInput());
+  await expect(input.locator('option[value="fixture"]')).toHaveText('Refreshed Input');
+  await expect(input).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.vis-toolbar [data-action="unlock"]')).toBeFocused();
+  expect(await page.evaluate(()=>window.keyboardSourceCaptureRequests)).toBe(0);
+});
+
 test('Visuals opens with seven idle modules without bootstrapping My EP',async({page})=>{
  const workspaceRequests=[];
  page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/ep133/workspaceBootstrap.js'))workspaceRequests.push(request.url());});
