@@ -5,15 +5,15 @@
 
 | Checkpoint | SHA |
 | --- | --- |
-| SOURCE_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
-| TESTED_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
-| MERGED_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
+| SOURCE_SHA | `5191d5c2df3cb72e87b189fbe7cc49f22ccee351` |
+| TESTED_SHA | `5191d5c2df3cb72e87b189fbe7cc49f22ccee351` |
+| MERGED_SHA | `5191d5c2df3cb72e87b189fbe7cc49f22ccee351` |
 | PUBLISHED_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
 | LIVE_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
 
 Pages evidence · MATCH.
 
-[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45681752271) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/215) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
+[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45684779385) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/216) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
 <!-- RELEASE_EVIDENCE_END -->
 
 **Policy:** K.O. TOOL may publish independently completed, explicitly approved intermediate updates. Merge is **not** permission to publish; 1.0 requires all six stages and all agreed acceptance. No physical FILE/HIL permissions follow from this runbook.
