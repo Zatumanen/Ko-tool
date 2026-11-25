@@ -5,15 +5,15 @@
 
 | Checkpoint | SHA |
 | --- | --- |
-| SOURCE_SHA | `e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2` |
-| TESTED_SHA | `e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2` |
-| MERGED_SHA | `e9b0f72cb35a8685c0ca426e82e20e5199c2e2c2` |
+| SOURCE_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
+| TESTED_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
+| MERGED_SHA | `b0afc2446de68f3937e648e98c31e5f0147adef3` |
 | PUBLISHED_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
 | LIVE_SHA | `d8c193a41069b4b053b242b9b6d35c1a688641c8` |
 
 Pages evidence · MATCH.
 
-[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45678785986) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/214) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
+[Checked CI](https://github.com/Zatumanen/Ko-tool/actions/runs/45681752271) · [Merged source](https://github.com/Zatumanen/Ko-tool/pull/215) · [Manual Pages run](https://github.com/Zatumanen/Ko-tool/actions/runs/44301681855) · [Public version observed 2026-11-25](https://zatumanen.github.io/Ko-tool/build-version.json)
 <!-- RELEASE_EVIDENCE_END -->
 
 **24 November software checkpoint.** `main@e4ee8efadf4015463d4545d6cdc45e3ce5e7c43f` includes D-01 WAV validation from [PR #208](https://github.com/Zatumanen/Ko-tool/pull/208). [Post-merge CI #45391253978](https://github.com/Zatumanen/Ko-tool/actions/runs/45391253978) passed all four jobs (1097 Node, 173 Chromium source, 2 Chromium Pages-dist). Physical upload and REPITCH playback acceptance are HIL PENDING.
