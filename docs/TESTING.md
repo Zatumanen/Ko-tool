@@ -130,11 +130,13 @@ Refer to [EP FILE hardware capture workflow](testing/ep-file-capture-workflow.md
 
 ## Feature-specific acceptance (implemented and planned)
 
-### My EP legacy ZIP import (ZAT-62)
+### My EP legacy archive import (ZAT-62)
 
 - The v1 stored ZIP accepts up to 192 MiB of input, 128 MiB per entry and
   2,099 entries. The manifest is limited to 4 MiB. Sample metadata is limited
   to 1 MiB per entry and 16 MiB in total. File size is checked before reading.
+  Legacy project TAR Restore requires a 512-byte-aligned size from 1,024 bytes
+  to 128 MiB before reading, and checks the byte count before FILE preflight.
 - The local headers and central directory must agree. Bounds, CRC, duplicate
   members, reused manifest payload paths and repeated dependency lookups are
   checked before returning buffers to Restore. A malformed ZIP leaves Restore

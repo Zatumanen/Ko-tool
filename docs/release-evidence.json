@@ -189,11 +189,20 @@
         "tests/backup-restore-session-approval.test.mjs",
         "js/ep133/backupBundle.js",
         "js/archive/zipReader.js",
-        "tests/backup-bundle.test.mjs"
+        "tests/backup-bundle.test.mjs",
+        "tests/e2e/backup-dialog-progress.spec.mjs"
       ],
       "verification": "Legacy v1 ZIP size, checksum, duplicate and dependency validation passed on the verified source with the session-bound Restore approval tests. Physical recovery remains pending.",
       "testedSha": "76363323b0e1d629d358175e38cd850882d0dc76",
-      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/210"
+      "pullRequest": "https://github.com/Zatumanen/Ko-tool/pull/210",
+      "evidenceUpdate": {
+        "baseSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+        "tests": [
+          "tests/backup-restore-session-approval.test.mjs",
+          "tests/e2e/backup-dialog-progress.spec.mjs"
+        ],
+        "note": "Reject undersized, unaligned and oversized browser TAR selections before reading or FILE admission. Short reads fail before FILE; an ordinary fake EP TAR still reaches a read-only Restore plan."
+      }
     },
     {
       "id": "MEP-RENAME",
@@ -258,10 +267,19 @@
       "paths": [
         "js/ep133/officialPakRestoreStaging.js",
         "js/ep133/ui/backupRestoreController.js",
-        "tests/official-pak-restore-staging-integration.test.mjs"
+        "tests/official-pak-restore-staging-integration.test.mjs",
+        "tests/e2e/backup-dialog-progress.spec.mjs"
       ],
       "verification": "**offline integrity staging only, Restore disabled**.",
-      "testedSha": "76363323b0e1d629d358175e38cd850882d0dc76"
+      "testedSha": "76363323b0e1d629d358175e38cd850882d0dc76",
+      "evidenceUpdate": {
+        "baseSha": "399bda68f303f072c24c7c41ee2e78d930f71314",
+        "tests": [
+          "tests/official-pak-restore-staging-integration.test.mjs",
+          "tests/e2e/backup-dialog-progress.spec.mjs"
+        ],
+        "note": "The legacy TAR input limit shares a controller with official PAK staging. Retain read-only preview admission and confirm invalid PAK reaches neither Restore eligibility nor mutating FILE operations."
+      }
     },
     {
       "id": "MEP-REPITCH",

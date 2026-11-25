@@ -9,6 +9,7 @@ import{buildOfficialPakPreviewPlan}from '../officialPakPreviewPlan.js?v=20261114
 import{preflightProjectSampleDependencies}from '../projectArchive.js?v=20261001-1';
 import{crc32Hex}from '../projectRecovery.js?v=20261001-1';
 
+const PROJECT_TAR_LIMIT=128*1024*1024;
 const bytes=value=>value instanceof Uint8Array?value:new Uint8Array(value||[]);
 const safeProject=value=>{
   const project=String(value||'').padStart(2,'0');
@@ -497,7 +498,11 @@ export function createBackupRestoreController({
     const match=String(file?.name||'').match(/P(\d{2})\.tar$/i);
     if(!match)throw new Error('Project TAR name must end with P00.tar .. P99.tar.');
     const project=match[1];
+    const size=file.size;
+    if(!Number.isSafeInteger(size)||size<1024||size>PROJECT_TAR_LIMIT||size%512!==0)
+      throw new Error('Project TAR has an invalid size. Choose a 512-byte-aligned archive from 1,024 bytes to 128 MiB.');
     const data=new Uint8Array(await file.arrayBuffer());
+    if(data.byteLength!==size)throw new Error('Project TAR size changed during read.');
     assertBatchSession(sessionToken);
     const info=getConnectedDeviceInfo();
     if(!info)throw new Error('Connect an EP-series device first.');
